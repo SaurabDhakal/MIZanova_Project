@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Database backups — REAL CHILDREN'S RECORDS.
+#
+# Never committed, and worth understanding why: a git repository is copied to
+# GitHub, cloned onto other machines, and keeps every version forever. One
+# accidental commit of a backup would put behaviour logs and family names
+# somewhere they can never be fully removed from.
+backups/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# docs/ — 598 MB, and none of it belongs to this repository.
+#
+# It came across with the copy and is deliberately never committed. Three
+# reasons, any one of which is enough:
+#
+#   SIZE. Git keeps every version forever. Half a gigabyte in the history is
+#   half a gigabyte in every clone, for all four of us, for good.
+#
+#   LICENCE. Much of it is Mobbin's licensed captures of Customer.io's product
+#   and Figma exports. Redistributing those in a public repository is not ours
+#   to do. They are reference material, not an asset of this project.
+#
+#   RELEVANCE. The planning documents describe the original build and the work
+#   still outstanding on it. That is a different project with a different team.
+#
+# The files stay on disk so they can still be read while porting a screen over.
+# They simply never enter git. Delete the folder from THIS repo whenever you
+# want the disk space back — the originals live in the other one.
+docs/

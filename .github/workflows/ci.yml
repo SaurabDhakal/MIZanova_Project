@@ -1,0 +1,155 @@
+name: CI
+
+# Every push and every pull request. The point is that nobody has to remember.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Everything that needs no credentials.
+  #
+  # Split from the database work on purpose: this job runs for anybody,
+  # including a fork or a contributor without secrets, and it is the one that
+  # catches the ordinary mistakes.
+  # -------------------------------------------------------------------------
+  build:
+    name: Lint, types and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # `npm run build` is `tsc -b && vite build`, so this is the type check
+      # as well. A screen that does not compile never reaches anyone.
+      - name: Type check and build
+        run: npm run build
+
+      # Reads the design tokens and measures every colour pair in use. Needs
+      # no database and no keys, so it belongs here.
+      - name: Colour contrast (WCAG AA)
+        run: npm run contrast-check
+
+  # -------------------------------------------------------------------------
+  # Everything that talks to Supabase.
+  #
+  # WHY THIS IS A SEPARATE JOB AND CAN BE SKIPPED. These tests sign in as real
+  # users against the real project — there is only one, which is §2.4 of the
+  # architecture review and still true. They create a school, five users and
+  # some students, then delete them. Cleanup is proven and runs before as well
+  # as after, but it is still writing to the same database that holds real
+  # work, so it runs only where the secrets exist.
+  #
+  # A pull request from a fork gets no secrets and this job is skipped rather
+  # than failed. The job above still guards it.
+  # -------------------------------------------------------------------------
+  database:
+    name: Row-Level Security and security checks
+    runs-on: ubuntu-latest
+    # Without this, a fork's pull request fails on a missing secret and looks
+    # like broken code.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # The bundle scan needs the real values to search for them. These were
+      # missing, so that step could never do its by-value half no matter what
+      # was configured — it failed here on the very first CI run.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # FAILS RATHER THAN WARNS, and that changed after the first real CI run.
+      #
+      # This used to print a ::warning:: and set configured=false, so the job
+      # went GREEN having tested nothing — a green tick next to "Row-Level
+      # Security and security checks" that meant no row-level security had been
+      # checked at all. That is the same fault this project has now hit four
+      # times in four places: something that reports success when it could not
+      # look. A warning nobody reads is indistinguishable from a pass.
+      #
+      # Forks never reach this. The job's `if:` above already excludes pull
+      # requests from other repositories, which is where genuinely absent
+      # secrets are expected. Reaching here without them means this repository
+      # is misconfigured, and that should be red.
+      # CHECKS THE VALUE, NOT JUST THAT SOMETHING IS THERE.
+      #
+      # Adding a secret in GitHub is a two-step dance — you cannot see an
+      # existing value, so the value box starts empty and it is easy to save a
+      # placeholder, or the variable's own name, and move on believing it is
+      # set. An emptiness test passes on all of that, and the failure then
+      # surfaces forty seconds later as an authentication error from Supabase
+      # that says nothing about which secret is wrong.
+      #
+      # Shapes are checked, not values. Nothing here can print a secret.
+      - name: Are the credentials configured, and do they look real?
+        run: |
+          bad=""
+          check() {
+            name="$1"; value="$2"; pattern="$3"; hint="$4"
+            if [ -z "$value" ]; then
+              echo "  MISSING   $name"
+              bad="yes"
+            elif [ "$value" = "$name" ]; then
+              echo "  PLACEHOLDER $name — the value is the variable's own name"
+              bad="yes"
+            elif ! printf '%s' "$value" | grep -Eq "$pattern"; then
+              echo "  WRONG SHAPE $name — expected $hint"
+              bad="yes"
+            else
+              echo "  ok        $name"
+            fi
+          }
+
+          check VITE_SUPABASE_URL "$VITE_SUPABASE_URL" \
+            '^https://[a-z0-9-]+\.supabase\.(co|in)/?$' 'https://<ref>.supabase.co'
+          check VITE_SUPABASE_PUBLISHABLE_KEY "$VITE_SUPABASE_PUBLISHABLE_KEY" \
+            '^(sb_publishable_|eyJ).{20,}' 'sb_publishable_… or a JWT'
+          check SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY" \
+            '^(sb_secret_|eyJ).{20,}' 'sb_secret_… or a JWT'
+
+          if [ -n "$bad" ]; then
+            echo "::error::One or more Actions secrets are missing or not a real value. Without them every security step below would be skipped and this job would go green having checked nothing. Fix them under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "All Supabase credentials present and correctly shaped."
+
+      # The promises about children's records: who can see which child,
+      # consent, the FR14 safeguarding lock, billing, and the access log.
+      - name: Row-Level Security suite
+        run: npm test
+
+      # A hostile visitor holding only the publishable key.
+      - name: Anonymous attack surface
+        run: node scripts/security-check.mjs
+
+      # No student identifier may reach the AI.
+      - name: Anonymisation
+        run: npm run anonymisation-check
+
+      # No server-only secret may appear in the built bundle. Needs a build
+      # first, and deliberately runs even without database credentials — it is
+      # the check that would matter most if it ever failed.
+      - name: Build, then scan the bundle for secrets
+        run: |
+          npm run build
+          node scripts/bundle-secret-check.mjs

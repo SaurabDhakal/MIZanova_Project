@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Joe's mark. The file this replaced was a purple lightning bolt left over
+         from a starter template — unrelated to MiZanova, and in the browser tab
+         of every page for months. The MARK alone, not the whole
+         square: a 32px favicon of brain-plus-wordmark-plus-tagline is
+         unreadable mush. PNG because that is what the client supplied; an SVG
+         from Joe would be sharper at every size and a fraction of the bytes. -->
+    <link rel="icon" href="/logo-mark.png" />
+    <!-- A SEPARATE, OPAQUE FILE ON PURPOSE. The mark is transparent now, and
+         iOS ignores transparency on a touch icon: it composites onto black,
+         which would put the navy hemisphere on black at about 1.2:1 on the home
+         screen. This one keeps a white plate, for the one surface that needs
+         it, rather than baking a plate back into the mark used everywhere. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiZanova</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
