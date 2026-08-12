@@ -17,7 +17,7 @@
  */
 import { createHmac } from 'node:crypto'
 
-const URL_BASE = process.env.API_URL ?? 'http://localhost:8787'
+const URL_BASE = process.env.API_URL ?? 'http://localhost:8887'
 const ENDPOINT = `${URL_BASE}/api/billing/webhook`
 const secret = process.env.STRIPE_WEBHOOK_SECRET
 
@@ -66,7 +66,7 @@ if (!secret) {
   check('refuses when not configured', noSig.status === 503, `${noSig.status}`)
   console.log(
     '\n  Set it up:\n' +
-      '    stripe listen --forward-to localhost:8787/api/billing/webhook\n' +
+      '    stripe listen --forward-to localhost:8887/api/billing/webhook\n' +
       '    put the whsec_… value in .env.local as STRIPE_WEBHOOK_SECRET\n' +
       '    restart `npm run server`, then run this again.',
   )

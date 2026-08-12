@@ -76,4 +76,19 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+
+  /**
+   * NOT VITE'S DEFAULT 5173, DELIBERATELY.
+   *
+   * 5173 is the port every other Vite project on a machine also claims, and a
+   * port IS the identity of an origin. Two apps sharing one origin share one
+   * localStorage, one set of saved passwords and one service worker
+   * registration — so the browser offers another project's logins on this
+   * one's sign-in page, and whatever one of them caches is served to the other.
+   *
+   * strictPort so a clash FAILS instead of quietly moving to 5274. A silently
+   * different port is how you end up debugging the app you are not looking at.
+   */
+  server: { port: 5273, strictPort: true },
+  preview: { port: 4273, strictPort: true },
 })

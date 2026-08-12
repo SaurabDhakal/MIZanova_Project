@@ -92,10 +92,10 @@ for (const log of logs ?? []) {
 
 console.log('\n--- Gate 4: is the API server up? -------------------------------')
 try {
-  const res = await fetch('http://localhost:8787/api/health')
+  const res = await fetch('http://localhost:8887/api/health')
   console.log(`  /api/health  ${res.status} ${await res.text()}`)
 } catch (err) {
-  console.log(`  *** Cannot reach http://localhost:8787 — ${err.message}`)
+  console.log(`  *** Cannot reach http://localhost:8887 — ${err.message}`)
   console.log('  *** Run `npm run server` in a second terminal.')
 }
 

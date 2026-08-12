@@ -4,7 +4,7 @@
  * ---------------------------------------------------------------------------
  * EMPTY IN PRODUCTION, WHICH MEANS "WHEREVER THIS PAGE CAME FROM"
  * ---------------------------------------------------------------------------
- * In development the app is on 5173 and the API on 8787, so it needs the
+ * In development the app is on 5273 and the API on 8887, so it needs the
  * absolute address. Deployed, one server serves both, so a relative `/api/…` is
  * correct by construction and cannot be configured wrongly.
  *
@@ -30,6 +30,9 @@
  *
  * VITE_API_URL still wins if set, for the day the API moves to its own host.
  */
+// 8887, not the conventional 8787. Two servers cannot hold one port, and the
+// one that loses starts with EADDRINUSE at the moment you are looking at the
+// other terminal. See the note in vite.config.ts.
 export const API_URL =
   import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? 'http://localhost:8787' : '')
+  (import.meta.env.DEV ? 'http://localhost:8887' : '')
