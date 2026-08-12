@@ -2,8 +2,8 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "mizanova",
-      "url": "http://localhost:5173"
+      "name": "mizanova-project",
+      "url": "http://localhost:5273"
     }
   ]
 }

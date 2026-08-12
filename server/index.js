@@ -37,7 +37,8 @@ import {
   generateStrategies,
 } from './claude.js'
 
-const PORT = process.env.PORT || 8787
+// 8887, not the conventional 8787 — see the note in vite.config.ts.
+const PORT = process.env.PORT || 8887
 
 /**
  * Where the browser app lives, for building invitation links.
@@ -45,7 +46,7 @@ const PORT = process.env.PORT || 8787
  * Defaults to the dev server. Set APP_URL in .env.local when the app is
  * deployed, or every invitation will point at somebody's laptop.
  */
-const APP_URL = process.env.APP_URL || 'http://localhost:5173'
+const APP_URL = process.env.APP_URL || 'http://localhost:5273'
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const PUBLISHABLE_KEY =
@@ -236,7 +237,7 @@ app.use(express.json({ limit: '64kb' }))
  * decides both where invitation links point and who may call the API, and those
  * two answers must not be allowed to disagree.
  */
-const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173']
+const DEV_ORIGINS = ['http://localhost:5273', 'http://127.0.0.1:5273', 'http://localhost:4273']
 const CORS_ORIGINS = [...new Set([...DEV_ORIGINS, ...(APP_URL ? [APP_URL] : [])])]
 app.use(cors({ origin: CORS_ORIGINS }))
 
@@ -937,8 +938,22 @@ async function getStripe() {
   return stripeClient
 }
 
-/** Where Stripe may send someone back to. Never taken from the request alone. */
-const ALLOWED_ORIGINS = ['http://localhost:5173', 'http://localhost:4173']
+/**
+ * Where Stripe may send someone back to. Never taken from the request alone.
+ *
+ * APP_URL IS FIRST, AND THAT IS THE FIX. This list previously held the two dev
+ * origins and nothing else, so deployed it never matched — a browser posting
+ * from https://…onrender.com is not in a list of localhost addresses — and
+ * `returnOrigin` fell through to element [0]. Every parent who paid on the real
+ * site was then redirected to http://localhost:5173, which is their OWN
+ * machine. The payment itself succeeded, so nothing would have looked wrong on
+ * Stripe's side.
+ *
+ * Derived from the same APP_URL and DEV_ORIGINS as the CORS list above, so the
+ * two cannot drift apart. In development APP_URL is the dev server, which makes
+ * element [0] correct there too.
+ */
+const ALLOWED_ORIGINS = [...new Set([APP_URL, ...DEV_ORIGINS])]
 function returnOrigin(req) {
   const origin = req.headers.origin
   return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
@@ -2210,9 +2225,9 @@ app.post('/api/screening/:id/remind', async (req, res) => {
  * index.html with a 200 — the kind of failure where the browser reports
  * "unexpected token < in JSON" and nothing says why.
  *
- * NOT IN DEVELOPMENT. `npm run dev` serves the app on 5173 with hot reload;
+ * NOT IN DEVELOPMENT. `npm run dev` serves the app on 5273 with hot reload;
  * dist/ there is whatever was built last, and quietly serving a stale copy on
- * 8787 would be a confusing thing to leave lying around.
+ * 8887 would be a confusing thing to leave lying around.
  */
 if (process.env.NODE_ENV === 'production') {
   const dist = path.join(import.meta.dirname, '..', 'dist')
@@ -2300,7 +2315,7 @@ app.listen(PORT, HOST, () => {
    * DEPLOYED AND STILL POINTING AT A LAPTOP is the failure this catches.
    *
    * Every invitation carries a link built from APP_URL. Left at its default on
-   * a real host, every one of them says http://localhost:5173 — which resolves,
+   * a real host, every one of them says http://localhost:5273 — which resolves,
    * on the tester's machine, to the tester's own machine. The invitation is
    * valid, the email arrives, and the link is useless, and nothing anywhere
    * reports a problem. Said loudly here because there is no later moment where

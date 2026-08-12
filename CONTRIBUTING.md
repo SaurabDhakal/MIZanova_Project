@@ -1,158 +1,203 @@
-# Working on MiZanova with someone else
+# Working on MiZanova, four of us at once
 
-Written after a previous attempt at this project fell apart — not because the
-code was bad, but because two people changed things faster than either could
-follow. The rules below exist to prevent that specific failure, not to be
-ceremony.
+Read this before your first line of code. It is short, and every rule in it
+exists because of a specific way this goes wrong — not as ceremony.
 
 ---
 
-## 0. Before your first line of code
+## 0. Who owns what
 
-Read these, in order. A fresh Claude session knows none of it:
+Split by **role area**, end to end. The folders already work this way, so four
+people can build at once without touching each other's files.
 
-1. `docs/05-Resume-Here.md` — where the build actually is
-2. `docs/03-Decisions-Log.md` — what was decided and why (do not re-litigate)
-3. `docs/02-Session-Handoff.md` — traps already paid for
-4. `docs/06-End-to-End-Test.md` — how to prove the app still works
+| Person | Folder | Screens |
+|---|---|---|
+| Saurab | `src/pages/platformAdmin/` + `src/pages/parent/` | 19 |
+| Prabin | `src/pages/schoolAdmin/` | 9 |
+| Osheit | `src/pages/educator/` | 5 |
+| Tahmid | `src/pages/specialist/` | 5 |
 
-Start your Claude session by telling it to read them. It will not know
-otherwise, and it will cheerfully rebuild something that already exists.
+**You do not edit another person's folder.** If you need something changed in
+one, ask them.
+
+**One ordering rule, once:** Osheit's educator pull request merges first.
+`educator/StudentRoster` and `educator/StudentDetail` are reused by the school
+admin and the specialist rather than copied — three roles open a child's record
+through the same screen. After his lands, the rest of us are independent.
 
 ---
 
-## 1. THE DATABASE IS SHARED. THE CODE IS NOT.
+## 1. Getting it running on your machine
 
-Git branches protect code. Nothing protects the Supabase project — there is
-one, and both of you point at it.
+Install Node 22 or newer, Git and VS Code first.
 
-**If you run a script in `db/`, it changes the app for both of you, instantly,
-with no branch and no undo.**
+```bash
+git clone https://github.com/SaurabDhakal/MIZanova_Project.git
+cd MIZanova_Project
+npm install
+```
 
-So:
+Copy `.env.example` to `.env.local` and fill in the three values Saurab sends
+you privately. **Restart the dev server after editing it** — Vite reads that
+file only at startup.
 
-- **Never run a `db/` script without telling the other person first.** Not a
-  pull request — an actual message, before you run it.
-- **Never edit an already-applied script.** They are a history, not source
-  code. Add `db/0NN_next_thing.sql` instead.
-- **Claim your migration numbers up front.** Agree something like: Saurab takes
-  015–019, the other person takes 020–024. Two people creating `015_*.sql`
-  independently is a guaranteed conflict, and the second one to run wins
+Two terminals:
+
+```bash
+npm run dev      # the app, http://localhost:5273
+npm run server   # the API, http://localhost:8887
+```
+
+**Not the usual 5173 and 8787.** Those are the ports nearly every other Vite and
+Express project claims, and a port is the identity of an origin. Two apps on one
+origin share one localStorage and one set of saved passwords — so the browser
+starts offering another project's logins on this one's sign-in page.
+
+`.env.local` is git-ignored and will never arrive with a clone. That is
+deliberate — it holds the key that bypasses every security policy in the
+database.
+
+**Do not ask for the `ANTHROPIC_API_KEY`.** One key is one bill and one rate
+limit, and nobody can tell whose request went wrong. The app runs without it;
+the AI features simply say what is missing. Get your own if you need them.
+
+---
+
+## 2. THE DATABASE IS SHARED. THE CODE IS NOT.
+
+Git branches protect code. **Nothing protects the Supabase project** — there is
+one, and all four of us point at it.
+
+- **Never run a script in `db/` without saying so in the group chat first.** Not
+  a pull request — an actual message, before you run it. It changes the app for
+  everyone instantly, with no branch and no undo.
+- **Never edit a script that has already been applied.** They are a history, not
+  source code. Add `db/0NN_next_thing.sql` instead.
+- **Claim your migration numbers up front.** Two people creating `058_*.sql`
+  independently is a guaranteed collision, and the second one to run wins
   silently.
 - Every script must be **safe to run twice** — `create ... if not exists`,
-  `create or replace`, `drop policy if exists` before `create policy`. The
-  Supabase SQL editor does not wrap scripts in a transaction, so a script that
-  fails halfway leaves the first half applied.
-- **Commit the script before you run it.** The free tier has no backups. Those
-  files are the backup.
+  `create or replace`, `drop policy if exists` before `create policy`.
+- **Commit the script before you run it.** The free tier has no backups. The
+  files in `db/` are the backup.
 
-If this becomes painful, the alternative is a second Supabase project (Sydney
-region) for the second person, with `db/001`–`0NN` and `seed_test_data.sql` run
-in order. Fully isolated, at the cost of separate test accounts.
+### Only one person runs `npm test` at a time
 
----
+The suite builds its own school, students and five users, then deletes them **by
+naming convention**. Two people running it at once means one person's cleanup
+destroys the other's world mid-assertion — and it surfaces as a broken-looking
+suite rather than a busy database. Say so in the chat before you run it.
 
-## 2. Split by area, not by "whoever gets there first"
-
-The thing that went wrong last time was two people touching the same feature
-and each assuming the other had not started.
-
-Agree an owner per area before you start. For example:
-
-| Area | Files |
-|---|---|
-| Educator screens | `src/pages/educator/*` |
-| Parent screens | `src/pages/parent/*` |
-| Specialist | `src/pages/specialist/*` |
-| School Admin | `src/pages/schoolAdmin/*` |
-| Platform Admin | `src/pages/platformAdmin/*` |
-| AI server | `server/*` |
-
-Two files are shared by everything and are where conflicts actually happen:
-
-- `src/lib/api.ts`
-- `src/App.tsx`
-
-**Only append to those.** New functions at the end of the relevant section, new
-routes at the end of `BUILT_SCREENS`. Do not reorder, reformat or tidy them
-while someone else has work in progress.
+A fresh database is built by `npm run apply-db`, which applies every numbered
+file in `db/` in order and resumes from wherever it last failed.
 
 ---
 
 ## 3. Branches and pull requests
 
+`main` is protected. Nobody pushes to it, including Saurab. Every change goes
+through a pull request with **1 approval** and **green CI**.
+
 ```bash
-git pull                      # always, before starting
-git checkout -b feature/parent-messages
+git checkout main
+git pull                          # always, before starting
+git checkout -b educator          # or school-admin, specialist, parent…
 # ...work...
-git add -A && git commit
-git push -u origin feature/parent-messages
+git add -A
+git commit -m "what this does, in a sentence"
+git push -u origin educator
 ```
 
-Then open a pull request on GitHub. **Nobody pushes to `main` directly.**
+GitHub then offers a **Compare & pull request** button.
 
-Before merging, the other person checks out the branch and runs:
+**Commit as you go — many small commits, not one enormous one.** They are what
+show who built what.
+
+Before approving someone's pull request, check the branch out and run:
 
 ```bash
-npm install
 npm run lint
 npm run build
 npm run security-check
 ```
 
-All four must pass. `security-check` matters most: it attacks every table as an
+All three must pass. `security-check` matters most: it attacks every table as an
 anonymous visitor, and **an accidentally-opened table produces no error and no
 symptom** — nothing else will tell you.
 
+**When merging, choose "Create a merge commit" — never "Squash and merge".**
+Squash crushes fifteen commits into one and erases who did the work.
+
 ---
 
-## 4. Your own secrets
+## 4. The two files we all have to touch
 
-`.env.local` is git-ignored and will not arrive with the clone. Each person
-needs their own copy:
+Everything else is separated by folder. These two are shared lists:
 
-- `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` — same for both, from
-  the Supabase dashboard (public by design)
-- `SUPABASE_SERVICE_ROLE_KEY` — the secret key. Share it out of band, never in
-  a commit, a chat, or a screenshot.
-- `ANTHROPIC_API_KEY` — **get your own.** Sharing one key means sharing one
-  bill and one rate limit, and you cannot tell whose request went wrong.
+- `src/App.tsx` — the lazy imports, `BUILT_SCREENS` and `DETAIL_ROUTES`
+- `src/components/AppShell.tsx` — the sidebar
 
-Copy `.env.example` to `.env.local` and fill it in. Restart the dev server
-afterwards — Vite reads that file only at startup.
+Each has a block with your name on it. **Add to your own block only.**
+
+**When git reports a conflict in either file, KEEP BOTH SIDES.** It is never a
+real disagreement — it is two people adding two different screens to the same
+list. Deleting the other side to "fix" the conflict deletes their work.
+
+Do not reorder, reformat or tidy those files while someone else has work open.
+
+### How a screen gets switched on
+
+Anything not listed in `BUILT_SCREENS` renders a `<Placeholder>` naming the
+milestone that will build it. So a half-finished product is *visibly*
+half-finished rather than quietly missing. To turn your screen on: add its lazy
+import, then one line to `BUILT_SCREENS`.
 
 ---
 
 ## 5. The habit that has actually found the bugs
 
-Every real defect in this project so far was found by **using the app**, not by
-reading code. Lint, TypeScript and the production build were green for every
-single one — because in each case the code did exactly what was written, and
-what was written was not the feature.
+Every real defect in this project was found by **using the app**, not by reading
+code. Lint, TypeScript and the production build were green for every single one
+— because in each case the code did exactly what was written, and what was
+written was not the feature.
 
-So when you finish something: open it, press the button, and check that the
-thing the screen *promises* actually happens. Prefer testing what should be
-**prevented** — a control is only proven by what it stops.
+So when you finish something: open it, press the button, and check the thing the
+screen *promises* actually happens. Prefer testing what should be **prevented**
+— a control is only proven by what it stops.
 
-Two traps worth knowing:
+Two traps worth knowing before you write a mutation:
 
 - A Supabase `update` filtered out by Row-Level Security **returns success with
-  zero rows changed**. Use `assertChanged()` in `src/lib/api.ts` on any new
-  mutation that depends on a policy.
+  zero rows changed**. Use `assertChanged()` in `src/lib/api.ts` on anything that
+  depends on a policy.
 - An empty result from an RLS-filtered query means **"unknown to you"**, not
   "zero". Never render it as a count.
 
+**A number that cannot be wrong is a number that was never right.** When a screen
+reports a count, ask what it shows when the question could not be asked.
+
 ---
 
-## 6. Things not to re-decide
+## 6. Known settings that are wrong on purpose
 
-These are settled and written up in `docs/03-Decisions-Log.md` with reasons.
-If you disagree, raise it — do not quietly change it:
+- **Supabase → Authentication → Email → Confirm email is OFF.** Without this the
+  test suite cannot create throwaway accounts, because it signs up at a reserved
+  domain that can never receive mail. It must go back **ON** before this is used
+  by real people, or anyone can register an address they do not own.
+- **There are no seeded user accounts.** The first platform admin is made by
+  signing up at `/signup` with a real address, then running TASK 4 in
+  `db/admin_tasks.sql`. The signup trigger can only create a parent, deliberately
+  — staff arrive by invitation.
+
+---
+
+## 7. Things not to re-decide
+
+Settled. If you disagree, raise it — do not quietly change it:
 
 - Australian compliance language (APP, Privacy Act 1988, AUD) — not HIPAA/FERPA
 - Parents see first name plus initial, enforced by a generated column
 - Exactly five roles. No new roles without agreement.
 - The AI is never diagnostic; anonymise before every call; server-side only
-- Invented Figma metrics (model accuracy, compliance scores, CSAT) are replaced
-  with figures that can actually be computed, and the screen says what is
-  missing and why
+- An account is never created by someone simply appearing. An invitation makes a
+  staff account, a code makes a family account. There is no fourth door.
