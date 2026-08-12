@@ -81,6 +81,30 @@ const Security = lazy(() => import('./pages/account/Security'))
  */
 
 // --- Saurab: parent/ and platformAdmin/ ---
+const ParentDashboard = lazy(() => import('./pages/parent/Dashboard'))
+const HomeObservations = lazy(() => import('./pages/parent/HomeObservations'))
+const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
+const ParentMessages = lazy(() => import('./pages/parent/Messages'))
+const ParentProgress = lazy(() => import('./pages/parent/Progress'))
+const ParentPrivacy = lazy(() => import('./pages/parent/Privacy'))
+const ParentFinance = lazy(() => import('./pages/parent/Finance'))
+const LinkChild = lazy(() => import('./pages/parent/LinkChild'))
+
+const GlobalOverview = lazy(() => import('./pages/platformAdmin/GlobalOverview'))
+const Schools = lazy(() => import('./pages/platformAdmin/Schools'))
+const AiGovernance = lazy(() => import('./pages/platformAdmin/AiGovernance'))
+const Verification = lazy(() => import('./pages/platformAdmin/Verification'))
+const AuditLog = lazy(() => import('./pages/platformAdmin/AuditLog'))
+const Billing = lazy(() => import('./pages/platformAdmin/Billing'))
+const Enquiries = lazy(() => import('./pages/platformAdmin/Enquiries'))
+const Applications = lazy(() => import('./pages/platformAdmin/Applications'))
+const Screening = lazy(() => import('./pages/platformAdmin/Screening'))
+const SchoolPeopleDetail = lazy(
+  () => import('./pages/platformAdmin/SchoolPeople'),
+)
+const PlatformRecordAccess = lazy(
+  () => import('./pages/platformAdmin/RecordAccess'),
+)
 
 // --- Prabin: schoolAdmin/ ---
 
@@ -103,6 +127,32 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   // Add one line per screen, under your own name. KEEP BOTH SIDES on conflict.
 
   // --- Saurab: parent: and platform_admin: ---
+  'parent:': <ParentDashboard />,
+  'parent:observations': <HomeObservations />,
+  'parent:goals': <GoalsAndIep />,
+  'parent:messages': <ParentMessages />,
+  'parent:progress': <ParentProgress />,
+  'parent:link-child': <LinkChild />,
+  'parent:privacy': <ParentPrivacy />,
+  'parent:finance': <ParentFinance />,
+  // 'parent:resources' is deliberately absent. That screen lives in
+  // pages/specialist/Resources — a specialist uploads and shares, a family
+  // reads and confirms, and RLS decides which resources each of them gets, so
+  // a second copy would have nothing left to do. It stays a Placeholder until
+  // Tahmid's pull request lands, and the line is added then.
+
+  // Two links, two screens. These were both <Schools /> once — the landing
+  // page answered the same question as the item below it.
+  'platform_admin:': <GlobalOverview />,
+  'platform_admin:tenants': <Schools />,
+  'platform_admin:ai-governance': <AiGovernance />,
+  'platform_admin:verification': <Verification />,
+  'platform_admin:audit': <AuditLog />,
+  'platform_admin:billing': <Billing />,
+  'platform_admin:record-access': <PlatformRecordAccess />,
+  'platform_admin:enquiries': <Enquiries />,
+  'platform_admin:applications': <Applications />,
+  'platform_admin:screening': <Screening />,
 
   // --- Prabin: school_admin: ---
 
@@ -128,6 +178,11 @@ const DETAIL_ROUTES: Partial<
   // is read as a student id.
 
   // --- Saurab: parent, platform_admin ---
+  // Clicking a school opens who is in it. The Schools row answers "how is this
+  // tenant doing"; this answers "who are they".
+  platform_admin: [{ path: 'tenants/:schoolId', element: <SchoolPeopleDetail /> }],
+  // parent has no detail routes: a family reaches everything from its own
+  // sidebar, and the one child-level page they get to is the IEP inside Goals.
 
   // --- Prabin: school_admin ---
 
