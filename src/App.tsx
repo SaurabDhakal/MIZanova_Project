@@ -117,7 +117,6 @@ const EducatorMessages = lazy(() => import('./pages/educator/Messages'))
 const EducatorSchedule = lazy(() => import('./pages/educator/Schedule'))
 const IepPlans = lazy(() => import('./pages/shared/IepPlans'))
 const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
-
 // --- Tahmid: specialist/ ---
 
 const SpecialistDashboard = lazy(() => import('./pages/specialist/Dashboard'))
@@ -125,8 +124,6 @@ const Caseload = lazy(() => import('./pages/specialist/Caseload'))
 const ReviewQueue = lazy(() => import('./pages/specialist/ReviewQueue'))
 const SpecialistSchedule = lazy(() => import('./pages/specialist/Schedule'))
 const Resources = lazy(() => import('./pages/specialist/Resources'))
-const IepPlans = lazy(() => import('./pages/shared/IepPlans'))
-const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
 
 /**
  * Screens that are actually built, keyed by `role:path` from ROLE_CONFIG.
