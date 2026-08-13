@@ -120,6 +120,14 @@ const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
 
 // --- Tahmid: specialist/ ---
 
+const SpecialistDashboard = lazy(() => import('./pages/specialist/Dashboard'))
+const Caseload = lazy(() => import('./pages/specialist/Caseload'))
+const ReviewQueue = lazy(() => import('./pages/specialist/ReviewQueue'))
+const SpecialistSchedule = lazy(() => import('./pages/specialist/Schedule'))
+const Resources = lazy(() => import('./pages/specialist/Resources'))
+const IepPlans = lazy(() => import('./pages/shared/IepPlans'))
+const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
+
 /**
  * Screens that are actually built, keyed by `role:path` from ROLE_CONFIG.
  * Anything not listed here falls back to a Placeholder tagged with the
@@ -172,6 +180,13 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'educator:schedule': <EducatorSchedule />,
 
   // --- Tahmid: specialist: ---
+
+  'specialist:': <SpecialistDashboard />,
+  'specialist:caseload': <Caseload />,
+  'specialist:review-queue': <ReviewQueue />,
+  'specialist:schedule': <SpecialistSchedule />,
+  'specialist:resources': <Resources />,
+  'parent:resources': <Resources />,
 }
 
 /**
@@ -208,6 +223,12 @@ const DETAIL_ROUTES: Partial<
   ],
 
   // --- Tahmid: specialist ---
+
+  specialist: [
+    { path: 'students/:studentId', element: <StudentDetail /> },
+    { path: 'students/:studentId/iep', element: <IepPlans /> },
+    { path: 'students/:studentId/iep/:planId', element: <IepPlanEditor /> },
+  ],
 }
 
 /**
