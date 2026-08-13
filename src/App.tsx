@@ -86,6 +86,14 @@ const Security = lazy(() => import('./pages/account/Security'))
 
 // --- Osheit: educator/ ---
 
+const EducatorDashboard = lazy(() => import('./pages/educator/Dashboard'))
+const StudentRoster = lazy(() => import('./pages/educator/StudentRoster'))
+const StudentDetail = lazy(() => import('./pages/educator/StudentDetail'))
+const EducatorMessages = lazy(() => import('./pages/educator/Messages'))
+const EducatorSchedule = lazy(() => import('./pages/educator/Schedule'))
+const IepPlans = lazy(() => import('./pages/shared/IepPlans'))
+const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
+
 // --- Tahmid: specialist/ ---
 
 /**
@@ -107,6 +115,11 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   // --- Prabin: school_admin: ---
 
   // --- Osheit: educator: ---
+
+  'educator:': <EducatorDashboard />,
+  'educator:students': <StudentRoster />,
+  'educator:messages': <EducatorMessages />,
+  'educator:schedule': <EducatorSchedule />,
 
   // --- Tahmid: specialist: ---
 }
@@ -132,6 +145,12 @@ const DETAIL_ROUTES: Partial<
   // --- Prabin: school_admin ---
 
   // --- Osheit: educator ---
+
+  educator: [
+    { path: 'students/:studentId', element: <StudentDetail /> },
+    { path: 'students/:studentId/iep', element: <IepPlans /> },
+    { path: 'students/:studentId/iep/:planId', element: <IepPlanEditor /> },
+  ],
 
   // --- Tahmid: specialist ---
 }
