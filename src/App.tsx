@@ -107,6 +107,16 @@ const PlatformRecordAccess = lazy(
 )
 
 // --- Prabin: schoolAdmin/ ---
+const SchoolAdminDashboard = lazy(() => import('./pages/schoolAdmin/Dashboard'))
+const Safeguarding = lazy(() => import('./pages/schoolAdmin/Safeguarding'))
+const Directory = lazy(() => import('./pages/schoolAdmin/Directory'))
+const SchoolPeople = lazy(() => import('./pages/schoolAdmin/People'))
+const Kpis = lazy(() => import('./pages/schoolAdmin/Kpis'))
+const Compliance = lazy(() => import('./pages/schoolAdmin/Compliance'))
+const Invoices = lazy(() => import('./pages/schoolAdmin/Invoices'))
+const AccessLog = lazy(() => import('./pages/schoolAdmin/AccessLog'))
+const AddStudents = lazy(() => import('./pages/schoolAdmin/AddStudents'))
+
 
 // --- Osheit: educator/ ---
 
@@ -168,7 +178,17 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'platform_admin:screening': <Screening />,
 
   // --- Prabin: school_admin: ---
-
+  
+'school_admin:': <SchoolAdminDashboard />,
+  'school_admin:safeguarding': <Safeguarding />,
+  'school_admin:students': <StudentRoster />,
+  'school_admin:directory': <Directory />,
+  'school_admin:people': <SchoolPeople />,
+  'school_admin:kpis': <Kpis />,
+  'school_admin:compliance': <Compliance />,
+  'school_admin:invoices': <Invoices />,
+  'school_admin:access-log': <AccessLog />,
+  
   // --- Osheit: educator: ---
 
   'educator:': <EducatorDashboard />,
@@ -210,6 +230,13 @@ const DETAIL_ROUTES: Partial<
   // sidebar, and the one child-level page they get to is the IEP inside Goals.
 
   // --- Prabin: school_admin ---
+school_admin: [
+    { path: 'students/add', element: <AddStudents /> },
+    { path: 'students/:studentId', element: <StudentDetail /> },
+    { path: 'students/:studentId/iep', element: <IepPlans /> },
+    { path: 'students/:studentId/iep/:planId', element: <IepPlanEditor /> },
+  ],
+
 
   // --- Osheit: educator ---
 
