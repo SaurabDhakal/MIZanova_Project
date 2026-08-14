@@ -64,10 +64,51 @@ async function actor(label, role, { schoolId = null, verified = false } = {}) {
   })
   if (error) throw new Error(`${label}: ${error.message}`)
 
+  /**
+   * ROLE IS SET HERE, NOT BY THE SIGNUP TRIGGER.
+   *
+   * This script used to pass `role` in user_metadata and let `handle_new_user`
+   * honour it. db/044 stopped that: parent is now the ONE self-selectable role
+   * and everything else is granted by somebody. So every account created here
+   * was silently a parent, whatever label it was given.
+   *
+   * It went unnoticed because the IEP checks below ask "are you assigned to
+   * this child?" rather than "what is your role?" — they passed for the wrong
+   * reason. Only the resources insert consults my_role(), which is why a single
+   * failing line exposed accounts that were wrong the whole way through.
+   */
   await admin
     .from('profiles')
-    .update({ school_id: schoolId, is_verified: verified })
+    .update({ role, school_id: schoolId, is_verified: verified })
     .eq('id', data.user.id)
+
+  /**
+   * STAFF ALSO NEED A LIVE MEMBERSHIP, and this script did not write one.
+   *
+   * Since db/039 identity has two halves: `memberships` is what you MAY be,
+   * `profiles.role` is what you currently ARE, and `my_role()` verifies the
+   * pointer against a live membership before answering. Setting role and
+   * school_id alone produces a specialist on paper and nobody in practice —
+   * my_role() returns null and every policy refuses them.
+   *
+   * That is the same fault db/046 fixed for invitations, and the RLS test
+   * harness was taught to write this row at the same time. This script was
+   * missed, so it has been failing since db/039 and nothing said so — it is
+   * not in CI, and nobody ran it after that migration.
+   *
+   * Parents and platform admins are excluded deliberately: they hold no
+   * membership at all. A parent belongs to a CHILD through student_guardians,
+   * and a platform admin belongs to nothing. The check constraint on
+   * memberships.role refuses both.
+   */
+  if (schoolId && ['educator', 'specialist', 'school_admin'].includes(role)) {
+    const { error: membershipError } = await admin
+      .from('memberships')
+      .insert({ profile_id: data.user.id, organisation_id: schoolId, role })
+    if (membershipError) {
+      throw new Error(`${label} membership: ${membershipError.message}`)
+    }
+  }
 
   const db = createClient(url, env.VITE_SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -97,19 +138,40 @@ for (const table of ['resources', 'resource_shares', 'resource_acknowledgements'
 }
 
 // --- 3. a world --------------------------------------------------------------
-const { data: school } = await admin
-  .from('schools')
-  .insert({ name: `RLS Storage Probe ${stamp}` })
-  .select('id')
-  .single()
+/**
+ * EVERY SETUP WRITE IS CHECKED, and it did not used to be.
+ *
+ * These run with the service key, so they are not subject to RLS and "cannot
+ * fail" — which is exactly why nobody looked. When one of them did fail, the
+ * script carried on with a half-built world and reported four refusals that
+ * had nothing to do with the policies being tested. A checker that cannot
+ * tell "the policy refused me" from "the row was never there" is worse than
+ * no checker, because both look like a security finding.
+ */
+const must = (label, { data, error }) => {
+  if (error) throw new Error(`SETUP FAILED — ${label}: ${error.message}`)
+  return data
+}
 
-const { data: students } = await admin
-  .from('students')
-  .insert([
-    { school_id: school.id, first_name: 'ProbeA', last_name: 'Alpha' },
-    { school_id: school.id, first_name: 'ProbeB', last_name: 'Beta' },
-  ])
-  .select('id')
+const school = must(
+  'create the probe school',
+  await admin
+    .from('schools')
+    .insert({ name: `RLS Storage Probe ${stamp}` })
+    .select('id')
+    .single(),
+)
+
+const students = must(
+  'create the probe students',
+  await admin
+    .from('students')
+    .insert([
+      { school_id: school.id, first_name: 'ProbeA', last_name: 'Alpha' },
+      { school_id: school.id, first_name: 'ProbeB', last_name: 'Beta' },
+    ])
+    .select('id'),
+)
 const [childA, childB] = students.map((s) => s.id)
 
 const specialist = await actor('specialist', 'specialist', {
@@ -122,12 +184,18 @@ const guardianA = await actor('parenta', 'parent')
 // stranger: someone whose account is entirely legitimate.
 const outsider = await actor('outsider', 'educator', { schoolId: school.id, verified: true })
 
-await admin.from('student_educators').insert([
-  { student_id: childA, profile_id: specialist.id, assignment: 'specialist' },
-  { student_id: childB, profile_id: specialist.id, assignment: 'specialist' },
-  { student_id: childA, profile_id: teacher.id, assignment: 'class_teacher' },
-])
-await admin.from('student_guardians').insert({ student_id: childA, profile_id: guardianA.id })
+must(
+  'assign the specialist and teacher to the children',
+  await admin.from('student_educators').insert([
+    { student_id: childA, profile_id: specialist.id, assignment: 'specialist' },
+    { student_id: childB, profile_id: specialist.id, assignment: 'specialist' },
+    { student_id: childA, profile_id: teacher.id, assignment: 'class_teacher' },
+  ]),
+)
+must(
+  'link the guardian to their child',
+  await admin.from('student_guardians').insert({ student_id: childA, profile_id: guardianA.id }),
+)
 
 // --- 4. upload ---------------------------------------------------------------
 const { data: resource, error: resourceError } = await specialist.db

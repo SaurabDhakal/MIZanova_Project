@@ -168,13 +168,35 @@ export default function ParentDashboard() {
           })()}
         </div>
 
+        {/*
+          A NUMBER ONLY WHEN THE QUESTION WAS ACTUALLY ANSWERED.
+
+          These read `isPending ? '—' : count`, which is not the same thing.
+          A failed query is not pending, so it fell through to the count — and
+          `observations.data?.length ?? 0` turned "we could not ask" into a
+          confident 0. The observations tile had no error state anywhere on the
+          page either, so a parent whose query failed was told plainly that
+          they had recorded nothing about their child.
+
+          That is the worse half. A parent reading "0" does not suspect an
+          outage; they suspect their notes were lost, and may write them again.
+
+          `isSuccess` is the only state where a count is a fact. Everything
+          else — loading, error, disabled — shows an em dash, and an error says
+          so beneath the number rather than leaving the tile to speak alone.
+        */}
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Updates shared with you
           </p>
           <p className="mt-2 text-4xl font-bold text-foreground">
-            {logs.isPending ? '—' : shared.length}
+            {logs.isSuccess ? shared.length : '—'}
           </p>
+          {logs.isError && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Could not be loaded
+            </p>
+          )}
         </div>
 
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
@@ -182,8 +204,13 @@ export default function ParentDashboard() {
             Your home observations
           </p>
           <p className="mt-2 text-4xl font-bold text-foreground">
-            {observations.isPending ? '—' : (observations.data?.length ?? 0)}
+            {observations.isSuccess ? observations.data.length : '—'}
           </p>
+          {observations.isError && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Could not be loaded
+            </p>
+          )}
           <Link
             to="/parent/observations"
             className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
