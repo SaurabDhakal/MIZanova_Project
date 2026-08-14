@@ -18,12 +18,21 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
  * request with different answers — and because the boundary lives in the
  * database, this page cannot widen it by accident.
  */
+/**
+ * `logCount: number | null` — null means NOT KNOWN, and that is the point.
+ *
+ * It used to be a plain number, fed by `logsByStudent.get(id) ?? 0` off a
+ * query nothing checked. When the logs query failed, every card on the
+ * caseload read "Recent logs: 0 · Most recent activity" — telling a specialist
+ * that nothing had happened with any of these children, which is how a
+ * caseload gets de-prioritised on the strength of an outage.
+ */
 function CaseloadCard({
   student,
   logCount,
 }: {
   student: StudentRow
-  logCount: number
+  logCount: number | null
 }) {
   const goals = useQuery({
     queryKey: queryKeys.goals(student.id),
@@ -65,8 +74,11 @@ function CaseloadCard({
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Active goals
           </p>
+          {/* isSuccess, not "not pending" — a failed query is not pending
+              either, so this used to fall through and render 0 active goals
+              for a child whose goals could not be read. */}
           <p className="mt-1 text-title text-foreground">
-            {goals.isPending ? '—' : active.length}
+            {goals.isSuccess ? active.length : '—'}
           </p>
           {averageProgress !== null && (
             <p className="text-xs text-muted-foreground">
@@ -78,7 +90,7 @@ function CaseloadCard({
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Recent logs
           </p>
-          <p className="mt-1 text-title text-foreground">{logCount}</p>
+          <p className="mt-1 text-title text-foreground">{logCount ?? '—'}</p>
           <p className="text-xs text-muted-foreground">Most recent activity</p>
         </div>
       </div>
@@ -120,6 +132,16 @@ export default function Caseload() {
         </p>
       </header>
 
+      {/* `students` fails the whole page above; `logs` only costs one number
+          per card, so it says so here and the cards show — instead. Silently
+          showing 0 was the old behaviour and it is the more dangerous one. */}
+      {logs.isError && (
+        <p className="mb-5 rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
+          Recent activity could not be loaded, so the log counts below show
+          “—” rather than a number. The caseload itself is unaffected.
+        </p>
+      )}
+
       {students.data.length === 0 ? (
         <EmptyState
           title="No students on your caseload"
@@ -131,7 +153,9 @@ export default function Caseload() {
             <CaseloadCard
               key={student.id}
               student={student}
-              logCount={logsByStudent.get(student.id) ?? 0}
+              logCount={
+                logs.isSuccess ? (logsByStudent.get(student.id) ?? 0) : null
+              }
             />
           ))}
         </ul>

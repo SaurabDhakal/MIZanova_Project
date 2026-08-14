@@ -320,18 +320,35 @@ export default function GlobalOverview() {
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Staff without 2FA
           </p>
+          {/* THE COLOUR LIED AS WELL AS THE NUMBER.
+              This read `mfa.isPending ? '—' : withoutMfa.length`, with no
+              isError branch — so a failed query fell through to an empty array
+              and rendered 0. Worse than the Schools tile below it, because the
+              class above was driven by `withoutMfa.length > 0`: zero painted
+              the tile in the CALM colour. An administrator glancing at "Staff
+              without 2FA: 0" in grey concludes every account is enrolled, at
+              the exact moment the platform could not check. False reassurance
+              about a security control is worse than no tile at all. */}
           <p
             className={`mt-2 text-4xl font-bold ${
-              withoutMfa.length > 0
-                ? 'text-warning-foreground'
-                : 'text-foreground'
+              mfa.isError
+                ? 'text-danger-foreground'
+                : mfa.isSuccess && withoutMfa.length > 0
+                  ? 'text-warning-foreground'
+                  : 'text-foreground'
             }`}
           >
-            {mfa.isPending ? '—' : withoutMfa.length}
+            {mfa.isPending ? '—' : mfa.isError ? '?' : withoutMfa.length}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Required for their role, so they are locked out until they enrol.
-          </p>
+          {mfa.isError ? (
+            <p className="mt-1 text-sm text-danger-foreground">
+              Could not check 2FA enrolment — this is unknown, not zero.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Required for their role, so they are locked out until they enrol.
+            </p>
+          )}
         </div>
 
         <div className="rounded-card border border-border bg-card shadow-raised p-5">

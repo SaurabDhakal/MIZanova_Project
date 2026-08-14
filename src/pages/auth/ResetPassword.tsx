@@ -151,10 +151,13 @@ export default function ResetPassword() {
           onChange={(e) => setConfirm(e.target.value)}
         />
 
+        {/* 44px touch target rather than the height of its own text — and no
+            negative margin to hide the extra height, which would overlap the
+            field above it. See the note in Login.tsx. */}
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          className="text-sm font-medium text-primary hover:underline"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
         >
           {show ? 'Hide passwords' : 'Show passwords'}
         </button>

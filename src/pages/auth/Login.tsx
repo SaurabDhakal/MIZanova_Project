@@ -133,17 +133,34 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4">
+              {/*
+                `min-h-11` — a 44px touch target instead of the 20px these used
+                to be, which was the height of their own text. Fine with a
+                mouse, poor with a thumb, and "Show password" is the worse of
+                the two: the moment somebody reaches for it is the moment a
+                password has just been rejected, usually one-handed.
+
+                NO NEGATIVE MARGIN, and that was the first attempt. `-my-3`
+                keeps the row occupying its original 20px, which looks tidy —
+                but the button's hit area then extends 12px upward over the
+                bottom of the password field, so tapping the field toggles the
+                password instead of focusing it. A touch fix that creates a
+                touch bug.
+
+                The row is simply taller now. `mt-1.5` is gone because the
+                44px box already carries 12px of space above its own text.
+              */}
+              <div className="flex flex-wrap items-center gap-x-4">
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="text-sm font-medium text-primary hover:underline"
+                  className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
                 >
                   {showPassword ? 'Hide password' : 'Show password'}
                 </button>
                 <Link
                   to="/forgot-password"
-                  className="ml-auto text-sm font-medium text-primary hover:underline"
+                  className="ml-auto inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
                 >
                   Forgot password?
                 </Link>
