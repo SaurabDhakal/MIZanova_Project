@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchAiControlEvents,
   fetchAiControls,
+  fetchStrategyConfidence,
   queryKeys,
   updateAiControls,
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import ConfidenceHistogram from '../../components/ConfidenceHistogram'
 
 /**
  * AI governance - the honest replacement for the Figma MLOps screen.
@@ -36,6 +38,11 @@ export default function AiGovernance() {
   const events = useQuery({
     queryKey: queryKeys.aiControlEvents,
     queryFn: fetchAiControlEvents,
+  })
+
+  const confidence = useQuery({
+    queryKey: queryKeys.strategyConfidence,
+    queryFn: fetchStrategyConfidence,
   })
 
   const save = useMutation({
@@ -187,6 +194,38 @@ export default function AiGovernance() {
         <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
           {save.error.message}
         </p>
+      )}
+
+      {/* --- What the threshold is actually doing ---------------------------- */}
+      {/* Under the control rather than beside it: you change the number above,
+          and the shape it produces is the next thing you see. */}
+      <h2 className="mt-10 mb-1 text-lg font-semibold text-foreground">
+        Where the suggestions are landing
+      </h2>
+      <p className="mb-3 max-w-prose text-sm text-muted-foreground">
+        Every suggestion the model has produced, by how confident it was. The
+        threshold above is the line between a teacher seeing it and a specialist
+        holding it.
+      </p>
+
+      {confidence.isError && <ErrorState message={confidence.error.message} />}
+
+      {confidence.isSuccess && confidence.data.length === 0 && (
+        <p className="rounded-card border border-border bg-card shadow-raised p-5 text-sm text-muted-foreground">
+          No suggestions have been generated yet, so there is no distribution to
+          draw. This fills in the first time a teacher asks for strategies.
+        </p>
+      )}
+
+      {/* isSuccess and non-empty only. An empty chart is a picture of a flat
+          distribution, which is a claim nobody made. */}
+      {confidence.isSuccess && confidence.data.length > 0 && (
+        <div className="rounded-card border border-border bg-card shadow-raised p-5">
+          <ConfidenceHistogram
+            rows={confidence.data}
+            threshold={current.confidence_threshold}
+          />
+        </div>
       )}
 
       {/* --- Audit log ------------------------------------------------------ */}

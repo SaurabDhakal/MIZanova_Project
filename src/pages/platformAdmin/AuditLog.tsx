@@ -5,6 +5,7 @@ import {
   queryKeys,
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import { auditAction } from '../../lib/auditActions'
 
 /**
  * Audit log.
@@ -17,17 +18,6 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
  * This is the reason those two tables have no insert, update or delete policy
  * at all. An audit log its subjects can write to proves nothing.
  */
-
-const ACTION_STYLE: Record<string, { label: string; className: string }> = {
-  'staff.verified': {
-    label: 'Staff verified',
-    className: 'bg-success-subtle text-success-foreground',
-  },
-  'staff.verification_withdrawn': {
-    label: 'Verification withdrawn',
-    className: 'bg-danger-subtle text-danger-foreground',
-  },
-}
 
 type Entry = {
   key: string
@@ -54,10 +44,7 @@ export default function AuditLog() {
 
   const entries: Entry[] = [
     ...(admin.data ?? []).map((e) => {
-      const style = ACTION_STYLE[e.action] ?? {
-        label: e.action,
-        className: 'bg-background text-muted-foreground',
-      }
+      const style = auditAction(e.action)
       return {
         key: e.id,
         when: e.occurred_at,
