@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from 'react'
-import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Spinner from './Spinner'
 import { ROLE_CONFIG, type Role } from '../lib/roles'
 import { useAuth } from '../lib/auth'
@@ -13,6 +13,8 @@ import PendingLogsBanner from './PendingLogsBanner'
 import Toasts from './Toasts'
 import UpdatePrompt from './UpdatePrompt'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import GlobalSearch from './GlobalSearch'
+import NotificationBell from './NotificationBell'
 
 /**
  * The frame every signed-in screen sits inside: navy sidebar on the left,
@@ -109,16 +111,30 @@ export default function AppShell({ role }: { role: Role }) {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link
-        to="/"
-        className={`block py-4 ${collapsed ? 'flex justify-center px-0' : 'px-3'}`}
-        aria-label="MiZanova home"
-        title={collapsed ? 'MiZanova' : undefined}
+      {/*
+        THE LOGO COLLAPSES THE SIDEBAR. It used to link to "/".
+
+        Nothing became unreachable: "/" goes to RoleRedirect, which sends you
+        to your own role's home — and that is already the first item in the nav
+        directly below. The link was a second door to the same room.
+
+        The collapse BUTTON at the bottom stays, and that is deliberate rather
+        than redundant. A logo you can click is not discoverable: nobody finds
+        it without being told. The button is the affordance; this is the
+        shortcut for the people who have learned it.
+      */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className={`block w-full py-4 ${collapsed ? 'flex justify-center px-0' : 'px-3'}`}
+        aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
+        aria-expanded={!collapsed}
+        title={collapsed ? 'Expand' : 'Collapse'}
       >
         {/* The crop is transparent, so it sits on the navy without the white
             rectangle the supplied file would have put there. */}
         <Logo variant={collapsed ? 'mark' : 'full'} tone="dark-background" />
-      </Link>
+      </button>
 
       {/* WHERE YOU ARE WORKING, AT THE TOP. It used to sit in the page header
           beside Sign out, which is where somebody looks to leave rather than
@@ -176,17 +192,21 @@ export default function AppShell({ role }: { role: Role }) {
             It duplicates the account menu on purpose: with the rail collapsed
             to icons this is the nearer target, which is exactly when he asked
             for it. */}
+        {/* Settings, not "Account" pointing at Security. The label said one
+            thing and the destination was another, so somebody looking for
+            their own details landed on two-factor and concluded there was no
+            settings screen. Points at the section's first tab now. */}
         <NavLink
-          to="/account/security"
-          title={collapsed ? 'Account' : undefined}
+          to="/account/profile"
+          title={collapsed ? 'Settings' : undefined}
           className={({ isActive }) =>
             `flex items-center gap-3 rounded-btn py-2 text-sm hover:bg-white/10 hover:text-sidebar-foreground ${
               collapsed ? 'justify-center px-0' : 'px-3'
             } ${isActive ? 'text-sidebar-foreground' : 'text-sidebar-muted'}`
           }
         >
-          <Icon name="lock" className="h-4 w-4 shrink-0" />
-          <span className={collapsed ? 'sr-only' : undefined}>Account</span>
+          <Icon name="user" className="h-4 w-4 shrink-0" />
+          <span className={collapsed ? 'sr-only' : undefined}>Settings</span>
         </NavLink>
         <button
           type="button"
@@ -219,9 +239,24 @@ export default function AppShell({ role }: { role: Role }) {
         Skip to content
       </a>
 
-      {/* Desktop sidebar — always visible from the `md` breakpoint up. */}
+      {/*
+        Desktop sidebar — always visible from `md` up, and it STAYS PUT.
+
+        It used to scroll away with the page: measured on Global Overview, the
+        sidebar top went from -1 to -126 on a 126px scroll, and so did the
+        header. On a long screen — Screening, or a roster — you scrolled to the
+        bottom and the navigation was somewhere above you, so getting anywhere
+        else meant scrolling back up first. Every role, every long page.
+
+        `self-start` matters and is easy to leave out. A flex child stretches to
+        the row's height by default, and an item already as tall as its
+        container has nothing to stick within — `sticky` silently does nothing.
+        `h-screen` then makes it exactly one viewport, and `overflow-y-auto`
+        lets a long nav scroll inside itself rather than pushing the collapse
+        control off the bottom.
+      */}
       <aside
-        className={`hidden shrink-0 bg-sidebar p-4 transition-[width] md:block ${collapsed ? 'w-20' : 'w-60'}`}
+        className={`sticky top-0 hidden h-screen shrink-0 self-start overflow-y-auto bg-sidebar p-4 transition-[width] md:block ${collapsed ? 'w-20' : 'w-60'}`}
       >
         {sidebar}
       </aside>
@@ -240,7 +275,11 @@ export default function AppShell({ role }: { role: Role }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:px-8">
+        {/* Sticky too, and for the same reason: search, the account menu and
+            the page title are all things you reach for mid-page. `z-10` so the
+            page scrolls underneath rather than through it — the search results
+            panel inside carries its own z-index within this context. */}
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:px-8">
           <button
             type="button"
             className="rounded-btn border border-border px-3 py-2 text-sm font-medium md:hidden"
@@ -249,13 +288,41 @@ export default function AppShell({ role }: { role: Role }) {
           >
             Menu
           </button>
+          {/* CENTRED IN THE BAR, not in what is left of it.
+              A flex-1 wrapper looks centred and is not: the account menu is
+              ~250px and the sidebar is not, so the box lands about half the
+              account menu's width to the left — measured at 129px off on a
+              903px viewport. Absolute positioning from the header's own centre
+              is the only version that is actually centred.
+
+              XL AND ABOVE ONLY, and the number is measured rather than picked.
+              A centred 448px box has to clear the account menu on the right:
+              at 1280 it does, with 68px to spare, and at 903 it overlapped by
+              178px. Below xl it goes back into flow, which centres it in the
+              space that is left and can never collide.
+
+              The account menu used to carry a full email address at 246px —
+              wide enough that a fallback nobody chose was setting this
+              breakpoint. It is 189px now, avatar and role only, which is why
+              1280 has room at all. See the note in AccountMenu.tsx.
+
+              Renders nothing at all for a parent: one to three children,
+              already on the screen in front of them. */}
+          <div className="flex flex-1 justify-center px-2 xl:absolute xl:left-1/2 xl:w-full xl:max-w-md xl:-translate-x-1/2 xl:px-0">
+            <GlobalSearch role={role} basePath={config.basePath} />
+          </div>
+
           {/* ONE CONTROL, NOT THREE. This was a name, a `Security` button and a
               `Sign out` button, all three flat and all three the same weight.
               Saurab: "security on top seems so lame", "signout seems so pale".
               They were never peers — opening a security page is routine, and
               signing out ends the session on a shared school laptop — so they
               now sit behind the avatar with sign out separated and coloured. */}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-1 md:gap-2">
+            {/* Left of the account menu, as the Figma has it. Every role gets
+                one, and every role's lines are counted from work that is really
+                waiting — see NotificationBell. */}
+            <NotificationBell role={role} basePath={config.basePath} />
             <AccountMenu roleLabel={config.label} />
           </div>
         </header>

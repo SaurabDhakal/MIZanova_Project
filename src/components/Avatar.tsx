@@ -79,6 +79,7 @@ export default function Avatar({
   email = '',
   size = 'md',
   className = '',
+  photoUrl = null,
 }: {
   /** Anything stable and unique — a profile id. Decides the colour. */
   id: string
@@ -86,8 +87,39 @@ export default function Avatar({
   email?: string
   size?: keyof typeof SIZES
   className?: string
+  /**
+   * A SIGNED url, from `avatarUrl()`. Null means no photo, which is the normal
+   * case and draws the monogram below.
+   *
+   * A URL RATHER THAN A PATH, and that is not laziness. The bucket is private,
+   * so a path has to be exchanged for a signed URL over the network — and a
+   * component that does that per instance would fire one request per face on a
+   * roster of thirty. The caller signs what it needs, once, and passes it in.
+   */
+  photoUrl?: string | null
 }) {
   const label = name.trim() || email.trim()
+
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt=""
+        aria-hidden="true"
+        title={label || undefined}
+        /*
+         * object-cover, because a portrait cropped to a circle by the browser's
+         * default would squash rather than crop, and a squashed face is worse
+         * than initials.
+         *
+         * No onError fallback to the monogram, deliberately: a signed URL that
+         * has expired should look broken for the moment it takes the page to
+         * refetch, rather than silently pretend the person never uploaded one.
+         */
+        className={`inline-flex shrink-0 rounded-full object-cover ${SIZES[size]} ${className}`}
+      />
+    )
+  }
 
   return (
     <span
