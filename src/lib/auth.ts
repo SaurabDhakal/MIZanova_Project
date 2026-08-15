@@ -19,6 +19,8 @@ export type Profile = {
   email: string | null
   /** FR18. Set by a Platform Admin, never by the user. */
   is_verified: boolean
+  /** db/058. `<profile id>/<file>` in the private avatars bucket, or null. */
+  avatar_path: string | null
 }
 
 export type SignUpDetails = {
@@ -75,6 +77,24 @@ export type AuthValue = {
     details: SignUpDetails,
   ) => Promise<{ needsEmailConfirmation: boolean }>
   signOut: () => Promise<void>
+  /**
+   * Change the sign-in address, proving the current password first.
+   *
+   * The password is not optional and not a formality: whoever can change this
+   * address receives every future password reset, so an unattended signed-in
+   * laptop would otherwise be a permanent account takeover. See the note in
+   * AuthProvider.
+   */
+  changeEmail: (currentPassword: string, newEmail: string) => Promise<void>
+  /**
+   * Re-read your own profile row.
+   *
+   * The settings page needs it: changing a name writes to the database, and
+   * without this the header, the account menu and every monogram in the
+   * product carry on showing the old one until a full reload. A screen that
+   * saved successfully and still shows what you replaced reads as a failure.
+   */
+  refreshProfile: () => Promise<void>
   /** Email a one-time link that lets someone choose a new password. */
   requestPasswordReset: (email: string) => Promise<void>
   /**

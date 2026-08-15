@@ -47,6 +47,13 @@ export const PATHS = {
   // A panel with its edge pushed in — reads as "make this narrower", which a
   // chevron alone does not.
   collapse: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm5.5 0v14M7 10l-2 2 2 2',
+  // Circle at 10,10 r6 and a handle to 20,20 — the whole glyph sits inside
+  // 3.5..20.5 on both axes, so it centres like the rest at 24×24.
+  search: 'M10 16a6 6 0 1 0 0-12 6 6 0 0 0 0 12Zm4.5-1.5L20 20',
+  // One person, where `people` is a group. Head at 12,8 r3.5 and shoulders to
+  // y=20: the glyph spans 5.5..18.5 across and 4.5..20 down, so it sits on the
+  // same optical centre as the rest.
+  user: 'M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0 2c-3.5 0-6.5 2-6.5 4.5V20h13v-2c0-2.5-3-4.5-6.5-4.5Z',
   // --- navigation ---------------------------------------------------------
   dashboard: 'M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z',
   students: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0 2c-3 0-6 1.5-6 4v2h12v-2c0-2.5-3-4-6-4Zm8-9a3 3 0 1 1 0 6M19 20v-2c0-1.6-1-2.9-2.5-3.6',
@@ -76,6 +83,10 @@ export const PATHS = {
   screening: 'M10.5 16a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Zm4 -.5L20 21M8.5 10.5h4m-2-2v4',
   recordAccess: 'M12 5c-5.5 0-9 5.5-9 7s3.5 7 9 7 9-5.5 9-7-3.5-7-9-7Zm0 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
   compliance: 'M8 4h8a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm2 6 1.5 1.5L14.5 8M10 15h4',
+  // A bell: dome from 7 to 17, a flat lip, and the clapper below. Drawn open
+  // rather than struck through — this one is never "muted", because what it
+  // counts is work rather than messages.
+  bell: 'M6 17h12l-1.5-2.5V11a4.5 4.5 0 0 0-9 0v3.5L6 17Zm4 0v.5a2 2 0 0 0 4 0V17M12 4.5V6',
   // --- the account menu ---------------------------------------------------
   chevronDown: 'M6 9.5 12 15.5 18 9.5',
   // A padlock, for the page about passwords and sign-in. `privacy` and
