@@ -13,6 +13,7 @@ import {
 import { fetchStaffMfaStatus } from '../../lib/mfa'
 import { MFA_REQUIRED_ROLES, ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import { auditAction } from '../../lib/auditActions'
 import ReviewEvents from '../../components/ReviewEvents'
 
 /**
@@ -436,7 +437,16 @@ export default function GlobalOverview() {
               key={event.id}
               className="rounded-card border border-border bg-card shadow-raised p-3 text-sm"
             >
-              <span className="font-medium text-foreground">{event.action}</span>
+              {/* A pill with the human name, not the raw action. This rendered
+                  `event.action` straight from the database, so the landing
+                  screen said "staff_moved_school" while the Audit Log two
+                  clicks away said "Moved school" for the same event. The map
+                  is shared now so they cannot disagree again. */}
+              <span
+                className={`inline-block rounded-btn px-2 py-0.5 text-xs font-semibold ${auditAction(event.action).className}`}
+              >
+                {auditAction(event.action).label}
+              </span>
               {event.subject_label && (
                 <span className="text-muted-foreground"> · {event.subject_label}</span>
               )}
