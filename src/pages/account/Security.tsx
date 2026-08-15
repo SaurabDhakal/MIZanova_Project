@@ -131,15 +131,11 @@ export default function Security() {
   if (factors.isPending) return <Spinner label="Loading your security settings" />
   if (factors.isError) return <ErrorState message={factors.error.message} />
 
+  // NO <h1> HERE ANY MORE. AccountLayout carries "Settings" and the tab row,
+  // and a second title underneath it read as two pages stacked. The tab is
+  // what says which section you are in.
   return (
     <div className="max-w-3xl">
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Security</h1>
-        <p className="mt-1 text-muted-foreground">
-          Your password and two-factor authentication.
-        </p>
-      </header>
-
       {/* --- Recovery codes, shown once ------------------------------------ */}
       {freshCodes && (
         <div
