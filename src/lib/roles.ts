@@ -76,6 +76,31 @@ export function pathForRole(role: Role): string {
   return ROLE_CONFIG[role].basePath
 }
 
+/**
+ * What the ⌘K palette searches for this role, or null for no palette.
+ *
+ * THIS IS ABOUT DESTINATIONS, NOT PERMISSIONS. Educators, specialists and
+ * school admins have a `students/:id` route; a platform admin has
+ * `tenants/:schoolId` and no student record to open; a parent has neither, and
+ * one to three children already in front of them.
+ *
+ * Who may SEE which child is decided by `can_view_student` in the database.
+ * Nothing here filters results and nothing here should ever start to — the
+ * same search returns an educator their assigned children and a platform admin
+ * everybody, because the policy answers differently, not because this does.
+ *
+ * It lives beside the routes rather than in the palette because it is role
+ * configuration, and because a component file that also exports a helper
+ * breaks fast refresh.
+ */
+export function paletteKindFor(role: Role): 'students' | 'schools' | null {
+  if (role === 'educator' || role === 'specialist' || role === 'school_admin') {
+    return 'students'
+  }
+  if (role === 'platform_admin') return 'schools'
+  return null
+}
+
 export type NavItem = {
   /** URL segment after the role's base path. Empty string = the landing page. */
   path: string
@@ -158,6 +183,10 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'caseload', label: 'Caseload', icon: 'caseload', group: 'Your work', milestone: 'M10' },
       { path: 'review-queue', label: 'Review Queue', icon: 'review', group: 'Your work', milestone: 'M6' },
       { path: 'schedule', label: 'Schedule', icon: 'schedule', group: 'Your work', milestone: 'M10' },
+      // A specialist could always be MESSAGED — start_message_thread puts any
+      // two of a child's care team in a thread — and until now had no screen to
+      // read it on. See pages/specialist/Messages.tsx.
+      { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'resources', label: 'Resources', icon: 'resources', group: 'Library', milestone: 'M12' },
     ],
   },
@@ -176,6 +205,10 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'kpis', label: 'Performance KPIs', icon: 'kpis', group: 'Oversight', milestone: 'M13' },
       { path: 'compliance', label: 'Compliance', icon: 'compliance', group: 'Oversight', milestone: 'M15' },
       { path: 'access-log', label: 'Record Access', icon: 'recordAccess', group: 'Oversight', milestone: 'M15' },
+      // Outward only: db/009 lets an administrator open a conversation with a
+      // family or teacher at their school, and nobody can open one with them.
+      // See pages/schoolAdmin/Messages.tsx.
+      { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'invoices', label: 'Invoices', icon: 'invoices', group: 'Billing', milestone: 'M11' },
     ],
   },

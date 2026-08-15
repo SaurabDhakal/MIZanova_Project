@@ -117,7 +117,7 @@ export default function AuthProvider({
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, school_id, role, first_name, last_name, full_name, email, is_verified',
+          'id, school_id, role, first_name, last_name, full_name, email, is_verified, avatar_path',
         )
         .eq('id', id)
         .single()
@@ -391,6 +391,73 @@ export default function AuthProvider({
     [session],
   )
 
+  /**
+   * Change the sign-in address, proving the current password first.
+   *
+   * THE SAME THREAT AS changePassword, AND A WORSE DOOR. Somebody at an
+   * unattended signed-in laptop who can change the email owns the account
+   * permanently: every future password reset goes to their inbox, and the real
+   * owner cannot even start a recovery because the address they would type is
+   * no longer on the account.
+   *
+   * The first version of the settings page called updateUser({ email }) with no
+   * check at all, which made the careful password flow beside it pointless —
+   * an attacker would simply take the easier door.
+   *
+   * Verified with a THROWAWAY client, exactly as above: signing in on the live
+   * one would replace the session on a wrong guess and sign the person out of
+   * the screen they are standing in front of.
+   *
+   * Supabase then mails the NEW address and changes nothing until that link is
+   * opened. Worth also turning on "Secure email change" in the dashboard,
+   * which additionally mails the OLD address — so a change made behind
+   * somebody's back is at least visible to them.
+   */
+  const changeEmail = useCallback(
+    async (currentPassword: string, newEmail: string) => {
+      const email = session?.user.email
+      if (!email) throw new Error('You are not signed in.')
+      if (newEmail.trim().toLowerCase() === email.toLowerCase()) {
+        throw new Error('That is already your email address.')
+      }
+
+      const { createClient } = await import('@supabase/supabase-js')
+      const checker = createClient(
+        import.meta.env.VITE_SUPABASE_URL!,
+        (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+          import.meta.env.VITE_SUPABASE_ANON_KEY)!,
+        { auth: { persistSession: false, autoRefreshToken: false } },
+      )
+
+      const { error: wrongPassword } = await checker.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      })
+
+      if (wrongPassword) {
+        throw new Error(
+          /invalid login credentials/i.test(wrongPassword.message)
+            ? 'That is not your current password.'
+            : wrongPassword.message,
+        )
+      }
+
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
+      if (error) throw error
+    },
+    [session],
+  )
+
+  /*
+   * `() => true` because this is asked for deliberately rather than fired by a
+   * session change: the caller has just saved something and is waiting to see
+   * it. The cancellation guard exists for the effect below, where a second
+   * sign-in can overtake the first.
+   */
+  const refreshProfile = useCallback(async () => {
+    if (userId) await loadProfile(userId, () => true)
+  }, [userId, loadProfile])
+
   const value = useMemo<AuthValue>(
     () => ({
       session,
@@ -404,6 +471,8 @@ export default function AuthProvider({
       requestPasswordReset,
       setNewPassword,
       changePassword,
+      changeEmail,
+      refreshProfile,
     }),
     [
       session,
@@ -417,6 +486,8 @@ export default function AuthProvider({
       requestPasswordReset,
       setNewPassword,
       changePassword,
+      changeEmail,
+      refreshProfile,
     ],
   )
 
