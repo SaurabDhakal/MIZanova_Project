@@ -114,57 +114,72 @@ export default function SpecialistDashboard() {
 
         <StatTile
           label="Logs seen"
-          value={logs.isSuccess ? (logs.data?.length ?? 0) : undefined}
+          value={logs.isSuccess ? logs.data.length : undefined}
           icon="observations"
           hint="Across your students"
         />
       </div>
 
 
-      {/* --- Flagged incidents ---------------------------------------------- */}
-      {flagged.length > 0 && (
+      {/* --- Flagged incidents ----------------------------------------------
+          A FAILED LOGS QUERY MUST NOT LOOK LIKE AN EMPTY ONE. This section used
+          to hang off `flagged.length > 0` alone, so when the query failed it
+          disappeared in silence — telling a specialist nothing was flagged on a
+          screen they check to find out exactly that. The tiles above were
+          already honest about it; this was not. */}
+      {(logs.isError || flagged.length > 0) && (
         <>
           <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
             Flagged on your caseload
           </h2>
-          <p className="mb-3 max-w-prose text-sm text-muted-foreground">
-            These are also in your school administrator&rsquo;s safeguarding
-            queue. They appear here because you may be the person who knows this
-            child best.
-          </p>
-          <ul className="space-y-3">
-            {flagged.slice(0, 10).map((log) => {
-              const student = students.data.find((s) => s.id === log.student_id)
-              return (
-                <li
-                  key={log.id}
-                  className="rounded-card border border-border bg-card shadow-raised p-4"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-btn bg-danger-subtle px-2.5 py-1 text-sm font-semibold text-danger-foreground">
-                      {log.behaviour_type} · {log.intensity}
-                    </span>
-                    {student && (
-                      <Link
-                        to={`/specialist/students/${student.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {student.first_name} {student.last_name}
-                      </Link>
-                    )}
-                    <span className="ml-auto text-sm text-muted-foreground">
-                      {new Date(log.occurred_at).toLocaleDateString('en-AU', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+
+          {logs.isError ? (
+            <ErrorState
+              message="Flagged incidents could not be loaded, which is not the same as there being none. Check the safeguarding queue before treating your caseload as clear."
+              onRetry={() => void logs.refetch()}
+            />
+          ) : (
+            <>
+              <p className="mb-3 max-w-prose text-sm text-muted-foreground">
+                These are also in your school administrator&rsquo;s safeguarding
+                queue. They appear here because you may be the person who knows
+                this child best.
+              </p>
+              <ul className="space-y-3">
+                {flagged.slice(0, 10).map((log) => {
+                  const student = students.data.find((s) => s.id === log.student_id)
+                  return (
+                    <li
+                      key={log.id}
+                      className="rounded-card border border-border bg-card shadow-raised p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-btn bg-danger-subtle px-2.5 py-1 text-sm font-semibold text-danger-foreground">
+                          {log.behaviour_type} · {log.intensity}
+                        </span>
+                        {student && (
+                          <Link
+                            to={`/specialist/students/${student.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {student.first_name} {student.last_name}
+                          </Link>
+                        )}
+                        <span className="ml-auto text-sm text-muted-foreground">
+                          {new Date(log.occurred_at).toLocaleDateString('en-AU', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
         </>
       )}
     </div>
