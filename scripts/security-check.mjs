@@ -59,6 +59,9 @@ const PROTECTED_TABLES = [
   'student_access_events',
   'specialist_sessions',
   'specialist_session_notes',
+  // db/059. When a child is seen by a therapist is health information, so an
+  // appointment is no less sensitive than the session it becomes.
+  'specialist_appointments',
 ]
 
 let failures = 0
@@ -117,6 +120,15 @@ const writes = [
       student_id: '11111111-1111-1111-1111-111111111111',
       behaviour_type: 'disruptive',
       intensity: 'high',
+    },
+  ],
+  [
+    'book an appointment',
+    'specialist_appointments',
+    {
+      student_id: '11111111-1111-1111-1111-111111111111',
+      specialist_id: '11111111-1111-1111-1111-111111111111',
+      starts_at: '2030-01-01T00:00:00.000Z',
     },
   ],
 ]
