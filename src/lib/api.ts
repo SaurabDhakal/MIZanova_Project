@@ -2226,7 +2226,8 @@ export async function createSession(input: {
   sharedSummary: string
   shareWithTeacher: boolean
   shareWithParents: boolean
-}): Promise<void> {
+  /** Returns the new session's id, so an appointment can point at it. */
+}): Promise<string> {
   const { data: user } = await supabase.auth.getUser()
   const specialistId = user.user?.id
   if (!specialistId) throw new Error('You are not signed in.')
@@ -2264,6 +2265,8 @@ export async function createSession(input: {
       )
     }
   }
+
+  return session.id
 }
 
 export async function setSessionSharing(
@@ -2281,6 +2284,168 @@ export async function setSessionSharing(
 
   if (error) throw new Error(error.message)
   assertChanged(data, 'The sharing setting')
+}
+
+// ---------------------------------------------------------------------------
+// Appointments (db/059)
+// ---------------------------------------------------------------------------
+// An appointment is a PLAN; a session is a FACT. Completing the first writes
+// the second, which is why `completeAppointment` below does two writes rather
+// than flipping a status. The database refuses 'completed' without a session to
+// point at, so the two cannot drift.
+
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+
+export type AppointmentRow = {
+  id: string
+  student_id: string
+  specialist_id: string
+  /** An instant, not a date — see db/059 for why it is not two columns. */
+  starts_at: string
+  duration_minutes: number
+  status: AppointmentStatus
+  purpose: string | null
+  session_id: string | null
+  cancelled_reason: string | null
+}
+
+/**
+ * Every appointment the caller may see.
+ *
+ * NOT filtered to `specialist_id = me`, deliberately. RLS returns appointments
+ * for every child on this person's caseload, including ones a colleague booked
+ * — and without those, a refused booking would be inexplicable: the clash is
+ * with something the screen chose not to show.
+ */
+export async function fetchAppointments(): Promise<AppointmentRow[]> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .select(
+      'id, student_id, specialist_id, starts_at, duration_minutes, status, purpose, session_id, cancelled_reason',
+    )
+    .order('starts_at')
+    .limit(500)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as AppointmentRow[]
+}
+
+/**
+ * Turn a clash into a sentence somebody can act on.
+ *
+ * Postgres answers an exclusion violation with "conflicting key value violates
+ * exclusion constraint specialist_appointments_student_no_overlap", which names
+ * the constraint and not the problem. Both constraints are in db/059 and which
+ * one fired is the only thing that tells you whose diary is full.
+ */
+function describeClash(message: string): string {
+  if (message.includes('specialist_no_overlap')) {
+    return 'You already have an appointment overlapping that time. Cancel it or pick another slot.'
+  }
+  if (message.includes('student_no_overlap')) {
+    return 'This child already has an appointment overlapping that time — possibly booked by another specialist on their team.'
+  }
+  return message
+}
+
+export async function bookAppointment(input: {
+  studentId: string
+  startsAt: string
+  durationMinutes: number
+  purpose: string
+}): Promise<void> {
+  const { data: user } = await supabase.auth.getUser()
+  const specialistId = user.user?.id
+  if (!specialistId) throw new Error('You are not signed in.')
+
+  const { error } = await supabase.from('specialist_appointments').insert({
+    student_id: input.studentId,
+    specialist_id: specialistId,
+    starts_at: input.startsAt,
+    duration_minutes: input.durationMinutes,
+    purpose: input.purpose.trim() || null,
+  })
+
+  if (error) throw new Error(describeClash(error.message))
+}
+
+export async function rescheduleAppointment(
+  id: string,
+  startsAt: string,
+  durationMinutes: number,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ starts_at: startsAt, duration_minutes: durationMinutes })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(describeClash(error.message))
+  assertChanged(data, 'The appointment')
+}
+
+/** Keeps the row. "Booked and called off" is not the same fact as never booked. */
+export async function cancelAppointment(
+  id: string,
+  reason: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ status: 'cancelled', cancelled_reason: reason.trim() || null })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The cancellation')
+}
+
+/**
+ * Record what happened, then mark the appointment done.
+ *
+ * Two writes, in this order on purpose. A session with no appointment pointing
+ * at it is untidy; an appointment marked complete with no session behind it is
+ * a delivered-minutes figure that cannot be reconciled — and db/059 refuses it
+ * anyway, so the order is the only one that works.
+ *
+ * Trials and the goal link are not asked for here. They belong with the rest of
+ * the clinical record on the student's page, and a second form collecting half
+ * of it is how two half-records get written for one session.
+ */
+export async function completeAppointment(input: {
+  appointmentId: string
+  studentId: string
+  sessionDate: string
+  durationMinutes: number
+  clinicalNotes: string
+  sharedSummary: string
+  shareWithTeacher: boolean
+  shareWithParents: boolean
+}): Promise<void> {
+  const sessionId = await createSession({
+    studentId: input.studentId,
+    sessionDate: input.sessionDate,
+    durationMinutes: input.durationMinutes,
+    goalId: null,
+    trialsSuccessful: null,
+    trialsTotal: null,
+    clinicalNotes: input.clinicalNotes,
+    sharedSummary: input.sharedSummary,
+    shareWithTeacher: input.shareWithTeacher,
+    shareWithParents: input.shareWithParents,
+  })
+
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ status: 'completed', session_id: sessionId })
+    .eq('id', input.appointmentId)
+    .select('id')
+
+  if (error) {
+    throw new Error(
+      `The session was recorded but the appointment was not marked complete: ${error.message}. The session is safe — mark the appointment again.`,
+    )
+  }
+  assertChanged(data, 'The appointment')
 }
 
 export type SystemEvent = {
@@ -4704,6 +4869,7 @@ export const queryKeys = {
   systemEvents: ['system-events'] as const,
   sessions: (studentId: string) => ['sessions', studentId] as const,
   mySessions: ['sessions', 'mine'] as const,
+  appointments: ['appointments'] as const,
   aiQuota: (schoolId: string | null, actorId: string) =>
     ['ai-quota', schoolId, actorId] as const,
   consents: (id: string) => ['consents', id] as const,
