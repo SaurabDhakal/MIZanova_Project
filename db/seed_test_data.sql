@@ -35,6 +35,46 @@ on conflict (school_id, external_ref) do nothing;
 
 
 -- ---------------------------------------------------------------------------
+-- Invoices, so Billing & Revenue has something to be about
+-- ---------------------------------------------------------------------------
+-- Without these the screen is correct and empty, and an empty screen cannot
+-- show whether it works. One of each status, because each renders differently
+-- and each counts towards a different figure:
+--
+--   paid   -> Collected
+--   open   -> Outstanding, and the one dated in the past is also Past due
+--   draft  -> counted, and no family can see it (db/020's select policy)
+--   void   -> counted, in no total
+--
+-- Fixed ids so a second run changes nothing. Statuses are set on INSERT: the
+-- guard in db/020 that reserves 'paid' for the payment system is a BEFORE
+-- UPDATE trigger, so seeding a paid row directly is allowed and marking one
+-- paid from a browser still is not.
+insert into public.invoices
+  (id, school_id, student_id, description, amount_cents, status, due_date, paid_at)
+select
+  v.id::uuid,
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  s.id,
+  v.description,
+  v.amount_cents,
+  v.status::public.invoice_status,
+  v.due_date::date,
+  v.paid_at::timestamptz
+from (values
+  ('aaaa0001-0000-4000-8000-000000000001', '4021', 'Term 3 tuition',                 145000, 'paid',  '2026-07-15', '2026-07-11T09:20:00+10:00'),
+  ('aaaa0001-0000-4000-8000-000000000002', '4022', 'Speech therapy, 12 sessions',     96000, 'open',  '2026-07-01', null),
+  ('aaaa0001-0000-4000-8000-000000000003', '4023', 'Term 4 tuition',                 145000, 'open',  '2026-10-15', null),
+  ('aaaa0001-0000-4000-8000-000000000004', '4024', 'Occupational therapy assessment', 38000, 'draft', null,         null),
+  ('aaaa0001-0000-4000-8000-000000000005', '4021', 'Excursion levy — cancelled',       4500, 'void',  null,         null)
+) as v(id, external_ref, description, amount_cents, status, due_date, paid_at)
+join public.students s
+  on s.external_ref = v.external_ref
+ and s.school_id = '11111111-1111-1111-1111-111111111111'
+on conflict (id) do nothing;
+
+
+-- ---------------------------------------------------------------------------
 -- THE PROOF
 -- ---------------------------------------------------------------------------
 -- `stored_in_database` is what a school staff member is allowed to see.
