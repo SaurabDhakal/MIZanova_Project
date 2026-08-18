@@ -1703,6 +1703,91 @@ export type SchoolRow = {
   kind: OrganisationKind
 }
 
+/**
+ * Close a school, reopen it, or move it between trial and active.
+ *
+ * THE ONLY WAY A SCHOOL LEAVES, and deliberately not a delete. `profiles`,
+ * `students`, `resources` and `invoices` all reference it `on delete restrict`,
+ * so Postgres refuses to remove a school that anybody or anything belongs to —
+ * db/001 put that there so a tenant cannot be deleted out from under the people
+ * working in it. Closing says the same thing and keeps the records.
+ *
+ * assertChanged is not optional here. `schools_write_platform_admin` is the only
+ * policy that allows this, so a caller who is not a platform admin gets success
+ * and zero rows — a Close button that reports a school closed and closed
+ * nothing. The row is returned as well because the toast names it.
+ */
+export async function updateSchoolStatus(
+  id: string,
+  status: OrganisationStatus,
+): Promise<SchoolRow> {
+  const { data, error } = await supabase
+    .from('schools')
+    .update({ status })
+    .eq('id', id)
+    .select('id, name, suburb, state, status, kind')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The status change')
+  return data![0] as SchoolRow
+}
+
+/** What is holding an organisation in place. Every count zero means it can go. */
+export type SchoolDeletability = {
+  id: string
+  students: number
+  people: number
+  memberships: number
+  resources: number
+  invoices: number
+  /** Cascaded away with the school. Reported so the screen can say so, not a blocker. */
+  invitations: number
+}
+
+/** Everything except `invitations`, which is cancelled rather than blocking — db/060. */
+export const DELETION_BLOCKERS = [
+  'students',
+  'people',
+  'memberships',
+  'resources',
+  'invoices',
+] as const
+
+export function whatBlocksDeletion(row: SchoolDeletability | undefined): string[] {
+  if (!row) return ['still being counted']
+  return DELETION_BLOCKERS.filter((k) => row[k] > 0).map((k) => `${row[k]} ${k}`)
+}
+
+export async function fetchSchoolDeletability(): Promise<SchoolDeletability[]> {
+  const { data, error } = await supabase
+    .from('organisation_deletability')
+    .select('id, students, people, memberships, resources, invoices, invitations')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as SchoolDeletability[]
+}
+
+/**
+ * Remove an organisation that has nothing in it. NOT how a customer leaves —
+ * that is `updateSchoolStatus(id, 'closed')`. This is for the one typed in by
+ * mistake.
+ *
+ * The screen only offers this when every count above is zero, and that check is
+ * a courtesy rather than the protection: four foreign keys are `on delete
+ * restrict` and db/060 adds a trigger for live memberships, so the database
+ * refuses on its own if the counts were stale or somebody called this directly.
+ */
+export async function deleteSchool(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('schools')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The school')
+}
+
 export async function fetchSchools(): Promise<SchoolRow[]> {
   const { data, error } = await supabase
     .from('schools')
@@ -2018,6 +2103,8 @@ export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void'
 export type InvoiceRow = {
   id: string
   student_id: string
+  /** Which tenant issued it. Without this the platform view cannot say whose it is. */
+  school_id: string
   description: string
   /** Whole cents. Never a decimal — see the note at the top of db/020. */
   amount_cents: number
@@ -2042,16 +2129,77 @@ export function formatMoney(cents: number, currency = 'aud'): string {
  * No filter by school or student. `invoices_select` in db/020 returns a parent
  * only their own child's, and hides drafts from them entirely.
  */
+const INVOICE_COLUMNS =
+  'id, student_id, school_id, description, amount_cents, currency, status, due_date, created_at, paid_at'
+
 export async function fetchInvoices(): Promise<InvoiceRow[]> {
   const { data, error } = await supabase
     .from('invoices')
-    .select(
-      'id, student_id, description, amount_cents, currency, status, due_date, created_at, paid_at',
-    )
+    .select(INVOICE_COLUMNS)
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
   return (data ?? []) as InvoiceRow[]
+}
+
+/** One row per school per currency — db/061. Summed by Postgres, not the browser. */
+export type SchoolBillingTotals = {
+  school_id: string
+  currency: string
+  invoices: number
+  drafts: number
+  issued: number
+  paid: number
+  voided: number
+  collected_cents: number
+  outstanding_cents: number
+  overdue: number
+  overdue_cents: number
+  oldest_overdue: string | null
+}
+
+export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]> {
+  const { data, error } = await supabase
+    .from('school_billing_totals')
+    .select('*')
+    .order('collected_cents', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as SchoolBillingTotals[]
+}
+
+export type InvoiceFilter = {
+  /** '' for every school the caller may see. */
+  schoolId: string
+  status: 'all' | InvoiceStatus
+  page: number
+}
+
+/**
+ * Invoices, a page at a time, with a real total.
+ *
+ * The screen used to fetch every invoice and render `.slice(0, 25)`, so a
+ * heading that said "Recent invoices" hid the twenty-sixth onwards and gave no
+ * sign there was anything to hide.
+ */
+export async function fetchInvoicePage(
+  filter: InvoiceFilter,
+): Promise<Page<InvoiceRow>> {
+  const from = filter.page * PAGE_SIZE
+
+  let query = supabase
+    .from('invoices')
+    .select(INVOICE_COLUMNS, { count: 'exact' })
+
+  if (filter.schoolId) query = query.eq('school_id', filter.schoolId)
+  if (filter.status !== 'all') query = query.eq('status', filter.status)
+
+  const { data, error, count } = await query
+    .order('created_at', { ascending: false })
+    .range(from, from + PAGE_SIZE - 1)
+
+  if (error) throw new Error(error.message)
+  return toPage(data as InvoiceRow[] | null, count, filter.page, PAGE_SIZE)
 }
 
 export async function createInvoice(input: {
@@ -4913,4 +5061,8 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   schools: ['schools'] as const,
   allSchoolKpis: ['all-school-kpis'] as const,
+  schoolDeletability: ['school-deletability'] as const,
+  billingTotals: ['billing-totals'] as const,
+  invoicePage: (schoolId: string, status: string, page: number) =>
+    ['invoices', 'page', schoolId, status, page] as const,
 }

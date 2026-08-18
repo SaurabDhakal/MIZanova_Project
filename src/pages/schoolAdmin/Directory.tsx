@@ -18,6 +18,7 @@ import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import InviteStaffSection from '../../components/InviteStaffSection'
 import InviteFamilySection from '../../components/InviteFamilySection'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 
 /**
  * Directory & Access Control - docs/Figma Pages Design/Directory & Access Control.png.
@@ -91,6 +92,23 @@ export default function Directory() {
   const [guardianId, setGuardianId] = useState('')
   const [relationship, setRelationship] = useState('parent')
 
+  /*
+   * Both cut somebody off from a child, so both ask first — and one piece of
+   * state rather than two, because only one dialog can be open at a time and
+   * two booleans could disagree about that.
+   *
+   * NO TYPED PHRASE ON EITHER. They affect one person and one child and can be
+   * put back from this page. Asking somebody to type a name here would make the
+   * typing routine, and it needs to still mean something on the screen where it
+   * guards a whole school.
+   */
+  const [confirming, setConfirming] = useState<{
+    kind: 'access' | 'guardian'
+    id: string
+    person: string
+    child: string
+  } | null>(null)
+
   const invalidate = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.assignments }),
@@ -110,7 +128,10 @@ export default function Directory() {
 
   const unlink = useMutation({
     mutationFn: (id: string) => unlinkGuardian(id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      setConfirming(null)
+      return invalidate()
+    },
   })
 
   const assign = useMutation({
@@ -121,7 +142,10 @@ export default function Directory() {
 
   const remove = useMutation({
     mutationFn: (id: string) => removeAssignment(id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      setConfirming(null)
+      return invalidate()
+    },
   })
 
   if (staff.isPending || students.isPending) return <LoadingCards count={3} />
@@ -606,13 +630,13 @@ export default function Directory() {
                             <button
                               type="button"
                               onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Remove ${a.profiles?.full_name || 'this person'}'s access to ${student.first_name}'s records? They will no longer be able to see logs, goals or messages about them.`,
-                                  )
-                                ) {
-                                  remove.mutate(a.id)
-                                }
+                                remove.reset()
+                                setConfirming({
+                                  kind: 'access',
+                                  id: a.id,
+                                  person: a.profiles?.full_name || 'This person',
+                                  child: student.first_name,
+                                })
                               }}
                               disabled={remove.isPending}
                               className="ml-auto text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
@@ -658,13 +682,15 @@ export default function Directory() {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          `Disconnect ${g.profiles?.full_name || 'this guardian'} from ${student.first_name}? They will immediately lose access to all updates, goals and messages about this child, and any messages they have already sent will remain.`,
-                                        )
-                                      ) {
-                                        unlink.mutate(g.id)
-                                      }
+                                      unlink.reset()
+                                      setConfirming({
+                                        kind: 'guardian',
+                                        id: g.id,
+                                        person:
+                                          g.profiles?.full_name ||
+                                          'This guardian',
+                                        child: student.first_name,
+                                      })
                                     }}
                                     disabled={unlink.isPending}
                                     className="ml-auto text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
@@ -684,13 +710,15 @@ export default function Directory() {
             </ul>
           )}
 
-          {unlink.isError && (
+          {/* While the dialog is open it carries the failure, next to the
+              button that caused it. Twice would read as two faults. */}
+          {unlink.isError && confirming === null && (
             <p role="alert" className="mt-3 text-sm text-danger-foreground">
               {unlink.error.message}
             </p>
           )}
 
-          {remove.isError && (
+          {remove.isError && confirming === null && (
             <p role="alert" className="mt-3 text-sm text-danger-foreground">
               {remove.error.message}
             </p>
@@ -705,6 +733,45 @@ export default function Directory() {
       {/* Families belong under Students, because a family account is access to
           a particular child rather than to the school. */}
       {tab === 'students' && <InviteFamilySection />}
+
+      {confirming &&
+        (confirming.kind === 'access' ? (
+          <ConfirmDestructive
+            title={`Remove ${confirming.person}'s access to ${confirming.child}?`}
+            detail={`They stay on staff at this school. This only ends their access to this one child.`}
+            consequences={[
+              `They immediately stop seeing ${confirming.child}'s behaviour logs, goals, plans and messages.`,
+              'Anything they already wrote stays on the record.',
+              'You can assign them again from this page.',
+            ]}
+            confirmLabel="Remove access"
+            pending={remove.isPending}
+            error={remove.error?.message ?? null}
+            onConfirm={() => remove.mutate(confirming.id)}
+            onCancel={() => {
+              remove.reset()
+              setConfirming(null)
+            }}
+          />
+        ) : (
+          <ConfirmDestructive
+            title={`Disconnect ${confirming.person} from ${confirming.child}?`}
+            detail="This is a family losing sight of their child. Check the name above before you go on."
+            consequences={[
+              `They immediately lose all updates, goals and messages about ${confirming.child}.`,
+              'Messages they have already sent remain, and staff can still read them.',
+              'Their account stays. Reconnecting means linking them again or issuing a new access code.',
+            ]}
+            confirmLabel="Disconnect guardian"
+            pending={unlink.isPending}
+            error={unlink.error?.message ?? null}
+            onConfirm={() => unlink.mutate(confirming.id)}
+            onCancel={() => {
+              unlink.reset()
+              setConfirming(null)
+            }}
+          />
+        ))}
     </div>
   )
 }

@@ -19,6 +19,7 @@ import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import FormField from '../../components/FormField'
 import SignedFileLink from '../../components/SignedFileLink'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -65,6 +66,7 @@ export default function Resources() {
   const [formError, setFormError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | ResourceCategory>('all')
   const [search, setSearch] = useState('')
+  const [deleting, setDeleting] = useState<ResourceRow | null>(null)
 
   const resources = useQuery({
     queryKey: queryKeys.resources,
@@ -129,6 +131,7 @@ export default function Resources() {
     mutationFn: (resource: ResourceRow) => deleteResource(resource),
     onSuccess: () => {
       refresh()
+      setDeleting(null)
       showToast('Resource deleted.')
     },
   })
@@ -403,13 +406,8 @@ export default function Resources() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (
-                          window.confirm(
-                            `Delete "${resource.title}"? The file is removed for everyone it was shared with, and this cannot be undone.`,
-                          )
-                        ) {
-                          remove.mutate(resource)
-                        }
+                        remove.reset()
+                        setDeleting(resource)
                       }}
                       disabled={remove.isPending}
                       className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
@@ -535,10 +533,37 @@ export default function Resources() {
         </ul>
       )}
 
-      {(share.isError || revoke.isError || remove.isError || confirmRead.isError) && (
+      {/* A delete that failed while the dialog is open reports itself there,
+          beside the button that caused it. Showing it twice would read as two
+          separate faults. */}
+      {(share.isError ||
+        revoke.isError ||
+        (remove.isError && deleting === null) ||
+        confirmRead.isError) && (
         <p role="alert" className="mt-4 text-sm text-danger-foreground">
           {(share.error ?? revoke.error ?? remove.error ?? confirmRead.error)?.message}
         </p>
+      )}
+
+      {deleting && (
+        <ConfirmDestructive
+          title={`Delete “${deleting.title}”?`}
+          detail="The file itself is removed from storage, not just hidden from this list."
+          consequences={[
+            deleting.resource_shares.length === 0
+              ? 'It is not shared with anybody.'
+              : `${deleting.resource_shares.length} ${deleting.resource_shares.length === 1 ? 'family loses' : 'families lose'} access to it immediately.`,
+            'This cannot be undone. You would have to upload the file again.',
+          ]}
+          confirmLabel="Delete resource"
+          pending={remove.isPending}
+          error={remove.error?.message ?? null}
+          onConfirm={() => remove.mutate(deleting)}
+          onCancel={() => {
+            remove.reset()
+            setDeleting(null)
+          }}
+        />
       )}
 
       <section className="mt-8 rounded-card border border-border bg-background p-6">

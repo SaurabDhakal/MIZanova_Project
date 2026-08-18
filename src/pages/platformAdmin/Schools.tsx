@@ -1,16 +1,24 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   PROFESSIONS,
+  deleteSchool,
   fetchAllSchoolKpis,
+  fetchSchoolDeletability,
   fetchSchools,
   fetchUnengagedSpecialists,
   queryKeys,
+  updateSchoolStatus,
+  whatBlocksDeletion,
   type OrganisationKind,
   type OrganisationStatus,
+  type SchoolRow,
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import AddSchoolSection from '../../components/AddSchoolSection'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
+import { showToast } from '../../lib/toast'
 
 /*
  * SUSPENDED AND CLOSED ARE NOT STYLED AS FAILURES. A suspended tenant is a
@@ -54,9 +62,55 @@ const KIND_LABEL: Record<OrganisationKind, string> = {
  * students; a school admin gets exactly one. Same view, different answers.
  */
 export default function Schools() {
+  const queryClient = useQueryClient()
+  /*
+   * Only CLOSING asks for confirmation. Reopening restores a school to the
+   * state it was already in and takes nothing away, so putting it behind the
+   * same dialog would be ceremony — and a confirmation that guards harmless
+   * things is one people learn to click through.
+   */
+  const [closing, setClosing] = useState<SchoolRow | null>(null)
+  const [deleting, setDeleting] = useState<SchoolRow | null>(null)
+
   const schools = useQuery({
     queryKey: queryKeys.schools,
     queryFn: fetchSchools,
+  })
+
+  /*
+   * What is holding each organisation in place — db/060. Only a row of zeros
+   * gets a Delete button, and that is a courtesy: four foreign keys and a
+   * trigger refuse on their own if this is stale.
+   */
+  const deletability = useQuery({
+    queryKey: queryKeys.schoolDeletability,
+    queryFn: fetchSchoolDeletability,
+  })
+
+  const remove = useMutation({
+    mutationFn: (school: SchoolRow) => deleteSchool(school.id),
+    onSuccess: (_result, school) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.schools })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.schoolDeletability,
+      })
+      setDeleting(null)
+      showToast(`${school.name} deleted.`)
+    },
+  })
+
+  const setStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: OrganisationStatus }) =>
+      updateSchoolStatus(id, status),
+    onSuccess: (school) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.schools })
+      setClosing(null)
+      showToast(
+        school.status === 'closed'
+          ? `${school.name} closed.`
+          : `${school.name} reopened as ${STATUS_LABEL[school.status].toLowerCase()}.`,
+      )
+    },
   })
   /*
    * Specialists the network admitted and nobody engaged. Its own query rather
@@ -78,6 +132,15 @@ export default function Schools() {
 
   const statsFor = (schoolId: string) =>
     (kpis.data ?? []).find((k) => k.school_id === schoolId)
+
+  /*
+   * Fails closed by construction: while the query is loading, and if it errors,
+   * `find` returns undefined and whatBlocksDeletion answers "still being
+   * counted" — a non-empty list, so no Delete button appears. An empty list
+   * only ever comes from a row of real zeros.
+   */
+  const blockersFor = (schoolId: string) =>
+    whatBlocksDeletion((deletability.data ?? []).find((d) => d.id === schoolId))
 
   const totals = (kpis.data ?? []).reduce(
     (acc, k) => ({
@@ -165,6 +228,9 @@ export default function Schools() {
                 <th scope="col" className="px-5 py-3 text-sm font-semibold">
                   Median response
                 </th>
+                <th scope="col" className="px-5 py-3 text-sm font-semibold">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -232,12 +298,130 @@ export default function Schools() {
                           ? '<1h'
                           : `${Math.round(k.median_ack_hours)}h`}
                     </td>
+                    {/* A school leaves by being CLOSED, never by being
+                        deleted. Four tables reference it `on delete restrict`,
+                        so Postgres would refuse anyway — and it should: the
+                        rows pointing at it are children's records. */}
+                    <td className="px-5 py-3">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {school.status === 'closed' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatus.reset()
+                              setStatus.mutate({
+                                id: school.id,
+                                status: 'active',
+                              })
+                            }}
+                            disabled={setStatus.isPending}
+                            className="px-2 text-sm font-semibold text-primary hover:underline disabled:opacity-60"
+                          >
+                            Reopen
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatus.reset()
+                              setClosing(school)
+                            }}
+                            className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                          >
+                            Close
+                          </button>
+                        )}
+
+                        {/* Only when nothing at all belongs to it. A disabled
+                            Delete on every populated row would be a permanent
+                            invitation to hunt for the way to enable it, and
+                            there is not one — that is the point.
+
+                            QUIETER THAN Close, not louder. Rendered solid red
+                            it was the most eye-catching thing on the page, so
+                            the row's most destructive and least-often-right
+                            action was the one being advertised. Solid red
+                            belongs on the confirm button inside the dialog,
+                            where it is what the person came to do. */}
+                        {blockersFor(school.id).length === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              remove.reset()
+                              setDeleting(school)
+                            }}
+                            className="px-2 text-sm font-semibold text-danger-foreground hover:underline"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
+      )}
+
+      {deleting && (
+        <ConfirmDestructive
+          title={`Delete ${deleting.name}?`}
+          detail="This removes the organisation itself. It is offered only because nothing belongs to it — no students, no people, no memberships, no resources, no invoices."
+          consequences={[
+            (() => {
+              const pending =
+                (deletability.data ?? []).find((d) => d.id === deleting.id)
+                  ?.invitations ?? 0
+              return pending === 0
+                ? 'There are no pending invitations to it.'
+                : `${pending} pending invitation${pending === 1 ? '' : 's'} to this organisation ${pending === 1 ? 'is' : 'are'} cancelled. Anybody holding one can no longer use it.`
+            })(),
+            'The row is gone for good. Closing it instead keeps it in this list and can be undone.',
+          ]}
+          confirmPhrase={deleting.name}
+          confirmLabel="Delete permanently"
+          pending={remove.isPending}
+          error={remove.error?.message ?? null}
+          onConfirm={() => remove.mutate(deleting)}
+          onCancel={() => {
+            remove.reset()
+            setDeleting(null)
+          }}
+        />
+      )}
+
+      {/* Reopening has no dialog to carry its error, so it lands here. */}
+      {setStatus.isError && closing === null && (
+        <p
+          role="alert"
+          className="mt-3 rounded-btn border border-danger bg-danger-subtle p-3 text-sm text-danger-foreground"
+        >
+          {setStatus.error.message}
+        </p>
+      )}
+
+      {closing && (
+        <ConfirmDestructive
+          title={`Close ${closing.name}?`}
+          detail="Closing marks a school as gone. Nothing is deleted — every record stays where it is, and you can reopen it from this page."
+          consequences={[
+            `${statsFor(closing.id)?.students_active ?? 0} students and ${statsFor(closing.id)?.logs_total ?? 0} behaviour logs belong to this school. All of them are kept.`,
+            'Nothing enforces status yet, so its staff can still sign in and open records tomorrow. This changes what Special Miles sees, not what the school can do.',
+          ]}
+          confirmPhrase={closing.name}
+          confirmLabel="Close this school"
+          pending={setStatus.isPending}
+          error={setStatus.error?.message ?? null}
+          onConfirm={() =>
+            setStatus.mutate({ id: closing.id, status: 'closed' })
+          }
+          onCancel={() => {
+            setStatus.reset()
+            setClosing(null)
+          }}
+        />
       )}
 
       {/* --- Network specialists nobody has engaged -----------------------
@@ -314,11 +498,18 @@ export default function Schools() {
         )}
       </section>
 
+      {/* This used to say "MiZanova has no billing system" and that Stripe was
+          a later milestone. Both stopped being true at db/020, and a note
+          explaining an absence outlives the absence unless somebody goes back
+          for it. */}
       <p className="mt-8 max-w-prose text-xs text-muted-foreground">
-        There is no billing or revenue here. The original designs for this area
-        show an ARR figure and a global threat map; MiZanova has no billing
-        system and collects no threat data, so both would be invented. Stripe
-        arrives in a later milestone and this page will gain real numbers then.
+        No revenue figures here — they live on{' '}
+        <Link to="/platform-admin/billing" className="text-primary hover:underline">
+          Billing &amp; Revenue
+        </Link>
+        , summed per school. The original designs for this area also show a
+        global threat map; MiZanova collects no threat data, so that would be
+        invented.
       </p>
     </div>
   )
