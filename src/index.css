@@ -268,3 +268,110 @@ select:not([aria-invalid='true']) {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   FULLCALENDAR, WEARING THIS PRODUCT'S CLOTHES
+
+   FullCalendar injects its own stylesheet, which is a perfectly good calendar
+   in somebody else's colours — mid-blue buttons, its own greys, its own
+   radii. Left alone it reads as a widget dropped into the page rather than
+   part of it.
+
+   Everything below is scoped to .mizanova-calendar and assigns FullCalendar's
+   own --fc-* variables from the design tokens above, so this follows the
+   palette rather than duplicating it. No hex values here on purpose: a colour
+   written twice is a colour that will disagree with itself later.
+--------------------------------------------------------------------------- */
+.mizanova-calendar {
+  --fc-border-color: var(--color-border);
+  --fc-page-bg-color: var(--color-card);
+  --fc-neutral-bg-color: var(--color-background);
+  --fc-today-bg-color: var(--color-primary-subtle);
+  --fc-now-indicator-color: var(--color-danger-strong);
+
+  --fc-button-bg-color: var(--color-primary);
+  --fc-button-border-color: var(--color-primary);
+  --fc-button-hover-bg-color: var(--color-primary);
+  --fc-button-hover-border-color: var(--color-primary);
+  --fc-button-active-bg-color: var(--color-brand-navy);
+  --fc-button-active-border-color: var(--color-brand-navy);
+  --fc-button-text-color: var(--color-primary-foreground);
+
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+}
+
+.mizanova-calendar .fc .fc-toolbar-title {
+  font-size: var(--text-section);
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.mizanova-calendar .fc .fc-button {
+  border-radius: var(--radius-btn);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.4rem 0.75rem;
+  box-shadow: none;
+}
+
+/* Its default focus ring is its own blue. The app has one ring colour and
+   keyboard users should meet the same one everywhere. */
+.mizanova-calendar .fc .fc-button:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.mizanova-calendar .fc .fc-col-header-cell-cushion,
+.mizanova-calendar .fc .fc-daygrid-day-number {
+  color: var(--color-muted-foreground);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mizanova-calendar .fc .fc-timegrid-slot-label-cushion {
+  color: var(--color-muted-foreground);
+  font-size: var(--text-caption);
+}
+
+/* --- Events, coloured by what the appointment IS ------------------------- */
+/* Text uses the -foreground variants throughout: the base status colours are
+   shape-only and fail WCAG AA as small text. See the contrast checker. */
+.mizanova-calendar .fc-event {
+  border-radius: var(--radius-btn);
+  border-width: 1px;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+.mizanova-calendar .fc-appointment--scheduled {
+  background-color: var(--color-primary-subtle);
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
+}
+
+.mizanova-calendar .fc-appointment--completed {
+  background-color: var(--color-success-subtle);
+  border-color: var(--color-success);
+  color: var(--color-success-foreground);
+}
+
+.mizanova-calendar .fc-appointment--cancelled {
+  background-color: var(--color-background);
+  border-color: var(--color-border);
+  color: var(--color-muted-foreground);
+  text-decoration: line-through;
+}
+
+/* Somebody else's booking. Dashed rather than faded — a colleague's
+   appointment is not less real, it is differently owned, and reducing opacity
+   would say "less important" while also hurting contrast. */
+.mizanova-calendar .fc-appointment--colleague {
+  border-style: dashed;
+}
+
+.mizanova-calendar .fc-appointment--selected {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 1px;
+}

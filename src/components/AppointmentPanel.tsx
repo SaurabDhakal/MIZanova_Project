@@ -8,7 +8,7 @@ import {
   type AppointmentRow,
 } from '../lib/api'
 import { showToast } from '../lib/toast'
-import { toLocalDateValue, toLocalInputValue } from '../lib/week'
+import { toLocalDateValue, toLocalInputValue } from '../lib/localTime'
 import FormField from './FormField'
 
 /**
