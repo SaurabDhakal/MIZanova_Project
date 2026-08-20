@@ -10,10 +10,9 @@ import {
 import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import StatTile from '../../components/StatTile'
-import WeekCalendar from '../../components/WeekCalendar'
+import AppointmentCalendar from '../../components/AppointmentCalendar'
 import BookAppointmentForm from '../../components/BookAppointmentForm'
 import AppointmentPanel from '../../components/AppointmentPanel'
-import { addDays, startOfWeek } from '../../lib/week'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -25,15 +24,23 @@ import { addDays, startOfWeek } from '../../lib/week'
  * actually recorded — they cannot be inflated by booking.
  *
  * STILL NOT BUILT: availability, invitations and reminders. Working hours are
- * recorded nowhere, so this screen cannot say a slot is free — only that
- * nothing is booked in it, which is a weaker claim. The note at the bottom says
- * so to the person using it rather than leaving them to assume.
+ * recorded nowhere, so an empty slot means nothing is booked in it rather than
+ * that anybody is free. The note at the bottom says so, because a time grid is
+ * precisely the shape that implies otherwise.
  */
+
+/** Where the booking form starts when opened from the button rather than a slot. */
+function nextHalfHour(): Date {
+  const start = new Date()
+  start.setSeconds(0, 0)
+  start.setMinutes(start.getMinutes() > 30 ? 60 : 30)
+  return start
+}
+
 export default function Schedule() {
   const { profile } = useAuth()
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [booking, setBooking] = useState(false)
+  const [bookingStart, setBookingStart] = useState<Date | null>(null)
   const [now] = useState(() => Date.now())
 
   const sessions = useQuery({
@@ -78,9 +85,6 @@ export default function Schedule() {
     ? students.data.filter((s) => !seenThisMonth.has(s.id))
     : []
 
-  // Frozen at mount rather than read during render: the past/upcoming boundary
-  // does not need to be to-the-second, and reading the clock while rendering is
-  // what makes a component non-idempotent.
   const upcoming = (appointments.data ?? []).filter(
     (a) => a.status === 'scheduled' && new Date(a.starts_at).getTime() >= now,
   )
@@ -150,77 +154,52 @@ export default function Schedule() {
         </div>
       )}
 
-      {/* --- The week ------------------------------------------------------- */}
+      {/* --- The calendar --------------------------------------------------- */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">
-          {weekStart.toLocaleDateString('en-AU', {
-            day: 'numeric',
-            month: 'long',
-          })}
-          {' – '}
-          {addDays(weekStart, 6).toLocaleDateString('en-AU', {
-            day: 'numeric',
-            month: 'long',
-          })}
-        </h2>
-
-        <div className="ml-auto flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setWeekStart((w) => addDays(w, -7))}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => setWeekStart(startOfWeek(new Date()))}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
-          >
-            This week
-          </button>
-          <button
-            type="button"
-            onClick={() => setWeekStart((w) => addDays(w, 7))}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
-          >
-            Next →
-          </button>
-          <button
-            type="button"
-            onClick={() => setBooking((v) => !v)}
-            className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            {booking ? 'Close' : '+ Book'}
-          </button>
-        </div>
+        <h2 className="text-lg font-semibold text-foreground">Appointments</h2>
+        <p className="text-sm text-muted-foreground">
+          Click a slot to book, or an appointment to open it.
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            setBookingStart((current) => (current ? null : nextHalfHour()))
+          }
+          className="ml-auto rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          {bookingStart ? 'Close' : '+ Book'}
+        </button>
       </div>
 
-      {booking && (
+      {bookingStart && (
         <div className="mb-5">
+          {/* Keyed on the chosen time so picking a different slot re-seeds the
+              form. Its fields are useState initialisers, which do not re-read a
+              prop that changed under them. */}
           <BookAppointmentForm
+            key={bookingStart.toISOString()}
             students={students.data ?? []}
-            defaultStart={weekStart}
-            onBooked={() => setBooking(false)}
+            defaultStart={bookingStart}
+            onBooked={() => setBookingStart(null)}
           />
         </div>
       )}
 
-      {/* A failed appointments query must not render as an empty week — an
+      {/* A failed appointments query must not render as an empty calendar — an
           unbooked day and an unknown one look identical otherwise. */}
       {appointments.isError ? (
         <ErrorState
-          message="Your appointments could not be loaded, so this week is unknown rather than empty. Nothing has been cancelled."
+          message="Your appointments could not be loaded, so this calendar is unknown rather than empty. Nothing has been cancelled."
           onRetry={() => void appointments.refetch()}
         />
       ) : (
-        <WeekCalendar
-          weekStart={weekStart}
+        <AppointmentCalendar
           appointments={appointments.data ?? []}
           nameOf={nameOf}
           currentUserId={profile?.id ?? null}
           selectedId={selectedId}
           onSelect={(a) => setSelectedId((id) => (id === a.id ? null : a.id))}
+          onPickSlot={(start) => setBookingStart(start)}
         />
       )}
 
@@ -293,13 +272,14 @@ export default function Schedule() {
       <section className="mt-8 rounded-card border border-border bg-background p-6">
         <h2 className="font-semibold text-foreground">Not built yet</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          An empty slot here means nothing is booked in it, not that you are
-          free — working hours are recorded nowhere in MiZanova, so availability
-          is a claim this screen cannot make. Nobody is told about an
-          appointment either: there is no email in this product, so a booking, a
-          move and a cancellation reach the family and the teacher only if you
-          tell them yourself. Both are said here rather than implied, because a
-          calendar that looks complete is one people stop double-checking.
+          An empty slot in the grid means nothing is booked in it, not that you
+          are free — working hours are recorded nowhere in MiZanova, so
+          availability is a claim this calendar cannot make, however much a time
+          grid looks like a diary. Nobody is told about an appointment either:
+          there is no email in this product, so a booking, a move and a
+          cancellation reach the family and the teacher only if you tell them
+          yourself. Both are said here rather than implied, because a calendar
+          that looks complete is one people stop double-checking.
         </p>
       </section>
     </div>

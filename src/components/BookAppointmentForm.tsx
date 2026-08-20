@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { bookAppointment, queryKeys, type StudentRow } from '../lib/api'
 import { showToast } from '../lib/toast'
-import { toLocalInputValue } from '../lib/week'
+import { toLocalInputValue } from '../lib/localTime'
 import FormField from './FormField'
 
 /**
