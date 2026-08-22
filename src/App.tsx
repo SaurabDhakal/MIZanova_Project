@@ -118,7 +118,10 @@ const Compliance = lazy(() => import('./pages/schoolAdmin/Compliance'))
 const Invoices = lazy(() => import('./pages/schoolAdmin/Invoices'))
 const AccessLog = lazy(() => import('./pages/schoolAdmin/AccessLog'))
 const AddStudents = lazy(() => import('./pages/schoolAdmin/AddStudents'))
+<<<<<<< HEAD
+=======
 const SchoolAdminMessages = lazy(() => import('./pages/schoolAdmin/Messages'))
+>>>>>>> 96aca26d4784007dffbcd5ae4b804e1296e4f1d0
 
 
 // --- Osheit: educator/ ---
@@ -192,7 +195,10 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'school_admin:compliance': <Compliance />,
   'school_admin:invoices': <Invoices />,
   'school_admin:access-log': <AccessLog />,
+<<<<<<< HEAD
+=======
   'school_admin:messages': <SchoolAdminMessages />,
+>>>>>>> 96aca26d4784007dffbcd5ae4b804e1296e4f1d0
   
   // --- Osheit: educator: ---
 

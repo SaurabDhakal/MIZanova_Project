@@ -200,14 +200,184 @@ describe('who may say something is paid', () => {
   })
 })
 
-describe('what cannot be undone', () => {
-  test('nobody can delete an invoice', async () => {
-    // "We billed this and cancelled it" is a fact somebody may need to
-    // demonstrate. There is no delete policy at all.
+/**
+ * db/060. These fail until that script has been run in the SQL editor — they
+ * describe rules that do not exist before it.
+ *
+ * THE LINE THE WHOLE BLOCK IS DRAWING. A draft has never been outside the
+ * office: `invoices_select` hides it from the family, no money has moved, and
+ * nothing has been claimed of anybody. It can be corrected and thrown away.
+ * Everything a family has ever been able to see is a record of something that
+ * happened to them, and cannot be deleted, repriced, or walked backwards —
+ * only cancelled, which leaves the cancellation visible.
+ *
+ * The two halves are tested together because the second is what makes the
+ * first safe to have.
+ */
+describe('a draft is not a record, and everything else is', () => {
+  /** A fresh draft belonging to childA. Returns its id. */
+  async function raiseDraft(description: string): Promise<string> {
+    const { data, error } = await world.schoolAdmin.db
+      .from('invoices')
+      .insert({
+        school_id: world.schoolId,
+        student_id: world.childA,
+        description,
+        amount_cents: 12345,
+        issued_by: world.schoolAdmin.id,
+      })
+      .select('id')
+      .single()
+
+    expect(error).toBeNull()
+    return data!.id
+  }
+
+  async function exists(id: string): Promise<boolean> {
+    const { data } = await admin.from('invoices').select('id').eq('id', id)
+    return (data?.length ?? 0) === 1
+  }
+
+  test('a school admin can correct a draft', async () => {
+    const id = await raiseDraft('Typo in the desciption')
+
+    const { error } = await world.schoolAdmin.db
+      .from('invoices')
+      .update({ description: 'Speech therapy, term 4', amount_cents: 50000 })
+      .eq('id', id)
+
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('invoices')
+      .select('description, amount_cents')
+      .eq('id', id)
+      .single()
+
+    expect(data?.description).toBe('Speech therapy, term 4')
+    expect(data?.amount_cents).toBe(50000)
+  })
+
+  test('a school admin can discard a draft', async () => {
+    const id = await raiseDraft('Raised by mistake')
+
+    await world.schoolAdmin.db.from('invoices').delete().eq('id', id)
+
+    expect(await exists(id)).toBe(false)
+  })
+
+  test('a family cannot discard a draft they cannot even see', async () => {
+    const id = await raiseDraft('Not the family to decide')
+
+    await world.guardianOfA.db.from('invoices').delete().eq('id', id)
+
+    expect(await exists(id)).toBe(true)
+    await admin.from('invoices').delete().eq('id', id)
+  })
+
+  test('an issued invoice cannot be deleted', async () => {
+    const id = await raiseDraft('Issued, then regretted')
+    await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'open' })
+      .eq('id', id)
+
+    await world.schoolAdmin.db.from('invoices').delete().eq('id', id)
+
+    // A delete filtered out by RLS is not an error — it reports success having
+    // touched nothing, which is why every caller in src/lib/api.ts counts rows.
+    expect(await exists(id)).toBe(true)
+  })
+
+  test('an issued invoice cannot be walked back to a draft and then deleted', async () => {
+    // The attack the delete policy would otherwise permit: make it a draft
+    // again, and the "only drafts" rule stops applying to it.
+    const id = await raiseDraft('The way round the rule')
+    await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'open' })
+      .eq('id', id)
+
+    const { error } = await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'draft' })
+      .eq('id', id)
+
+    expect(error).not.toBeNull()
+    expect(error?.code).toBe('42501')
+    expect(await statusOf(id)).toBe('open')
+
+    await world.schoolAdmin.db.from('invoices').delete().eq('id', id)
+    expect(await exists(id)).toBe(true)
+  })
+
+  test('an issued invoice cannot be repriced', async () => {
+    // Changing what somebody is being asked to pay, with nothing to show it
+    // changed, is not a correction. Cancel it and raise a new one.
+    const id = await raiseDraft('Priced, issued, then edited')
+    await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'open' })
+      .eq('id', id)
+
+    const { error } = await world.schoolAdmin.db
+      .from('invoices')
+      .update({ amount_cents: 1 })
+      .eq('id', id)
+
+    expect(error).not.toBeNull()
+    expect(error?.code).toBe('42501')
+  })
+
+  test('the wording of an issued invoice can still be corrected', async () => {
+    // Deliberately allowed, and db/020 said so before this: a family that
+    // cannot tell what they are being charged for is helped by clearer words.
+    const id = await raiseDraft('Termly fee')
+    await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'open' })
+      .eq('id', id)
+
+    const { error } = await world.schoolAdmin.db
+      .from('invoices')
+      .update({ description: 'Term 4 fee — speech therapy, 12 sessions' })
+      .eq('id', id)
+
+    expect(error).toBeNull()
+  })
+
+  test('a cancelled invoice cannot be reopened or deleted', async () => {
+    // "We billed this and cancelled it" is the fact db/020 set out to keep.
+    const id = await raiseDraft('Billed and cancelled')
+    await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'open' })
+      .eq('id', id)
+    await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'void' })
+      .eq('id', id)
+
+    const { error } = await world.schoolAdmin.db
+      .from('invoices')
+      .update({ status: 'open' })
+      .eq('id', id)
+
+    expect(error).not.toBeNull()
+    expect(await statusOf(id)).toBe('void')
+
+    await world.schoolAdmin.db.from('invoices').delete().eq('id', id)
+    expect(await exists(id)).toBe(true)
+  })
+
+  test('a paid invoice cannot be deleted', async () => {
+    // `draftId` has been paid by the block above. This is the row where the
+    // rule matters most: money moved.
+    expect(await statusOf(draftId)).toBe('paid')
+
     await world.schoolAdmin.db.from('invoices').delete().eq('id', draftId)
     await world.guardianOfA.db.from('invoices').delete().eq('id', draftId)
 
-    const { data } = await admin.from('invoices').select('id').eq('id', draftId)
-    expect(data?.length).toBe(1)
+    expect(await exists(draftId)).toBe(true)
   })
 })
