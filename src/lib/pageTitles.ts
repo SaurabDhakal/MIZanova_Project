@@ -32,6 +32,7 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/verify-2fa': 'Enter your code',
   '/recover-2fa': 'Use a recovery code',
   '/account/security': 'Security',
+  '/account/profile': 'Your account',
   '/design-tokens': 'Design tokens',
 }
 

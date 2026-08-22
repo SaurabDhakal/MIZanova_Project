@@ -1766,6 +1766,45 @@ export async function fetchPendingStrategies(): Promise<PendingStrategyRow[]> {
   return (data ?? []) as unknown as PendingStrategyRow[]
 }
 
+export type StrategyConfidenceRow = {
+  confidence: number
+  status: 'published' | 'pending_review' | 'approved' | 'rejected'
+  created_at: string
+}
+
+/**
+ * Every suggestion's confidence score, for the governance histogram.
+ *
+ * WHY A DISTRIBUTION AND NOT AN AVERAGE. The routing threshold decides whether
+ * a teacher sees a suggestion or a specialist does. An average tells you where
+ * the middle is and hides the only shape that matters — a pile of scores
+ * sitting ON the line, where the publish-or-hold decision is a coin flip.
+ *
+ * That is not hypothetical. It happened here: the prompt named the threshold,
+ * the model obligingly clustered its answers at 0.68–0.72, and nothing in the
+ * product showed it. A mean of 0.70 looked healthy the entire time.
+ *
+ * PLATFORM ADMIN ONLY, and not by a filter written here. db/006's reviewer
+ * policy is what makes held and rejected rows visible at all; anyone else
+ * calling this gets back only what their own policy already allows, which for
+ * a teacher is published suggestions about their own students.
+ *
+ * Bounded at 500 because this draws a picture, not a ledger. The audit trail
+ * is a different screen.
+ */
+export async function fetchStrategyConfidence(): Promise<
+  StrategyConfidenceRow[]
+> {
+  const { data, error } = await supabase
+    .from('ai_strategies')
+    .select('confidence, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as StrategyConfidenceRow[]
+}
+
 /**
  * Release a held suggestion to the teacher, or reject it.
  *
@@ -2246,7 +2285,8 @@ export async function createSession(input: {
   sharedSummary: string
   shareWithTeacher: boolean
   shareWithParents: boolean
-}): Promise<void> {
+  /** Returns the new session's id, so an appointment can point at it. */
+}): Promise<string> {
   const { data: user } = await supabase.auth.getUser()
   const specialistId = user.user?.id
   if (!specialistId) throw new Error('You are not signed in.')
@@ -2284,6 +2324,8 @@ export async function createSession(input: {
       )
     }
   }
+
+  return session.id
 }
 
 export async function setSessionSharing(
@@ -2301,6 +2343,168 @@ export async function setSessionSharing(
 
   if (error) throw new Error(error.message)
   assertChanged(data, 'The sharing setting')
+}
+
+// ---------------------------------------------------------------------------
+// Appointments (db/059)
+// ---------------------------------------------------------------------------
+// An appointment is a PLAN; a session is a FACT. Completing the first writes
+// the second, which is why `completeAppointment` below does two writes rather
+// than flipping a status. The database refuses 'completed' without a session to
+// point at, so the two cannot drift.
+
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+
+export type AppointmentRow = {
+  id: string
+  student_id: string
+  specialist_id: string
+  /** An instant, not a date — see db/059 for why it is not two columns. */
+  starts_at: string
+  duration_minutes: number
+  status: AppointmentStatus
+  purpose: string | null
+  session_id: string | null
+  cancelled_reason: string | null
+}
+
+/**
+ * Every appointment the caller may see.
+ *
+ * NOT filtered to `specialist_id = me`, deliberately. RLS returns appointments
+ * for every child on this person's caseload, including ones a colleague booked
+ * — and without those, a refused booking would be inexplicable: the clash is
+ * with something the screen chose not to show.
+ */
+export async function fetchAppointments(): Promise<AppointmentRow[]> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .select(
+      'id, student_id, specialist_id, starts_at, duration_minutes, status, purpose, session_id, cancelled_reason',
+    )
+    .order('starts_at')
+    .limit(500)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as AppointmentRow[]
+}
+
+/**
+ * Turn a clash into a sentence somebody can act on.
+ *
+ * Postgres answers an exclusion violation with "conflicting key value violates
+ * exclusion constraint specialist_appointments_student_no_overlap", which names
+ * the constraint and not the problem. Both constraints are in db/059 and which
+ * one fired is the only thing that tells you whose diary is full.
+ */
+function describeClash(message: string): string {
+  if (message.includes('specialist_no_overlap')) {
+    return 'You already have an appointment overlapping that time. Cancel it or pick another slot.'
+  }
+  if (message.includes('student_no_overlap')) {
+    return 'This child already has an appointment overlapping that time — possibly booked by another specialist on their team.'
+  }
+  return message
+}
+
+export async function bookAppointment(input: {
+  studentId: string
+  startsAt: string
+  durationMinutes: number
+  purpose: string
+}): Promise<void> {
+  const { data: user } = await supabase.auth.getUser()
+  const specialistId = user.user?.id
+  if (!specialistId) throw new Error('You are not signed in.')
+
+  const { error } = await supabase.from('specialist_appointments').insert({
+    student_id: input.studentId,
+    specialist_id: specialistId,
+    starts_at: input.startsAt,
+    duration_minutes: input.durationMinutes,
+    purpose: input.purpose.trim() || null,
+  })
+
+  if (error) throw new Error(describeClash(error.message))
+}
+
+export async function rescheduleAppointment(
+  id: string,
+  startsAt: string,
+  durationMinutes: number,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ starts_at: startsAt, duration_minutes: durationMinutes })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(describeClash(error.message))
+  assertChanged(data, 'The appointment')
+}
+
+/** Keeps the row. "Booked and called off" is not the same fact as never booked. */
+export async function cancelAppointment(
+  id: string,
+  reason: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ status: 'cancelled', cancelled_reason: reason.trim() || null })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The cancellation')
+}
+
+/**
+ * Record what happened, then mark the appointment done.
+ *
+ * Two writes, in this order on purpose. A session with no appointment pointing
+ * at it is untidy; an appointment marked complete with no session behind it is
+ * a delivered-minutes figure that cannot be reconciled — and db/059 refuses it
+ * anyway, so the order is the only one that works.
+ *
+ * Trials and the goal link are not asked for here. They belong with the rest of
+ * the clinical record on the student's page, and a second form collecting half
+ * of it is how two half-records get written for one session.
+ */
+export async function completeAppointment(input: {
+  appointmentId: string
+  studentId: string
+  sessionDate: string
+  durationMinutes: number
+  clinicalNotes: string
+  sharedSummary: string
+  shareWithTeacher: boolean
+  shareWithParents: boolean
+}): Promise<void> {
+  const sessionId = await createSession({
+    studentId: input.studentId,
+    sessionDate: input.sessionDate,
+    durationMinutes: input.durationMinutes,
+    goalId: null,
+    trialsSuccessful: null,
+    trialsTotal: null,
+    clinicalNotes: input.clinicalNotes,
+    sharedSummary: input.sharedSummary,
+    shareWithTeacher: input.shareWithTeacher,
+    shareWithParents: input.shareWithParents,
+  })
+
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ status: 'completed', session_id: sessionId })
+    .eq('id', input.appointmentId)
+    .select('id')
+
+  if (error) {
+    throw new Error(
+      `The session was recorded but the appointment was not marked complete: ${error.message}. The session is safe — mark the appointment again.`,
+    )
+  }
+  assertChanged(data, 'The appointment')
 }
 
 export type SystemEvent = {
@@ -3654,6 +3858,243 @@ function safeSearchTerm(raw: string): string {
   )
 }
 
+/* ==========================================================================
+ * Your own account — the settings page
+ *
+ * EVERY FUNCTION HERE ACTS ON auth.uid() AND NOBODY ELSE, and none of them
+ * says so in a `where` clause. db/004 revoked UPDATE on profiles and grants
+ * back three columns; db/058 added the row policy that refuses an avatar_path
+ * pointing at another person's folder, and the storage policies that refuse
+ * the file itself. If any of this could touch another account, the database
+ * would be wrong — not this file.
+ * ======================================================================== */
+
+/** The two columns db/004 lets a browser write. */
+export async function updateMyName(input: {
+  firstName: string
+  lastName: string
+}): Promise<void> {
+  const { data: session } = await supabase.auth.getSession()
+  const id = session.session?.user.id
+  if (!id) throw new Error('You are not signed in.')
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ first_name: input.firstName, last_name: input.lastName })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Your name')
+}
+
+/**
+ * Replace your photo.
+ *
+ * ONE FILE PER PERSON, and the old one is deleted before the new one is
+ * written. Uploading `avatar.png` over `avatar.jpg` would otherwise leave both
+ * in the bucket, with the column pointing at one and the other paying storage
+ * for ever — and `remove` on a folder that is already empty is not an error,
+ * so the first upload takes the same path as the fifth.
+ *
+ * The path is `<profile id>/<file>` because that is what db/058's policies
+ * read. Nothing here checks whose folder it is; the database refuses anything
+ * else.
+ */
+export async function uploadMyAvatar(file: File): Promise<string> {
+  const { data: session } = await supabase.auth.getSession()
+  const id = session.session?.user.id
+  if (!id) throw new Error('You are not signed in.')
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+  const path = `${id}/avatar.${ext}`
+
+  const { data: existing } = await supabase.storage.from('avatars').list(id)
+  if (existing?.length) {
+    await supabase.storage
+      .from('avatars')
+      .remove(existing.map((f) => `${id}/${f.name}`))
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { contentType: file.type, upsert: true })
+  if (uploadError) throw new Error(uploadError.message)
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ avatar_path: path })
+    .eq('id', id)
+    .select('id')
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Your photo')
+
+  return path
+}
+
+/**
+ * THE OBJECT FIRST, THEN THE COLUMN, and the order is deliberate.
+ *
+ * Clearing the column first and failing on the object leaves a file nobody can
+ * see and nobody can reach to delete — the storage policy allows it, but no
+ * screen would ever offer. Removing the object first means the worst case is a
+ * column pointing at nothing, which Avatar already treats as no photo.
+ */
+export async function removeMyAvatar(): Promise<void> {
+  const { data: session } = await supabase.auth.getSession()
+  const id = session.session?.user.id
+  if (!id) throw new Error('You are not signed in.')
+
+  const { data: existing } = await supabase.storage.from('avatars').list(id)
+  if (existing?.length) {
+    const { error } = await supabase.storage
+      .from('avatars')
+      .remove(existing.map((f) => `${id}/${f.name}`))
+    if (error) throw new Error(error.message)
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ avatar_path: null })
+    .eq('id', id)
+    .select('id')
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Your photo')
+}
+
+/**
+ * A viewable URL for a private object.
+ *
+ * The bucket is private, so there is no public URL to build — every render
+ * needs a signed one, and it expires. An hour is long enough that a screen
+ * left open does not lose its faces, and short enough that a copied link is
+ * not a permanent handle on somebody's photograph.
+ *
+ * Returns null rather than throwing: a missing avatar is not an error, and a
+ * component that falls back to a monogram is the correct outcome.
+ */
+export async function avatarUrl(path: string | null): Promise<string | null> {
+  if (!path) return null
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .createSignedUrl(path, 3600)
+  if (error) return null
+  return data?.signedUrl ?? null
+}
+
+/*
+ * CHANGING THE EMAIL LIVES IN AuthProvider, NOT HERE, and deliberately.
+ *
+ * There was an `updateMyEmail(email)` in this file that simply called
+ * `updateUser({ email })`. It worked, and it was a loaded gun: whoever changes
+ * the address receives every future password reset, so with no proof of the
+ * current password an unattended signed-in laptop is a permanent account
+ * takeover — and the careful password flow on the Security page would be
+ * pointless, because an attacker would use this door instead.
+ *
+ * `changeEmail` in AuthProvider proves the password first, with the same
+ * throwaway-client trick `changePassword` uses. This one is deleted rather
+ * than kept beside it: two ways to change an address is how the guarded one
+ * stops being the one that gets called.
+ *
+ * `profiles.email` is not written from the browser either way. db/058 put a
+ * trigger on auth.users so the column follows whenever the address really
+ * changes, including from the Supabase dashboard.
+ */
+
+/**
+ * Sign out everywhere else, and stay signed in here.
+ *
+ * The Security page has said "changing it here does not sign you out of other
+ * devices" since it was written. On classroom laptops shared between rooms
+ * that is the gap that matters: somebody who walked away from a signed-in
+ * machine cannot get to it, but can end its session from anywhere.
+ */
+export async function signOutOtherSessions(): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: 'others' })
+  if (error) throw new Error(error.message)
+}
+
+export type SearchHit = { id: string; label: string; detail: string }
+
+/**
+ * Global search — the ⌘K palette.
+ *
+ * ONE QUERY, FIVE CORRECT ANSWERS. There is no role branching here and there
+ * must not be. An educator's search returns their assigned children, a
+ * specialist's returns their caseload, a school admin's returns their school
+ * and a platform admin's returns everybody — because `can_view_student` decides,
+ * not this function. A client-side filter would be a second opinion about who
+ * may see a child, and the two would eventually disagree.
+ *
+ * MATCHES THE STUDENT ID TOO. Staff quote "4021" to each other far more often
+ * than they type a surname, and it is the one identifier that is unambiguous
+ * when two children share a first name.
+ *
+ * TWO CHARACTERS MINIMUM, EIGHT RESULTS. A palette is for jumping to something
+ * you already have in mind; a single letter is browsing, and that is what the
+ * roster screens are for.
+ */
+export async function searchStudents(term: string): Promise<SearchHit[]> {
+  const q = safeSearchTerm(term)
+  if (q.length < 2) return []
+
+  const { data, error } = await supabase
+    .from('students')
+    .select('id, first_name, last_name, display_name, year_level, external_ref')
+    .eq('is_active', true)
+    .or(
+      `first_name.ilike.%${q}%,last_name.ilike.%${q}%,external_ref.ilike.%${q}%`,
+    )
+    .order('first_name')
+    .limit(8)
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    /*
+     * Full name when the caller may read it, "Ethan M." when they may not.
+     * db/002 grants last_name selectively, so this is the column grant
+     * answering rather than a role check written here.
+     */
+    label:
+      s.first_name && s.last_name
+        ? `${s.first_name} ${s.last_name}`
+        : s.display_name,
+    detail: [
+      s.year_level ? `Year ${s.year_level}` : null,
+      s.external_ref ? `ID ${s.external_ref}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  }))
+}
+
+/**
+ * The same, for schools — because a platform admin has no student record to
+ * open. Their drill-down is the school, so that is what their palette finds.
+ */
+export async function searchSchools(term: string): Promise<SearchHit[]> {
+  const q = safeSearchTerm(term)
+  if (q.length < 2) return []
+
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id, name, suburb, state')
+    .or(`name.ilike.%${q}%,suburb.ilike.%${q}%`)
+    .order('name')
+    .limit(8)
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    label: s.name,
+    detail: [s.suburb, s.state].filter(Boolean).join(', '),
+  }))
+}
+
 /**
  * One page of the people at this school, searched BY THE DATABASE.
  *
@@ -4282,7 +4723,191 @@ export async function removeIepParticipant(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+// ---------------------------------------------------------------------------
+// What is waiting for you — the counts behind the notification bell
+// ---------------------------------------------------------------------------
+
+/**
+ * How many things are queued for you, by role.
+ *
+ * A COUNT IS NOT A LIST. Every one of these already had a fetcher that returns
+ * whole rows, and the bell only needs a number — `fetchScreening()` reads every
+ * live check with its holder's name attached so that a badge can render "3".
+ * The bell is mounted on every screen of the product, so that is the wrong read
+ * to repeat. These ask Postgres to count and send back no rows at all, the same
+ * shape as `countStaffAwaitingVerification` above.
+ *
+ * NULL IS NOT ZERO, and keeping them apart is the whole reason this returns a
+ * record rather than a tally. A count that could not be read must never render
+ * as "nothing waiting" — that is the same fabricated zero the dashboard tiles
+ * had, and here it would be a safeguarding incident silently going unreported.
+ * `Promise.allSettled`, not `Promise.all`: one failed count leaves the others
+ * true rather than losing the lot.
+ */
+export type WorkQueue = Partial<
+  Record<
+    | 'staffAwaitingVerification'
+    | 'newEnquiries'
+    | 'newApplications'
+    | 'screeningDueSoon'
+    | 'openSafeguarding'
+    | 'strategiesAwaitingReview'
+    | 'unreadThreads'
+    | 'invoicesDue',
+    /** A number, or null when the count could not be read. Never absent-as-zero. */
+    number | null
+  >
+>
+
+async function countNewEnquiries(): Promise<number> {
+  const { count, error } = await supabase
+    .from('enquiries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+async function countNewApplications(): Promise<number> {
+  const { count, error } = await supabase
+    .from('specialist_applications')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+/**
+ * Screening checks inside thirty days of expiry, or already past it.
+ *
+ * `lte` drops nulls, which is right: a check with no expiry date recorded is
+ * unknown rather than expiring, and db/050 is explicit that the date is never
+ * filled in with a guess. It belongs on the Screening screen, not in a count
+ * of things that need chasing this month.
+ */
+async function countScreeningDueSoon(): Promise<number> {
+  const { count, error } = await supabase
+    .from('screening_overview')
+    .select('id', { count: 'exact', head: true })
+    .lte('days_remaining', 30)
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+async function countStrategiesAwaitingReview(): Promise<number> {
+  const { count, error } = await supabase
+    .from('ai_strategies')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending_review')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+/** Bills a parent still owes. db/020 hides drafts from them entirely. */
+async function countInvoicesDue(): Promise<number> {
+  const { count, error } = await supabase
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+type UnreadRow = {
+  last_read_at: string | null
+  message_threads: {
+    last_message_at: string
+    /** PostgREST returns an aggregate embed as a one-element array. */
+    messages: { count: number }[]
+  } | null
+}
+
+/**
+ * Conversations with something in them you have not seen.
+ *
+ * THE RULE IS THE ONE THE MESSAGES SCREEN ALREADY USES, deliberately copied
+ * rather than re-derived: `Messenger.unreadCount` treats a thread as unread
+ * when a message arrived after your `last_read_at`, and treats a thread you
+ * have never opened as unread only if it actually contains messages. Two
+ * different rules for the same word would put a badge in the header that the
+ * screen it points at cannot explain.
+ *
+ * THE MESSAGE COUNT IN THE EMBED IS WHY THIS IS NOT A ONE-LINE FILTER, and it
+ * is load-bearing rather than defensive: `message_threads.last_message_at`
+ * defaults to `now()` when the row is created, so a thread that was started and
+ * never written in looks newer than a `last_read_at` of null forever. There is
+ * one of those in the database today. Without the count it would put a "1
+ * waiting" on somebody's bell pointing at an empty conversation.
+ *
+ * Counted in the browser and not in Postgres because the comparison is between
+ * two columns on different tables, which PostgREST has no filter for. The rows
+ * are two integers and two timestamps each, with no message bodies — a teacher
+ * with thirty conversations fetches thirty of those.
+ */
+async function countUnreadThreads(): Promise<number> {
+  const { data: auth } = await supabase.auth.getUser()
+  const me = auth.user?.id
+  if (!me) return 0
+
+  const { data, error } = await supabase
+    .from('thread_participants')
+    .select('last_read_at, message_threads!inner(last_message_at, messages(count))')
+    .eq('profile_id', me)
+
+  if (error) throw new Error(error.message)
+
+  return ((data ?? []) as unknown as UnreadRow[]).filter((row) => {
+    const thread = row.message_threads
+    if (!thread) return false
+    if ((thread.messages[0]?.count ?? 0) === 0) return false
+    if (!row.last_read_at) return true
+    return new Date(thread.last_message_at) > new Date(row.last_read_at)
+  }).length
+}
+
+export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
+  /* Named alongside their promises so a settled result can be put back under
+     the right key — `allSettled` gives an array in order and nothing else. */
+  const jobs: [keyof WorkQueue, Promise<number>][] =
+    role === 'platform_admin'
+      ? [
+          ['staffAwaitingVerification', countStaffAwaitingVerification()],
+          ['newEnquiries', countNewEnquiries()],
+          ['newApplications', countNewApplications()],
+          ['screeningDueSoon', countScreeningDueSoon()],
+        ]
+      : role === 'school_admin'
+        ? [
+            [
+              'openSafeguarding',
+              fetchSchoolSummary().then((s) => s?.flagged_open ?? 0),
+            ],
+            ['unreadThreads', countUnreadThreads()],
+          ]
+        : role === 'specialist'
+          ? [
+              ['strategiesAwaitingReview', countStrategiesAwaitingReview()],
+              ['unreadThreads', countUnreadThreads()],
+            ]
+          : role === 'educator'
+            ? [['unreadThreads', countUnreadThreads()]]
+            : [
+                ['unreadThreads', countUnreadThreads()],
+                ['invoicesDue', countInvoicesDue()],
+              ]
+
+  const settled = await Promise.allSettled(jobs.map(([, p]) => p))
+
+  const queue: WorkQueue = {}
+  settled.forEach((result, i) => {
+    const key = jobs[i][0]
+    queue[key] = result.status === 'fulfilled' ? result.value : null
+  })
+  return queue
+}
+
 export const queryKeys = {
+  workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
     ['school-people', 'page', group, search, page] as const,
   upcomingGoals: ['upcoming-goals'] as const,
@@ -4303,6 +4928,7 @@ export const queryKeys = {
   systemEvents: ['system-events'] as const,
   sessions: (studentId: string) => ['sessions', studentId] as const,
   mySessions: ['sessions', 'mine'] as const,
+  appointments: ['appointments'] as const,
   aiQuota: (schoolId: string | null, actorId: string) =>
     ['ai-quota', schoolId, actorId] as const,
   consents: (id: string) => ['consents', id] as const,
@@ -4333,6 +4959,8 @@ export const queryKeys = {
   schoolSummary: ['school-summary'] as const,
   aiControls: ['ai-controls'] as const,
   aiControlEvents: ['ai-control-events'] as const,
+  strategyConfidence: ['strategy-confidence'] as const,
+  search: (kind: string, term: string) => ['search', kind, term] as const,
   allStaff: ['all-staff'] as const,
   schoolStaff: ['school-staff'] as const,
   assignments: ['assignments'] as const,

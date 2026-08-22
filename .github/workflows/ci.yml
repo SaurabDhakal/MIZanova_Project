@@ -138,6 +138,21 @@ jobs:
       - name: Row-Level Security suite
         run: npm test
 
+      # File storage — the only thing that exercises the policies on
+      # storage.objects, a table this project does not own.
+      #
+      # ADDED AFTER IT ROTTED UNNOTICED. This was the one check outside CI, and
+      # it broke silently at db/039 (my_role() began requiring a live
+      # membership) and again at db/044 (parent became the only self-selectable
+      # role, so every account it built was a parent whatever it was labelled).
+      # Nobody ran it in between, so the Resources feature's storage layer went
+      # unverified for many migrations while everything else stayed green.
+      #
+      # A check that only runs when somebody remembers is a check that reports
+      # nothing, slowly.
+      - name: File storage and resource policies
+        run: npm run storage-check
+
       # A hostile visitor holding only the publishable key.
       - name: Anonymous attack surface
         run: node scripts/security-check.mjs

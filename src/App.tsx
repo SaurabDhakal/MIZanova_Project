@@ -15,6 +15,7 @@ import AcceptInvitation from './pages/auth/AcceptInvitation'
 import StartWithCode from './pages/auth/StartWithCode'
 import NotFound from './pages/NotFound'
 import RoleShell from './components/RoleShell'
+import AccountLayout from './pages/account/AccountLayout'
 import DocumentTitle from './components/DocumentTitle'
 import { ROLES, ROLE_CONFIG, type Role } from './lib/roles'
 
@@ -55,6 +56,7 @@ const Cookies = lazy(() => import('./pages/public/Cookies'))
 const Help = lazy(() => import('./pages/public/Help'))
 const Status = lazy(() => import('./pages/public/Status'))
 const Security = lazy(() => import('./pages/account/Security'))
+const AccountProfile = lazy(() => import('./pages/account/Profile'))
 
 /**
  * ROLE SCREENS ARE ADDED HERE, BY THE PERSON WHO OWNS THAT ROLE.
@@ -116,6 +118,10 @@ const Compliance = lazy(() => import('./pages/schoolAdmin/Compliance'))
 const Invoices = lazy(() => import('./pages/schoolAdmin/Invoices'))
 const AccessLog = lazy(() => import('./pages/schoolAdmin/AccessLog'))
 const AddStudents = lazy(() => import('./pages/schoolAdmin/AddStudents'))
+<<<<<<< HEAD
+=======
+const SchoolAdminMessages = lazy(() => import('./pages/schoolAdmin/Messages'))
+>>>>>>> 96aca26d4784007dffbcd5ae4b804e1296e4f1d0
 
 
 // --- Osheit: educator/ ---
@@ -127,8 +133,14 @@ const EducatorMessages = lazy(() => import('./pages/educator/Messages'))
 const EducatorSchedule = lazy(() => import('./pages/educator/Schedule'))
 const IepPlans = lazy(() => import('./pages/shared/IepPlans'))
 const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
-
 // --- Tahmid: specialist/ ---
+
+const SpecialistDashboard = lazy(() => import('./pages/specialist/Dashboard'))
+const Caseload = lazy(() => import('./pages/specialist/Caseload'))
+const ReviewQueue = lazy(() => import('./pages/specialist/ReviewQueue'))
+const SpecialistMessages = lazy(() => import('./pages/specialist/Messages'))
+const SpecialistSchedule = lazy(() => import('./pages/specialist/Schedule'))
+const Resources = lazy(() => import('./pages/specialist/Resources'))
 
 /**
  * Screens that are actually built, keyed by `role:path` from ROLE_CONFIG.
@@ -183,6 +195,10 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'school_admin:compliance': <Compliance />,
   'school_admin:invoices': <Invoices />,
   'school_admin:access-log': <AccessLog />,
+<<<<<<< HEAD
+=======
+  'school_admin:messages': <SchoolAdminMessages />,
+>>>>>>> 96aca26d4784007dffbcd5ae4b804e1296e4f1d0
   
   // --- Osheit: educator: ---
 
@@ -192,6 +208,14 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'educator:schedule': <EducatorSchedule />,
 
   // --- Tahmid: specialist: ---
+
+  'specialist:': <SpecialistDashboard />,
+  'specialist:caseload': <Caseload />,
+  'specialist:review-queue': <ReviewQueue />,
+  'specialist:messages': <SpecialistMessages />,
+  'specialist:schedule': <SpecialistSchedule />,
+  'specialist:resources': <Resources />,
+  'parent:resources': <Resources />,
 }
 
 /**
@@ -235,6 +259,12 @@ school_admin: [
   ],
 
   // --- Tahmid: specialist ---
+
+  specialist: [
+    { path: 'students/:studentId', element: <StudentDetail /> },
+    { path: 'students/:studentId/iep', element: <IepPlans /> },
+    { path: 'students/:studentId/iep/:planId', element: <IepPlanEditor /> },
+  ],
 }
 
 /**
@@ -407,7 +437,16 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="security" element={<Security />} />
+        {/* Settings is a SECTION, not two unrelated pages — one header and a
+            row of tabs, from the Figma. The layout is imported eagerly rather
+            than lazily: it is the frame both tabs render inside, so splitting
+            it would cost a round trip to draw the header of a page that has
+            already started loading. */}
+        <Route element={<AccountLayout />}>
+          {/* Every role, one screen — see the note in Profile.tsx. */}
+          <Route path="profile" element={<AccountProfile />} />
+          <Route path="security" element={<Security />} />
+        </Route>
       </Route>
 
       {/* One protected section per role */}

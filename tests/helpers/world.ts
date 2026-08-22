@@ -370,7 +370,9 @@ export async function destroyWorld(world: World | SpecialistWorld): Promise<void
   for (const actor of actors) {
     await actor.db.auth.signOut()
   }
-  await cleanupStrays()
+  // This run only. Without the id it would take every other run's world with
+  // it, including one being built in the next file.
+  await cleanupStrays(world.runId)
 }
 
 /**
@@ -400,11 +402,47 @@ export async function destroyWorld(world: World | SpecialistWorld): Promise<void
  * found by counting rows afterwards rather than by the suite going red,
  * because leftovers do not fail a test. They just accumulate.
  */
-export async function cleanupStrays(): Promise<void> {
-  const { data: schools } = await admin
-    .from('schools')
-    .select('id')
-    .like('name', 'RLS %')
+/**
+ * Old enough that no run still using it could possibly be alive. A full suite
+ * is about four minutes; an hour is generous in the safe direction.
+ */
+const STRAY_AGE_MS = 60 * 60 * 1000
+
+export async function cleanupStrays(runId?: string): Promise<void> {
+  /*
+   * TWO MODES, BECAUSE THIS IS CALLED FOR TWO OPPOSITE REASONS.
+   *
+   * `destroyWorld` passes a runId and means "remove exactly the world I built".
+   * `buildWorld` passes nothing and means "remove wreckage from a run that died
+   * before it could tidy up".
+   *
+   * It used to do neither: it matched `RLS %` and `rls-` with no scope at all,
+   * so it deleted every run's world including one currently being built. That
+   * is the failure in tests/rls/onboarding.test.ts — a foreign key violation
+   * partway through buildWorld, because the school it had just created was gone
+   * before it could attach anybody to it.
+   *
+   * It does not need two people to happen. buildWorld creates the students,
+   * then makes six accounts — each signing in through signInWithRetry, which
+   * sleeps whole seconds when the free tier rate-limits — and only then inserts
+   * student_educators. That window is tens of seconds wide, and hookTimeout is
+   * 60s, so a previous file's afterAll can be abandoned by vitest while its
+   * cleanup is still running into the next file's setup.
+   *
+   * An age filter alone would have been wrong: destroyWorld's own world is
+   * minutes old, so filtering by age would leave every run behind to
+   * accumulate — which is the fault this file's header warns about.
+   */
+  let schoolQuery = admin.from('schools').select('id').like('name', 'RLS %')
+
+  schoolQuery = runId
+    ? schoolQuery.like('name', `%${runId}`)
+    : schoolQuery.lt(
+        'created_at',
+        new Date(Date.now() - STRAY_AGE_MS).toISOString(),
+      )
+
+  const { data: schools } = await schoolQuery
 
   const schoolIds = (schools ?? []).map((s) => s.id)
 
@@ -456,11 +494,17 @@ export async function cleanupStrays(): Promise<void> {
 
   // Found by address, so a half-built run is cleaned up too. Deleting the auth
   // user takes its profile row with it, which is what releases the school.
+  //
+  // Scoped the same two ways as the schools above. `rls-` alone would take a
+  // live run's accounts out from under it, which is how buildWorld ended up
+  // signing in as somebody it had just deleted.
+  const prefix = runId ? `rls-${runId}-` : 'rls-'
+  const cutoff = Date.now() - STRAY_AGE_MS
   const { data: users } = await admin.auth.admin.listUsers({ perPage: 200 })
   for (const user of users?.users ?? []) {
-    if ((user.email ?? '').startsWith('rls-')) {
-      await admin.auth.admin.deleteUser(user.id)
-    }
+    if (!(user.email ?? '').startsWith(prefix)) continue
+    if (!runId && new Date(user.created_at).getTime() > cutoff) continue
+    await admin.auth.admin.deleteUser(user.id)
   }
 
   if (schoolIds.length > 0) {
