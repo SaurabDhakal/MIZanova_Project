@@ -296,6 +296,9 @@ select:not([aria-invalid='true']) {
   --fc-button-active-bg-color: var(--color-brand-navy);
   --fc-button-active-border-color: var(--color-brand-navy);
   --fc-button-text-color: var(--color-primary-foreground);
+  /* Its default is #fff, which is invisible on every subtle background this
+     palette uses. Overridden per status below; this is the fallback. */
+  --fc-event-text-color: var(--color-foreground);
 
   font-family: var(--font-sans);
   color: var(--color-foreground);
@@ -345,21 +348,32 @@ select:not([aria-invalid='true']) {
   cursor: pointer;
 }
 
+/* SOLID, NOT SUBTLE, AND THAT IS A CORRECTION.
+   These began as -subtle fills, which measured 1.22:1 against a white cell and
+   exactly 1.00:1 against the today column — an appointment sitting in today
+   was the same colour as the day behind it and simply disappeared. WCAG 1.4.11
+   asks 3:1 for a component against what it sits on. Solid gives 6.70:1 on a
+   white cell and 5.49:1 on today, and carries white text at 6.70:1. */
 .mizanova-calendar .fc-appointment--scheduled {
-  background-color: var(--color-primary-subtle);
+  background-color: var(--color-primary);
   border-color: var(--color-primary);
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
 }
 
+/* -strong, not -success: the plain token is shape-only and fails as a text
+   background. White on -strong is 5.48:1, and the block is 5.48:1 on a cell. */
 .mizanova-calendar .fc-appointment--completed {
-  background-color: var(--color-success-subtle);
-  border-color: var(--color-success);
-  color: var(--color-success-foreground);
+  background-color: var(--color-success-strong);
+  border-color: var(--color-success-strong);
+  color: var(--color-primary-foreground);
 }
 
+/* Deliberately NOT solid — a cancelled appointment should recede. The shape
+   contrast is carried by the border instead: muted-foreground is 5.28:1
+   against a cell, and the text is 4.96:1 on this fill. */
 .mizanova-calendar .fc-appointment--cancelled {
   background-color: var(--color-background);
-  border-color: var(--color-border);
+  border-color: var(--color-muted-foreground);
   color: var(--color-muted-foreground);
   text-decoration: line-through;
 }
@@ -369,9 +383,68 @@ select:not([aria-invalid='true']) {
    would say "less important" while also hurting contrast. */
 .mizanova-calendar .fc-appointment--colleague {
   border-style: dashed;
+  border-width: 2px;
+  /* currentColor, so the dash inherits whichever text colour that status
+     already proved readable rather than needing its own measurement. */
+  border-color: currentColor;
 }
 
+/* Offset so the ring lands on the cell behind rather than on a solid fill it
+   would be nearly the same blue as. */
 .mizanova-calendar .fc-appointment--selected {
   outline: 2px solid var(--color-ring);
-  outline-offset: 1px;
+  outline-offset: 2px;
+}
+
+/* THE COLOUR HAS TO BE SET ON THE CHILD, NOT THE EVENT.
+
+   FullCalendar ships `.fc-event-main { color: var(--fc-event-text-color) }`,
+   and .fc-event-main is a CHILD of the event. A colour set on the event itself
+   is therefore overridden rather than inherited, so the status rules above had
+   no effect on the text at all — every appointment rendered in the default
+   white, which against these subtle backgrounds is about 1.2:1 and effectively
+   invisible.
+
+   Forcing the inner nodes to inherit puts the status colour back in charge,
+   and keeps one declaration per status rather than three. */
+.mizanova-calendar .fc-event .fc-event-main,
+.mizanova-calendar .fc-event .fc-event-main-frame,
+.mizanova-calendar .fc-event .fc-event-time,
+.mizanova-calendar .fc-event .fc-event-title {
+  color: inherit;
+}
+
+/* SHORT APPOINTMENTS HAVE TO STAY READABLE.
+
+   FullCalendar's default row is compact enough that a 15-minute booking is
+   about 15px tall, and its condensed one-line layout — time, then title, on a
+   single row — gets clipped to nothing. `eventMinHeight` in the component
+   gives the block a floor; these give the grid enough room that the floor is
+   rarely needed, and stop the line being cropped when it is. */
+.mizanova-calendar .fc-timegrid-slot {
+  height: 2.25rem;
+}
+
+.mizanova-calendar .fc-timegrid-event .fc-event-main {
+  padding: 2px 4px;
+}
+
+.mizanova-calendar .fc-event-time,
+.mizanova-calendar .fc-event-title {
+  font-size: var(--text-caption);
+  line-height: 1.25;
+}
+
+/* The condensed layout puts time and title side by side. Centring them stops
+   a single line sitting against the top edge of a block that is taller than
+   its own text, and min-width-0 lets the title truncate rather than push the
+   time out of the box. */
+.mizanova-calendar .fc-timegrid-event-short .fc-event-main-frame {
+  align-items: center;
+}
+
+.mizanova-calendar .fc-event-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
