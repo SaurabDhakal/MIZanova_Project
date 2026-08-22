@@ -112,8 +112,20 @@ export default function AppointmentCalendar({
         slotMinTime={`${pad(minHour)}:00:00`}
         slotMaxTime={`${pad(maxHour)}:00:00`}
         slotDuration="00:30:00"
+        /*
+         * A FLOOR, NOT A HEIGHT. At 30-minute slots a 15-minute appointment is
+         * half a row — around 15px — and FullCalendar clips its one condensed
+         * line of text to nothing legible. Letting a short booking draw taller
+         * than its duration is the same trade every calendar makes: being able
+         * to read who it is with beats the block being exactly to scale.
+         */
+        eventMinHeight={34}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         slotLabelFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
+        // Month view renders timed events as a dot plus bare text by default,
+        // which would ignore the status colours entirely. Solid blocks keep all
+        // three views reading the same way.
+        eventDisplay="block"
         dayMaxEvents={3}
         events={events}
         eventClick={(arg: EventClickArg) =>
