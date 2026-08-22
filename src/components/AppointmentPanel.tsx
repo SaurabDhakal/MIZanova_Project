@@ -58,7 +58,15 @@ export default function AppointmentPanel({
     setMode('none')
     setFormError(null)
     void queryClient.invalidateQueries({ queryKey: queryKeys.appointments })
-    void queryClient.invalidateQueries({ queryKey: queryKeys.mySessions })
+    /*
+     * `['sessions']`, NOT `queryKeys.mySessions`. Invalidation matches on a key
+     * prefix, and mySessions is `['sessions', 'mine']` while the student page's
+     * list is `['sessions', <studentId>]` — so naming the first left the second
+     * cached. Completing an appointment wrote a session the child's own record
+     * then did not show for the next thirty seconds, which is precisely how
+     * long somebody takes to click through and wonder whether it saved.
+     */
+    void queryClient.invalidateQueries({ queryKey: ['sessions'] })
     showToast(message)
     onDone()
   }

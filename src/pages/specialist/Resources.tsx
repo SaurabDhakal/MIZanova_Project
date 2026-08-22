@@ -175,6 +175,10 @@ export default function Resources() {
   // Only what this person can see, which for a specialist is their own library.
   const usedBytes = all.reduce((sum, r) => sum + (r.size_bytes ?? 0), 0)
 
+  /** Sharing, revoking and deleting all belong to whoever uploaded it. */
+  const isOwner = (resource: ResourceRow) =>
+    isSpecialist && resource.owner_id === profile?.id
+
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-start gap-4">
@@ -399,7 +403,7 @@ export default function Resources() {
                       getUrl={resourceDownloadUrl}
                     />
                   )}
-                  {isSpecialist && resource.owner_id === profile?.id && (
+                  {isOwner(resource) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -476,7 +480,7 @@ export default function Resources() {
                             </button>
                           )}
 
-                          {isSpecialist && resource.owner_id === profile?.id && (
+                          {isOwner(resource) && (
                             <button
                               type="button"
                               onClick={() => revoke.mutate(s.id)}
@@ -492,7 +496,20 @@ export default function Resources() {
                   </ul>
                 )}
 
-                {isSpecialist && resource.owner_id === profile?.id && (
+                {/* A FAILED CASELOAD MUST NOT LOOK LIKE AN EMPTY ONE. The
+                    picker below is fed by `students`, and when that query fails
+                    it renders with nothing in it — telling a specialist they
+                    have nobody to share with, on the screen where they came to
+                    share something. */}
+                {isOwner(resource) && students.isError && (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Your caseload could not be loaded, so there is nobody to
+                    choose from here yet. That is not the same as having nobody
+                    — reload the page and try again.
+                  </p>
+                )}
+
+                {isOwner(resource) && students.isSuccess && (
                   <div className="mt-3">
                     <label
                       htmlFor={`share-${resource.id}`}
@@ -514,7 +531,7 @@ export default function Resources() {
                       className="rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
                     >
                       <option value="">Share with a child…</option>
-                      {(students.data ?? [])
+                      {students.data
                         .filter(
                           (student) =>
                             !resource.resource_shares.some(

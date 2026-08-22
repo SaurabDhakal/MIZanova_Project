@@ -106,9 +106,14 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
       setTotal('')
       setShareTeacher(false)
       setShareParents(false)
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.sessions(studentId),
-      })
+      /*
+       * The prefix, not this student's key alone. `queryKeys.mySessions` is
+       * `['sessions', 'mine']` and feeds the specialist's Schedule — the
+       * delivered-minutes figures there stayed on the old numbers after a
+       * session was recorded here, because invalidation matches by prefix and
+       * `['sessions', <studentId>]` never matches it.
+       */
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] })
       showToast('Session recorded.')
     },
   })
@@ -119,8 +124,9 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
       teacher: boolean
       parents: boolean
     }) => setSessionSharing(input.id, input),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions(studentId) }),
+    // Same prefix, same reason: the Schedule screen badges each session with
+    // who it was shared with.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sessions'] }),
   })
 
   function submit(event: React.FormEvent) {
