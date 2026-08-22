@@ -10,6 +10,7 @@ import {
 } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { EmptyState, ErrorState } from './QueryState'
+import DictatedTextarea from './DictatedTextarea'
 import FormField from './FormField'
 import { showToast } from '../lib/toast'
 
@@ -275,42 +276,24 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
           </fieldset>
 
           <div className="mt-4">
-            <label
-              htmlFor="clinical-notes"
-              className="block text-sm font-semibold text-foreground"
-            >
-              Clinical notes
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Your professional record. Never shown to teachers, families or
-              school administrators, whatever you share below.
-            </p>
-            <textarea
+            <DictatedTextarea
               id="clinical-notes"
+              label="Clinical notes"
+              hint="Your professional record. Never shown to teachers, families or school administrators, whatever you share below."
               rows={4}
               value={clinicalNotes}
-              onChange={(e) => setClinicalNotes(e.target.value)}
-              className="mt-1.5 w-full rounded-btn border border-border bg-card p-3 text-foreground"
+              onChange={setClinicalNotes}
             />
           </div>
 
           <div className="mt-4">
-            <label
-              htmlFor="shared-summary"
-              className="block text-sm font-semibold text-foreground"
-            >
-              Summary for the care team
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Written by you, for them. Nothing is summarised or redacted
-              automatically — what you type here is exactly what they read.
-            </p>
-            <textarea
+            <DictatedTextarea
               id="shared-summary"
+              label="Summary for the care team"
+              hint="Written by you, for them. Nothing is summarised or redacted automatically — what you type here is exactly what they read."
               rows={3}
               value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              className="mt-1.5 w-full rounded-btn border border-border bg-card p-3 text-foreground"
+              onChange={setSummary}
             />
           </div>
 

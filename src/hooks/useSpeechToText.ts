@@ -48,6 +48,18 @@ function getConstructor(): RecognitionConstructor | undefined {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
 }
 
+/**
+ * ONE MICROPHONE, SO ONE DICTATION AT A TIME.
+ *
+ * Each caller gets its own recognition object, and nothing in the Web Speech
+ * API stops two of them listening at once. That became reachable the moment a
+ * form had two dictatable fields: start on the clinical notes, click the
+ * control on the summary, and both are transcribing the same audio into two
+ * different boxes — with two buttons reading "Stop dictation" and no way to
+ * tell which one is which. Starting anywhere stops everywhere else instead.
+ */
+let activeStop: (() => void) | null = null
+
 export function useSpeechToText(onText: (text: string) => void) {
   const [listening, setListening] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,9 +76,17 @@ export function useSpeechToText(onText: (text: string) => void) {
 
   const supported = getConstructor() !== undefined
 
+  const stop = useCallback(() => {
+    recognition.current?.stop()
+    setListening(false)
+  }, [])
+
   const start = useCallback(() => {
     const Constructor = getConstructor()
     if (!Constructor) return
+
+    activeStop?.()
+    activeStop = stop
 
     setError(null)
     const rec = new Constructor()
@@ -96,17 +116,17 @@ export function useSpeechToText(onText: (text: string) => void) {
     recognition.current = rec
     rec.start()
     setListening(true)
-  }, [])
+  }, [stop])
 
-  const stop = useCallback(() => {
-    recognition.current?.stop()
-    setListening(false)
-  }, [])
-
-  // Never leave the microphone running because a modal closed.
+  // Never leave the microphone running because a modal closed — and never
+  // leave the registry holding a stop that belongs to a component which no
+  // longer exists.
   useEffect(() => {
-    return () => recognition.current?.stop()
-  }, [])
+    return () => {
+      recognition.current?.stop()
+      if (activeStop === stop) activeStop = null
+    }
+  }, [stop])
 
   return { supported, listening, error, start, stop }
 }
