@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createInvoice,
+  deleteInvoiceDraft,
   fetchInvoices,
   fetchSchoolSummary,
   fetchStudents,
   formatMoney,
   queryKeys,
   setInvoiceStatus,
+  updateInvoiceDraft,
   type InvoiceRow,
+  type StudentRow,
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import FormField from '../../components/FormField'
@@ -25,6 +28,19 @@ import { showToast } from '../../lib/toast'
  * Amounts are typed in dollars because that is what a person has in front of
  * them, and converted to whole cents immediately. Everything downstream — this
  * database, Stripe, the parent's screen — speaks cents.
+ *
+ * ---------------------------------------------------------------------------
+ * A DRAFT CAN BE CORRECTED AND DISCARDED; NOTHING ELSE CAN
+ * ---------------------------------------------------------------------------
+ * The two-step design only pays for itself if the private half is genuinely
+ * fixable. Before db/060 a mistyped draft could only be cleared by issuing the
+ * bill to the family and then cancelling it — which put a charge and a
+ * cancellation in front of somebody for a typo they were never meant to see.
+ *
+ * So Edit and Discard appear on drafts and on nothing else. An issued invoice
+ * is still cancelled rather than deleted, and a paid one is untouchable: those
+ * are records of something that happened to a family, and db/060 refuses them
+ * at the database rather than trusting this file to keep hiding the buttons.
  */
 
 const STATUS_STYLE: Record<InvoiceRow['status'], { label: string; className: string }> =
@@ -35,14 +51,178 @@ const STATUS_STYLE: Record<InvoiceRow['status'], { label: string; className: str
     void: { label: 'Cancelled', className: 'bg-background text-muted-foreground' },
   }
 
+type Draft = {
+  studentId: string
+  description: string
+  amountCents: number
+  dueDate: string | null
+}
+
+/**
+ * The fields of an invoice, for raising a new one or correcting a draft.
+ *
+ * It owns its own field state rather than taking it from the page, so opening
+ * the editor on a draft is `invoice={row}` and nothing else — no effect
+ * copying four values into four setters, and no chance of the form showing one
+ * invoice's amount beside another's description. Remounting it per invoice
+ * (see the `key` at the call site) is what makes that true.
+ */
+function InvoiceForm({
+  heading,
+  students,
+  invoice,
+  submitLabel,
+  footnote,
+  pending,
+  serverError,
+  onSubmit,
+  onCancel,
+}: {
+  heading: string
+  students: StudentRow[]
+  /** The draft being corrected, or undefined when raising a new one. */
+  invoice?: InvoiceRow
+  submitLabel: string
+  footnote: string
+  pending: boolean
+  serverError?: string
+  onSubmit: (draft: Draft) => void
+  onCancel: () => void
+}) {
+  const [studentId, setStudentId] = useState(invoice?.student_id ?? '')
+  const [description, setDescription] = useState(invoice?.description ?? '')
+  // Cents back to the dollars a person typed. toFixed(2) so 125000 reads as
+  // "1250.00" and not "1250", which looks like a field somebody left half done.
+  const [amount, setAmount] = useState(
+    invoice ? (invoice.amount_cents / 100).toFixed(2) : '',
+  )
+  const [dueDate, setDueDate] = useState(invoice?.due_date ?? '')
+  const [formError, setFormError] = useState<string | null>(null)
+  // Same reasoning as FormField: this component can be on screen twice, and a
+  // repeated id points both labels at whichever input rendered first.
+  const studentFieldId = useId()
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    const dollars = Number(amount)
+
+    if (!studentId) return setFormError('Choose a student.')
+    if (description.trim() === '') {
+      return setFormError('Describe what this is for.')
+    }
+    if (!Number.isFinite(dollars) || dollars <= 0) {
+      return setFormError('Enter an amount greater than zero.')
+    }
+
+    setFormError(null)
+    onSubmit({
+      studentId,
+      description,
+      // Rounded, not truncated: 12.345 typed by accident becomes 1235 cents,
+      // and Math.round on a value already multiplied by 100 avoids the
+      // floating-point surprise where 12.30 * 100 is 1229.9999999999998.
+      amountCents: Math.round(dollars * 100),
+      dueDate: dueDate === '' ? null : dueDate,
+    })
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="rounded-card border border-border bg-card shadow-raised p-6"
+      noValidate
+    >
+      <h2 className="text-lg font-bold text-foreground">{heading}</h2>
+
+      {(formError || serverError) && (
+        <p
+          role="alert"
+          className="mt-3 rounded-btn border border-danger bg-danger-subtle p-3 text-sm text-danger-foreground"
+        >
+          {formError ?? serverError}
+        </p>
+      )}
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor={studentFieldId}
+            className="block text-sm font-semibold text-foreground"
+          >
+            Student
+          </label>
+          <select
+            id={studentFieldId}
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+          >
+            <option value="">Choose…</option>
+            {students.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.first_name} {student.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <FormField
+          label="Amount (AUD)"
+          type="number"
+          min="0.01"
+          step="0.01"
+          inputMode="decimal"
+          required
+          placeholder="1250.00"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <FormField
+          label="Description"
+          required
+          hint="The family reads this. Make it make sense on its own."
+          placeholder="Speech therapy, 12 sessions, term 3"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <FormField
+          label="Due date"
+          type="date"
+          hint="Optional."
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {pending ? 'Saving…' : submitLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{footnote}</p>
+    </form>
+  )
+}
+
 export default function Invoices() {
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
-  const [studentId, setStudentId] = useState('')
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  /** The draft whose editor is open, by id. One at a time. */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const invoices = useQuery({ queryKey: queryKeys.invoices, queryFn: fetchInvoices })
   const students = useQuery({ queryKey: queryKeys.students, queryFn: fetchStudents })
@@ -55,25 +235,47 @@ export default function Invoices() {
     queryClient.invalidateQueries({ queryKey: queryKeys.invoices })
 
   const create = useMutation({
-    mutationFn: () =>
-      createInvoice({
-        schoolId: school.data!.school_id,
-        studentId,
-        description,
-        // Rounded, not truncated: 12.345 typed by accident becomes 1235 cents,
-        // and Math.round on a value already multiplied by 100 avoids the
-        // floating-point surprise where 12.30 * 100 is 1229.9999999999998.
-        amountCents: Math.round(Number(amount) * 100),
-        dueDate: dueDate === '' ? null : dueDate,
-      }),
+    mutationFn: (draft: Draft) => {
+      if (!school.data?.school_id) {
+        throw new Error('Your account has no school assigned.')
+      }
+      return createInvoice({
+        schoolId: school.data.school_id,
+        studentId: draft.studentId,
+        description: draft.description,
+        amountCents: draft.amountCents,
+        dueDate: draft.dueDate,
+      })
+    },
     onSuccess: () => {
-      setShowForm(false)
-      setStudentId('')
-      setDescription('')
-      setAmount('')
-      setDueDate('')
+      setCreating(false)
       void refresh()
       showToast('Draft invoice created. Issue it when you are ready.')
+    },
+  })
+
+  const edit = useMutation({
+    mutationFn: ({ id, draft }: { id: string; draft: Draft }) =>
+      updateInvoiceDraft({
+        invoiceId: id,
+        studentId: draft.studentId,
+        description: draft.description,
+        amountCents: draft.amountCents,
+        dueDate: draft.dueDate,
+      }),
+    onSuccess: () => {
+      setEditingId(null)
+      void refresh()
+      showToast('Draft updated. The family still cannot see it.')
+    },
+  })
+
+  const discard = useMutation({
+    mutationFn: (id: string) => deleteInvoiceDraft(id),
+    onSuccess: () => {
+      setEditingId(null)
+      void refresh()
+      showToast('Draft discarded.')
     },
   })
 
@@ -89,23 +291,6 @@ export default function Invoices() {
       )
     },
   })
-
-  function submit(event: React.FormEvent) {
-    event.preventDefault()
-    const dollars = Number(amount)
-
-    if (!studentId) return setFormError('Choose a student.')
-    if (description.trim() === '') return setFormError('Describe what this is for.')
-    if (!Number.isFinite(dollars) || dollars <= 0) {
-      return setFormError('Enter an amount greater than zero.')
-    }
-    if (!school.data?.school_id) {
-      return setFormError('Your account has no school assigned.')
-    }
-
-    setFormError(null)
-    create.mutate()
-  }
 
   if (invoices.isPending || students.isPending) return <LoadingCards count={2} />
   if (invoices.isError) return <ErrorState message={invoices.error.message} />
@@ -133,10 +318,13 @@ export default function Invoices() {
         </div>
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => {
+            setCreating((v) => !v)
+            setEditingId(null)
+          }}
           className="ml-auto rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
         >
-          {showForm ? 'Cancel' : '+ New invoice'}
+          {creating ? 'Cancel' : '+ New invoice'}
         </button>
       </header>
 
@@ -159,93 +347,30 @@ export default function Invoices() {
         </div>
       </div>
 
-      {showForm && (
-        <form
-          onSubmit={submit}
-          className="mb-6 rounded-card border border-border bg-card shadow-raised p-6"
-          noValidate
-        >
-          <h2 className="text-lg font-bold text-foreground">New invoice</h2>
-
-          {(formError || create.isError) && (
-            <p
-              role="alert"
-              className="mt-3 rounded-btn border border-danger bg-danger-subtle p-3 text-sm text-danger-foreground"
-            >
-              {formError ?? create.error?.message}
-            </p>
-          )}
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="invoice-student"
-                className="block text-sm font-semibold text-foreground"
-              >
-                Student
-              </label>
-              <select
-                id="invoice-student"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
-              >
-                <option value="">Choose…</option>
-                {students.data?.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.first_name} {student.last_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <FormField
-              label="Amount (AUD)"
-              type="number"
-              min="0.01"
-              step="0.01"
-              inputMode="decimal"
-              required
-              placeholder="1250.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <FormField
-              label="Description"
-              required
-              hint="The family reads this. Make it make sense on its own."
-              placeholder="Speech therapy, 12 sessions, term 3"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <FormField
-              label="Due date"
-              type="date"
-              hint="Optional."
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className="mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {create.isPending ? 'Saving…' : 'Save as draft'}
-          </button>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Saved as a draft. The family sees nothing until you issue it.
-          </p>
-        </form>
+      {creating && (
+        <div className="mb-6">
+          <InvoiceForm
+            heading="New invoice"
+            students={students.data ?? []}
+            submitLabel="Save as draft"
+            footnote="Saved as a draft. The family sees nothing until you issue it."
+            pending={create.isPending}
+            serverError={create.error?.message}
+            onSubmit={(draft) => create.mutate(draft)}
+            onCancel={() => setCreating(false)}
+          />
+        </div>
       )}
 
       {changeStatus.isError && (
         <p role="alert" className="mb-4 text-sm font-medium text-danger-foreground">
           {changeStatus.error.message}
+        </p>
+      )}
+
+      {discard.isError && (
+        <p role="alert" className="mb-4 text-sm font-medium text-danger-foreground">
+          {discard.error.message}
         </p>
       )}
 
@@ -258,6 +383,33 @@ export default function Invoices() {
         <ul className="space-y-3">
           {invoices.data.map((invoice) => {
             const style = STATUS_STYLE[invoice.status]
+
+            // The editor replaces the row it belongs to, rather than opening at
+            // the top of the page. A form somewhere else on a long list is a
+            // button that appears to do nothing.
+            if (editingId === invoice.id) {
+              return (
+                <li key={invoice.id}>
+                  <InvoiceForm
+                    // Remount when a different draft is opened, so the fields
+                    // are re-initialised from that invoice rather than kept.
+                    key={invoice.id}
+                    heading="Edit draft"
+                    students={students.data ?? []}
+                    invoice={invoice}
+                    submitLabel="Save changes"
+                    footnote="Still a draft. The family sees nothing until you issue it."
+                    pending={edit.isPending}
+                    serverError={edit.error?.message}
+                    onSubmit={(draft) =>
+                      edit.mutate({ id: invoice.id, draft })
+                    }
+                    onCancel={() => setEditingId(null)}
+                  />
+                </li>
+              )
+            }
+
             return (
               <li
                 key={invoice.id}
@@ -285,16 +437,47 @@ export default function Invoices() {
                   </span>
 
                   {invoice.status === 'draft' && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        changeStatus.mutate({ id: invoice.id, status: 'open' })
-                      }
-                      disabled={changeStatus.isPending}
-                      className="rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                    >
-                      Issue to family
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(invoice.id)
+                          setCreating(false)
+                        }}
+                        className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeStatus.mutate({ id: invoice.id, status: 'open' })
+                        }
+                        disabled={changeStatus.isPending}
+                        className="rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                      >
+                        Issue to family
+                      </button>
+                      {/* Says what is being thrown away and what it is worth,
+                          because "Are you sure?" is a question nobody can
+                          answer without the numbers in front of them. */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Discard this draft for ${nameFor(invoice.student_id)} — ${invoice.description}, ${formatMoney(invoice.amount_cents, invoice.currency)}? It has never been visible to the family and cannot be recovered.`,
+                            )
+                          ) {
+                            discard.mutate(invoice.id)
+                          }
+                        }}
+                        disabled={discard.isPending}
+                        className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                      >
+                        Discard
+                      </button>
+                    </>
                   )}
                   {invoice.status === 'open' && (
                     <button
