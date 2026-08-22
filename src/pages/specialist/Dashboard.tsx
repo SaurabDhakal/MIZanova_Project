@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
+  fetchAppointments,
   fetchPendingStrategies,
   fetchRecentLogs,
   fetchStudents,
@@ -15,11 +16,14 @@ import StatTile from '../../components/StatTile'
  *
  * Ordered by what should interrupt someone's morning: suggestions waiting on
  * their judgement first, because until they act nothing reaches a teacher;
- * then flagged incidents on their caseload; then the caseload itself.
+ * then today's appointments, then flagged incidents on their caseload, then
+ * the caseload itself.
  *
- * The Figma specialist screens include a live scheduler and a resource
- * library. Neither is built, and both are their own milestones — so they stay
- * as placeholders in the sidebar rather than appearing here half-made.
+ * TODAY IS THE ONLY PART OF THE DIARY THAT BELONGS HERE. The Schedule screen
+ * owns booking, moving and writing up; this shows what is left of today and
+ * links across. Duplicating the calendar would mean two screens to fix every
+ * time the appointment model changes, for a specialist who is one click from
+ * the real one.
  */
 export default function SpecialistDashboard() {
   const { profile } = useAuth()
@@ -36,6 +40,10 @@ export default function SpecialistDashboard() {
     queryKey: queryKeys.recentLogs,
     queryFn: () => fetchRecentLogs(100),
   })
+  const appointments = useQuery({
+    queryKey: queryKeys.appointments,
+    queryFn: fetchAppointments,
+  })
 
   if (pending.isPending) return <LoadingCards count={3} />
   if (students.isPending) return <LoadingCards count={3} />
@@ -44,6 +52,24 @@ export default function SpecialistDashboard() {
 
   const waiting = pending.data.length
   const flagged = (logs.data ?? []).filter((l) => l.is_risk_flagged)
+
+  /*
+   * Own appointments, today. A colleague's booking for a child they share is
+   * visible in the query on purpose — see fetchAppointments — but it is not
+   * something this person has to turn up to, and listing it under "what needs
+   * you today" says the opposite.
+   */
+  const today = new Date().toDateString()
+  const todaysAppointments = (appointments.data ?? []).filter(
+    (a) =>
+      a.status === 'scheduled' &&
+      a.specialist_id === profile?.id &&
+      new Date(a.starts_at).toDateString() === today,
+  )
+  const nameOf = (id: string) => {
+    const student = students.data.find((s) => s.id === id)
+    return student ? `${student.first_name} ${student.last_name}` : 'Unknown student'
+  }
 
   return (
     <div>
@@ -88,6 +114,69 @@ export default function SpecialistDashboard() {
           </p>
         </div>
       )}
+
+      {/* --- Today ----------------------------------------------------------
+          A FAILED QUERY MUST NOT READ AS A FREE DAY. This card is the only
+          place a specialist is told they are due somewhere, so "nothing today"
+          and "we could not ask" have to be different sentences. */}
+      <div className="mb-6 rounded-card border border-border bg-card shadow-raised p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="font-semibold text-foreground">Today</h2>
+          <Link
+            to="/specialist/schedule"
+            className="ml-auto text-sm font-semibold text-primary hover:underline"
+          >
+            Open the schedule →
+          </Link>
+        </div>
+
+        {appointments.isPending && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Loading your appointments…
+          </p>
+        )}
+
+        {appointments.isError && (
+          <p className="mt-2 max-w-prose text-sm text-danger-foreground">
+            Your appointments could not be loaded, so this is unknown rather
+            than empty. Check the schedule before treating today as clear.
+          </p>
+        )}
+
+        {appointments.isSuccess &&
+          (todaysAppointments.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Nothing booked today. An empty day means nothing is in the
+              calendar, not that nobody needs you.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {todaysAppointments.map((appointment) => (
+                <li
+                  key={appointment.id}
+                  className="flex flex-wrap items-center gap-x-3 text-sm"
+                >
+                  <span className="font-semibold text-foreground">
+                    {new Date(appointment.starts_at).toLocaleTimeString('en-AU', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  <Link
+                    to={`/specialist/students/${appointment.student_id}`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {nameOf(appointment.student_id)}
+                  </Link>
+                  <span className="text-muted-foreground">
+                    {appointment.duration_minutes} min
+                    {appointment.purpose && ` · ${appointment.purpose}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ))}
+      </div>
 
       <div className="grid gap-5 sm:grid-cols-3">
         <StatTile

@@ -41,8 +41,16 @@ export default function AppointmentCalendar({
   currentUserId: string | null
   selectedId: string | null
   onSelect: (appointment: AppointmentRow) => void
-  /** Clicking empty space offers to book at that time. */
-  onPickSlot: (start: Date) => void
+  /**
+   * Clicking empty space offers to book at that time.
+   *
+   * `hasTime` is false for a month cell, which is a date and nothing else —
+   * FullCalendar reports midnight for it. Passing that on as a start time is
+   * how booking from Month view proposed 12:00 AM; what a sensible default
+   * looks like is the booking screen's business, not this component's, so the
+   * fact is reported rather than guessed at here.
+   */
+  onPickSlot: (start: Date, hasTime: boolean) => void
 }) {
   const calendarRef = useRef<FullCalendar | null>(null)
 
@@ -131,7 +139,7 @@ export default function AppointmentCalendar({
         eventClick={(arg: EventClickArg) =>
           onSelect(arg.event.extendedProps.appointment as AppointmentRow)
         }
-        dateClick={(arg: DateClickArg) => onPickSlot(arg.date)}
+        dateClick={(arg: DateClickArg) => onPickSlot(arg.date, !arg.allDay)}
       />
     </div>
   )

@@ -2316,13 +2316,27 @@ export type AppointmentRow = {
  * for every child on this person's caseload, including ones a colleague booked
  * — and without those, a refused booking would be inexplicable: the clash is
  * with something the screen chose not to show.
+ *
+ * FILTERED BY DATE BECAUSE OF THE LIMIT, NOT INSTEAD OF IT. `order('starts_at')
+ * .limit(500)` on its own returns the five hundred EARLIEST appointments, so
+ * once a caseload had accumulated that many the cap would start trimming the
+ * far end — tomorrow — while the calendar showed a full-looking history. A
+ * booking silently missing from next week is the worst version of this to
+ * ship, so the window is anchored to the recent past and everything ahead is
+ * kept.
  */
+const APPOINTMENT_HISTORY_DAYS = 120
+
 export async function fetchAppointments(): Promise<AppointmentRow[]> {
+  const from = new Date()
+  from.setDate(from.getDate() - APPOINTMENT_HISTORY_DAYS)
+
   const { data, error } = await supabase
     .from('specialist_appointments')
     .select(
       'id, student_id, specialist_id, starts_at, duration_minutes, status, purpose, session_id, cancelled_reason',
     )
+    .gte('starts_at', from.toISOString())
     .order('starts_at')
     .limit(500)
 

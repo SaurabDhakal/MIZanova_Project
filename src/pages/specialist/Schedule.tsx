@@ -37,6 +37,20 @@ function nextHalfHour(): Date {
   return start
 }
 
+/**
+ * Where the booking form starts when the click carried a day but no clock
+ * time — a month cell, which is a date and nothing more. Seeding the form from
+ * it directly produced midnight, so booking from Month view proposed 12:00 AM
+ * every time and the specialist had to correct it before every single booking.
+ */
+const DAY_CLICK_HOUR = 9
+
+function atMorning(day: Date): Date {
+  const start = new Date(day)
+  start.setHours(DAY_CLICK_HOUR, 0, 0, 0)
+  return start
+}
+
 export default function Schedule() {
   const { profile } = useAuth()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -85,9 +99,32 @@ export default function Schedule() {
     ? students.data.filter((s) => !seenThisMonth.has(s.id))
     : []
 
-  const upcoming = (appointments.data ?? []).filter(
-    (a) => a.status === 'scheduled' && new Date(a.starts_at).getTime() >= now,
+  const scheduled = (appointments.data ?? []).filter((a) => a.status === 'scheduled')
+  const upcoming = scheduled.filter((a) => new Date(a.starts_at).getTime() >= now)
+
+  /*
+   * STILL 'scheduled', AND ALREADY OVER. Nothing moves an appointment out of
+   * that state except somebody writing the session up, so one that has been
+   * and gone sits in the past of the calendar looking exactly like one that
+   * was delivered — and the delivered minutes above quietly undercount it.
+   * The whole point of an appointment being a plan and a session being a fact
+   * is that the gap between them is visible, so it is listed rather than left
+   * for a specialist to find by scrolling backwards.
+   *
+   * Only this person's own. The query deliberately returns a colleague's
+   * bookings too, and only the specialist an appointment belongs to can write
+   * one up — chasing somebody for a record they are not allowed to create is
+   * worse than not chasing at all.
+   */
+  const unwritten = scheduled.filter(
+    (a) =>
+      a.specialist_id === profile?.id &&
+      new Date(a.starts_at).getTime() + a.duration_minutes * 60_000 < now,
   )
+  // The count is the whole backlog; only the list is capped. A heading reading
+  // the length of a truncated list is a number that is wrong by design.
+  const unwrittenShown = unwritten.slice(-10).reverse()
+
   const selected =
     (appointments.data ?? []).find((a) => a.id === selectedId) ?? null
 
@@ -154,6 +191,48 @@ export default function Schedule() {
         </div>
       )}
 
+      {unwritten.length > 0 && (
+        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
+          <p className="font-semibold text-warning-foreground">
+            {unwritten.length} appointment
+            {unwritten.length === 1 ? ' has' : 's have'} been and gone without a
+            session recorded
+          </p>
+          <p className="mt-1 max-w-prose text-sm text-warning-foreground">
+            Until one is written up it counts as nothing delivered, and it keeps
+            holding its slot against a new booking. Open it to record the
+            session, or cancel it if it did not happen.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {unwrittenShown.map((appointment) => (
+              <li key={appointment.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(appointment.id)}
+                  className="text-sm font-medium text-warning-foreground underline"
+                >
+                  {nameOf(appointment.student_id)}
+                  {' · '}
+                  {new Date(appointment.starts_at).toLocaleDateString('en-AU', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {unwritten.length > unwrittenShown.length && (
+            <p className="mt-2 text-sm text-warning-foreground">
+              The {unwrittenShown.length} most recent are listed. The rest are
+              in the calendar, further back.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* --- The calendar --------------------------------------------------- */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold text-foreground">Appointments</h2>
@@ -199,13 +278,22 @@ export default function Schedule() {
           currentUserId={profile?.id ?? null}
           selectedId={selectedId}
           onSelect={(a) => setSelectedId((id) => (id === a.id ? null : a.id))}
-          onPickSlot={(start) => setBookingStart(start)}
+          onPickSlot={(start, hasTime) =>
+            setBookingStart(hasTime ? start : atMorning(start))
+          }
         />
       )}
 
       {selected && (
         <div className="mt-5">
+          {/* Keyed on the appointment, for the same reason the booking form is
+              keyed on its start time. Its fields are useState initialisers and
+              its open form is component state, so without this, clicking a
+              second appointment while the panel is open reuses the first one's
+              — the Move form seeded with the wrong time, and clinical notes
+              typed about one child carried into the record of another. */}
           <AppointmentPanel
+            key={selected.id}
             appointment={selected}
             studentName={nameOf(selected.student_id)}
             mine={selected.specialist_id === profile?.id}
@@ -280,6 +368,12 @@ export default function Schedule() {
           cancellation reach the family and the teacher only if you tell them
           yourself. Both are said here rather than implied, because a calendar
           that looks complete is one people stop double-checking.
+        </p>
+        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+          The calendar loads roughly four months of history and everything
+          ahead. Page back beyond that and it goes blank because nothing was
+          fetched, not because nothing was booked — the sessions below are the
+          record of what was delivered, and they are not windowed.
         </p>
       </section>
     </div>
