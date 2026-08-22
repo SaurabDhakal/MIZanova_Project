@@ -9,6 +9,7 @@ import {
 } from '../lib/api'
 import { showToast } from '../lib/toast'
 import { toLocalDateValue, toLocalInputValue } from '../lib/localTime'
+import DictatedTextarea from './DictatedTextarea'
 import FormField from './FormField'
 
 /**
@@ -253,39 +254,27 @@ export default function AppointmentPanel({
 
           {mode === 'complete' && (
             <form onSubmit={submitComplete} className="mt-4 border-t border-border pt-4">
-              <label
-                htmlFor={`notes-${appointment.id}`}
-                className="block text-sm font-semibold text-foreground"
-              >
-                Clinical notes{' '}
-                <span className="font-normal text-muted-foreground">
-                  — specialists only, never shared
-                </span>
-              </label>
-              <textarea
+              {/* Dictation, because this form is opened at the end of a session
+                  with a child still in the room — see DictatedTextarea. */}
+              <DictatedTextarea
                 id={`notes-${appointment.id}`}
+                label="Clinical notes"
+                labelSuffix="— specialists only, never shared"
                 rows={3}
                 value={clinicalNotes}
-                onChange={(e) => setClinicalNotes(e.target.value)}
-                className="mt-1.5 w-full rounded-btn border border-border bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground"
+                onChange={setClinicalNotes}
               />
 
-              <label
-                htmlFor={`summary-${appointment.id}`}
-                className="mt-3 block text-sm font-semibold text-foreground"
-              >
-                Summary for others{' '}
-                <span className="font-normal text-muted-foreground">
-                  — required if you share this
-                </span>
-              </label>
-              <textarea
-                id={`summary-${appointment.id}`}
-                rows={2}
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                className="mt-1.5 w-full rounded-btn border border-border bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-              />
+              <div className="mt-3">
+                <DictatedTextarea
+                  id={`summary-${appointment.id}`}
+                  label="Summary for others"
+                  labelSuffix="— required if you share this"
+                  rows={2}
+                  value={summary}
+                  onChange={setSummary}
+                />
+              </div>
 
               <div className="mt-3 flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm text-foreground">
