@@ -13,6 +13,7 @@ import BehaviourLogModal from '../../components/BehaviourLogModal'
 import Spinner from '../../components/Spinner'
 import Icon from '../../components/Icon'
 import Avatar from '../../components/Avatar'
+import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
  * Whether this child has a plan, and whether its review has gone past.
@@ -190,6 +191,7 @@ export default function StudentDetail() {
                   {s.display_name}
                 </span>
               </p>
+              <EducatorSchoolContext />
             </div>
           </div>
 

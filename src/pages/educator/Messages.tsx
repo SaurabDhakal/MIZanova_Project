@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchStudents, queryKeys } from '../../lib/api'
 import Messenger from '../../components/Messenger'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
  * Staff messaging.
@@ -42,6 +43,7 @@ export default function EducatorMessages() {
         <p className="mt-1 text-muted-foreground">
           Conversations with families about the students you support.
         </p>
+        <EducatorSchoolContext />
       </header>
 
       <div className="mb-5">
@@ -69,8 +71,10 @@ export default function EducatorMessages() {
       <Messenger studentId={studentId === '' ? null : studentId} />
 
       <p className="mt-4 max-w-prose text-xs text-muted-foreground">
-        Messages are part of the student&rsquo;s record and cannot be edited or
-        deleted once sent. Corrections are sent as a new message.
+        Messages are part of the student&rsquo;s record. You can unsend your own
+        message for 15 minutes; an audit-safe tombstone remains in the
+        conversation. Photos, voice notes and files are stored privately and
+        are available only to the conversation participants.
       </p>
     </div>
   )

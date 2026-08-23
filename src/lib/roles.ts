@@ -126,6 +126,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: '', label: 'Dashboard', icon: 'dashboard', milestone: 'M4' },
       { path: 'students', label: 'Students', icon: 'students', group: 'Your school', milestone: 'M4' },
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
+      { path: 'resources', label: 'Shared Resources', icon: 'resources', group: 'Keeping in touch', milestone: 'M12' },
       { path: 'schedule', label: 'Schedule', icon: 'schedule', milestone: 'M10' },
     ],
   },

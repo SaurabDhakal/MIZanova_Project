@@ -7,9 +7,11 @@ import {
   fetchClassroomStats,
   fetchRecentLogs,
   fetchStudents,
+  fetchThreads,
   fetchUpcomingGoals,
   queryKeys,
   type StudentRow,
+  unreadMessagesInThread,
 } from '../../lib/api'
 import BehaviourLogModal from '../../components/BehaviourLogModal'
 import { useAuth } from '../../lib/auth'
@@ -20,6 +22,7 @@ import {
 } from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import Avatar from '../../components/Avatar'
+import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
  * Classroom Overview — the educator's landing screen.
@@ -52,12 +55,14 @@ import Avatar from '../../components/Avatar'
 function NeedsYou({
   flaggedOpen,
   overdueGoals,
-  newFromHome,
+  homeNotes,
+  unreadMessages,
   logsLast24h,
 }: {
   flaggedOpen: number
   overdueGoals: number
-  newFromHome: number
+  homeNotes: number
+  unreadMessages: number
   logsLast24h: number
 }) {
   const items = [
@@ -78,17 +83,25 @@ function NeedsYou({
       detail: 'Either the date moves or the goal does.',
       to: '/educator/schedule',
     },
-    newFromHome > 0 && {
+    unreadMessages > 0 && {
+      key: 'messages',
+      icon: 'messages' as const,
+      tone: 'default' as const,
+      text: `${unreadMessages} unread message${unreadMessages === 1 ? '' : 's'}`,
+      detail: 'Replies from families you have not opened yet.',
+      to: '/educator/messages',
+    },
+    homeNotes > 0 && {
       key: 'home',
       icon: 'home' as const,
       tone: 'default' as const,
-      text: `${newFromHome} note${newFromHome === 1 ? '' : 's'} shared from home`,
-      detail: 'Written by families about what they are seeing.',
+      text: `${homeNotes} note${homeNotes === 1 ? '' : 's'} shared from home`,
+      detail: 'Available in the students’ records. These are not labelled unread.',
       to: '/educator/students',
     },
   ].filter(Boolean) as {
     key: string
-    icon: 'safeguarding' | 'goals' | 'home'
+    icon: 'safeguarding' | 'goals' | 'home' | 'messages'
     tone: 'danger' | 'warning' | 'default'
     text: string
     detail: string
@@ -120,8 +133,7 @@ function NeedsYou({
            "nothing here" and "nothing was looked at" are different claims and a
            blank card cannot tell them apart. */
         <p className="mt-3 text-sm text-muted-foreground">
-          No flagged incidents waiting, no goals past their date, and nothing
-          new from families. Anything that comes in will appear here.
+          Nothing is currently highlighted. New activity will appear here.
         </p>
       ) : (
         <ul className="mt-3 space-y-2">
@@ -173,6 +185,17 @@ export default function EducatorDashboard() {
     queryKey: queryKeys.allHomeObservations,
     queryFn: fetchAllHomeObservations,
   })
+  const threads = useQuery({
+    queryKey: queryKeys.threads,
+    queryFn: fetchThreads,
+  })
+
+  const unreadMessages = profile
+    ? (threads.data ?? []).reduce(
+        (total, thread) => total + unreadMessagesInThread(thread, profile.id),
+        0,
+      )
+    : 0
 
   /**
    * Goals whose target date has gone.
@@ -245,6 +268,7 @@ export default function EducatorDashboard() {
           {profile?.first_name ? `Good to see you, ${profile.first_name}. ` : ''}
           Here is where your class is up to today.
         </p>
+        <EducatorSchoolContext />
       </header>
 
       {nearLimit && q && (
@@ -278,7 +302,8 @@ export default function EducatorDashboard() {
         <NeedsYou
           flaggedOpen={stats.data.flaggedOpen}
           overdueGoals={overdueGoals}
-          newFromHome={homeNotes.data?.length ?? 0}
+          homeNotes={homeNotes.data?.length ?? 0}
+          unreadMessages={unreadMessages}
           logsLast24h={stats.data.logsLast24h}
         />
       )}

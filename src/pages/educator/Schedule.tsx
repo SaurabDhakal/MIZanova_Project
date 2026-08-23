@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchStudents, fetchUpcomingGoals, queryKeys } from '../../lib/api'
 import { GOAL_CATEGORY_LABEL } from '../../lib/goalCategories'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
  * Educator schedule — what is coming up for the children you teach.
@@ -174,6 +175,7 @@ export default function Schedule() {
           Goal target dates for the children you are assigned to, soonest
           first.
         </p>
+        <EducatorSchoolContext />
       </header>
 
       {/* AN EMPTY PAGE HERE IS ORDINARY, NOT BROKEN, and it says which.

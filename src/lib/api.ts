@@ -1047,7 +1047,13 @@ export type ThreadRow = {
     last_read_at: string | null
     profiles: { id: string; full_name: string; role: Role } | null
   }[]
-  messages: { body: string; created_at: string }[]
+  messages: {
+    sender_id: string | null
+    body: string
+    created_at: string
+    deleted_at: string | null
+    message_attachments: { kind: MessageAttachmentKind }[]
+  }[]
 }
 
 export async function fetchThreads(): Promise<ThreadRow[]> {
@@ -1057,12 +1063,60 @@ export async function fetchThreads(): Promise<ThreadRow[]> {
       `id, student_id, subject, last_message_at,
        students ( display_name ),
        thread_participants ( profile_id, last_read_at, profiles ( id, full_name, role ) ),
-       messages ( body, created_at )`,
+       messages ( sender_id, body, created_at, deleted_at, message_attachments ( kind ) )`,
     )
     .order('last_message_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Keep ordinary text messaging available while a developer is between the
+    // frontend deployment and migration 058. Rich controls still require the
+    // migration; this fallback prevents the entire inbox disappearing first.
+    if (/message_attachments|deleted_at|schema cache/i.test(error.message)) {
+      const legacy = await supabase
+        .from('message_threads')
+        .select(
+          `id, student_id, subject, last_message_at,
+           students ( display_name ),
+           thread_participants ( profile_id, last_read_at, profiles ( id, full_name, role ) ),
+           messages ( sender_id, body, created_at )`,
+        )
+        .order('last_message_at', { ascending: false })
+      if (legacy.error) throw new Error(legacy.error.message)
+      return (legacy.data ?? []).map((thread) => ({
+        ...thread,
+        messages: thread.messages.map((message) => ({
+          ...message,
+          deleted_at: null,
+          message_attachments: [],
+        })),
+      })) as unknown as ThreadRow[]
+    }
+    throw new Error(error.message)
+  }
   return (data ?? []) as unknown as ThreadRow[]
+}
+
+/**
+ * Messages another participant sent after this person last opened a thread.
+ *
+ * Sender filtering matters. Without it, a teacher who replied and then left
+ * the conversation could see their own reply counted as something unread.
+ */
+export function unreadMessagesInThread(
+  thread: ThreadRow,
+  profileId: string,
+): number {
+  const participant = thread.thread_participants.find(
+    (person) => person.profile_id === profileId,
+  )
+  const lastRead = participant?.last_read_at
+
+  return thread.messages.filter(
+    (message) =>
+      message.sender_id !== profileId &&
+      (lastRead === null || lastRead === undefined ||
+        new Date(message.created_at) > new Date(lastRead)),
+  ).length
 }
 
 export type MessageRow = {
@@ -1070,30 +1124,202 @@ export type MessageRow = {
   sender_id: string | null
   body: string
   created_at: string
+  deleted_at: string | null
+  message_attachments: MessageAttachmentRow[]
+}
+
+export type MessageAttachmentKind = 'image' | 'audio' | 'file'
+
+export type MessageAttachmentRow = {
+  id: string
+  storage_path: string
+  file_name: string
+  mime_type: string
+  size_bytes: number
+  kind: MessageAttachmentKind
+}
+
+export type PendingMessageAttachment = {
+  file: File
+  kind: MessageAttachmentKind
+}
+
+export const MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'audio/webm',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+])
+
+const MESSAGE_EXTENSION_MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  webm: 'audio/webm',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+}
+
+/** Normalise files whose browser reports no MIME type, then enforce the bucket list. */
+export function messageAttachmentMimeType(file: File): string | null {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const mimeType = file.type || MESSAGE_EXTENSION_MIME[extension] || ''
+  return MESSAGE_ATTACHMENT_MIME_TYPES.has(mimeType) ? mimeType : null
 }
 
 export async function fetchMessages(threadId: string): Promise<MessageRow[]> {
   const { data, error } = await supabase
     .from('messages')
-    .select('id, sender_id, body, created_at')
+    .select(
+      `id, sender_id, body, created_at, deleted_at,
+       message_attachments ( id, storage_path, file_name, mime_type, size_bytes, kind )`,
+    )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
-  return data ?? []
+  if (error) {
+    if (/message_attachments|deleted_at|schema cache/i.test(error.message)) {
+      const legacy = await supabase
+        .from('messages')
+        .select('id, sender_id, body, created_at')
+        .eq('thread_id', threadId)
+        .order('created_at', { ascending: true })
+      if (legacy.error) throw new Error(legacy.error.message)
+      return (legacy.data ?? []).map((message) => ({
+        ...message,
+        deleted_at: null,
+        message_attachments: [],
+      }))
+    }
+    throw new Error(error.message)
+  }
+  return (data ?? []) as MessageRow[]
 }
 
 export async function sendMessage(
   threadId: string,
   body: string,
+  attachments: PendingMessageAttachment[] = [],
 ): Promise<void> {
-  const { data } = await supabase.auth.getUser()
-  const senderId = data.user?.id
-  if (!senderId) throw new Error('You are not signed in.')
+  if (body.trim() === '' && attachments.length === 0) {
+    throw new Error('Write a message or add an attachment.')
+  }
+  if (attachments.length > 5) {
+    throw new Error('A message can have at most five attachments.')
+  }
 
-  const { error } = await supabase
-    .from('messages')
-    .insert({ thread_id: threadId, sender_id: senderId, body: body.trim() })
+  const messageId = crypto.randomUUID()
+  const uploaded: string[] = []
+
+  try {
+    const metadata = []
+    for (const attachment of attachments) {
+      if (attachment.file.size > 15 * 1024 * 1024) {
+        throw new Error(`${attachment.file.name} is larger than 15 MB.`)
+      }
+      const mimeType = messageAttachmentMimeType(attachment.file)
+      if (!mimeType) {
+        throw new Error(`${attachment.file.name} is not an accepted file type.`)
+      }
+
+      const safeName = attachment.file.name
+        .normalize('NFKD')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'attachment'
+      const path = `${threadId}/${messageId}/${crypto.randomUUID()}-${safeName}`
+      const { error: uploadError } = await supabase.storage
+        .from('message-attachments')
+        .upload(path, attachment.file, {
+          contentType: mimeType,
+          upsert: false,
+        })
+
+      if (uploadError) throw new Error(uploadError.message)
+      uploaded.push(path)
+      metadata.push({
+        storage_path: path,
+        file_name: attachment.file.name,
+        mime_type: mimeType,
+        size_bytes: attachment.file.size,
+        kind: attachment.kind,
+      })
+    }
+
+    const { error } = await supabase.rpc('send_message_with_attachments', {
+      p_thread_id: threadId,
+      p_message_id: messageId,
+      p_body: body.trim(),
+      p_attachments: metadata,
+    })
+    if (error) {
+      if (
+        attachments.length === 0 &&
+        /send_message_with_attachments|schema cache|function/i.test(error.message)
+      ) {
+        const { data: auth } = await supabase.auth.getUser()
+        const senderId = auth.user?.id
+        if (!senderId) throw new Error('You are not signed in.')
+        const legacy = await supabase.from('messages').insert({
+          thread_id: threadId,
+          sender_id: senderId,
+          body: body.trim(),
+        })
+        if (legacy.error) throw new Error(legacy.error.message)
+        return
+      }
+      throw new Error(error.message)
+    }
+  } catch (error) {
+    if (uploaded.length > 0) {
+      await supabase.storage.from('message-attachments').remove(uploaded)
+    }
+    throw error
+  }
+}
+
+export async function messageAttachmentUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('message-attachments')
+    .createSignedUrl(storagePath, 10 * 60)
+  if (error) throw new Error(error.message)
+  return data.signedUrl
+}
+
+export async function unsendMessage(messageId: string): Promise<void> {
+  const { error } = await supabase.rpc('unsend_message', {
+    p_message_id: messageId,
+  })
   if (error) throw new Error(error.message)
 }
 
@@ -3771,6 +3997,36 @@ export type ImportOutcome = {
 }
 
 /**
+ * Create one student and assign them to the signed-in educator in the same
+ * database transaction. A plain insert is intentionally not used: until the
+ * assignment exists, RLS would make the newly created child invisible to the
+ * person who created them.
+ */
+export async function createEducatorStudent(input: {
+  firstName: string
+  lastName: string
+  yearLevel: string
+  externalRef: string
+  dateOfBirth: string
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('educator_create_student', {
+    p_first_name: input.firstName.trim(),
+    p_last_name: input.lastName.trim(),
+    p_year_level: input.yearLevel.trim() || null,
+    p_external_ref: input.externalRef.trim() || null,
+    p_date_of_birth: input.dateOfBirth || null,
+  })
+
+  if (error) {
+    if (/duplicate key|unique/i.test(error.message)) {
+      throw new Error('That student ID is already used at your school.')
+    }
+    throw new Error(error.message)
+  }
+  return data as string
+}
+
+/**
  * Create students, reporting per row.
  *
  * CHUNKED, THEN ROW BY ROW ON FAILURE. A single insert of 600 rows is one
@@ -4269,6 +4525,7 @@ export const queryKeys = {
   iepPlan: (planId: string) => ['iep-plan', planId] as const,
   threads: ['threads'] as const,
   messages: (id: string) => ['messages', id] as const,
+  messageAttachment: (path: string) => ['message-attachment', path] as const,
   careTeam: (id: string) => ['care-team', id] as const,
   safeguarding: (open: boolean) => ['safeguarding', open] as const,
   schoolSummary: ['school-summary'] as const,

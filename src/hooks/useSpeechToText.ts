@@ -48,7 +48,10 @@ function getConstructor(): RecognitionConstructor | undefined {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
 }
 
-export function useSpeechToText(onText: (text: string) => void) {
+export function useSpeechToText(
+  onText: (text: string) => void,
+  language = 'en-AU',
+) {
   const [listening, setListening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const recognition = useRef<RecognitionLike | null>(null)
@@ -70,9 +73,9 @@ export function useSpeechToText(onText: (text: string) => void) {
 
     setError(null)
     const rec = new Constructor()
-    // Australian English: gets local place and person names far closer than
-    // the en-US default.
-    rec.lang = 'en-AU'
+    // Australian English remains the default; callers may choose another
+    // recognition language before starting dictation.
+    rec.lang = language
     rec.continuous = true
     rec.interimResults = false
 
@@ -96,7 +99,7 @@ export function useSpeechToText(onText: (text: string) => void) {
     recognition.current = rec
     rec.start()
     setListening(true)
-  }, [])
+  }, [language])
 
   const stop = useCallback(() => {
     recognition.current?.stop()
