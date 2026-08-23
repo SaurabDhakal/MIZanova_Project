@@ -5,27 +5,34 @@ import {
   fetchMessages,
   fetchThreads,
   markThreadRead,
+  messageAttachmentMimeType,
+  messageAttachmentUrl,
   queryKeys,
   sendMessage,
   startThread,
+  unreadMessagesInThread,
+  unsendMessage,
+  type MessageAttachmentRow,
+  type PendingMessageAttachment,
   type ThreadRow,
 } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { ROLE_CONFIG } from '../lib/roles'
+import { useSpeechToText } from '../hooks/useSpeechToText'
 import { EmptyState, ErrorState, LoadingCards } from './QueryState'
+import Icon from './Icon'
 
 /**
- * Secure messaging between a family and a child's care team - text only.
+ * Secure messaging between a family and a child's care team.
  * docs/Figma Pages Design/Parent Messages.png.
  *
  * Two panes on a laptop; on a phone the list and the conversation are separate
  * screens, because a 375px-wide split view is unusable and parents are the
  * mobile-first audience (NFR3).
  *
- * Not built, deliberately: attachments, the online indicator, and read
- * receipts on individual messages. Each needs infrastructure we do not have
- * (storage rules, realtime presence), and a half-working version of any of
- * them in a channel families use to raise concerns is worse than its absence.
+ * Attachments live in a private bucket and every download is a short-lived
+ * signed URL. Dictation uses the browser speech API; voice notes use
+ * MediaRecorder and are uploaded as ordinary audio attachments.
  */
 
 function whenLabel(iso: string): string {
@@ -44,6 +51,73 @@ function whenLabel(iso: string): string {
   return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
 }
 
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function MessageAttachment({
+  attachment,
+  mine,
+}: {
+  attachment: MessageAttachmentRow
+  mine: boolean
+}) {
+  const url = useQuery({
+    queryKey: queryKeys.messageAttachment(attachment.storage_path),
+    queryFn: () => messageAttachmentUrl(attachment.storage_path),
+    staleTime: 8 * 60 * 1000,
+  })
+
+  if (url.isPending) {
+    return <p className="mt-2 text-xs opacity-70">Loading attachment…</p>
+  }
+  if (url.isError) {
+    return <p className="mt-2 text-xs opacity-70">Attachment unavailable</p>
+  }
+
+  if (attachment.kind === 'image') {
+    return (
+      <a href={url.data} target="_blank" rel="noreferrer" className="mt-2 block">
+        <img
+          src={url.data}
+          alt={attachment.file_name}
+          className="max-h-72 max-w-full rounded-btn object-contain"
+        />
+      </a>
+    )
+  }
+
+  if (attachment.kind === 'audio') {
+    return (
+      <div className="mt-2 min-w-56">
+        <audio controls preload="metadata" src={url.data} className="w-full" />
+        <p className={`mt-1 text-xs ${mine ? 'text-white/70' : 'text-muted-foreground'}`}>
+          {attachment.file_name} · {fileSize(attachment.size_bytes)}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <a
+      href={url.data}
+      target="_blank"
+      rel="noreferrer"
+      className={`mt-2 flex items-center gap-2 rounded-btn border px-3 py-2 text-sm font-medium ${
+        mine ? 'border-white/30' : 'border-border'
+      }`}
+    >
+      <Icon name="resources" className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 truncate">{attachment.file_name}</span>
+      <span className="ml-auto shrink-0 text-xs opacity-70">
+        {fileSize(attachment.size_bytes)}
+      </span>
+    </a>
+  )
+}
+
 export default function Messenger({
   studentId,
 }: {
@@ -54,7 +128,41 @@ export default function Messenger({
   const queryClient = useQueryClient()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [attachments, setAttachments] = useState<PendingMessageAttachment[]>([])
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [dictationLanguage, setDictationLanguage] = useState('en-AU')
+  const [clock, setClock] = useState(() => Date.now())
   const endRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const recordingStreamRef = useRef<MediaStream | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimeoutRef = useRef<number | null>(null)
+
+  const speech = useSpeechToText((text) => {
+    setDraft((current) => `${current}${current.trim() ? ' ' : ''}${text}`)
+  }, dictationLanguage)
+
+  const canRecord =
+    typeof navigator !== 'undefined' &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    typeof MediaRecorder !== 'undefined'
+
+  useEffect(() => {
+    return () => {
+      recorderRef.current?.stop()
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+      if (recordingTimeoutRef.current !== null) {
+        window.clearTimeout(recordingTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setClock(Date.now()), 30_000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   const threads = useQuery({
     queryKey: queryKeys.threads,
@@ -86,14 +194,127 @@ export default function Messenger({
     )
   }, [activeId, queryClient])
 
+  function addFiles(files: File[]) {
+    setAttachmentError(null)
+    const remaining = 5 - attachments.length
+    if (files.length > remaining) {
+      setAttachmentError('A message can have at most five attachments.')
+      files = files.slice(0, Math.max(remaining, 0))
+    }
+
+    const accepted: PendingMessageAttachment[] = []
+    for (const file of files) {
+      if (file.size > 15 * 1024 * 1024) {
+        setAttachmentError(`${file.name} is larger than 15 MB.`)
+        continue
+      }
+      const mimeType = messageAttachmentMimeType(file)
+      if (!mimeType) {
+        setAttachmentError(`${file.name} is not an accepted file type.`)
+        continue
+      }
+      const kind = mimeType.startsWith('image/')
+        ? 'image'
+        : mimeType.startsWith('audio/')
+          ? 'audio'
+          : 'file'
+      accepted.push({ file, kind })
+    }
+    setAttachments((current) => [...current, ...accepted])
+  }
+
+  async function startVoiceNote() {
+    setAttachmentError(null)
+    if (!canRecord || attachments.length >= 5) {
+      setAttachmentError(
+        attachments.length >= 5
+          ? 'Remove an attachment before recording a voice note.'
+          : 'Voice recording is not supported in this browser.',
+      )
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      recordingStreamRef.current = stream
+      const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm']
+      const selected = candidates.find((type) => MediaRecorder.isTypeSupported(type))
+      const recorder = selected
+        ? new MediaRecorder(stream, { mimeType: selected })
+        : new MediaRecorder(stream)
+      const baseType = recorder.mimeType.split(';')[0] || 'audio/webm'
+      audioChunksRef.current = []
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
+      }
+      recorder.onstop = () => {
+        if (recordingTimeoutRef.current !== null) {
+          window.clearTimeout(recordingTimeoutRef.current)
+          recordingTimeoutRef.current = null
+        }
+        const blob = new Blob(audioChunksRef.current, { type: baseType })
+        recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+        recordingStreamRef.current = null
+        recorderRef.current = null
+        setRecording(false)
+        if (blob.size === 0) {
+          setAttachmentError('The voice note was empty. Please try again.')
+          return
+        }
+        const extension = baseType === 'audio/mp4' ? 'm4a' : 'webm'
+        const file = new File(
+          [blob],
+          `voice-note-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`,
+          { type: baseType },
+        )
+        addFiles([file])
+      }
+      recorder.onerror = () => {
+        if (recordingTimeoutRef.current !== null) {
+          window.clearTimeout(recordingTimeoutRef.current)
+          recordingTimeoutRef.current = null
+        }
+        stream.getTracks().forEach((track) => track.stop())
+        setRecording(false)
+        setAttachmentError('Voice recording stopped unexpectedly.')
+      }
+      recorderRef.current = recorder
+      recorder.start()
+      recordingTimeoutRef.current = window.setTimeout(() => {
+        if (recorder.state === 'recording') recorder.stop()
+      }, 5 * 60 * 1000)
+      setRecording(true)
+    } catch {
+      setAttachmentError(
+        'Microphone access was refused. You can still type or attach a file.',
+      )
+    }
+  }
+
+  function stopVoiceNote() {
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+  }
+
   const send = useMutation({
-    mutationFn: () => sendMessage(activeId!, draft),
+    mutationFn: () => sendMessage(activeId!, draft, attachments),
     onSuccess: async () => {
       setDraft('')
+      setAttachments([])
+      setAttachmentError(null)
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: queryKeys.messages(activeId!),
         }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.threads }),
+      ])
+    },
+  })
+
+  const unsend = useMutation({
+    mutationFn: (messageId: string) => unsendMessage(messageId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.messages(activeId!) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.threads }),
       ])
     },
@@ -115,13 +336,8 @@ export default function Messenger({
       ?.profiles ?? null
 
   const unreadCount = (thread: ThreadRow) => {
-    const mine = thread.thread_participants.find(
-      (p) => p.profile_id === profile?.id,
-    )
-    if (!mine?.last_read_at) return thread.messages.length
-    return thread.messages.filter(
-      (m) => new Date(m.created_at) > new Date(mine.last_read_at!),
-    ).length
+    if (!profile?.id) return 0
+    return unreadMessagesInThread(thread, profile.id)
   }
 
   // The filter actually filters. Anything else is a control that lies about
@@ -155,6 +371,7 @@ export default function Messenger({
   const canStartWith = (careTeam.data ?? []).filter(
     (person) => !existingWith.has(person.id),
   )
+  const canSend = draft.trim() !== '' || attachments.length > 0
 
   if (threads.isPending) return <LoadingCards count={2} />
   if (threads.isError) return <ErrorState message={threads.error.message} />
@@ -220,7 +437,12 @@ export default function Messenger({
                     </p>
                     <div className="mt-1 flex items-center gap-2">
                       <p className="line-clamp-2 min-w-0 flex-1 text-sm text-muted-foreground">
-                        {latest?.body ?? 'No messages yet'}
+                        {latest?.deleted_at
+                          ? 'Message unsent'
+                          : latest?.body ||
+                            (latest?.message_attachments.length
+                              ? 'Sent an attachment'
+                              : 'No messages yet')}
                       </p>
                       {unread > 0 && (
                         <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
@@ -320,6 +542,12 @@ export default function Messenger({
 
               {(messages.data ?? []).map((message) => {
                 const mine = message.sender_id === profile?.id
+                const deleted = message.deleted_at !== null
+                const canUnsend =
+                  mine &&
+                  !deleted &&
+                  clock - new Date(message.created_at).getTime() <=
+                    15 * 60 * 1000
                 return (
                   <div
                     key={message.id}
@@ -332,7 +560,24 @@ export default function Messenger({
                           : 'bg-background text-foreground'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{message.body}</p>
+                      {deleted ? (
+                        <p className="italic opacity-70">Message unsent</p>
+                      ) : (
+                        <>
+                          {message.body && (
+                            <p className="whitespace-pre-wrap">{message.body}</p>
+                          )}
+                          {(message.message_attachments ?? []).map(
+                            (attachment) => (
+                              <MessageAttachment
+                                key={attachment.id}
+                                attachment={attachment}
+                                mine={mine}
+                              />
+                            ),
+                          )}
+                        </>
+                      )}
                       <p
                         className={`mt-1 text-xs ${
                           mine ? 'text-white/70' : 'text-muted-foreground'
@@ -343,6 +588,18 @@ export default function Messenger({
                         </span>
                         {whenLabel(message.created_at)}
                       </p>
+                      {canUnsend && (
+                        <button
+                          type="button"
+                          onClick={() => unsend.mutate(message.id)}
+                          disabled={unsend.isPending}
+                          className={`mt-1 text-xs underline underline-offset-2 ${
+                            mine ? 'text-white/80' : 'text-muted-foreground'
+                          }`}
+                        >
+                          Unsend
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
@@ -353,40 +610,158 @@ export default function Messenger({
             <form
               onSubmit={(e) => {
                 e.preventDefault()
-                if (draft.trim() !== '') send.mutate()
+                if (canSend) send.mutate()
               }}
-              className="flex items-end gap-2 border-t border-border p-3"
+              className="border-t border-border p-3"
             >
-              <label htmlFor="message-draft" className="sr-only">
-                Type your message
-              </label>
-              <textarea
-                id="message-draft"
-                rows={2}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  // Enter sends, Shift+Enter makes a new line.
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    if (draft.trim() !== '') send.mutate()
-                  }
-                }}
-                placeholder="Type your message here…"
-                className="min-w-0 flex-1 resize-none rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
-              />
-              <button
-                type="submit"
-                disabled={send.isPending || draft.trim() === ''}
-                className="rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                {send.isPending ? 'Sending…' : 'Send'}
-              </button>
+              {attachments.length > 0 && (
+                <ul className="mb-2 flex flex-wrap gap-2">
+                  {attachments.map((attachment, index) => (
+                    <li
+                      key={`${attachment.file.name}-${attachment.file.lastModified}-${index}`}
+                      className="flex max-w-full items-center gap-2 rounded-btn bg-background px-3 py-2 text-sm"
+                    >
+                      <Icon
+                        name={attachment.kind === 'audio' ? 'mic' : 'resources'}
+                        className="h-4 w-4 shrink-0"
+                      />
+                      <span className="max-w-48 truncate">{attachment.file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {fileSize(attachment.file.size)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAttachments((current) =>
+                            current.filter((_, itemIndex) => itemIndex !== index),
+                          )
+                        }
+                        aria-label={`Remove ${attachment.file.name}`}
+                        className="rounded-full p-1 hover:bg-card"
+                      >
+                        <Icon name="cross" className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex items-end gap-2">
+                <label htmlFor="message-draft" className="sr-only">
+                  Type your message
+                </label>
+                <textarea
+                  id="message-draft"
+                  rows={2}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter sends, Shift+Enter makes a new line.
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      if (canSend) send.mutate()
+                    }
+                  }}
+                  placeholder="Type or dictate your message…"
+                  className="min-w-0 flex-1 resize-none rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
+                />
+                <button
+                  type="submit"
+                  disabled={send.isPending || !canSend}
+                  className="rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {send.isPending ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,audio/*,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  onChange={(event) => {
+                    addFiles(Array.from(event.target.files ?? []))
+                    event.target.value = ''
+                  }}
+                  className="sr-only"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={attachments.length >= 5}
+                  className="inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  <Icon name="resources" className="h-4 w-4" />
+                  Photo or file
+                </button>
+
+                {speech.supported && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={speech.listening ? speech.stop : speech.start}
+                      className={`inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
+                        speech.listening
+                          ? 'border-danger bg-danger-subtle text-danger-foreground'
+                          : 'border-border'
+                      }`}
+                    >
+                      <Icon name="mic" className="h-4 w-4" />
+                      {speech.listening ? 'Stop dictation' : 'Dictate text'}
+                    </button>
+                    <label className="sr-only" htmlFor="dictation-language">
+                      Dictation language
+                    </label>
+                    <select
+                      id="dictation-language"
+                      value={dictationLanguage}
+                      onChange={(event) => setDictationLanguage(event.target.value)}
+                      disabled={speech.listening}
+                      className="rounded-btn border border-border bg-card px-2.5 py-2 text-sm"
+                    >
+                      <option value="en-AU">English (Australia)</option>
+                      <option value="ar-SA">Arabic</option>
+                      <option value="zh-CN">Chinese (Mandarin)</option>
+                      <option value="hi-IN">Hindi</option>
+                      <option value="vi-VN">Vietnamese</option>
+                    </select>
+                  </>
+                )}
+
+                {canRecord && (
+                  <button
+                    type="button"
+                    onClick={recording ? stopVoiceNote : () => void startVoiceNote()}
+                    className={`inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
+                      recording
+                        ? 'border-danger bg-danger-subtle text-danger-foreground'
+                        : 'border-border'
+                    }`}
+                  >
+                    <Icon name="mic" className="h-4 w-4" />
+                    {recording ? 'Stop voice note' : 'Record voice note'}
+                  </button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  Up to 5 files, 15 MB each · voice notes stop after 5 minutes
+                </span>
+              </div>
+              {speech.supported && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Dictation may use your browser provider&rsquo;s speech service.
+                  Voice notes are stored privately with this conversation.
+                </p>
+              )}
             </form>
 
-            {send.isError && (
+            {(send.isError || unsend.isError || attachmentError || speech.error) && (
               <p role="alert" className="px-4 pb-3 text-sm text-danger-foreground">
-                {send.error.message}
+                {send.isError
+                  ? send.error.message
+                  : unsend.isError
+                    ? unsend.error.message
+                    : attachmentError ?? speech.error}
               </p>
             )}
           </div>

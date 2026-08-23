@@ -125,9 +125,11 @@ const SchoolAdminMessages = lazy(() => import('./pages/schoolAdmin/Messages'))
 
 const EducatorDashboard = lazy(() => import('./pages/educator/Dashboard'))
 const StudentRoster = lazy(() => import('./pages/educator/StudentRoster'))
+const AddStudent = lazy(() => import('./pages/educator/AddStudent'))
 const StudentDetail = lazy(() => import('./pages/educator/StudentDetail'))
 const EducatorMessages = lazy(() => import('./pages/educator/Messages'))
 const EducatorSchedule = lazy(() => import('./pages/educator/Schedule'))
+const EducatorResources = lazy(() => import('./pages/educator/Resources'))
 const IepPlans = lazy(() => import('./pages/shared/IepPlans'))
 const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
 // --- Tahmid: specialist/ ---
@@ -200,6 +202,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'educator:students': <StudentRoster />,
   'educator:messages': <EducatorMessages />,
   'educator:schedule': <EducatorSchedule />,
+  'educator:resources': <EducatorResources />,
 
   // --- Tahmid: specialist: ---
 
@@ -247,6 +250,7 @@ school_admin: [
   // --- Osheit: educator ---
 
   educator: [
+    { path: 'students/add', element: <AddStudent /> },
     { path: 'students/:studentId', element: <StudentDetail /> },
     { path: 'students/:studentId/iep', element: <IepPlans /> },
     { path: 'students/:studentId/iep/:planId', element: <IepPlanEditor /> },

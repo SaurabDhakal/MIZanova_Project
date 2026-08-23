@@ -45,15 +45,22 @@ export default function Privacy() {
 
       <Section title="What leaves, and what does not">
         <p>
-          One thing leaves Australian infrastructure: the text of a behaviour
-          observation, sent to Anthropic to generate a strategy suggestion — and
-          only after names, contact details and dates of birth have been removed
-          from it.
+          Two optional features can send information to an external processor.
+          An anonymised behaviour observation is sent to Anthropic to generate
+          a strategy suggestion, only after names, contact details and dates of
+          birth have been removed. Browser dictation may send microphone audio
+          to the browser provider&rsquo;s speech service (for example Google in
+          Chrome) so it can return text.
         </p>
         <p>
           The exact anonymised text that was sent is stored against the record.
           If a parent asks what left, they can be shown it rather than assured
           about it.
+        </p>
+        <p>
+          Dictation is optional and can be replaced by typing. A voice note is
+          different: it is deliberately attached to a message and stored with
+          that student conversation in the private Australian data store.
         </p>
         <p>
           Nothing is sold, and there is no advertising, analytics or tracking

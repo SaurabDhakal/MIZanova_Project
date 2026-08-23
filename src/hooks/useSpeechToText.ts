@@ -60,7 +60,10 @@ function getConstructor(): RecognitionConstructor | undefined {
  */
 let activeStop: (() => void) | null = null
 
-export function useSpeechToText(onText: (text: string) => void) {
+export function useSpeechToText(
+  onText: (text: string) => void,
+  language = 'en-AU',
+) {
   const [listening, setListening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const recognition = useRef<RecognitionLike | null>(null)
@@ -90,9 +93,9 @@ export function useSpeechToText(onText: (text: string) => void) {
 
     setError(null)
     const rec = new Constructor()
-    // Australian English: gets local place and person names far closer than
-    // the en-US default.
-    rec.lang = 'en-AU'
+    // Australian English remains the default; callers may choose another
+    // recognition language before starting dictation.
+    rec.lang = language
     rec.continuous = true
     rec.interimResults = false
 
@@ -116,7 +119,7 @@ export function useSpeechToText(onText: (text: string) => void) {
     recognition.current = rec
     rec.start()
     setListening(true)
-  }, [stop])
+  }, [stop, language])
 
   // Never leave the microphone running because a modal closed — and never
   // leave the registry holding a stop that belongs to a component which no
