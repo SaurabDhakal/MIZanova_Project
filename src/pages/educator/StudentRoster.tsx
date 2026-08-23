@@ -12,6 +12,7 @@ import { pathForRole } from '../../lib/roles'
 import { EmptyState, ErrorState } from '../../components/QueryState'
 import Avatar from '../../components/Avatar'
 import Icon from '../../components/Icon'
+import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
  * Student roster — docs/Figma Pages Design/Student Roster Table.png.
@@ -27,6 +28,8 @@ import Icon from '../../components/Icon'
  */
 export default function StudentRoster() {
   const [search, setSearch] = useState('')
+  const [yearLevel, setYearLevel] = useState('')
+  const [attention, setAttention] = useState('')
   const { profile } = useAuth()
 
   const students = useQuery({
@@ -86,21 +89,30 @@ export default function StudentRoster() {
   }
 
   const term = search.trim().toLowerCase()
-  const visible = (students.data ?? []).filter((s) =>
-    term === ''
-      ? true
-      : `${s.first_name} ${s.last_name} ${s.external_ref ?? ''}`
-          .toLowerCase()
-          .includes(term),
-  )
+  const yearLevels = Array.from(
+    new Set(
+      (students.data ?? [])
+        .map((student) => student.year_level)
+        .filter((year): year is string => Boolean(year)),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'en-AU', { numeric: true }))
+
+  const visible = (students.data ?? []).filter((student) => {
+    const matchesTerm =
+      term === '' ||
+      `${student.first_name} ${student.last_name} ${student.external_ref ?? ''}`
+        .toLowerCase()
+        .includes(term)
+    const matchesYear = yearLevel === '' || student.year_level === yearLevel
+    const matchesAttention =
+      attention === '' ||
+      (attention === 'flagged' && (flagsByStudent.get(student.id) ?? 0) > 0) ||
+      (attention === 'home' && (homeByStudent.get(student.id) ?? 0) > 0)
+    return matchesTerm && matchesYear && matchesAttention
+  })
 
   return (
     <div>
-      {/* THE ACTION ONLY AN ADMINISTRATOR HAS. db/004 lets educators insert
-          students too, but putting children on the roll is an office job — a
-          teacher adding a child their school has not enrolled is how two
-          records for the same person appear. The policy stays permissive; the
-          screen does not advertise it. */}
       <header className="mb-6 flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-title text-foreground">Students</h1>
@@ -109,13 +121,18 @@ export default function StudentRoster() {
               ? 'Every active student at your school. Opening a record is logged and visible to Special Miles — including yours.'
               : 'Everyone currently assigned to you.'}
           </p>
+          <EducatorSchoolContext />
         </div>
-        {isSchoolAdmin && (
+        {(isSchoolAdmin || profile?.role === 'educator') && (
           <Link
-            to="/school-admin/students/add"
+            to={
+              isSchoolAdmin
+                ? '/school-admin/students/add'
+                : '/educator/students/add'
+            }
             className="shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
           >
-            Add students
+            Add student
           </Link>
         )}
       </header>
@@ -138,13 +155,13 @@ export default function StudentRoster() {
       {students.isSuccess && students.data.length === 0 && (
         <EmptyState
           title="No students assigned to you yet"
-          detail="A school administrator assigns students to your class. Once they do, they will appear here."
+          detail="Add a student you currently teach, or ask a school administrator to assign an existing student to you."
         />
       )}
 
       {students.isSuccess && students.data.length > 0 && (
         <>
-          <div className="mb-3">
+          <div className="mb-3 flex flex-wrap items-end gap-3">
             <label htmlFor="student-search" className="sr-only">
               Search students
             </label>
@@ -156,12 +173,55 @@ export default function StudentRoster() {
               placeholder="Search by name or student ID…"
               className="w-full max-w-sm rounded-btn border border-border bg-card px-3 py-2.5 text-foreground placeholder:text-muted-foreground"
             />
+
+            <label className="text-sm font-medium text-muted-foreground">
+              Year
+              <select
+                value={yearLevel}
+                onChange={(event) => setYearLevel(event.target.value)}
+                className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                <option value="">All years</option>
+                {yearLevels.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm font-medium text-muted-foreground">
+              Signal
+              <select
+                value={attention}
+                onChange={(event) => setAttention(event.target.value)}
+                className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                <option value="">All students</option>
+                <option value="flagged">Open safeguarding flag</option>
+                <option value="home">Shared from home</option>
+              </select>
+            </label>
+
+            {(search || yearLevel || attention) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setYearLevel('')
+                  setAttention('')
+                }}
+                className="rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
 
           {visible.length === 0 ? (
             <EmptyState
               title="No matches"
-              detail={`Nothing matched “${search}”. Try a first name, surname, or student ID.`}
+              detail="No assigned students match the current search and filters."
             />
           ) : (
             <div className="overflow-x-auto rounded-card border border-border bg-card shadow-raised">
