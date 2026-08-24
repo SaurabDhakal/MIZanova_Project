@@ -132,6 +132,8 @@ export default function Messenger({
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
   const [dictationLanguage, setDictationLanguage] = useState('en-AU')
+  const [conversationSearch, setConversationSearch] = useState('')
+  const [unreadOnly, setUnreadOnly] = useState(false)
   const [clock, setClock] = useState(() => Date.now())
   const endRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -340,12 +342,39 @@ export default function Messenger({
     return unreadMessagesInThread(thread, profile.id)
   }
 
-  // The filter actually filters. Anything else is a control that lies about
-  // what it does — you pick a student, the list does not change, and you end
-  // up messaging about a different child than the one on screen.
-  const visibleThreads = (threads.data ?? []).filter(
+  // The student picker is the primary scope. Educators additionally get inbox
+  // controls when looking across their whole class, where finding one family
+  // in a long list otherwise becomes slow and error-prone.
+  const studentThreads = (threads.data ?? []).filter(
     (t) => studentId === null || t.student_id === studentId,
   )
+  const educatorInbox = profile?.role === 'educator' && studentId === null
+  const normalisedSearch = conversationSearch.trim().toLocaleLowerCase('en-AU')
+  const visibleThreads = studentThreads.filter((thread) => {
+    if (!educatorInbox) return true
+    const person = counterpart(thread)
+    const searchable = [
+      person?.full_name,
+      person ? ROLE_CONFIG[person.role].label : '',
+      thread.students?.display_name,
+      thread.subject,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase('en-AU')
+    return (
+      (normalisedSearch === '' || searchable.includes(normalisedSearch)) &&
+      (!unreadOnly || unreadCount(thread) > 0)
+    )
+  })
+  const unreadThreads = studentThreads.filter((thread) => unreadCount(thread) > 0)
+
+  const markAllRead = useMutation({
+    mutationFn: () =>
+      Promise.all(unreadThreads.map((thread) => markThreadRead(thread.id))),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.threads }),
+  })
 
   // Derived, not stored. A conversation excluded by the current filter simply
   // stops being `active` — no effect needed to go and clear the id, and no
@@ -384,19 +413,95 @@ export default function Messenger({
       <div
         className={`lg:w-80 lg:shrink-0 ${active ? 'hidden lg:block' : ''}`}
       >
+        {educatorInbox && studentThreads.length > 0 && (
+          <div className="mb-3 rounded-card border border-border bg-card p-3 shadow-raised">
+            <label htmlFor="conversation-search" className="sr-only">
+              Search conversations
+            </label>
+            <input
+              id="conversation-search"
+              type="search"
+              value={conversationSearch}
+              onChange={(event) => setConversationSearch(event.target.value)}
+              placeholder="Search family or student…"
+              className="w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setUnreadOnly((current) => !current)}
+                aria-pressed={unreadOnly}
+                className={`rounded-btn border px-2.5 py-1.5 text-xs font-semibold ${
+                  unreadOnly
+                    ? 'border-primary bg-primary-subtle text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
+              >
+                Unread ({unreadThreads.length})
+              </button>
+              {unreadThreads.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => markAllRead.mutate()}
+                  disabled={markAllRead.isPending}
+                  className="rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
+                >
+                  {markAllRead.isPending ? 'Marking…' : 'Mark all read'}
+                </button>
+              )}
+              {(normalisedSearch || unreadOnly) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConversationSearch('')
+                    setUnreadOnly(false)
+                  }}
+                  className="ml-auto rounded-btn px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-background"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {markAllRead.isError && (
+              <p role="alert" className="mt-2 text-xs text-danger-foreground">
+                Some conversations could not be marked as read. Please try again.
+              </p>
+            )}
+          </div>
+        )}
+
+        {educatorInbox &&
+          studentThreads.length > 0 &&
+          visibleThreads.length === 0 && (
+            <div className="rounded-card border border-border bg-card p-5 text-center shadow-raised">
+              <p className="font-semibold text-foreground">
+                No conversations match
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Clear the search or unread filter to show the rest of your inbox.
+              </p>
+            </div>
+          )}
+
         {visibleThreads.length === 0 && canStartWith.length === 0 && (
-          <EmptyState
-            title={
-              studentId
-                ? 'No conversations about this student yet'
-                : 'No conversations yet'
-            }
-            detail={
-              studentId
-                ? 'Start one below, or choose a different student.'
-                : 'Conversations become available once staff are assigned and guardians are linked.'
-            }
-          />
+          !(
+            educatorInbox &&
+            studentThreads.length > 0 &&
+            (normalisedSearch || unreadOnly)
+          ) && (
+            <EmptyState
+              title={
+                studentId
+                  ? 'No conversations about this student yet'
+                  : 'No conversations yet'
+              }
+              detail={
+                studentId
+                  ? 'Start one below, or choose a different student.'
+                  : 'Conversations become available once staff are assigned and guardians are linked.'
+              }
+            />
+          )
         )}
 
         {visibleThreads.length > 0 && (
