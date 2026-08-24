@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchStudents, fetchUpcomingGoals, queryKeys } from '../../lib/api'
@@ -137,6 +138,11 @@ function GoalLine({
 }
 
 export default function Schedule() {
+  const [studentFilter, setStudentFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState<
+    '' | 'overdue' | 'next-60' | 'later'
+  >('')
   const goals = useQuery({
     queryKey: queryKeys.upcomingGoals,
     queryFn: fetchUpcomingGoals,
@@ -160,12 +166,41 @@ export default function Schedule() {
   )
   const nameOf = (id: string) => byId.get(id) ?? 'A student'
 
-  const overdue = goals.data.filter((g) => daysUntil(g.target_date!) < 0)
-  const soon = goals.data.filter((g) => {
+  const totalOverdue = goals.data.filter((g) => daysUntil(g.target_date!) < 0)
+    .length
+  const dueNext14Days = goals.data.filter((g) => {
+    const days = daysUntil(g.target_date!)
+    return days >= 0 && days <= 14
+  }).length
+  const averageProgress =
+    goals.data.length === 0
+      ? 0
+      : Math.round(
+          goals.data.reduce((total, goal) => total + goal.progress_percent, 0) /
+            goals.data.length,
+        )
+
+  const visibleGoals = goals.data.filter((goal) => {
+    const days = daysUntil(goal.target_date!)
+    const matchesDate =
+      dateFilter === '' ||
+      (dateFilter === 'overdue' && days < 0) ||
+      (dateFilter === 'next-60' && days >= 0 && days <= 60) ||
+      (dateFilter === 'later' && days > 60)
+    return (
+      (studentFilter === '' || goal.student_id === studentFilter) &&
+      (categoryFilter === '' || goal.category === categoryFilter) &&
+      matchesDate
+    )
+  })
+
+  const overdue = visibleGoals.filter((g) => daysUntil(g.target_date!) < 0)
+  const soon = visibleGoals.filter((g) => {
     const days = daysUntil(g.target_date!)
     return days >= 0 && days <= 60
   })
-  const later = goals.data.filter((g) => daysUntil(g.target_date!) > 60)
+  const later = visibleGoals.filter((g) => daysUntil(g.target_date!) > 60)
+  const filtersActive = Boolean(studentFilter || categoryFilter || dateFilter)
 
   return (
     <div>
@@ -199,6 +234,133 @@ export default function Schedule() {
           >
             Open a student
           </Link>
+        </div>
+      )}
+
+      {goals.data.length > 0 && (
+        <>
+          <dl className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Dated goals</dt>
+              <dd className="mt-1 text-2xl font-semibold text-foreground">
+                {goals.data.length}
+              </dd>
+            </div>
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Overdue</dt>
+              <dd className="mt-1 text-2xl font-semibold text-danger-foreground">
+                {totalOverdue}
+              </dd>
+            </div>
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Due in 14 days</dt>
+              <dd className="mt-1 text-2xl font-semibold text-warning-foreground">
+                {dueNext14Days}
+              </dd>
+            </div>
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Average progress</dt>
+              <dd className="mt-1 text-2xl font-semibold text-primary">
+                {averageProgress}%
+              </dd>
+            </div>
+          </dl>
+
+          <div className="mb-6 flex flex-wrap items-end gap-3 rounded-card border border-border bg-card p-4 shadow-raised">
+            <label className="text-sm font-medium text-muted-foreground">
+              Student
+              <select
+                value={studentFilter}
+                onChange={(event) => setStudentFilter(event.target.value)}
+                className="mt-1 block max-w-56 rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                <option value="">All students</option>
+                {(students.data ?? []).map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.first_name} {student.last_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm font-medium text-muted-foreground">
+              Goal category
+              <select
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                <option value="">All categories</option>
+                {Object.entries(GOAL_CATEGORY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm font-medium text-muted-foreground">
+              Target date
+              <select
+                value={dateFilter}
+                onChange={(event) =>
+                  setDateFilter(
+                    event.target.value as
+                      | ''
+                      | 'overdue'
+                      | 'next-60'
+                      | 'later',
+                  )
+                }
+                className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                <option value="">Any date</option>
+                <option value="overdue">Overdue</option>
+                <option value="next-60">Next 60 days</option>
+                <option value="later">More than 60 days</option>
+              </select>
+            </label>
+
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentFilter('')
+                  setCategoryFilter('')
+                  setDateFilter('')
+                }}
+                className="rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
+              >
+                Clear filters
+              </button>
+            )}
+
+            <p className="ml-auto text-sm text-muted-foreground" aria-live="polite">
+              Showing {visibleGoals.length} of {goals.data.length} goals
+            </p>
+          </div>
+        </>
+      )}
+
+      {goals.data.length > 0 && visibleGoals.length === 0 && (
+        <div className="mb-8 rounded-card border border-border bg-card p-8 text-center shadow-raised">
+          <h2 className="text-lg font-semibold text-foreground">
+            No goals match these filters
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Clear one or more filters to bring the other dated goals back.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setStudentFilter('')
+              setCategoryFilter('')
+              setDateFilter('')
+            }}
+            className="mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+          >
+            Show all goals
+          </button>
         </div>
       )}
 
