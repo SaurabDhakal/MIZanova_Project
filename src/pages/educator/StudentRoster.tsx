@@ -6,6 +6,7 @@ import {
   fetchRecentLogs,
   fetchStudents,
   queryKeys,
+  type StudentRow,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
@@ -30,6 +31,9 @@ export default function StudentRoster() {
   const [search, setSearch] = useState('')
   const [yearLevel, setYearLevel] = useState('')
   const [attention, setAttention] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'year' | 'activity' | 'attention'>(
+    'name',
+  )
   const { profile } = useAuth()
 
   const students = useQuery({
@@ -97,19 +101,58 @@ export default function StudentRoster() {
     ),
   ).sort((a, b) => a.localeCompare(b, 'en-AU', { numeric: true }))
 
-  const visible = (students.data ?? []).filter((student) => {
-    const matchesTerm =
-      term === '' ||
-      `${student.first_name} ${student.last_name} ${student.external_ref ?? ''}`
-        .toLowerCase()
-        .includes(term)
-    const matchesYear = yearLevel === '' || student.year_level === yearLevel
-    const matchesAttention =
-      attention === '' ||
-      (attention === 'flagged' && (flagsByStudent.get(student.id) ?? 0) > 0) ||
-      (attention === 'home' && (homeByStudent.get(student.id) ?? 0) > 0)
-    return matchesTerm && matchesYear && matchesAttention
-  })
+  const nameOf = (student: StudentRow) =>
+    `${student.last_name} ${student.first_name}`
+
+  const visible = (students.data ?? [])
+    .filter((student) => {
+      const matchesTerm =
+        term === '' ||
+        `${student.first_name} ${student.last_name} ${student.external_ref ?? ''}`
+          .toLowerCase()
+          .includes(term)
+      const matchesYear = yearLevel === '' || student.year_level === yearLevel
+      const matchesAttention =
+        attention === '' ||
+        (attention === 'flagged' && (flagsByStudent.get(student.id) ?? 0) > 0) ||
+        (attention === 'home' && (homeByStudent.get(student.id) ?? 0) > 0)
+      return matchesTerm && matchesYear && matchesAttention
+    })
+    .sort((a, b) => {
+      const byName = nameOf(a).localeCompare(nameOf(b), 'en-AU')
+      if (sortBy === 'year') {
+        return (
+          (a.year_level ?? '').localeCompare(b.year_level ?? '', 'en-AU', {
+            numeric: true,
+          }) || byName
+        )
+      }
+      if (sortBy === 'activity') {
+        return (
+          (logsByStudent.get(b.id) ?? 0) - (logsByStudent.get(a.id) ?? 0) ||
+          byName
+        )
+      }
+      if (sortBy === 'attention') {
+        return (
+          (flagsByStudent.get(b.id) ?? 0) -
+            (flagsByStudent.get(a.id) ?? 0) ||
+          (homeByStudent.get(b.id) ?? 0) -
+            (homeByStudent.get(a.id) ?? 0) ||
+          byName
+        )
+      }
+      return byName
+    })
+
+  const openFlagCount = Array.from(flagsByStudent.values()).reduce(
+    (total, count) => total + count,
+    0,
+  )
+  const homeNoteCount = Array.from(homeByStudent.values()).reduce(
+    (total, count) => total + count,
+    0,
+  )
 
   return (
     <div>
@@ -161,6 +204,33 @@ export default function StudentRoster() {
 
       {students.isSuccess && students.data.length > 0 && (
         <>
+          <dl className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Assigned students</dt>
+              <dd className="mt-1 text-2xl font-semibold text-foreground">
+                {students.data.length}
+              </dd>
+            </div>
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Year levels</dt>
+              <dd className="mt-1 text-2xl font-semibold text-foreground">
+                {yearLevels.length}
+              </dd>
+            </div>
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Open flags</dt>
+              <dd className="mt-1 text-2xl font-semibold text-danger-foreground">
+                {openFlagCount}
+              </dd>
+            </div>
+            <div className="rounded-card border border-border bg-card p-4 shadow-raised">
+              <dt className="text-sm text-muted-foreground">Notes from home</dt>
+              <dd className="mt-1 text-2xl font-semibold text-success-foreground">
+                {homeNoteCount}
+              </dd>
+            </div>
+          </dl>
+
           <div className="mb-3 flex flex-wrap items-end gap-3">
             <label htmlFor="student-search" className="sr-only">
               Search students
@@ -203,13 +273,36 @@ export default function StudentRoster() {
               </select>
             </label>
 
-            {(search || yearLevel || attention) && (
+            <label className="text-sm font-medium text-muted-foreground">
+              Sort by
+              <select
+                value={sortBy}
+                onChange={(event) =>
+                  setSortBy(
+                    event.target.value as
+                      | 'name'
+                      | 'year'
+                      | 'activity'
+                      | 'attention',
+                  )
+                }
+                className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                <option value="name">Student name</option>
+                <option value="year">Year level</option>
+                <option value="activity">Most activity</option>
+                <option value="attention">Needs attention</option>
+              </select>
+            </label>
+
+            {(search || yearLevel || attention || sortBy !== 'name') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearch('')
                   setYearLevel('')
                   setAttention('')
+                  setSortBy('name')
                 }}
                 className="rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
               >
