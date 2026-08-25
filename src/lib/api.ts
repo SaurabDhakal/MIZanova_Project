@@ -5196,18 +5196,32 @@ async function countNewApplications(): Promise<number> {
 }
 
 /**
- * Screening checks inside thirty days of expiry, or already past it.
+ * Screening checks that need chasing: expiring soon, already lapsed, or with no
+ * expiry date on file at all.
  *
- * `lte` drops nulls, which is right: a check with no expiry date recorded is
- * unknown rather than expiring, and db/050 is explicit that the date is never
- * filled in with a guess. It belongs on the Screening screen, not in a count
- * of things that need chasing this month.
+ * THE NO-EXPIRY CASE COUNTS, AND LEAVING IT OUT WAS A REAL MISTAKE.
+ *
+ * This was `.lte('days_remaining', 30)` alone, and I justified it in a comment:
+ * a check with no date is unknown rather than expiring, so it belongs on the
+ * Screening screen rather than in a count of things to chase. That reasoning
+ * contradicts the database it reads from. db/051 lists 'unknown' FIRST among
+ * the states, and says why in as many words — a check with no expiry cannot be
+ * trusted at all, where an expired one at least tells you what happened and
+ * when.
+ *
+ * It showed up as two numbers disagreeing on one screen: the Global Overview
+ * alert counting anything not valid said 3, and the tile beside it, reading
+ * this function, said 2. The missing one was the check nobody has ever given a
+ * date for, which is precisely the one that hides.
+ *
+ * `days_remaining` is null when `expires_on` is null, and PostgREST's `lte`
+ * drops nulls, so the null case has to be asked for explicitly.
  */
 async function countScreeningDueSoon(): Promise<number> {
   const { count, error } = await supabase
     .from('screening_overview')
     .select('id', { count: 'exact', head: true })
-    .lte('days_remaining', 30)
+    .or('days_remaining.lte.30,days_remaining.is.null')
   if (error) throw new Error(error.message)
   return count ?? 0
 }

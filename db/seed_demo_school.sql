@@ -237,6 +237,42 @@ from generate_series(1, 28) n, generate_series(1, 4) g
 where (n + g) % 2 = 0
 on conflict (id) do nothing;
 
+-- ---------------------------------------------------------------------------
+-- 6. Screening checks, one in each state the report can tell apart
+-- ---------------------------------------------------------------------------
+-- The Screening page has never had a row in it, so nobody has seen what it
+-- does — including the part that matters most. db/051 distinguishes four
+-- states, and 'unknown' is deliberately listed first there because a check with
+-- no expiry date cannot be trusted at all, where an expired one at least says
+-- what happened and when. A page that has only ever been empty cannot show
+-- that it treats the two differently.
+--
+-- One row per state, so the table, the ordering and the Global Overview alert
+-- can all be judged against something.
+--
+-- These carry demo emails rather than a profile, which is the honest shape:
+-- a screening check belongs to a person the network has admitted, and most of
+-- them have not made an account yet.
+insert into public.staff_screening
+  (id, profile_id, email, check_type, state, number, expires_on, verified_at)
+values
+  -- Valid, and comfortably so.
+  (md5('demo-screen-valid')::uuid, null, 'demo.screening.valid@example.com',
+   'wwcc', 'NSW', 'WWC1234567E', current_date + 400, now() - interval '30 days'),
+  -- Inside the sixty-day warning window: db/048 chose sixty because a renewal
+  -- is not instant and a term is ten weeks.
+  (md5('demo-screen-expiring')::uuid, null, 'demo.screening.expiring@example.com',
+   'wwcc', 'VIC', 'WWC7654321E', current_date + 24, now() - interval '300 days'),
+  -- Already lapsed. Nobody's access is removed by this; the product records
+  -- checks, it does not talk to the Office of the Children's Guardian.
+  (md5('demo-screen-expired')::uuid, null, 'demo.screening.expired@example.com',
+   'ndis', 'QLD', 'NDIS-556677', current_date - 11, now() - interval '400 days'),
+  -- The one worth seeing: verified, and no expiry was ever supplied.
+  (md5('demo-screen-unknown')::uuid, '909816a1-bd51-4749-90c1-308ddc23d02f',
+   'specialist@mizanova.edu.au', 'ndis', 'NSW', 'NDIS-112233', null,
+   now() - interval '90 days')
+on conflict (id) do nothing;
+
 commit;
 
 
@@ -263,5 +299,7 @@ commit;
 --   delete from public.student_educators
 --     where student_id in (select id from public.students where external_ref like 'DEMO-%');
 --   delete from public.students where external_ref like 'DEMO-%';
+--   delete from public.staff_screening where email like 'demo.screening.%';
+--   delete from public.staff_screening where id = md5('demo-screen-unknown')::uuid;
 --   commit;
 -- ---------------------------------------------------------------------------
