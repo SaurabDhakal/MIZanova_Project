@@ -300,30 +300,70 @@ export default function AuditLog() {
         />
       ) : (
         <div className="overflow-x-auto rounded-card border border-border bg-card shadow-raised">
-          <table className="w-full text-left text-sm">
+          {/*
+              A MINIMUM WIDTH, AND THE WRAPPER SCROLLS — the pattern Record
+              Access already uses. Percentages alone cannot save seven columns
+              in a 650px pane: they only decide who gets starved. Measured at
+              that width, four columns were clipping their own contents.
+
+              Below the minimum the table scrolls sideways inside its card
+              rather than crushing every column, which is the honest trade for a
+              dense record. The page itself never scrolls horizontally.
+            */}
+            <table className="w-full min-w-[72rem] table-fixed text-left text-sm">
+            {/*
+              EXPLICIT WIDTHS, BECAUSE THE BROWSER WAS GUESSING BADLY.
+
+              With `table-auto` the columns were sized by their content and the
+              result was upside down: "Where" carried whitespace-nowrap so it
+              demanded 254px — the widest column on the table for a school name
+              — while "To whom", which holds the longest text on the row
+              ("Ava W. — Join group work for a full session"), was squeezed into
+              90px and wrapped every row to 165px tall.
+
+              The share each column gets should follow how much it has to say,
+              not which one refused to wrap. Timestamps and the source label are
+              fixed-length; the subject and the reason are the ones that need
+              room.
+            */}
+            <colgroup>
+              {/* When: the widest fixed-length value on the row. The timestamp
+                  carries seconds and must not wrap, so it needs room for
+                  "26 Aug 2026, 00:55:30" plus its padding — measured, not
+                  guessed, after a first pass left it at 154px and clipping. */}
+              <col className="w-[17%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[17%]" />
+              <col className="w-[13%]" />
+              <col className="w-[22%]" />
+              {/* Source held two values and got 5% in the first pass, which
+                  wrapped "Administration" down three lines. */}
+              <col className="w-[8%]" />
+            </colgroup>
             <thead className="border-b border-border bg-background/60">
               <tr className="text-xs tracking-wide text-muted-foreground uppercase">
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   When
                 </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   Action
                 </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   Who did it
                 </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   To whom
                 </th>
                 {/* db/065 gave the trail a school. Without a column for it,
                     "a behaviour log was edited" does not say whose. */}
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   Where
                 </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   Why / what changed
                 </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-semibold">
                   Source
                 </th>
               </tr>
@@ -333,32 +373,38 @@ export default function AuditLog() {
                 <tr key={e.key} className="border-b border-border last:border-0">
                   {/* tabular-nums so the timestamps form a column the eye can
                       run down rather than a ragged edge. */}
-                  <td className="px-5 py-3 whitespace-nowrap tabular-nums text-muted-foreground">
+                  <td className="px-4 py-3 align-top tabular-nums whitespace-nowrap text-muted-foreground">
                     {stamp(e.when)}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-4 py-3 align-top">
                     <span
-                      className={`inline-block rounded-btn px-2.5 py-1 text-xs font-semibold ${e.className}`}
+                      className={`inline-block rounded-btn px-2 py-1 text-xs leading-tight font-semibold ${e.className}`}
                     >
                       {e.label}
                     </span>
                   </td>
-                  <td className="px-5 py-3 font-medium text-foreground">
+                  <td className="px-4 py-3 align-top break-words font-medium text-foreground">
                     {e.actor}
                   </td>
-                  <td className="px-5 py-3 text-foreground">
+                  <td className="px-4 py-3 align-top break-words text-foreground">
                     {e.subject ?? '—'}
                   </td>
                   {/* "Special Miles" rather than an em-dash: an act that
                       belongs to no school is a real answer, not a gap. */}
-                  <td className="px-5 py-3 whitespace-nowrap text-muted-foreground">
+                  <td className="px-4 py-3 align-top text-xs leading-snug text-muted-foreground">
                     {e.school ?? 'Special Miles'}
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">
+                  <td className="px-4 py-3 align-top text-muted-foreground">
                     {e.detail || '—'}
                   </td>
-                  <td className="px-5 py-3 whitespace-nowrap text-xs text-muted-foreground">
-                    {e.source}
+                  {/* Abbreviated on screen, spelled out in the CSV. This
+                      column holds one of two values and says the same thing in
+                      196 rows of 200, so widening it to fit "Administration"
+                      would take space from the subject and the reason — the two
+                      columns somebody is actually reading. The export has no
+                      width limit and keeps the full word. */}
+                  <td className="px-4 py-3 align-top whitespace-nowrap text-xs text-muted-foreground">
+                    {e.source === 'Administration' ? 'Admin' : 'AI'}
                   </td>
                 </tr>
               ))}
