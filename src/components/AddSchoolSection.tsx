@@ -210,9 +210,14 @@ export default function AddSchoolSection() {
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
             </select>
+            {/* This claimed suspended changed nothing but the label. db/063
+                made it real — `educator_create_student` admits only 'active'
+                and 'trial' — so the hint was telling somebody a suspended
+                school works normally while its teachers were being refused. */}
             <p className="mt-1 text-xs text-muted-foreground">
-              Trial and active both work normally. Nothing enforces suspended
-              yet — it changes the label, not their access.
+              Trial and active both work normally. Suspended stops educators
+              adding students; everything already recorded stays readable. You
+              can change this later from the Schools table.
             </p>
           </div>
         </div>

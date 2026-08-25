@@ -106,10 +106,18 @@ export default function Schools() {
     onSuccess: (school) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.schools })
       setClosing(null)
+      /*
+       * Say what the change DOES, not just that it happened. Suspending stops
+       * an educator adding students — db/063 refuses it — and a toast reading
+       * "Moved to suspended" leaves somebody to find that out from a teacher
+       * who cannot do their job.
+       */
       showToast(
         school.status === 'closed'
-          ? `${school.name} closed.`
-          : `${school.name} reopened as ${STATUS_LABEL[school.status].toLowerCase()}.`,
+          ? `${school.name} closed. Records are kept.`
+          : school.status === 'suspended'
+            ? `${school.name} suspended. Its educators can no longer add students.`
+            : `${school.name} is now ${STATUS_LABEL[school.status].toLowerCase()}.`,
       )
     },
   })
@@ -260,12 +268,50 @@ export default function Schools() {
                         boolean was fetched on every load of this page and
                         rendered nowhere, so a tenant on trial and a tenant
                         paying looked identical. */}
+                    {/*
+                      THE THREE LIVE STATES ARE A CONTROL; CLOSED IS NOT.
+
+                      Every status could be chosen when a school was created and
+                      then none of them could be changed — the only moves the
+                      table offered were Close and Reopen, so a school created on
+                      trial stayed on trial for ever and a school that stopped
+                      paying could only be closed, which reads as gone.
+
+                      Closed stays out of this select on purpose. It is the one
+                      transition that needs a confirmation, it has different
+                      meaning from the rest, and it already has a button.
+                    */}
                     <td className="px-5 py-3">
-                      <span
-                        className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${STATUS_STYLE[school.status]}`}
-                      >
-                        {STATUS_LABEL[school.status]}
-                      </span>
+                      {school.status === 'closed' ? (
+                        <span
+                          className={`inline-block rounded-btn px-2.5 py-1 text-sm font-semibold ${STATUS_STYLE[school.status]}`}
+                        >
+                          {STATUS_LABEL[school.status]}
+                        </span>
+                      ) : (
+                        <>
+                          <label htmlFor={`status-${school.id}`} className="sr-only">
+                            Status for {school.name}
+                          </label>
+                          <select
+                            id={`status-${school.id}`}
+                            value={school.status}
+                            disabled={setStatus.isPending}
+                            onChange={(e) => {
+                              setStatus.reset()
+                              setStatus.mutate({
+                                id: school.id,
+                                status: e.target.value as OrganisationStatus,
+                              })
+                            }}
+                            className={`rounded-btn border-0 px-2.5 py-1 text-sm font-semibold disabled:opacity-60 ${STATUS_STYLE[school.status]}`}
+                          >
+                            <option value="active">Active</option>
+                            <option value="trial">Trial</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
+                        </>
+                      )}
                       {school.kind !== 'school' && (
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {KIND_LABEL[school.kind]}
@@ -406,7 +452,12 @@ export default function Schools() {
           detail="Closing marks a school as gone. Nothing is deleted — every record stays where it is, and you can reopen it from this page."
           consequences={[
             `${statsFor(closing.id)?.students_active ?? 0} students and ${statsFor(closing.id)?.logs_total ?? 0} behaviour logs belong to this school. All of them are kept.`,
-            'Nothing enforces status yet, so its staff can still sign in and open records tomorrow. This changes what Special Miles sees, not what the school can do.',
+            // This used to say nothing enforces status. db/063 changed that:
+            // `educator_create_student` admits only 'active' and 'trial', so
+            // closing genuinely stops new children being added. Everything
+            // else — signing in, opening existing records — is still open, and
+            // saying so is the difference between a warning and a guess.
+            'Its educators can no longer add students. They can still sign in and open the records that already exist.',
           ]}
           confirmPhrase={closing.name}
           confirmLabel="Close this school"
