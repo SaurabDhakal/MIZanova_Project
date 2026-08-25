@@ -21,6 +21,7 @@ import StatTile from '../../components/StatTile'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
+import SchoolBadge from '../../components/SchoolBadge'
 
 /*
  * SUSPENDED AND CLOSED ARE NOT STYLED AS FAILURES. A suspended tenant is a
@@ -262,17 +263,22 @@ export default function Schools() {
                       {/* The name is the way in. A row of numbers about a
                           school with no way to see WHO is in it was the gap
                           Saurab named. */}
-                      <Link
-                        to={`/platform-admin/tenants/${school.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {school.name}
-                      </Link>
-                      <p className="text-sm text-muted-foreground">
-                        {[school.suburb, school.state]
-                          .filter(Boolean)
-                          .join(', ') || '—'}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <SchoolBadge id={school.id} name={school.name} size="sm" />
+                        <div className="min-w-0">
+                          <Link
+                            to={`/platform-admin/tenants/${school.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {school.name}
+                          </Link>
+                          <p className="text-sm text-muted-foreground">
+                            {[school.suburb, school.state]
+                              .filter(Boolean)
+                              .join(', ') || '—'}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     {/* WHAT `is_active` COULD NEVER SAY — db/053. The old
                         boolean was fetched on every load of this page and

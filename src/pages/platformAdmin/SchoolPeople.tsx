@@ -9,6 +9,7 @@ import {
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import InviteStaffSection from '../../components/InviteStaffSection'
 import PageHeader from '../../components/PageHeader'
+import SchoolBadge from '../../components/SchoolBadge'
 
 /**
  * One school's people — the platform-admin drill-down from Schools.
@@ -171,7 +172,13 @@ export default function SchoolPeople() {
       )}
 
       {school.data && (
-        <div className="mt-3">
+        <div className="mt-3 flex items-start gap-4">
+          <SchoolBadge
+            id={school.data.id}
+            name={school.data.name}
+            size="lg"
+            className="mt-1"
+          />
           <PageHeader
             title={school.data.name}
             lead={
