@@ -8,6 +8,7 @@ import {
   fetchSchools,
   fetchScreening,
   fetchSystemEvents,
+  fetchWorkQueue,
   queryKeys,
 } from '../../lib/api'
 import { fetchStaffMfaStatus } from '../../lib/mfa'
@@ -17,6 +18,7 @@ import { auditAction } from '../../lib/auditActions'
 import ReviewEvents from '../../components/ReviewEvents'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import ActivityBars, { type ActivityDay } from '../../components/ActivityBars'
+import StatTile from '../../components/StatTile'
 
 /**
  * Global Overview — the Platform Admin's landing screen.
@@ -58,6 +60,11 @@ export default function GlobalOverview() {
   const mfa = useQuery({
     queryKey: ['staff-mfa-status'],
     queryFn: fetchStaffMfaStatus,
+  })
+  // The same counts the notification bell reads, so the two cannot drift.
+  const queue = useQuery({
+    queryKey: queryKeys.workQueue('platform_admin'),
+    queryFn: () => fetchWorkQueue('platform_admin'),
   })
   const systemEvents = useQuery({
     queryKey: queryKeys.systemEvents,
@@ -319,101 +326,130 @@ export default function GlobalOverview() {
         )
       })()}
 
-      <div className="grid gap-5 sm:grid-cols-3">
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Awaiting verification
-          </p>
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              awaiting.length > 0
-                ? 'text-warning-foreground'
-                : 'text-foreground'
-            }`}
-          >
-            {awaiting.length}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {awaiting.length > 0
-              ? 'They can sign in but see no student records.'
-              : 'Nobody waiting.'}
-          </p>
-          {awaiting.length > 0 && (
-            <Link
-              to="/platform-admin/verification"
-              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-            >
-              Review them →
-            </Link>
-          )}
-        </div>
+      {/*
+        STATTILE, WHICH ALREADY EXISTED AND ALREADY DID THIS BETTER.
 
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Staff without 2FA
-          </p>
-          {/* THE COLOUR LIED AS WELL AS THE NUMBER.
-              This read `mfa.isPending ? '—' : withoutMfa.length`, with no
-              isError branch — so a failed query fell through to an empty array
-              and rendered 0. Worse than the Schools tile below it, because the
-              class above was driven by `withoutMfa.length > 0`: zero painted
-              the tile in the CALM colour. An administrator glancing at "Staff
-              without 2FA: 0" in grey concludes every account is enrolled, at
-              the exact moment the platform could not check. False reassurance
-              about a security control is worse than no tile at all. */}
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              mfa.isError
-                ? 'text-danger-foreground'
-                : mfa.isSuccess && withoutMfa.length > 0
-                  ? 'text-warning-foreground'
-                  : 'text-foreground'
-            }`}
-          >
-            {mfa.isPending ? '—' : mfa.isError ? '?' : withoutMfa.length}
-          </p>
-          {mfa.isError ? (
-            <p className="mt-1 text-sm text-danger-foreground">
-              Could not check 2FA enrolment — this is unknown, not zero.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Required for their role, so they are locked out until they enrol.
-            </p>
-          )}
-        </div>
+        These were three hand-rolled cards. Each reimplemented the same
+        "a failed query is not zero" guard in its own words — and each was
+        right, which is the problem: three correct copies of one rule is three
+        places for the fourth to be wrong. None of them had an icon, which is
+        the thing Saurab noticed from across the room.
 
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Schools
-          </p>
-          {/* A FAILED QUERY IS NOT ZERO SCHOOLS.
-              `schools.data ?? 0` rendered a confident 0 when the query had
-              errored — which is exactly what happened when db/039's
-              compatibility view dropped five columns. The number said the
-              platform had no customers; the truth was that the question could
-              not be asked. Same fault as every other "reports success when it
-              could not look" in this project. */}
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              schools.isError ? 'text-danger-foreground' : 'text-foreground'
-            }`}
-          >
-            {schools.isPending ? '—' : schools.isError ? '?' : schools.data.length}
-          </p>
-          {schools.isError ? (
-            <p className="mt-1 text-sm text-danger-foreground">
-              Could not load schools — this is unknown, not zero.
-            </p>
-          ) : (
-            <Link
-              to="/platform-admin/tenants"
-              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-            >
-              See how each is doing →
-            </Link>
-          )}
-        </div>
+        StatTile takes `value: number | undefined`, where undefined means NOT
+        KNOWN and renders an em-dash with a spoken title, never a confident 0.
+        The school admin and specialist dashboards have used it since M13.
+
+        The two new tiles come from `fetchWorkQueue`, which is what the
+        notification bell counts. So the bell and this page cannot disagree
+        about how much work is waiting — they are reading the same numbers,
+        rather than two implementations that drift.
+      */}
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <StatTile
+          label="Awaiting verification"
+          value={staff.isSuccess ? awaiting.length : undefined}
+          icon="verification"
+          tone={awaiting.length > 0 ? 'warning' : 'default'}
+          hint={
+            awaiting.length > 0 ? (
+              <Link
+                to="/platform-admin/verification"
+                className="font-semibold text-primary hover:underline"
+              >
+                They can sign in but see no student records. Review them →
+              </Link>
+            ) : (
+              'Nobody waiting.'
+            )
+          }
+        />
+
+        <StatTile
+          label="Staff without 2FA"
+          value={mfa.isSuccess ? withoutMfa.length : undefined}
+          icon="lock"
+          tone={mfa.isSuccess && withoutMfa.length > 0 ? 'warning' : 'default'}
+          hint={
+            mfa.isError
+              ? 'Could not check 2FA enrolment — this is unknown, not zero.'
+              : 'Required for their role, so they are locked out until they enrol.'
+          }
+        />
+
+        <StatTile
+          label="Schools"
+          value={schools.isSuccess ? schools.data.length : undefined}
+          icon="schools"
+          hint={
+            schools.isError ? (
+              'Could not load schools — this is unknown, not zero.'
+            ) : (
+              <Link
+                to="/platform-admin/tenants"
+                className="font-semibold text-primary hover:underline"
+              >
+                See how each is doing →
+              </Link>
+            )
+          }
+        />
+
+        <StatTile
+          label="Enquiries unanswered"
+          value={queue.data?.newEnquiries ?? undefined}
+          icon="enquiries"
+          tone={(queue.data?.newEnquiries ?? 0) > 0 ? 'warning' : 'default'}
+          hint={
+            (queue.data?.newEnquiries ?? 0) > 0 ? (
+              <Link
+                to="/platform-admin/enquiries"
+                className="font-semibold text-primary hover:underline"
+              >
+                A school asked to talk to us. Reply →
+              </Link>
+            ) : (
+              'Nobody is waiting on a reply.'
+            )
+          }
+        />
+
+        <StatTile
+          label="Applications to decide"
+          value={queue.data?.newApplications ?? undefined}
+          icon="applications"
+          tone={(queue.data?.newApplications ?? 0) > 0 ? 'warning' : 'default'}
+          hint={
+            (queue.data?.newApplications ?? 0) > 0 ? (
+              <Link
+                to="/platform-admin/applications"
+                className="font-semibold text-primary hover:underline"
+              >
+                Nobody has opened these yet. Review →
+              </Link>
+            ) : (
+              'Nothing waiting on a decision.'
+            )
+          }
+        />
+
+        <StatTile
+          label="Screening expiring"
+          value={queue.data?.screeningDueSoon ?? undefined}
+          icon="screening"
+          tone={(queue.data?.screeningDueSoon ?? 0) > 0 ? 'danger' : 'default'}
+          hint={
+            (queue.data?.screeningDueSoon ?? 0) > 0 ? (
+              <Link
+                to="/platform-admin/screening"
+                className="font-semibold text-primary hover:underline"
+              >
+                Within thirty days, or already lapsed. Chase →
+              </Link>
+            ) : (
+              'Every check on file is current.'
+            )
+          }
+        />
       </div>
 
       {/* --- Who is waiting ------------------------------------------------- */}
