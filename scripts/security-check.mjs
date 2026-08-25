@@ -54,6 +54,12 @@ const PROTECTED_TABLES = [
   'messages',
   'ai_control_events',
   'admin_audit_events',
+  // db/068. The union view over both audit tables. A VIEW rather than a table,
+  // and that is exactly why it is listed: RLS lives on the tables underneath,
+  // and a view only inherits it while `security_invoker` stays set. Losing that
+  // in a later rewrite would open the whole governance trail without touching a
+  // single policy, so the anonymous probe has to know this name exists.
+  'audit_timeline',
   'mfa_recovery_codes',
   'invoices',
   'student_access_events',
