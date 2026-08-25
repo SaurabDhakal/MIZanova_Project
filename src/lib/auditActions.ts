@@ -69,6 +69,29 @@ const ACTIONS: Record<string, AuditActionStyle> = {
     label: 'Enquiry triaged',
     className: 'bg-background text-muted-foreground',
   },
+
+  // db/065. Corrections to a child's record, rather than its creation. These
+  // are the entries a parent, an auditor or a court asks about.
+  'behaviour_log.edited': {
+    label: 'Behaviour log edited',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  'behaviour_log.deleted': {
+    label: 'Behaviour log deleted',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
+  'goal.edited': {
+    label: 'Goal edited',
+    className: 'bg-background text-muted-foreground',
+  },
+  'goal.status_changed': {
+    label: 'Goal status changed',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  'goal.deleted': {
+    label: 'Goal deleted',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
 }
 
 export function auditAction(action: string): AuditActionStyle {
