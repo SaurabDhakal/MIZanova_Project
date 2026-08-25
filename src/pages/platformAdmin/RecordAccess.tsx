@@ -129,23 +129,6 @@ export default function RecordAccess() {
       ? (schools.data?.find((s) => s.id === schoolId)?.name ?? 'Unknown school')
       : 'No school'
 
-  // How much each person looked at, and at how many different children.
-  // COUNTED FROM THIS PAGE ONLY, since pagination landed — the heading below
-  // says so. A total that silently covered the most recent fifty entries while
-  // looking like an all-time figure would be exactly the kind of number this
-  // screen exists to avoid producing.
-  const byActor = new Map<string, { views: number; children: Set<string> }>()
-  for (const event of events.data.rows) {
-    const entry = byActor.get(event.actor_id) ?? { views: 0, children: new Set() }
-    entry.views++
-    entry.children.add(event.student_id)
-    byActor.set(event.actor_id, entry)
-  }
-
-  const ranked = [...byActor.entries()].sort(
-    (a, b) => b[1].children.size - a[1].children.size,
-  )
-
   /*
    * THE WHOLE RECORD, NOT THE PAGE ON SCREEN.
    *
@@ -202,6 +185,24 @@ export default function RecordAccess() {
     }
   }
 
+  /*
+   * THERE IS NO "BY PERSON" SUMMARY ANY MORE, AND ITS REMOVAL IS THE POINT.
+   *
+   * A table ranked people by how many different children they had opened,
+   * computed from whichever twenty-five rows were on screen. It carried an
+   * honest label — "on this page" — and that was the problem rather than the
+   * excuse: a ranking of who looks at the most files reads as oversight, and
+   * this one was arithmetic over an arbitrary slice. Correctly labelled noise
+   * still occupies the top of the screen and still invites somebody to act on
+   * it.
+   *
+   * The question it was reaching for is now answered properly by the "Opened
+   * by" filter, which narrows the whole record rather than one page.
+   *
+   * If a real ranking is wanted later it has to be aggregated across the full
+   * filtered set, not the page — most cheaply as a deliberate "summarise this
+   * selection" action, since that is a complete second read of the data.
+   */
   return (
     <div>
       <PageHeader
@@ -346,55 +347,6 @@ export default function RecordAccess() {
         </p>
       ) : (
         <>
-          {/* SAYS WHICH ROWS IT COUNTED. This summary is built from the page
-              on screen, not from every entry ever recorded. Left unlabelled it
-              would read as an all-time figure and understate somebody's access
-              by however many pages are behind this one — a wrong number on the
-              one screen whose job is to be exact about who looked at what. */}
-          <h2 className="mb-1 text-lg font-semibold text-foreground">
-            By person, on this page
-          </h2>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Counted from the {events.data.rows.length} entries shown below, not
-            from all {events.data.total.toLocaleString('en-AU')}.
-          </p>
-          <div className="mb-8 overflow-x-auto rounded-card border border-border bg-card shadow-raised">
-            <table className="w-full min-w-[34rem] text-left">
-              <thead>
-                <tr className="border-b border-border">
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
-                    Who
-                  </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
-                    Children opened
-                  </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
-                    Times
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {ranked.map(([actorId, stats]) => {
-                  const who = describe(actorId)
-                  return (
-                    <tr key={actorId} className="border-b border-border last:border-0">
-                      <td className="p-4">
-                        <span className="font-medium text-foreground">
-                          {who.name}
-                        </span>
-                        <span className="block text-sm text-muted-foreground">
-                          {who.role}
-                        </span>
-                      </td>
-                      <td className="p-4 text-foreground">{stats.children.size}</td>
-                      <td className="p-4 text-muted-foreground">{stats.views}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
           <h2
             ref={listTop}
             className="mb-3 scroll-mt-6 text-lg font-semibold text-foreground"
