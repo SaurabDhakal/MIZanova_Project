@@ -2994,6 +2994,16 @@ export type StudentAccessEvent = {
   student_id: string
   context: string
   occurred_at: string
+  /*
+   * THE CHILD'S SCHOOL, WHICH IS THE ANSWER TO "WHERE DID THIS HAPPEN".
+   *
+   * The screen used to take the school from the ACTOR's profile. That reads the
+   * same on a single-tenant database and is wrong the moment a specialist works
+   * across two: the question a platform admin is asking is which school's
+   * records were opened, not where the person who opened them happens to be
+   * employed.
+   */
+  students: { school_id: string | null } | null
 }
 
 /**
@@ -3030,6 +3040,8 @@ export type StudentAccessEvent = {
 export type AccessFilters = {
   actorId?: string
   studentId?: string
+  /** The school the CHILD belongs to, not the one the actor works at. */
+  schoolId?: string
   /** ISO date. Events on or after midnight of this day. */
   since?: string
 }
@@ -3037,12 +3049,18 @@ export type AccessFilters = {
 function accessQuery(filters: AccessFilters) {
   let q = supabase
     .from('student_access_events')
-    .select('id, actor_id, student_id, context, occurred_at', { count: 'exact' })
+    .select(
+      'id, actor_id, student_id, context, occurred_at, students!inner(school_id)',
+      { count: 'exact' },
+    )
     .order('occurred_at', { ascending: false })
 
   if (filters.actorId) q = q.eq('actor_id', filters.actorId)
   if (filters.studentId) q = q.eq('student_id', filters.studentId)
   if (filters.since) q = q.gte('occurred_at', filters.since)
+  // Filtered through the embed, so it narrows by the CHILD's school. `!inner`
+  // above is what makes that a join rather than an optional attachment.
+  if (filters.schoolId) q = q.eq('students.school_id', filters.schoolId)
   return q
 }
 
@@ -3057,7 +3075,12 @@ export async function fetchStudentAccessEvents(
   )
 
   if (error) throw new Error(error.message)
-  return toPage(data as StudentAccessEvent[], count, page, PAGE_SIZE)
+  return toPage(
+    data as unknown as StudentAccessEvent[],
+    count,
+    page,
+    PAGE_SIZE,
+  )
 }
 
 /**
@@ -3095,7 +3118,7 @@ export async function fetchAllStudentAccessEvents(
   if (error) throw new Error(error.message)
   const total = count ?? 0
   return {
-    rows: (data ?? []) as StudentAccessEvent[],
+    rows: (data ?? []) as unknown as StudentAccessEvent[],
     total,
     truncated: total > ACCESS_EXPORT_LIMIT,
   }

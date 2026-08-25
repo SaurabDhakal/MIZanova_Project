@@ -50,6 +50,7 @@ export default function RecordAccess() {
   const [page, setPage] = useState(0)
   const [actorId, setActorId] = useState('')
   const [studentId, setStudentId] = useState('')
+  const [schoolId, setSchoolId] = useState('')
   const [period, setPeriod] = useState<(typeof PERIODS)[number]['value']>('30')
   const listTop = useRef<HTMLHeadingElement>(null)
 
@@ -64,6 +65,7 @@ export default function RecordAccess() {
   const buildFilters = (): AccessFilters => ({
     actorId: actorId || undefined,
     studentId: studentId || undefined,
+    schoolId: schoolId || undefined,
     since:
       period === 'all'
         ? undefined
@@ -74,7 +76,14 @@ export default function RecordAccess() {
     // The page AND the filters belong in the key. Without the page, React Query
     // serves page 0 for ever and Next appears to do nothing; without the
     // filters, changing one shows the previous answer to a different question.
-    queryKey: [...queryKeys.studentAccess, page, actorId, studentId, period],
+    queryKey: [
+      ...queryKeys.studentAccess,
+      page,
+      actorId,
+      studentId,
+      schoolId,
+      period,
+    ],
     queryFn: () => fetchStudentAccessEvents(page, buildFilters()),
     placeholderData: keepPreviousData,
   })
@@ -161,7 +170,7 @@ export default function RecordAccess() {
             new Date(e.occurred_at).toLocaleString('en-AU'),
             who.name,
             who.role,
-            schools.data?.find((sc) => sc.id === who.schoolId)?.name ?? '',
+            schoolOf(e.students?.school_id ?? null),
             childOf(e.student_id),
             e.context ?? '',
           ]
@@ -239,6 +248,25 @@ export default function RecordAccess() {
           available and is not the starting point.
         */}
         <div className="mb-4 flex flex-wrap items-end gap-4">
+          {/* School first: on a screen spanning every tenant, "where" is the
+              question that narrows hardest. */}
+          <div>
+            <label htmlFor="access-school" className="block text-sm font-medium text-muted-foreground">
+              School
+            </label>
+            <select
+              id="access-school"
+              value={schoolId}
+              onChange={(e) => { setSchoolId(e.target.value); setPage(0) }}
+              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+            >
+              <option value="">Every school</option>
+              {(schools.data ?? []).map((school) => (
+                <option key={school.id} value={school.id}>{school.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label htmlFor="access-child" className="block text-sm font-medium text-muted-foreground">
               Child
@@ -301,10 +329,10 @@ export default function RecordAccess() {
               : `${events.data.total} ${events.data.total === 1 ? 'entry' : 'entries'}`}
           </p>
 
-          {(actorId || studentId || period !== '30') && (
+          {(actorId || studentId || schoolId || period !== '30') && (
             <button
               type="button"
-              onClick={() => { setActorId(''); setStudentId(''); setPeriod('30'); setPage(0) }}
+              onClick={() => { setActorId(''); setStudentId(''); setSchoolId(''); setPeriod('30'); setPage(0) }}
               className="py-2 text-sm font-semibold text-primary hover:underline"
             >
               Clear
@@ -424,7 +452,7 @@ export default function RecordAccess() {
                         </span>
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">
-                        {schoolOf(who.schoolId)}
+                        {schoolOf(event.students?.school_id ?? null)}
                       </td>
                       <td className="p-4 text-sm font-medium text-foreground">
                         {childOf(event.student_id)}
