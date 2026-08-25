@@ -1935,6 +1935,118 @@ export async function fetchAdminAuditEvents(): Promise<AdminAuditEvent[]> {
   return (data ?? []) as unknown as AdminAuditEvent[]
 }
 
+/**
+ * The audit trail as one timeline — db/068.
+ *
+ * REPLACES READING BOTH TABLES AND MERGING THEM HERE. The screen used to fetch
+ * the newest 200 administrative events and the newest 50 AI events, merge them
+ * in the browser, and then filter, count and export that array. The window was
+ * the data: filters searched only what had been downloaded, the school list was
+ * built from whichever schools happened to appear in it, and the CSV silently
+ * stopped at the same edge.
+ *
+ * A merged timeline cannot be fixed by paging its parts — page 2 of one list
+ * plus page 2 of the other is not page 2 of the merge, and neither is the
+ * total. db/068 unions them in the database so there is one relation to order,
+ * one range to take and one exact count to trust.
+ */
+export type AuditTimelineEntry = {
+  id: string
+  occurred_at: string
+  source: 'admin' | 'ai'
+  action: string
+  subject_label: string | null
+  detail: string | null
+  actor_id: string | null
+  /** Null when the actor has since been deleted, or the row was written by a
+   *  script rather than by a signed-in person. Rendered as "Unknown". */
+  actor_name: string | null
+  school_id: string | null
+  school_name: string | null
+}
+
+export type AuditFilters = {
+  action?: string
+  /** A school id, or the literal 'none' for acts belonging to no school. */
+  schoolId?: string
+  /** ISO timestamp. Events at or after it. */
+  since?: string
+  /** Matched against a name, a subject, a reason or the action code. */
+  search?: string
+}
+
+const AUDIT_COLUMNS =
+  'id, occurred_at, source, action, subject_label, detail, ' +
+  'actor_id, actor_name, school_id, school_name'
+
+/*
+ * `%` and `_` are wildcards to `ilike`, so a search for "50%" would otherwise
+ * match everything beginning "50". Escaped rather than stripped: somebody
+ * looking for a threshold change is typing the percent sign on purpose.
+ */
+function escapeLike(term: string) {
+  return term.replace(/[\\%_]/g, (ch) => '\\' + ch)
+}
+
+function auditQuery(filters: AuditFilters) {
+  let q = supabase
+    .from('audit_timeline')
+    .select(AUDIT_COLUMNS, { count: 'exact' })
+    .order('occurred_at', { ascending: false })
+
+  if (filters.action) q = q.eq('action', filters.action)
+  // 'none' is a real answer rather than the absence of a filter: most
+  // administrative decisions belong to Special Miles and to no school.
+  if (filters.schoolId === 'none') q = q.is('school_id', null)
+  else if (filters.schoolId) q = q.eq('school_id', filters.schoolId)
+  if (filters.since) q = q.gte('occurred_at', filters.since)
+  // search_text is assembled by the view and is not selected — filtering on a
+  // column you do not read is allowed, and saves sending it over the wire.
+  if (filters.search) q = q.ilike('search_text', `%${escapeLike(filters.search)}%`)
+  return q
+}
+
+export async function fetchAuditTimeline(
+  page = 0,
+  filters: AuditFilters = {},
+): Promise<Page<AuditTimelineEntry>> {
+  const from = page * PAGE_SIZE
+  const { data, error, count } = await auditQuery(filters).range(
+    from,
+    from + PAGE_SIZE - 1,
+  )
+
+  if (error) throw new Error(error.message)
+  return toPage(data as unknown as AuditTimelineEntry[], count, page, PAGE_SIZE)
+}
+
+/**
+ * The whole filtered trail, for export rather than for a screen.
+ *
+ * The same reasoning as the access export: a CSV of whichever page was open is
+ * not a record of what happened, it is a record of fifty rows, and it would be
+ * attached to an email about an incident looking exactly like the whole thing.
+ * Capped, and the cap is REPORTED rather than silently applied.
+ */
+export const AUDIT_EXPORT_LIMIT = 5000
+
+export async function fetchAllAuditTimeline(
+  filters: AuditFilters = {},
+): Promise<{ rows: AuditTimelineEntry[]; total: number; truncated: boolean }> {
+  const { data, error, count } = await auditQuery(filters).range(
+    0,
+    AUDIT_EXPORT_LIMIT - 1,
+  )
+
+  if (error) throw new Error(error.message)
+  const total = count ?? 0
+  return {
+    rows: (data ?? []) as unknown as AuditTimelineEntry[],
+    total,
+    truncated: total > AUDIT_EXPORT_LIMIT,
+  }
+}
+
 /** What an organisation's `status` may be — db/039, exposed by db/053. */
 /**
  * Add a school — platform admin only, enforced by RLS on `organisations`.
@@ -5570,6 +5682,7 @@ export const queryKeys = {
   weeklyActivity: ['weekly-activity'] as const,
   aiOverview: ['ai-overview'] as const,
   adminAudit: ['admin-audit'] as const,
+  auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
   allSchoolKpis: ['all-school-kpis'] as const,
   schoolDeletability: ['school-deletability'] as const,
