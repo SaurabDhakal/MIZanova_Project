@@ -43,15 +43,36 @@ export default function Pagination<T>({
    * An effect keyed on the page number runs after the DOM is updated, which is
    * the only moment the target is the thing the reader wants to see.
    */
-  const settled = useRef(false)
+  /*
+   * REMEMBER THE PAGE, NOT WHETHER WE HAVE RUN.
+   *
+   * This was a boolean — "have I run once?" — and StrictMode defeated it. In
+   * development React deliberately runs an effect, cleans it up, and runs it
+   * again. The first run set the flag and returned; the second saw the flag
+   * already set and scrolled. So arriving on any paginated screen smoothly
+   * dragged the reader ~900px down, past the heading and the explanation, to a
+   * table they had not been introduced to — the exact thing the guard existed
+   * to prevent. Measured on Billing: `scrollY` 0 → 940 over 800ms, with the h1
+   * ending up 851px above the viewport.
+   *
+   * Storing the page number instead makes the guard describe the actual
+   * condition: scroll when the reader CHANGED page, never when the same page
+   * merely rendered again. A second run with an unchanged page number is not a
+   * page change, whether it comes from StrictMode, a remount, or a parent
+   * re-render — so all three are handled by saying what we mean.
+   */
+  const lastPage = useRef<number | null>(null)
 
   useEffect(() => {
-    // Not on first paint: arriving on a screen should not yank you past its
-    // heading and explanation to a table you have not been introduced to.
-    if (!settled.current) {
-      settled.current = true
+    // First sight of this list: arriving on a screen should not yank you past
+    // its heading to a table you have not been introduced to.
+    if (lastPage.current === null) {
+      lastPage.current = page.page
       return
     }
+    if (lastPage.current === page.page) return
+
+    lastPage.current = page.page
     anchor?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [page.page, anchor])
 

@@ -39,6 +39,59 @@ const ACTIONS: Record<string, AuditActionStyle> = {
     label: 'Moved school',
     className: 'bg-background text-muted-foreground',
   },
+
+  // db/064. Everything a platform admin does to a school, an invoice, an
+  // application or an enquiry. Added here at the same time as the triggers:
+  // the fallback below renders an unmapped action as its raw enum, which is
+  // exactly the fault that had Global Overview showing 'staff_moved_school'
+  // while the audit log two clicks away said 'Moved school'.
+  'school.created': {
+    label: 'School created',
+    className: 'bg-primary-subtle text-primary',
+  },
+  // Not styled as a failure. Suspending is a commercial state, not an
+  // incident, and one colour has to cover a school going onto trial as well.
+  'school.status_changed': {
+    label: 'School status changed',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  'invoice.voided': {
+    label: 'Invoice voided',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
+  // Whether somebody may work with children. The one on this list that is
+  // about a person rather than an account or a sum of money.
+  'application.decided': {
+    label: 'Application decided',
+    className: 'bg-success-subtle text-success-foreground',
+  },
+  'enquiry.triaged': {
+    label: 'Enquiry triaged',
+    className: 'bg-background text-muted-foreground',
+  },
+
+  // db/065. Corrections to a child's record, rather than its creation. These
+  // are the entries a parent, an auditor or a court asks about.
+  'behaviour_log.edited': {
+    label: 'Behaviour log edited',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  'behaviour_log.deleted': {
+    label: 'Behaviour log deleted',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
+  'goal.edited': {
+    label: 'Goal edited',
+    className: 'bg-background text-muted-foreground',
+  },
+  'goal.status_changed': {
+    label: 'Goal status changed',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  'goal.deleted': {
+    label: 'Goal deleted',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
 }
 
 export function auditAction(action: string): AuditActionStyle {

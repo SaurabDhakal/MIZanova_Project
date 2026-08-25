@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { ROLE_CONFIG } from '../../lib/roles'
+import { ROLE_CONFIG, type Role } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
 
 /**
@@ -34,9 +34,19 @@ import { useAuth } from '../../lib/auth'
  * comes from the profile rather than the mock.
  */
 
-const TABS = [
+/*
+ * The School tab is a school admin's and nobody else's.
+ *
+ * A platform admin already manages every school from Schools, with controls a
+ * school must not have — status, kind, closing it. Showing them a second,
+ * weaker version of the same screen would be two doors to one room where one
+ * of them is worse. Everyone else has no school-level authority at all, so for
+ * them the tab would be a read-only curiosity about their employer.
+ */
+const TABS: { to: string; label: string; roles?: Role[] }[] = [
   { to: '/account/profile', label: 'Account' },
   { to: '/account/security', label: 'Security & 2FA' },
+  { to: '/account/school', label: 'School', roles: ['school_admin'] },
 ]
 
 export default function AccountLayout() {
@@ -63,7 +73,9 @@ export default function AccountLayout() {
         aria-label="Settings sections"
         className="mt-5 flex gap-1 border-b border-border"
       >
-        {TABS.map((tab) => (
+        {TABS.filter(
+          (tab) => !tab.roles || (profile && tab.roles.includes(profile.role)),
+        ).map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}

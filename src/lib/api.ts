@@ -1437,6 +1437,63 @@ export type SchoolSummary = {
   oldest_open_at: string | null
 }
 
+/**
+ * The signed-in person's own school, for the Settings > School tab.
+ *
+ * No id is passed and none should be. `schools_select_own` returns a school
+ * admin exactly their own row, so asking for "the school" is the same question
+ * as asking for "my school" — and a screen that took an id would be a screen
+ * that could be pointed at somebody else's, which RLS would refuse but which
+ * should not be expressible in the first place.
+ */
+export type MySchool = {
+  id: string
+  name: string
+  suburb: string | null
+  state: string | null
+  timezone: string
+  abn: string | null
+  kind: OrganisationKind
+  status: OrganisationStatus
+}
+
+export async function fetchMySchool(): Promise<MySchool | null> {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id, name, suburb, state, timezone, abn, kind, status')
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as MySchool | null
+}
+
+/**
+ * Correct the school's own details — db/066.
+ *
+ * `status` and `kind` are absent on purpose and a trigger refuses them anyway:
+ * a school that could write its own status could lift its own suspension, and
+ * since db/063 that decides whether its educators can add children.
+ */
+export async function updateMySchool(
+  id: string,
+  fields: {
+    name: string
+    suburb: string | null
+    state: string | null
+    timezone: string
+    abn: string | null
+  },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('schools')
+    .update(fields)
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The school details')
+}
+
 export async function fetchSchoolSummary(): Promise<SchoolSummary | null> {
   const { data, error } = await supabase
     .from('school_activity_summary')
@@ -1854,12 +1911,23 @@ export type AdminAuditEvent = {
   subject_label: string | null
   detail: string | null
   profiles: { full_name: string } | null
+  /*
+   * db/065. Null for an administrative act by Special Miles, which belongs to
+   * no school — that is most of the older rows and is correct rather than
+   * missing. Set for anything that happened inside a school: a behaviour log
+   * corrected, a goal abandoned.
+   */
+  school_id: string | null
+  organisations: { name: string } | null
 }
 
 export async function fetchAdminAuditEvents(): Promise<AdminAuditEvent[]> {
   const { data, error } = await supabase
     .from('admin_audit_events')
-    .select('id, occurred_at, action, subject_label, detail, profiles ( full_name )')
+    .select(
+      'id, occurred_at, action, subject_label, detail, school_id, ' +
+        'profiles ( full_name ), organisations ( name )',
+    )
     .order('occurred_at', { ascending: false })
     .limit(200)
 
@@ -2994,6 +3062,16 @@ export type StudentAccessEvent = {
   student_id: string
   context: string
   occurred_at: string
+  /*
+   * THE CHILD'S SCHOOL, WHICH IS THE ANSWER TO "WHERE DID THIS HAPPEN".
+   *
+   * The screen used to take the school from the ACTOR's profile. That reads the
+   * same on a single-tenant database and is wrong the moment a specialist works
+   * across two: the question a platform admin is asking is which school's
+   * records were opened, not where the person who opened them happens to be
+   * employed.
+   */
+  students: { school_id: string | null } | null
 }
 
 /**
@@ -3012,18 +3090,106 @@ export type StudentAccessEvent = {
  * asked for the most recent 300 and displayed 50 — so the screen showed a
  * fixed slice of an unbounded table with nothing saying so.
  */
+/**
+ * How this trail is actually interrogated.
+ *
+ * Nobody reads an access log. They arrive with a question, and it is almost
+ * always one of three:
+ *
+ *   "Who has looked at my child's file?"      -> studentId
+ *   "What has this person been opening?"      -> actorId
+ *   "Show me everything since the incident"   -> since
+ *
+ * The filters have to run in the database rather than over the page on screen.
+ * This list is paginated, so filtering the twenty-five visible rows would
+ * answer a parent's question about their child with whatever happened to be
+ * rendered — which is not an answer, it is a coincidence.
+ */
+export type AccessFilters = {
+  actorId?: string
+  studentId?: string
+  /** The school the CHILD belongs to, not the one the actor works at. */
+  schoolId?: string
+  /** ISO date. Events on or after midnight of this day. */
+  since?: string
+}
+
+function accessQuery(filters: AccessFilters) {
+  let q = supabase
+    .from('student_access_events')
+    .select(
+      'id, actor_id, student_id, context, occurred_at, students!inner(school_id)',
+      { count: 'exact' },
+    )
+    .order('occurred_at', { ascending: false })
+
+  if (filters.actorId) q = q.eq('actor_id', filters.actorId)
+  if (filters.studentId) q = q.eq('student_id', filters.studentId)
+  if (filters.since) q = q.gte('occurred_at', filters.since)
+  // Filtered through the embed, so it narrows by the CHILD's school. `!inner`
+  // above is what makes that a join rather than an optional attachment.
+  if (filters.schoolId) q = q.eq('students.school_id', filters.schoolId)
+  return q
+}
+
 export async function fetchStudentAccessEvents(
   page = 0,
+  filters: AccessFilters = {},
 ): Promise<Page<StudentAccessEvent>> {
   const from = page * PAGE_SIZE
-  const { data, error, count } = await supabase
-    .from('student_access_events')
-    .select('id, actor_id, student_id, context, occurred_at', { count: 'exact' })
-    .order('occurred_at', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1)
+  const { data, error, count } = await accessQuery(filters).range(
+    from,
+    from + PAGE_SIZE - 1,
+  )
 
   if (error) throw new Error(error.message)
-  return toPage(data as StudentAccessEvent[], count, page, PAGE_SIZE)
+  return toPage(
+    data as unknown as StudentAccessEvent[],
+    count,
+    page,
+    PAGE_SIZE,
+  )
+}
+
+/**
+ * Every access event, for export rather than for a screen.
+ *
+ * SEPARATE FROM THE PAGED READ ON PURPOSE. The table above is paginated because
+ * nobody scrolls thousands of rows, but a CSV of whichever page happened to be
+ * open is not a record of who opened a child's file — it is a record of
+ * twenty-five of them, and it would be attached to an email about a privacy
+ * complaint looking exactly like the whole thing.
+ *
+ * Capped, and the cap is reported rather than silently applied. A truncated
+ * export that says it is truncated can be worked with; one that does not is the
+ * same fault as a tile showing 0 because a query failed.
+ */
+export const ACCESS_EXPORT_LIMIT = 5000
+
+export async function fetchAllStudentAccessEvents(
+  /*
+   * The SAME filters the screen is showing. An export that quietly widened to
+   * everything would hand somebody a different document from the one they just
+   * read — and this is the document that goes into a complaint file.
+   */
+  filters: AccessFilters = {},
+): Promise<{
+  rows: StudentAccessEvent[]
+  total: number
+  truncated: boolean
+}> {
+  const { data, error, count } = await accessQuery(filters).range(
+    0,
+    ACCESS_EXPORT_LIMIT - 1,
+  )
+
+  if (error) throw new Error(error.message)
+  const total = count ?? 0
+  return {
+    rows: (data ?? []) as unknown as StudentAccessEvent[],
+    total,
+    truncated: total > ACCESS_EXPORT_LIMIT,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -5196,18 +5362,32 @@ async function countNewApplications(): Promise<number> {
 }
 
 /**
- * Screening checks inside thirty days of expiry, or already past it.
+ * Screening checks that need chasing: expiring soon, already lapsed, or with no
+ * expiry date on file at all.
  *
- * `lte` drops nulls, which is right: a check with no expiry date recorded is
- * unknown rather than expiring, and db/050 is explicit that the date is never
- * filled in with a guess. It belongs on the Screening screen, not in a count
- * of things that need chasing this month.
+ * THE NO-EXPIRY CASE COUNTS, AND LEAVING IT OUT WAS A REAL MISTAKE.
+ *
+ * This was `.lte('days_remaining', 30)` alone, and I justified it in a comment:
+ * a check with no date is unknown rather than expiring, so it belongs on the
+ * Screening screen rather than in a count of things to chase. That reasoning
+ * contradicts the database it reads from. db/051 lists 'unknown' FIRST among
+ * the states, and says why in as many words — a check with no expiry cannot be
+ * trusted at all, where an expired one at least tells you what happened and
+ * when.
+ *
+ * It showed up as two numbers disagreeing on one screen: the Global Overview
+ * alert counting anything not valid said 3, and the tile beside it, reading
+ * this function, said 2. The missing one was the check nobody has ever given a
+ * date for, which is precisely the one that hides.
+ *
+ * `days_remaining` is null when `expires_on` is null, and PostgREST's `lte`
+ * drops nulls, so the null case has to be asked for explicitly.
  */
 async function countScreeningDueSoon(): Promise<number> {
   const { count, error } = await supabase
     .from('screening_overview')
     .select('id', { count: 'exact', head: true })
-    .lte('days_remaining', 30)
+    .or('days_remaining.lte.30,days_remaining.is.null')
   if (error) throw new Error(error.message)
   return count ?? 0
 }
@@ -5376,6 +5556,7 @@ export const queryKeys = {
   careTeam: (id: string) => ['care-team', id] as const,
   safeguarding: (open: boolean) => ['safeguarding', open] as const,
   schoolSummary: ['school-summary'] as const,
+  mySchool: ['my-school'] as const,
   aiControls: ['ai-controls'] as const,
   aiControlEvents: ['ai-control-events'] as const,
   strategyConfidence: ['strategy-confidence'] as const,

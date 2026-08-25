@@ -8,6 +8,7 @@ import {
   fetchSchools,
   fetchScreening,
   fetchSystemEvents,
+  fetchWorkQueue,
   queryKeys,
 } from '../../lib/api'
 import { fetchStaffMfaStatus } from '../../lib/mfa'
@@ -15,6 +16,9 @@ import { MFA_REQUIRED_ROLES, ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import { auditAction } from '../../lib/auditActions'
 import ReviewEvents from '../../components/ReviewEvents'
+import PageHeader, { PageNote } from '../../components/PageHeader'
+import ActivityBars, { type ActivityDay } from '../../components/ActivityBars'
+import StatTile from '../../components/StatTile'
 
 /**
  * Global Overview — the Platform Admin's landing screen.
@@ -57,6 +61,11 @@ export default function GlobalOverview() {
     queryKey: ['staff-mfa-status'],
     queryFn: fetchStaffMfaStatus,
   })
+  // The same counts the notification bell reads, so the two cannot drift.
+  const queue = useQuery({
+    queryKey: queryKeys.workQueue('platform_admin'),
+    queryFn: () => fetchWorkQueue('platform_admin'),
+  })
   const systemEvents = useQuery({
     queryKey: queryKeys.systemEvents,
     queryFn: () => fetchSystemEvents(20),
@@ -97,14 +106,43 @@ export default function GlobalOverview() {
     : 0
   const unscreenedCount = unscreened.isSuccess ? unscreened.data.length : 0
 
+  /*
+   * FOURTEEN DAYS, AND ONLY WHAT A PERSON DID.
+   *
+   * Audit rows written by the test suite and by the server carry no actor —
+   * there is no `auth.uid()` behind them — and on this database they outnumber
+   * the real ones several times over. Counting them would make the chart a
+   * picture of how often CI ran.
+   *
+   * The buckets are built from a fixed 14-day frame rather than from the rows,
+   * so a quiet day is a gap in the series instead of a day that vanishes and
+   * silently compresses the timeline.
+   */
+  const humanActivity: ActivityDay[] = (() => {
+    const frame: ActivityDay[] = []
+    const midnight = new Date()
+    midnight.setHours(0, 0, 0, 0)
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(midnight)
+      d.setDate(d.getDate() - i)
+      frame.push({ date: d, count: 0 })
+    }
+    const first = frame[0].date.getTime()
+    for (const e of audit.data ?? []) {
+      if (!e.profiles?.full_name) continue
+      const when = new Date(e.occurred_at)
+      const day = Math.floor((when.getTime() - first) / 86_400_000)
+      if (day >= 0 && day < frame.length) frame[day].count += 1
+    }
+    return frame
+  })()
+
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Global overview</h1>
-        <p className="mt-1 text-muted-foreground">
-          What needs Special Miles today, across every school.
-        </p>
-      </header>
+      <PageHeader
+        title="Global overview"
+        lead="What needs Special Miles today, across every school."
+      />
 
       {/* A LAPSED CHECK GOES ABOVE EVERY STATISTIC ON THIS PAGE.
           The screening list is its own screen, and a screen nobody opens is
@@ -288,101 +326,130 @@ export default function GlobalOverview() {
         )
       })()}
 
-      <div className="grid gap-5 sm:grid-cols-3">
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Awaiting verification
-          </p>
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              awaiting.length > 0
-                ? 'text-warning-foreground'
-                : 'text-foreground'
-            }`}
-          >
-            {awaiting.length}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {awaiting.length > 0
-              ? 'They can sign in but see no student records.'
-              : 'Nobody waiting.'}
-          </p>
-          {awaiting.length > 0 && (
-            <Link
-              to="/platform-admin/verification"
-              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-            >
-              Review them →
-            </Link>
-          )}
-        </div>
+      {/*
+        STATTILE, WHICH ALREADY EXISTED AND ALREADY DID THIS BETTER.
 
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Staff without 2FA
-          </p>
-          {/* THE COLOUR LIED AS WELL AS THE NUMBER.
-              This read `mfa.isPending ? '—' : withoutMfa.length`, with no
-              isError branch — so a failed query fell through to an empty array
-              and rendered 0. Worse than the Schools tile below it, because the
-              class above was driven by `withoutMfa.length > 0`: zero painted
-              the tile in the CALM colour. An administrator glancing at "Staff
-              without 2FA: 0" in grey concludes every account is enrolled, at
-              the exact moment the platform could not check. False reassurance
-              about a security control is worse than no tile at all. */}
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              mfa.isError
-                ? 'text-danger-foreground'
-                : mfa.isSuccess && withoutMfa.length > 0
-                  ? 'text-warning-foreground'
-                  : 'text-foreground'
-            }`}
-          >
-            {mfa.isPending ? '—' : mfa.isError ? '?' : withoutMfa.length}
-          </p>
-          {mfa.isError ? (
-            <p className="mt-1 text-sm text-danger-foreground">
-              Could not check 2FA enrolment — this is unknown, not zero.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Required for their role, so they are locked out until they enrol.
-            </p>
-          )}
-        </div>
+        These were three hand-rolled cards. Each reimplemented the same
+        "a failed query is not zero" guard in its own words — and each was
+        right, which is the problem: three correct copies of one rule is three
+        places for the fourth to be wrong. None of them had an icon, which is
+        the thing Saurab noticed from across the room.
 
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Schools
-          </p>
-          {/* A FAILED QUERY IS NOT ZERO SCHOOLS.
-              `schools.data ?? 0` rendered a confident 0 when the query had
-              errored — which is exactly what happened when db/039's
-              compatibility view dropped five columns. The number said the
-              platform had no customers; the truth was that the question could
-              not be asked. Same fault as every other "reports success when it
-              could not look" in this project. */}
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              schools.isError ? 'text-danger-foreground' : 'text-foreground'
-            }`}
-          >
-            {schools.isPending ? '—' : schools.isError ? '?' : schools.data.length}
-          </p>
-          {schools.isError ? (
-            <p className="mt-1 text-sm text-danger-foreground">
-              Could not load schools — this is unknown, not zero.
-            </p>
-          ) : (
-            <Link
-              to="/platform-admin/tenants"
-              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-            >
-              See how each is doing →
-            </Link>
-          )}
-        </div>
+        StatTile takes `value: number | undefined`, where undefined means NOT
+        KNOWN and renders an em-dash with a spoken title, never a confident 0.
+        The school admin and specialist dashboards have used it since M13.
+
+        The two new tiles come from `fetchWorkQueue`, which is what the
+        notification bell counts. So the bell and this page cannot disagree
+        about how much work is waiting — they are reading the same numbers,
+        rather than two implementations that drift.
+      */}
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <StatTile
+          label="Awaiting verification"
+          value={staff.isSuccess ? awaiting.length : undefined}
+          icon="verification"
+          tone={awaiting.length > 0 ? 'warning' : 'default'}
+          hint={
+            awaiting.length > 0 ? (
+              <Link
+                to="/platform-admin/verification"
+                className="font-semibold text-primary hover:underline"
+              >
+                They can sign in but see no student records. Review them →
+              </Link>
+            ) : (
+              'Nobody waiting.'
+            )
+          }
+        />
+
+        <StatTile
+          label="Staff without 2FA"
+          value={mfa.isSuccess ? withoutMfa.length : undefined}
+          icon="lock"
+          tone={mfa.isSuccess && withoutMfa.length > 0 ? 'warning' : 'default'}
+          hint={
+            mfa.isError
+              ? 'Could not check 2FA enrolment — this is unknown, not zero.'
+              : 'Required for their role, so they are locked out until they enrol.'
+          }
+        />
+
+        <StatTile
+          label="Schools"
+          value={schools.isSuccess ? schools.data.length : undefined}
+          icon="schools"
+          hint={
+            schools.isError ? (
+              'Could not load schools — this is unknown, not zero.'
+            ) : (
+              <Link
+                to="/platform-admin/tenants"
+                className="font-semibold text-primary hover:underline"
+              >
+                See how each is doing →
+              </Link>
+            )
+          }
+        />
+
+        <StatTile
+          label="Enquiries unanswered"
+          value={queue.data?.newEnquiries ?? undefined}
+          icon="enquiries"
+          tone={(queue.data?.newEnquiries ?? 0) > 0 ? 'warning' : 'default'}
+          hint={
+            (queue.data?.newEnquiries ?? 0) > 0 ? (
+              <Link
+                to="/platform-admin/enquiries"
+                className="font-semibold text-primary hover:underline"
+              >
+                A school asked to talk to us. Reply →
+              </Link>
+            ) : (
+              'Nobody is waiting on a reply.'
+            )
+          }
+        />
+
+        <StatTile
+          label="Applications to decide"
+          value={queue.data?.newApplications ?? undefined}
+          icon="applications"
+          tone={(queue.data?.newApplications ?? 0) > 0 ? 'warning' : 'default'}
+          hint={
+            (queue.data?.newApplications ?? 0) > 0 ? (
+              <Link
+                to="/platform-admin/applications"
+                className="font-semibold text-primary hover:underline"
+              >
+                Nobody has opened these yet. Review →
+              </Link>
+            ) : (
+              'Nothing waiting on a decision.'
+            )
+          }
+        />
+
+        <StatTile
+          label="Screening expiring"
+          value={queue.data?.screeningDueSoon ?? undefined}
+          icon="screening"
+          tone={(queue.data?.screeningDueSoon ?? 0) > 0 ? 'danger' : 'default'}
+          hint={
+            (queue.data?.screeningDueSoon ?? 0) > 0 ? (
+              <Link
+                to="/platform-admin/screening"
+                className="font-semibold text-primary hover:underline"
+              >
+                Within thirty days, or already lapsed. Chase →
+              </Link>
+            ) : (
+              'Every check on file is current.'
+            )
+          }
+        />
       </div>
 
       {/* --- Who is waiting ------------------------------------------------- */}
@@ -419,6 +486,32 @@ export default function GlobalOverview() {
         </>
       )}
 
+      {/* --- Activity ------------------------------------------------------- */}
+      <h2 className="mt-10 mb-1 text-lg font-semibold text-foreground">
+        Administrative activity
+      </h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Actions taken by a person over the last fourteen days.
+      </p>
+      <div className="rounded-card border border-border bg-card shadow-raised p-5">
+        {audit.isPending ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : audit.isError ? (
+          <p className="text-sm text-danger-foreground">
+            Could not read the audit trail, so this is unknown rather than
+            quiet.
+          </p>
+        ) : humanActivity.some((d) => d.count > 0) ? (
+          <ActivityBars days={humanActivity} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Nobody has verified a staff member, reset two-factor, changed the AI
+            controls or touched a school in the last fortnight. An empty chart
+            here means a quiet fortnight, not a broken one.
+          </p>
+        )}
+      </div>
+
       {/* --- Recent administrative actions ---------------------------------- */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
         Recent administrative actions
@@ -431,36 +524,57 @@ export default function GlobalOverview() {
           all appear here.
         </p>
       ) : (
-        <ul className="space-y-2">
-          {audit.data!.slice(0, 6).map((event) => (
-            <li
-              key={event.id}
-              className="rounded-card border border-border bg-card shadow-raised p-3 text-sm"
-            >
-              {/* A pill with the human name, not the raw action. This rendered
-                  `event.action` straight from the database, so the landing
-                  screen said "staff_moved_school" while the Audit Log two
-                  clicks away said "Moved school" for the same event. The map
-                  is shared now so they cannot disagree again. */}
-              <span
-                className={`inline-block rounded-btn px-2 py-0.5 text-xs font-semibold ${auditAction(event.action).className}`}
-              >
-                {auditAction(event.action).label}
-              </span>
-              {event.subject_label && (
-                <span className="text-muted-foreground"> · {event.subject_label}</span>
-              )}
-              <span className="block text-muted-foreground">
-                {new Date(event.occurred_at).toLocaleString('en-AU', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </li>
-          ))}
-        </ul>
+        /*
+          A TABLE, NOT A STACK OF CARDS. Each entry was a card with the pill,
+          the subject and the time run together as a sentence — fine for one,
+          unreadable for six, because nothing lines up and the eye has to parse
+          each one separately. The Audit Log itself was rebuilt the same way and
+          for the same reason.
+        */
+        <div className="overflow-x-auto rounded-card border border-border bg-card shadow-raised">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-background/60">
+              <tr className="text-xs tracking-wide text-muted-foreground uppercase">
+                <th scope="col" className="px-4 py-2.5 font-semibold">When</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Action</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Who</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">To whom</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.data!.slice(0, 6).map((event) => (
+                <tr key={event.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5 whitespace-nowrap tabular-nums text-muted-foreground">
+                    {new Date(event.occurred_at).toLocaleString('en-AU', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {/* A pill with the human name, not the raw action. This
+                        rendered `event.action` straight from the database, so
+                        the landing screen said "staff_moved_school" while the
+                        Audit Log two clicks away said "Moved school" for the
+                        same event. The map is shared so they cannot disagree. */}
+                    <span
+                      className={`inline-block rounded-btn px-2 py-0.5 text-xs font-semibold ${auditAction(event.action).className}`}
+                    >
+                      {auditAction(event.action).label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 font-medium text-foreground">
+                    {event.profiles?.full_name || 'System'}
+                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {event.subject_label || '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <Link
         to="/platform-admin/audit"
@@ -469,17 +583,16 @@ export default function GlobalOverview() {
         Full audit log →
       </Link>
 
-      {/* The limit of this screen, stated on it. Silence here means nothing
-          recorded a failure — which is also exactly what an unreachable server
-          looks like. A dashboard reporting "no problems" during an outage is
-          worse than no dashboard. */}
-      <p className="mt-10 max-w-prose text-xs text-muted-foreground">
+      <PageNote>
         Problems are recorded by the API server when it notices them. If the
         server itself is not running, nothing appears here — an empty list means
         nothing was reported, not that everything is working. Confirming the
-        server is alive needs something outside it to check
-        <code className="mx-1">/api/health</code>, which nothing does yet.
-      </p>
+        server is alive needs something outside it to check{' '}
+        <code>/api/health</code>, which nothing does yet. The activity chart
+        counts only actions taken by a person: the test suite and the server
+        write audit rows with no signed-in user, and on this database those
+        outnumber the real ones several times over.
+      </PageNote>
     </div>
   )
 }

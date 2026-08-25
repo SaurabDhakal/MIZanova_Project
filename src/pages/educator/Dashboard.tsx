@@ -52,6 +52,21 @@ import EducatorSchoolContext from '../../components/EducatorSchoolContext'
  * Customer.io Web Home): a count, then linked lines, and a settled state that
  * still shows what was there rather than rendering an empty box.
  */
+/*
+ * COULD NOT CHECK IS NOT NOTHING TO DO.
+ *
+ * Every count here arrived as a plain number derived from `data ?? []`, and
+ * every item is rendered by a `> 0` test. So a failed query became a zero,
+ * the zero failed the test, and the item simply was not there — a teacher
+ * opening this screen during an outage is told nothing needs them, in the
+ * same calm words as a teacher who genuinely has a clear morning.
+ *
+ * `undefined` now means the question could not be answered, and it produces
+ * its own line rather than silence. This is the same rule the notification
+ * bell already follows.
+ */
+type Count = number | undefined
+
 function NeedsYou({
   flaggedOpen,
   overdueGoals,
@@ -59,14 +74,21 @@ function NeedsYou({
   unreadMessages,
   logsLast24h,
 }: {
-  flaggedOpen: number
-  overdueGoals: number
-  homeNotes: number
-  unreadMessages: number
+  flaggedOpen: Count
+  overdueGoals: Count
+  homeNotes: Count
+  unreadMessages: Count
   logsLast24h: number
 }) {
+  const unknown = [
+    flaggedOpen === undefined && 'flagged incidents',
+    overdueGoals === undefined && 'goal target dates',
+    unreadMessages === undefined && 'unread messages',
+    homeNotes === undefined && 'notes from home',
+  ].filter(Boolean) as string[]
+
   const items = [
-    flaggedOpen > 0 && {
+    ((flaggedOpen ?? 0) > 0) && {
       key: 'flags',
       icon: 'safeguarding' as const,
       tone: 'danger' as const,
@@ -75,7 +97,7 @@ function NeedsYou({
         'You can still add detail until an administrator acknowledges it. After that it is locked.',
       to: '/educator/students',
     },
-    overdueGoals > 0 && {
+    ((overdueGoals ?? 0) > 0) && {
       key: 'goals',
       icon: 'goals' as const,
       tone: 'warning' as const,
@@ -83,7 +105,7 @@ function NeedsYou({
       detail: 'Either the date moves or the goal does.',
       to: '/educator/schedule',
     },
-    unreadMessages > 0 && {
+    ((unreadMessages ?? 0) > 0) && {
       key: 'messages',
       icon: 'messages' as const,
       tone: 'default' as const,
@@ -91,7 +113,7 @@ function NeedsYou({
       detail: 'Replies from families you have not opened yet.',
       to: '/educator/messages',
     },
-    homeNotes > 0 && {
+    ((homeNotes ?? 0) > 0) && {
       key: 'home',
       icon: 'home' as const,
       tone: 'default' as const,
@@ -119,14 +141,29 @@ function NeedsYou({
       <div className="flex flex-wrap items-baseline gap-x-3">
         <h2 className="text-section text-foreground">Needs you</h2>
         <span className="text-sm text-muted-foreground">
+          {/* 'nothing waiting' is only honest when everything was actually
+              checked. With a query down it becomes 'nothing waiting that could
+              be checked', which is a different and true claim. */}
           {items.length === 0
-            ? 'nothing waiting'
+            ? unknown.length > 0
+              ? 'nothing waiting that could be checked'
+              : 'nothing waiting'
             : `${items.length} thing${items.length === 1 ? '' : 's'}`}
         </span>
         <span className="ml-auto text-sm text-muted-foreground">
           {logsLast24h} log{logsLast24h === 1 ? '' : 's'} in the last 24 hours
         </span>
       </div>
+
+      {unknown.length > 0 && (
+        <p
+          role="alert"
+          className="mt-3 rounded-btn border border-warning bg-warning-subtle px-3 py-2 text-sm text-warning-foreground"
+        >
+          Could not check {unknown.join(', ')} just now, so something may be
+          waiting that is not listed here.
+        </p>
+      )}
 
       {items.length === 0 ? (
         /* A settled state, not an empty one. It says what was checked, because
@@ -190,7 +227,9 @@ export default function EducatorDashboard() {
     queryFn: fetchThreads,
   })
 
-  const unreadMessages = profile
+  const unreadMessages = !threads.isSuccess
+    ? undefined
+    : profile
     ? (threads.data ?? []).reduce(
         (total, thread) => total + unreadMessagesInThread(thread, profile.id),
         0,
@@ -211,9 +250,11 @@ export default function EducatorDashboard() {
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const overdueGoals = (goals.data ?? []).filter(
-    (g) => g.target_date != null && new Date(g.target_date) < today,
-  ).length
+  const overdueGoals = goals.isSuccess
+    ? goals.data.filter(
+        (g) => g.target_date != null && new Date(g.target_date) < today,
+      ).length
+    : undefined
 
   /**
    * Today's AI allowance — db/026.
@@ -302,7 +343,7 @@ export default function EducatorDashboard() {
         <NeedsYou
           flaggedOpen={stats.data.flaggedOpen}
           overdueGoals={overdueGoals}
-          homeNotes={homeNotes.data?.length ?? 0}
+          homeNotes={homeNotes.isSuccess ? homeNotes.data.length : undefined}
           unreadMessages={unreadMessages}
           logsLast24h={stats.data.logsLast24h}
         />
