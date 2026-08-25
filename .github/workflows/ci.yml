@@ -59,6 +59,32 @@ jobs:
     # Without this, a fork's pull request fails on a missing secret and looks
     # like broken code.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # -----------------------------------------------------------------------
+    # ONE AT A TIME, BECAUSE THERE IS ONE DATABASE
+    # -----------------------------------------------------------------------
+    # These tests sign real users in against the real Supabase project — there
+    # is only one, which is §2.4 of the architecture review and still true. Two
+    # of these jobs at once are two suites building and tearing down worlds in
+    # the same database, competing for the same auth rate limit.
+    #
+    # It is not theoretical. On 25 August the educator job ran 07:09:10-07:15:25
+    # and another started at 07:14:07 — seventy-eight seconds of overlap, and
+    # the second one failed on a suite that had passed twice locally on the same
+    # commit an hour earlier. Two of Tahmid's fixes the week before, scoping
+    # cleanup to one run and raising the hook timeout to wait out the auth rate
+    # limit, were the same collision seen from the inside.
+    #
+    # A red tick that means "two runs collided" is worse than a slow one: it
+    # sends somebody hunting through their own diff for a fault that is not
+    # there, and the next red tick after that gets assumed to be the same thing
+    # and waved through.
+    #
+    # `cancel-in-progress: false` queues rather than kills. Cancelling would
+    # abandon a suite midway and leave the world it built behind in the
+    # database, which is precisely what nobody wants cleaning up by hand.
+    concurrency:
+      group: supabase-database
+      cancel-in-progress: false
     env:
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
