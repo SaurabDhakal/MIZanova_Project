@@ -3026,6 +3026,41 @@ export async function fetchStudentAccessEvents(
   return toPage(data as StudentAccessEvent[], count, page, PAGE_SIZE)
 }
 
+/**
+ * Every access event, for export rather than for a screen.
+ *
+ * SEPARATE FROM THE PAGED READ ON PURPOSE. The table above is paginated because
+ * nobody scrolls thousands of rows, but a CSV of whichever page happened to be
+ * open is not a record of who opened a child's file — it is a record of
+ * twenty-five of them, and it would be attached to an email about a privacy
+ * complaint looking exactly like the whole thing.
+ *
+ * Capped, and the cap is reported rather than silently applied. A truncated
+ * export that says it is truncated can be worked with; one that does not is the
+ * same fault as a tile showing 0 because a query failed.
+ */
+export const ACCESS_EXPORT_LIMIT = 5000
+
+export async function fetchAllStudentAccessEvents(): Promise<{
+  rows: StudentAccessEvent[]
+  total: number
+  truncated: boolean
+}> {
+  const { data, error, count } = await supabase
+    .from('student_access_events')
+    .select('id, actor_id, student_id, context, occurred_at', { count: 'exact' })
+    .order('occurred_at', { ascending: false })
+    .range(0, ACCESS_EXPORT_LIMIT - 1)
+
+  if (error) throw new Error(error.message)
+  const total = count ?? 0
+  return {
+    rows: (data ?? []) as StudentAccessEvent[],
+    total,
+    truncated: total > ACCESS_EXPORT_LIMIT,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Resources — db/030, db/031. The first files this product stores.
 // ---------------------------------------------------------------------------

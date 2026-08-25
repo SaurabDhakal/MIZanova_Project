@@ -4,12 +4,14 @@ import {
   fetchAllStaff,
   fetchSchools,
   fetchStudentAccessEvents,
+  fetchAllStudentAccessEvents,
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Pagination from '../../components/Pagination'
+import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
 
 /**
@@ -105,11 +107,77 @@ export default function RecordAccess() {
     (a, b) => b[1].children.size - a[1].children.size,
   )
 
+  /*
+   * THE WHOLE RECORD, NOT THE PAGE ON SCREEN.
+   *
+   * This is the file somebody attaches to an email about a privacy complaint,
+   * so exporting the twenty-five rows that happened to be visible would be a
+   * partial answer wearing the shape of a complete one. It fetches everything,
+   * and if it hits the cap it says so in the toast rather than trimming
+   * quietly.
+   *
+   * Names are resolved here rather than left as ids: a spreadsheet of UUIDs
+   * cannot be read by the person who asked for it.
+   */
+  async function exportCsv() {
+    try {
+      const all = await fetchAllStudentAccessEvents()
+      const esc = (v: string) => `"${String(v).replaceAll('"', '""')}"`
+      const csv = [
+        ['When', 'Who', 'Role', 'School', 'Child', 'What'].join(','),
+        ...all.rows.map((e) => {
+          const who = describe(e.actor_id)
+          return [
+            new Date(e.occurred_at).toLocaleString('en-AU'),
+            who.name,
+            who.role,
+            schools.data?.find((sc) => sc.id === who.schoolId)?.name ?? '',
+            childOf(e.student_id),
+            e.context ?? '',
+          ]
+            .map(esc)
+            .join(',')
+        }),
+      ].join('\n')
+
+      const url = URL.createObjectURL(
+        new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      )
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `mizanova-record-access-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+
+      showToast(
+        all.truncated
+          ? `Exported the most recent ${all.rows.length} of ${all.total} entries. This file is not the whole record.`
+          : `Exported all ${all.rows.length} entries.`,
+        all.truncated ? 'error' : undefined,
+      )
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : 'Could not export.',
+        'error',
+      )
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Record access"
         lead="Who has opened children's records, across every school."
+        actions={
+          <button
+            type="button"
+            onClick={() => void exportCsv()}
+            disabled={events.data.total === 0}
+            className="rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
+          >
+            Export the full record
+          </button>
+        }
       />
 
       <div
