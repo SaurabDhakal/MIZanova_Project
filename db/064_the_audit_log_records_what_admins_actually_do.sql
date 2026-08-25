@@ -104,9 +104,14 @@ begin
     new.name,
     -- Say what it MEANS, not only what it was set to. Whoever reads this back
     -- is asking why a school's teachers could not add a child that week.
+    -- `organisations.status` is genuinely text today, so this cast is a no-op.
+    -- It is here anyway: the three sibling triggers below need it because
+    -- their columns are enums, and the day somebody tightens this one to an
+    -- enum as well, the cast is the difference between a schema improvement
+    -- and every school status change being refused.
     format('%s to %s.%s',
-      initcap(old.status),
-      new.status,
+      initcap(old.status::text),
+      new.status::text,
       case
         when new.status in ('suspended', 'closed')
           then ' Its educators can no longer add students.'
@@ -191,9 +196,16 @@ begin
     'application.decided',
     new.id,
     new.full_name,
+    -- ::text ON EVERY ONE OF THESE, and leaving it off cost a test run.
+    -- `specialist_applications.status` is an enum, not text. `initcap` and
+    -- `replace` take text, so on an enum Postgres finds no such function and
+    -- raises 42883 — from a trigger, which means the UPDATE that fired it is
+    -- refused. Not "the audit row is missing": no application could be decided
+    -- at all, and the staff-vetting and screening suites failed too because
+    -- their worlds are built by approving one.
     format('%s to %s.%s',
-      initcap(replace(old.status, '_', ' ')),
-      replace(new.status, '_', ' '),
+      initcap(replace(old.status::text, '_', ' ')),
+      replace(new.status::text, '_', ' '),
       case
         when coalesce(btrim(new.review_note), '') <> ''
           then ' ' || new.review_note
@@ -235,9 +247,11 @@ begin
     'enquiry.triaged',
     new.id,
     coalesce(new.organisation_name, new.contact_name),
+    -- ::text again — `enquiries.status` is an enum too. See the note on the
+    -- application trigger above.
     format('%s to %s.%s',
-      initcap(old.status),
-      new.status,
+      initcap(old.status::text),
+      new.status::text,
       case
         when coalesce(btrim(new.handled_note), '') <> ''
           then ' ' || new.handled_note
