@@ -397,10 +397,24 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
                     blocked ? `blockers-${application.id}` : undefined
                   }
                   onClick={() => decide.mutate(decision.value)}
+                  /*
+                    THREE WEIGHTS, BECAUSE THESE ARE THREE KINDS OF ACT.
+                    Approve was already solid and the other three shared one
+                    outline — so refusing somebody permission to work with
+                    children looked exactly like ticking "I'm checking this".
+
+                    Declining is red-edged rather than solid: a real outcome,
+                    reachable, but never the easiest thing on the card to hit.
+                    "I'm checking this" and "Ask for more" stay neutral, because
+                    both are notes on an open conversation rather than the end
+                    of one.
+                  */
                   className={`rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                     decision.value === 'approved'
                       ? 'bg-primary text-primary-foreground'
-                      : 'border border-border text-foreground'
+                      : decision.value === 'declined'
+                        ? 'border border-danger text-danger-foreground'
+                        : 'border border-border text-foreground'
                   }`}
                 >
                   {decision.label}
