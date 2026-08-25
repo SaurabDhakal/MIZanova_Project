@@ -17,6 +17,7 @@ import {
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import AddSchoolSection from '../../components/AddSchoolSection'
+import StatTile from '../../components/StatTile'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
@@ -167,38 +168,47 @@ export default function Schools() {
         lead="Every school using MiZanova, and who is answering their safeguarding queue."
       />
 
+      {/*
+        THE SAFEGUARDING TILE WAS THE FABRICATED ZERO AGAIN, IN THE WORST PLACE.
+
+        `totals` reduces over `kpis.data ?? []`. While that query is loading, and
+        if it fails, the reduce runs over an empty array and every figure is a
+        confident 0 — including "Open safeguarding", rendered in the calm colour
+        because the red is driven by `totals.open > 0`. An administrator glancing
+        at nought flagged incidents across every school concludes nobody is
+        waiting, at the exact moment the platform could not count.
+
+        StatTile takes undefined for NOT KNOWN and renders an em-dash, so the
+        three tiles now say "I could not look" instead of "there is nothing".
+        It also carries the icons, which is what Saurab asked for here.
+      */}
       <div className="mb-6 grid gap-5 sm:grid-cols-3">
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Schools
-          </p>
-          <p className="mt-2 text-4xl font-bold text-foreground">
-            {schools.data.length}
-          </p>
-        </div>
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Students
-          </p>
-          <p className="mt-2 text-4xl font-bold text-foreground">
-            {totals.students}
-          </p>
-        </div>
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Open safeguarding
-          </p>
-          <p
-            className={`mt-2 text-4xl font-bold ${
-              totals.open > 0 ? 'text-danger-foreground' : 'text-foreground'
-            }`}
-          >
-            {totals.open}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Across all schools
-          </p>
-        </div>
+        <StatTile
+          label="Schools"
+          value={schools.data.length}
+          icon="schools"
+        />
+        <StatTile
+          label="Students"
+          value={kpis.isSuccess ? totals.students : undefined}
+          icon="students"
+          hint={
+            kpis.isError
+              ? 'Could not be counted — this is unknown, not zero.'
+              : 'Active, across every school.'
+          }
+        />
+        <StatTile
+          label="Open safeguarding"
+          value={kpis.isSuccess ? totals.open : undefined}
+          icon="safeguarding"
+          tone={kpis.isSuccess && totals.open > 0 ? 'danger' : 'default'}
+          hint={
+            kpis.isError
+              ? 'Could not be counted — this is unknown, not zero.'
+              : 'Flagged and not yet acknowledged, across all schools.'
+          }
+        />
       </div>
 
       <AddSchoolSection />
