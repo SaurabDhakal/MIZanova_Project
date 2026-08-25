@@ -187,24 +187,89 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           className="mt-1.5 w-full rounded-btn border border-border bg-background px-3 py-2 text-sm text-foreground"
         />
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(['contacted', 'onboarded', 'declined', 'new'] as const)
-            .filter((status) => status !== enquiry.status)
-            .map((status) => (
-              <button
-                key={status}
-                type="button"
-                disabled={update.isPending}
-                onClick={() => update.mutate({ status })}
-                className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
-              >
-                {status === 'new' ? 'Put back in the queue' : `Mark ${status}`}
-              </button>
-            ))}
+        {/*
+          FOUR IDENTICAL BUTTONS ARE FOUR EQUALLY LIKELY ANSWERS, AND THEY ARE
+          NOT. Every status rendered as the same outlined button, so 'Mark
+          onboarded' and 'Mark declined' were offered with the same weight, in
+          the same row, next to an undo. Nothing said what usually happens next
+          — which is the one thing a queue screen should say.
+
+          A conversation moves new -> contacted -> onboarded. That next step is
+          the primary button. Declining is a real outcome but not the expected
+          one, so it is quiet and red-edged rather than solid. Putting an
+          enquiry back is an undo and reads as one.
+        */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {NEXT_STEP[enquiry.status] && (
+            <button
+              type="button"
+              disabled={update.isPending}
+              onClick={() =>
+                update.mutate({ status: NEXT_STEP[enquiry.status]! })
+              }
+              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {update.isPending
+                ? 'Saving…'
+                : NEXT_STEP_LABEL[enquiry.status]}
+            </button>
+          )}
+
+          {enquiry.status !== 'declined' && (
+            <button
+              type="button"
+              disabled={update.isPending}
+              onClick={() => update.mutate({ status: 'declined' })}
+              className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+            >
+              Decline
+            </button>
+          )}
+
+          {enquiry.status !== 'onboarded' && enquiry.status !== 'new' && (
+            <button
+              type="button"
+              disabled={update.isPending}
+              onClick={() => update.mutate({ status: 'onboarded' })}
+              className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+            >
+              Mark onboarded
+            </button>
+          )}
+
+          {enquiry.status !== 'new' && (
+            <button
+              type="button"
+              disabled={update.isPending}
+              onClick={() => update.mutate({ status: 'new' })}
+              className="px-2 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:underline disabled:opacity-60"
+            >
+              Put back in the queue
+            </button>
+          )}
         </div>
       </div>
     </li>
   )
+}
+
+/*
+ * What usually happens next, so the primary button can say it. Onboarded and
+ * declined are ends of the conversation and have no next step — from there the
+ * only moves are the quiet ones.
+ */
+const NEXT_STEP: Record<EnquiryStatus, EnquiryStatus | null> = {
+  new: 'contacted',
+  contacted: 'onboarded',
+  onboarded: null,
+  declined: null,
+}
+
+const NEXT_STEP_LABEL: Record<EnquiryStatus, string> = {
+  new: 'Mark as contacted',
+  contacted: 'Mark onboarded',
+  onboarded: '',
+  declined: '',
 }
 
 export default function Enquiries() {
