@@ -10,6 +10,7 @@ import {
 import { ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Pagination from '../../components/Pagination'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Record access across every school — the oversight layer.
@@ -106,14 +107,10 @@ export default function RecordAccess() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Record access</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Who has opened children&rsquo;s records, across every school.
-          Recording began when the feature was installed — there is nothing
-          before that.
-        </p>
-      </header>
+      <PageHeader
+        title="Record access"
+        lead="Who has opened children's records, across every school."
+      />
 
       <div
         role="note"

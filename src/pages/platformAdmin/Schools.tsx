@@ -19,6 +19,7 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
 import AddSchoolSection from '../../components/AddSchoolSection'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
+import PageHeader from '../../components/PageHeader'
 
 /*
  * SUSPENDED AND CLOSED ARE NOT STYLED AS FAILURES. A suspended tenant is a
@@ -153,13 +154,10 @@ export default function Schools() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Schools</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Every school using MiZanova, and whether anyone is answering their
-          safeguarding queue.
-        </p>
-      </header>
+      <PageHeader
+        title="Schools"
+        lead="Every school using MiZanova, and who is answering their safeguarding queue."
+      />
 
       <div className="mb-6 grid gap-5 sm:grid-cols-3">
         <div className="rounded-card border border-border bg-card shadow-raised p-5">

@@ -12,6 +12,7 @@ import {
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import QueueTabs from '../../components/QueueTabs'
 import { showToast } from '../../lib/toast'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Enquiries — people asking to become customers, from the pricing page.
@@ -222,13 +223,10 @@ export default function Enquiries() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Enquiries</h1>
-        <p className="mt-1 text-muted-foreground">
-          People who asked about MiZanova from the pricing page. Nobody here has
-          an account — a school gets one when you create it for them.
-        </p>
-      </header>
+      <PageHeader
+        title="Enquiries"
+        lead="People who asked about MiZanova and do not have an account yet."
+      />
 
       <QueueTabs
         name="enquiry-status"

@@ -20,6 +20,7 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import Pagination from '../../components/Pagination'
 import { showToast } from '../../lib/toast'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Billing across every school — docs/Figma Pages Design/Billing & Revenue Dashboard.png.
@@ -138,13 +139,10 @@ export default function Billing() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Billing</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          What schools have invoiced families, across every tenant. Every figure
-          is added up by the database, not by this page.
-        </p>
-      </header>
+      <PageHeader
+        title="Billing &amp; revenue"
+        lead="What every school has invoiced families, and what has been collected."
+      />
 
       {money.length === 0 ? (
         <EmptyState
@@ -519,25 +517,37 @@ export default function Billing() {
         <h2 className="font-semibold text-foreground">
           Two things this page will not do
         </h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          <strong>It cannot mark an invoice paid.</strong> A trigger in db/020
-          refuses that from any browser, including this one. An invoice becomes
-          paid when Stripe tells the server the money moved, and the server is
-          the only thing holding a key that may say so — which is why there is
-          no button here to look for.
-        </p>
-        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
-          <strong>It does not issue them either.</strong> A school bills its own
-          families and raises its own invoices. Special Miles can void one,
-          because a school cannot always unpick its own mistake, and that is the
-          whole of the write access this screen has.
-        </p>
-        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
-          There is no annual or monthly recurring revenue here, and no churn
-          rate. Nobody subscribes to MiZanova — schools bill families one
-          invoice at a time, and deriving a run rate from one-off invoices would
-          be arithmetic dressed up as a metric.
-        </p>
+        {/*
+          THREE POINTS, THREE COLUMNS, ACROSS THE FULL WIDTH.
+
+          These were three stacked paragraphs capped at `max-w-prose`, so on a
+          wide screen the box spanned the page and its contents huddled down the
+          left of it. Each point is independent, so they sit side by side from
+          `lg` up: the section fills its width and no line grows past a
+          comfortable measure. Below `lg` they stack, which is the only thing
+          that fits.
+        */}
+        <div className="mt-3 grid gap-x-10 gap-y-3 lg:grid-cols-3">
+          <p className="text-sm text-muted-foreground">
+            <strong>It cannot mark an invoice paid.</strong> A trigger in db/020
+            refuses that from any browser, including this one. An invoice
+            becomes paid when Stripe tells the server the money moved, and the
+            server is the only thing holding a key that may say so — which is
+            why there is no button here to look for.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <strong>It does not issue them either.</strong> A school bills its
+            own families and raises its own invoices. Special Miles can void
+            one, because a school cannot always unpick its own mistake, and that
+            is the whole of the write access this screen has.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            There is no annual or monthly recurring revenue here, and no churn
+            rate. Nobody subscribes to MiZanova — schools bill families one
+            invoice at a time, and deriving a run rate from one-off invoices
+            would be arithmetic dressed up as a metric.
+          </p>
+        </div>
       </section>
     </div>
   )

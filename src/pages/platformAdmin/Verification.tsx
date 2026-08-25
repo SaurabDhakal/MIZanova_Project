@@ -11,6 +11,7 @@ import { adminResetMfa, fetchStaffMfaStatus } from '../../lib/mfa'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import { showToast } from '../../lib/toast'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Teacher verification (FR18).
@@ -94,15 +95,10 @@ export default function Verification() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Teacher verification
-        </h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Staff who have not been verified can sign in, but see a banner telling
-          them their account is awaiting verification.
-        </p>
-      </header>
+      <PageHeader
+        title="Staff verification"
+        lead="Staff waiting to be trusted with student records."
+      />
 
       <div
         className="mb-6 rounded-card border border-warning bg-warning-subtle p-4"

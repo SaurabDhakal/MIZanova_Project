@@ -16,6 +16,7 @@ import {
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import { showToast } from '../../lib/toast'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Screening — the thing that goes looking, so nobody has to remember to.
@@ -418,13 +419,10 @@ export default function Screening() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Screening</h1>
-        <p className="mt-1 text-muted-foreground">
-          Working With Children and NDIS checks held by specialists in the
-          network. Worst first — this list is not filtered, on purpose.
-        </p>
-      </header>
+      <PageHeader
+        title="Screening"
+        lead="Working With Children and NDIS checks held by specialists in the network."
+      />
 
       {(checks.isPending || missing.isPending) && <LoadingCards count={3} />}
       {checks.isError && (

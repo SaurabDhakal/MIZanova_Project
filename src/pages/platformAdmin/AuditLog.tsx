@@ -6,6 +6,7 @@ import {
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import { auditAction } from '../../lib/auditActions'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Audit log.
@@ -79,13 +80,10 @@ export default function AuditLog() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Audit log</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Every change to the AI controls and every verification decision, with
-          who made it and why.
-        </p>
-      </header>
+      <PageHeader
+        title="Audit log"
+        lead="Every governance decision, who made it, and why."
+      />
 
       <div className="mb-6 rounded-card border border-border bg-card shadow-raised p-4">
         <p className="text-sm font-semibold text-foreground">

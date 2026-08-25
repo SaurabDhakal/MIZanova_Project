@@ -226,7 +226,10 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'billing', label: 'Billing & Revenue', icon: 'finance', group: 'Customers', milestone: 'M14' },
       { path: 'applications', label: 'Specialist Applications', icon: 'applications', group: 'The network', milestone: 'M14' },
       { path: 'screening', label: 'Screening', icon: 'screening', group: 'The network', milestone: 'M14' },
-      { path: 'verification', label: 'Teacher Verification', icon: 'verification', group: 'The network', milestone: 'M14' },
+      // "Staff", not "Teacher": educators, specialists AND school admins all
+      // appear on that screen and all three need verifying before they can see
+      // a child's record. The old label described a third of the list.
+      { path: 'verification', label: 'Staff Verification', icon: 'verification', group: 'The network', milestone: 'M14' },
       { path: 'ai-governance', label: 'AI Governance', icon: 'ai', group: 'Oversight', milestone: 'M14' },
       { path: 'audit', label: 'Audit Log', icon: 'audit', group: 'Oversight', milestone: 'M14' },
       { path: 'record-access', label: 'Record Access', icon: 'recordAccess', group: 'Oversight', milestone: 'M14' },

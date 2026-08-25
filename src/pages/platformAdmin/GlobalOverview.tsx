@@ -15,6 +15,7 @@ import { MFA_REQUIRED_ROLES, ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import { auditAction } from '../../lib/auditActions'
 import ReviewEvents from '../../components/ReviewEvents'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * Global Overview — the Platform Admin's landing screen.
@@ -99,12 +100,10 @@ export default function GlobalOverview() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Global overview</h1>
-        <p className="mt-1 text-muted-foreground">
-          What needs Special Miles today, across every school.
-        </p>
-      </header>
+      <PageHeader
+        title="Global overview"
+        lead="What needs Special Miles today, across every school."
+      />
 
       {/* A LAPSED CHECK GOES ABOVE EVERY STATISTIC ON THIS PAGE.
           The screening list is its own screen, and a screen nobody opens is

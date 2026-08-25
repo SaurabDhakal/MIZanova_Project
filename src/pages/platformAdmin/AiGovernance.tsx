@@ -9,6 +9,7 @@ import {
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import ConfidenceHistogram from '../../components/ConfidenceHistogram'
+import PageHeader from '../../components/PageHeader'
 
 /**
  * AI governance - the honest replacement for the Figma MLOps screen.
@@ -68,13 +69,10 @@ export default function AiGovernance() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">AI governance</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Controls that actually do something. Every change is recorded with
-          your name and your reason.
-        </p>
-      </header>
+      <PageHeader
+        title="AI governance"
+        lead="Controls that actually do something — every change is recorded against your name."
+      />
 
       {/* --- Reason first, on purpose ------------------------------------- */}
       {/* Above the controls rather than below them: you write down why before
