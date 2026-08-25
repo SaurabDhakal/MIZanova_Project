@@ -1854,12 +1854,23 @@ export type AdminAuditEvent = {
   subject_label: string | null
   detail: string | null
   profiles: { full_name: string } | null
+  /*
+   * db/065. Null for an administrative act by Special Miles, which belongs to
+   * no school — that is most of the older rows and is correct rather than
+   * missing. Set for anything that happened inside a school: a behaviour log
+   * corrected, a goal abandoned.
+   */
+  school_id: string | null
+  organisations: { name: string } | null
 }
 
 export async function fetchAdminAuditEvents(): Promise<AdminAuditEvent[]> {
   const { data, error } = await supabase
     .from('admin_audit_events')
-    .select('id, occurred_at, action, subject_label, detail, profiles ( full_name )')
+    .select(
+      'id, occurred_at, action, subject_label, detail, school_id, ' +
+        'profiles ( full_name ), organisations ( name )',
+    )
     .order('occurred_at', { ascending: false })
     .limit(200)
 

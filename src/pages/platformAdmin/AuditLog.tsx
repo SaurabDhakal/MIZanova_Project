@@ -45,6 +45,12 @@ type Entry = {
   detail: string
   /** Which table it came from. Two sources merge here; saying which is honest. */
   source: 'Administration' | 'AI controls'
+  /*
+   * db/065. Where it happened. Null for a Special Miles act that belongs to no
+   * school, which is most administrative decisions and is a real answer rather
+   * than a gap — so it renders as "Special Miles" rather than an em-dash.
+   */
+  school: string | null
 }
 
 /** Full precision, because ordering is what this screen is asked about. */
@@ -63,6 +69,7 @@ function stamp(iso: string) {
 export default function AuditLog() {
   const [action, setAction] = useState('all')
   const [search, setSearch] = useState('')
+  const [school, setSchool] = useState('all')
 
   const admin = useQuery({
     queryKey: queryKeys.adminAudit,
@@ -87,6 +94,7 @@ export default function AuditLog() {
           subject: e.subject_label,
           detail: e.detail ?? '',
           source: 'Administration' as const,
+          school: e.organisations?.name ?? null,
         }
       }),
       ...(ai.data ?? []).map((e) => {
@@ -111,11 +119,18 @@ export default function AuditLog() {
             : `${Math.round((e.was_threshold ?? 0) * 100)}% → ${Math.round((e.now_threshold ?? 0) * 100)}%`,
           detail: e.reason,
           source: 'AI controls' as const,
+          school: null,
         }
       }),
     ]
     return rows.sort((a, b) => (a.when < b.when ? 1 : -1))
   }, [admin.data, ai.data])
+
+  /** Every school present, plus the acts that belong to none. */
+  const schools = useMemo(
+    () => [...new Set(entries.map((e) => e.school ?? 'Special Miles'))].sort(),
+    [entries],
+  )
 
   /** Every action present, so the filter offers what the data actually holds. */
   const actions = useMemo(
@@ -127,6 +142,7 @@ export default function AuditLog() {
     const q = search.trim().toLowerCase()
     return entries.filter((e) => {
       if (action !== 'all' && e.action !== action) return false
+      if (school !== 'all' && (e.school ?? 'Special Miles') !== school) return false
       if (!q) return true
       // Everything a person might half-remember: a name, a phrase from the
       // reason, the thing it happened to.
@@ -134,7 +150,7 @@ export default function AuditLog() {
         .toLowerCase()
         .includes(q)
     })
-  }, [entries, action, search])
+  }, [entries, action, school, search])
 
   /*
    * WHAT LEAVES IS WHAT IS ON SCREEN, filters and all. An export that quietly
@@ -145,9 +161,17 @@ export default function AuditLog() {
   function exportCsv() {
     const esc = (v: string) => `"${String(v).replaceAll('"', '""')}"`
     const csv = [
-      ['When', 'Action', 'Who', 'Subject', 'Detail', 'Source'].join(','),
+      ['When', 'Action', 'Who', 'Subject', 'School', 'Detail', 'Source'].join(','),
       ...shown.map((e) =>
-        [stamp(e.when), e.action, e.actor, e.subject ?? '', e.detail, e.source]
+        [
+          stamp(e.when),
+          e.action,
+          e.actor,
+          e.subject ?? '',
+          e.school ?? 'Special Miles',
+          e.detail,
+          e.source,
+        ]
           .map(esc)
           .join(','),
       ),
@@ -216,6 +240,28 @@ export default function AuditLog() {
           </select>
         </div>
 
+        <div>
+          <label
+            htmlFor="audit-school"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            Where
+          </label>
+          <select
+            id="audit-school"
+            value={school}
+            onChange={(e) => setSchool(e.target.value)}
+            className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          >
+            <option value="all">Everywhere</option>
+            {schools.map((sc) => (
+              <option key={sc} value={sc}>
+                {sc}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="min-w-56 flex-1">
           <label
             htmlFor="audit-search"
@@ -269,6 +315,11 @@ export default function AuditLog() {
                 <th scope="col" className="px-5 py-3 font-semibold">
                   To whom
                 </th>
+                {/* db/065 gave the trail a school. Without a column for it,
+                    "a behaviour log was edited" does not say whose. */}
+                <th scope="col" className="px-5 py-3 font-semibold">
+                  Where
+                </th>
                 <th scope="col" className="px-5 py-3 font-semibold">
                   Why / what changed
                 </th>
@@ -297,6 +348,11 @@ export default function AuditLog() {
                   </td>
                   <td className="px-5 py-3 text-foreground">
                     {e.subject ?? '—'}
+                  </td>
+                  {/* "Special Miles" rather than an em-dash: an act that
+                      belongs to no school is a real answer, not a gap. */}
+                  <td className="px-5 py-3 whitespace-nowrap text-muted-foreground">
+                    {e.school ?? 'Special Miles'}
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">
                     {e.detail || '—'}
