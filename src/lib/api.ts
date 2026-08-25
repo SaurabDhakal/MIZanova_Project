@@ -2452,6 +2452,65 @@ export async function createInvoice(input: {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Correct a draft before anybody has seen it.
+ *
+ * `.eq('status', 'draft')` alongside the id is not decoration on top of the
+ * policy — it is the only check this caller can make about WHEN it is acting.
+ * A draft that a colleague issued while this form sat open still matches the
+ * id, and without the status filter the update would quietly reprice a bill
+ * the family is already reading. With it, the update touches nothing and
+ * `assertChanged` says so.
+ *
+ * `student_id` is in here because the form lets a draft be pointed at a
+ * different child, and a control that changes nothing is worse than no
+ * control. db/060 freezes it the moment the invoice is issued.
+ */
+export async function updateInvoiceDraft(input: {
+  invoiceId: string
+  studentId: string
+  description: string
+  amountCents: number
+  dueDate: string | null
+}): Promise<void> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .update({
+      student_id: input.studentId,
+      description: input.description.trim(),
+      amount_cents: input.amountCents,
+      due_date: input.dueDate,
+    })
+    .eq('id', input.invoiceId)
+    .eq('status', 'draft')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The invoice')
+}
+
+/**
+ * Throw a draft away.
+ *
+ * Only a draft, twice over: db/060's policy refuses anything else, and the
+ * status filter here means losing a race against "Issue to family" fails
+ * loudly instead of deleting a live bill.
+ *
+ * Nothing else in this system deletes an invoice, and nothing should — see the
+ * header of db/060 for why a draft is the one exception.
+ */
+export async function deleteInvoiceDraft(invoiceId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .delete()
+    .eq('id', invoiceId)
+    .eq('status', 'draft')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The draft removal')
+}
+
 export async function setInvoiceStatus(
   invoiceId: string,
   status: 'open' | 'void',
