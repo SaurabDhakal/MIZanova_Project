@@ -11,6 +11,7 @@ import {
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import QueueTabs from '../../components/QueueTabs'
+import PageHeader from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -456,16 +457,10 @@ export default function Applications() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Specialist applications
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Practitioners asking to join MiZanova. Nobody here
-          has an account — approving admits them, and a school engaging them is
-          what creates one.
-        </p>
-      </header>
+      <PageHeader
+        title="Specialist applications"
+        lead="Practitioners asking to join MiZanova. Nobody here has an account — approving admits them, and a school engaging them is what creates one."
+      />
 
       <QueueTabs
         name="application-status"

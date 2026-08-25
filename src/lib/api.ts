@@ -2204,6 +2204,36 @@ export async function fetchSchools(): Promise<SchoolRow[]> {
   return (data ?? []) as SchoolRow[]
 }
 
+/**
+ * One school, by id.
+ *
+ * WHY NOT `fetchSchools().find(...)`, WHICH IS WHAT THE DRILL-DOWN DID. Two
+ * reasons, and the second is a bug rather than waste.
+ *
+ * It read every school in the product to put one name in a heading. That is
+ * silly at four schools and wrong at four hundred.
+ *
+ * And `find` cannot tell "this school does not exist" from "the list never
+ * arrived". SchoolPeople rendered `{school && <InviteStaffSection/>}`, so a
+ * failed schools query produced a page that looked fine — the staff list was
+ * there, the heading just said "This school" — with the invite section silently
+ * absent. That section is the only way to give a school its first
+ * administrator, and a school with none cannot invite one itself.
+ *
+ * `maybeSingle` returns null for a genuine miss and throws for a real failure,
+ * so the screen can say which.
+ */
+export async function fetchSchool(id: string): Promise<SchoolRow | null> {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id, name, suburb, state, status, kind')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as SchoolRow | null
+}
+
 /** Per-school figures. A Platform Admin gets every school; others get theirs. */
 export async function fetchAllSchoolKpis(): Promise<
   (KpiOverview & { school_id: string })[]
@@ -5684,6 +5714,7 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
+  school: (id: string) => ['school', id] as const,
   allSchoolKpis: ['all-school-kpis'] as const,
   schoolDeletability: ['school-deletability'] as const,
   billingTotals: ['billing-totals'] as const,
