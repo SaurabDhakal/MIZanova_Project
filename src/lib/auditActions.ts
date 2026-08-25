@@ -92,7 +92,47 @@ const ACTIONS: Record<string, AuditActionStyle> = {
     label: 'Goal deleted',
     className: 'bg-danger-subtle text-danger-foreground',
   },
+
+  // db/068. These three were built in the Audit Log's own render by comparing
+  // was_enabled with now_enabled, which read fine and could not be filtered on:
+  // the server had no such column, so the Action filter only ever worked over
+  // rows already downloaded. The view derives them now, so they get the same
+  // server-side treatment as everything above.
+  'ai.enabled': {
+    label: 'AI turned ON',
+    className: 'bg-primary-subtle text-primary',
+  },
+  // The one AI event styled as a loss. Turning the assistant off is a decision
+  // somebody will be asked to account for.
+  'ai.disabled': {
+    label: 'AI turned OFF',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
+  'ai.threshold_changed': {
+    label: 'Routing threshold changed',
+    className: 'bg-primary-subtle text-primary',
+  },
+
+  // db/066. A school correcting its own name, suburb, state, timezone or ABN.
+  'school.details_changed': {
+    label: 'School details changed',
+    className: 'bg-background text-muted-foreground',
+  },
 }
+
+/**
+ * Every action this product knows how to name, newest last.
+ *
+ * THE FILTER USED TO BE BUILT FROM WHATEVER WAS ON SCREEN. That is fine while
+ * the screen holds everything and wrong the moment it is paginated: an action
+ * with no rows in the current page simply vanished from the dropdown, so the
+ * filter could not be used to find out that nothing had happened — which is a
+ * real and common question to ask an audit log.
+ *
+ * Offering an action with no matches is the honest version. "No entry matches
+ * that" is an answer; an absent option is not.
+ */
+export const AUDIT_ACTION_CODES = Object.keys(ACTIONS)
 
 export function auditAction(action: string): AuditActionStyle {
   return (
