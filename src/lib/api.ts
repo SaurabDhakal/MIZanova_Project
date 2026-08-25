@@ -1437,6 +1437,63 @@ export type SchoolSummary = {
   oldest_open_at: string | null
 }
 
+/**
+ * The signed-in person's own school, for the Settings > School tab.
+ *
+ * No id is passed and none should be. `schools_select_own` returns a school
+ * admin exactly their own row, so asking for "the school" is the same question
+ * as asking for "my school" — and a screen that took an id would be a screen
+ * that could be pointed at somebody else's, which RLS would refuse but which
+ * should not be expressible in the first place.
+ */
+export type MySchool = {
+  id: string
+  name: string
+  suburb: string | null
+  state: string | null
+  timezone: string
+  abn: string | null
+  kind: OrganisationKind
+  status: OrganisationStatus
+}
+
+export async function fetchMySchool(): Promise<MySchool | null> {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id, name, suburb, state, timezone, abn, kind, status')
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as MySchool | null
+}
+
+/**
+ * Correct the school's own details — db/066.
+ *
+ * `status` and `kind` are absent on purpose and a trigger refuses them anyway:
+ * a school that could write its own status could lift its own suspension, and
+ * since db/063 that decides whether its educators can add children.
+ */
+export async function updateMySchool(
+  id: string,
+  fields: {
+    name: string
+    suburb: string | null
+    state: string | null
+    timezone: string
+    abn: string | null
+  },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('schools')
+    .update(fields)
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The school details')
+}
+
 export async function fetchSchoolSummary(): Promise<SchoolSummary | null> {
   const { data, error } = await supabase
     .from('school_activity_summary')
@@ -5499,6 +5556,7 @@ export const queryKeys = {
   careTeam: (id: string) => ['care-team', id] as const,
   safeguarding: (open: boolean) => ['safeguarding', open] as const,
   schoolSummary: ['school-summary'] as const,
+  mySchool: ['my-school'] as const,
   aiControls: ['ai-controls'] as const,
   aiControlEvents: ['ai-control-events'] as const,
   strategyConfidence: ['strategy-confidence'] as const,

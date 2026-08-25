@@ -33,6 +33,7 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/recover-2fa': 'Use a recovery code',
   '/account/security': 'Security',
   '/account/profile': 'Your account',
+  '/account/school': 'Your school',
   '/design-tokens': 'Design tokens',
 }
 
