@@ -5,6 +5,7 @@ import {
   fetchSchools,
   fetchStudentAccessEvents,
   fetchAllStudentAccessEvents,
+  type AccessFilters,
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
@@ -37,15 +38,44 @@ import PageHeader from '../../components/PageHeader'
  * file would accuse people, and on this subject that is a serious thing to get
  * wrong. It shows what happened, in order, and leaves judgement to a person.
  */
+/** Bounded questions only. "Everything, ever" is a scroll, not an answer. */
+const PERIODS = [
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: 'all', label: 'Everything recorded' },
+] as const
+
 export default function RecordAccess() {
   const [page, setPage] = useState(0)
+  const [actorId, setActorId] = useState('')
+  const [studentId, setStudentId] = useState('')
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]['value']>('30')
   const listTop = useRef<HTMLHeadingElement>(null)
 
+  /*
+   * BUILT WHEN IT IS USED, NOT WHILE RENDERING. `Date.now()` during render is
+   * impure — the lint rule caught it — and it is also wrong here for a reason
+   * worth keeping: a "last 30 days" window computed at render time is frozen at
+   * whatever second the component happened to mount, so a screen left open
+   * overnight quietly asks yesterday's question. Computed at fetch time and at
+   * export time, it always means thirty days from now.
+   */
+  const buildFilters = (): AccessFilters => ({
+    actorId: actorId || undefined,
+    studentId: studentId || undefined,
+    since:
+      period === 'all'
+        ? undefined
+        : new Date(Date.now() - Number(period) * 86_400_000).toISOString(),
+  })
+
   const events = useQuery({
-    // The page belongs in the key. Without it React Query serves page 0 from
-    // cache for ever and the Next button appears to do nothing.
-    queryKey: [...queryKeys.studentAccess, page],
-    queryFn: () => fetchStudentAccessEvents(page),
+    // The page AND the filters belong in the key. Without the page, React Query
+    // serves page 0 for ever and Next appears to do nothing; without the
+    // filters, changing one shows the previous answer to a different question.
+    queryKey: [...queryKeys.studentAccess, page, actorId, studentId, period],
+    queryFn: () => fetchStudentAccessEvents(page, buildFilters()),
     placeholderData: keepPreviousData,
   })
   const staff = useQuery({ queryKey: queryKeys.allStaff, queryFn: fetchAllStaff })
@@ -121,7 +151,7 @@ export default function RecordAccess() {
    */
   async function exportCsv() {
     try {
-      const all = await fetchAllStudentAccessEvents()
+      const all = await fetchAllStudentAccessEvents(buildFilters())
       const esc = (v: string) => `"${String(v).replaceAll('"', '""')}"`
       const csv = [
         ['When', 'Who', 'Role', 'School', 'Child', 'What'].join(','),
@@ -191,6 +221,96 @@ export default function RecordAccess() {
           judges what is suspicious; it reports what happened.
         </p>
       </div>
+
+        {/*
+          THE THREE QUESTIONS THIS PAGE IS ASKED.
+
+          A parent asking who has seen their child's file is the commonest
+          reason anybody opens this screen, and until now it could not be
+          answered — there was no way to narrow by child, by person, or by
+          date, only pages of everything in time order.
+
+          The filters run in the database, not over the rendered rows. This
+          list is paginated, so filtering what is on screen would answer a
+          question about a child with whatever happened to be on page one.
+
+          Thirty days is the default because these questions are almost always
+          bounded — a complaint, an incident, a term. "Everything recorded" is
+          available and is not the starting point.
+        */}
+        <div className="mb-4 flex flex-wrap items-end gap-4">
+          <div>
+            <label htmlFor="access-child" className="block text-sm font-medium text-muted-foreground">
+              Child
+            </label>
+            <select
+              id="access-child"
+              value={studentId}
+              onChange={(e) => { setStudentId(e.target.value); setPage(0) }}
+              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+            >
+              <option value="">Any child</option>
+              {(students.data ?? []).map((child) => (
+                <option key={child.id} value={child.id}>
+                  {child.first_name} {child.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="access-who" className="block text-sm font-medium text-muted-foreground">
+              Opened by
+            </label>
+            <select
+              id="access-who"
+              value={actorId}
+              onChange={(e) => { setActorId(e.target.value); setPage(0) }}
+              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+            >
+              <option value="">Anybody</option>
+              {(staff.data ?? []).map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.full_name || person.email}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="access-period" className="block text-sm font-medium text-muted-foreground">
+              Period
+            </label>
+            <select
+              id="access-period"
+              value={period}
+              onChange={(e) => { setPeriod(e.target.value as typeof period); setPage(0) }}
+              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+            >
+              {PERIODS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Announced, because narrowing with a keyboard otherwise changes
+              the table in silence. */}
+          <p role="status" className="py-2 text-sm text-muted-foreground">
+            {events.data.total === 0
+              ? 'No access matches that'
+              : `${events.data.total} ${events.data.total === 1 ? 'entry' : 'entries'}`}
+          </p>
+
+          {(actorId || studentId || period !== '30') && (
+            <button
+              type="button"
+              onClick={() => { setActorId(''); setStudentId(''); setPeriod('30'); setPage(0) }}
+              className="py-2 text-sm font-semibold text-primary hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
 
       {events.data.total === 0 ? (
         <p className="text-sm text-muted-foreground">

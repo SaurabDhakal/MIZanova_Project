@@ -3012,15 +3012,49 @@ export type StudentAccessEvent = {
  * asked for the most recent 300 and displayed 50 — so the screen showed a
  * fixed slice of an unbounded table with nothing saying so.
  */
-export async function fetchStudentAccessEvents(
-  page = 0,
-): Promise<Page<StudentAccessEvent>> {
-  const from = page * PAGE_SIZE
-  const { data, error, count } = await supabase
+/**
+ * How this trail is actually interrogated.
+ *
+ * Nobody reads an access log. They arrive with a question, and it is almost
+ * always one of three:
+ *
+ *   "Who has looked at my child's file?"      -> studentId
+ *   "What has this person been opening?"      -> actorId
+ *   "Show me everything since the incident"   -> since
+ *
+ * The filters have to run in the database rather than over the page on screen.
+ * This list is paginated, so filtering the twenty-five visible rows would
+ * answer a parent's question about their child with whatever happened to be
+ * rendered — which is not an answer, it is a coincidence.
+ */
+export type AccessFilters = {
+  actorId?: string
+  studentId?: string
+  /** ISO date. Events on or after midnight of this day. */
+  since?: string
+}
+
+function accessQuery(filters: AccessFilters) {
+  let q = supabase
     .from('student_access_events')
     .select('id, actor_id, student_id, context, occurred_at', { count: 'exact' })
     .order('occurred_at', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1)
+
+  if (filters.actorId) q = q.eq('actor_id', filters.actorId)
+  if (filters.studentId) q = q.eq('student_id', filters.studentId)
+  if (filters.since) q = q.gte('occurred_at', filters.since)
+  return q
+}
+
+export async function fetchStudentAccessEvents(
+  page = 0,
+  filters: AccessFilters = {},
+): Promise<Page<StudentAccessEvent>> {
+  const from = page * PAGE_SIZE
+  const { data, error, count } = await accessQuery(filters).range(
+    from,
+    from + PAGE_SIZE - 1,
+  )
 
   if (error) throw new Error(error.message)
   return toPage(data as StudentAccessEvent[], count, page, PAGE_SIZE)
@@ -3041,16 +3075,22 @@ export async function fetchStudentAccessEvents(
  */
 export const ACCESS_EXPORT_LIMIT = 5000
 
-export async function fetchAllStudentAccessEvents(): Promise<{
+export async function fetchAllStudentAccessEvents(
+  /*
+   * The SAME filters the screen is showing. An export that quietly widened to
+   * everything would hand somebody a different document from the one they just
+   * read — and this is the document that goes into a complaint file.
+   */
+  filters: AccessFilters = {},
+): Promise<{
   rows: StudentAccessEvent[]
   total: number
   truncated: boolean
 }> {
-  const { data, error, count } = await supabase
-    .from('student_access_events')
-    .select('id, actor_id, student_id, context, occurred_at', { count: 'exact' })
-    .order('occurred_at', { ascending: false })
-    .range(0, ACCESS_EXPORT_LIMIT - 1)
+  const { data, error, count } = await accessQuery(filters).range(
+    0,
+    ACCESS_EXPORT_LIMIT - 1,
+  )
 
   if (error) throw new Error(error.message)
   const total = count ?? 0
