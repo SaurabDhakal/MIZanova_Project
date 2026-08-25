@@ -28,7 +28,8 @@ import PageHeader from '../../components/PageHeader'
  */
 export default function AiGovernance() {
   const queryClient = useQueryClient()
-  const [reason, setReason] = useState('')
+  const [switchReason, setSwitchReason] = useState('')
+  const [thresholdReason, setThresholdReason] = useState('')
   const [threshold, setThreshold] = useState<number | null>(null)
 
   const controls = useQuery({
@@ -46,11 +47,31 @@ export default function AiGovernance() {
     queryFn: fetchStrategyConfidence,
   })
 
+  /*
+   * A REASON PER CONTROL, NOT ONE SHARED BETWEEN THEM.
+   *
+   * There was a single box at the top of the page and both controls were
+   * disabled until it had something in it. Two faults followed.
+   *
+   * The small one: it cleared on save, so a reason bought exactly one change.
+   * Adjusting the threshold and turning the AI off meant writing twice anyway.
+   *
+   * The serious one: nothing tied the words to the act. Write "raising the
+   * threshold after three poor suggestions", then press Turn AI off, and the
+   * audit trail records the kill switch being thrown for a reason that has
+   * nothing to do with it — permanently, against your name, on the one screen
+   * whose entire purpose is being able to answer "who did this and why".
+   *
+   * Each control now carries its own reason and gates only its own button, so
+   * the sentence in the log is the sentence somebody wrote about that change.
+   */
   const save = useMutation({
-    mutationFn: (input: { aiEnabled: boolean; confidenceThreshold: number }) =>
-      updateAiControls({ ...input, reason }),
+    mutationFn: (input: {
+      aiEnabled: boolean
+      confidenceThreshold: number
+      reason: string
+    }) => updateAiControls(input),
     onSuccess: async () => {
-      setReason('')
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.aiControls }),
         queryClient.invalidateQueries({ queryKey: queryKeys.aiControlEvents }),
@@ -65,7 +86,7 @@ export default function AiGovernance() {
   if (!current) return <ErrorState message="AI controls row is missing." />
 
   const pendingThreshold = threshold ?? current.confidence_threshold
-  const reasonGiven = reason.trim() !== ''
+  const thresholdMoved = pendingThreshold !== current.confidence_threshold
 
   return (
     <div>
@@ -74,32 +95,9 @@ export default function AiGovernance() {
         lead="Controls that actually do something — every change is recorded against your name."
       />
 
-      {/* --- Reason first, on purpose ------------------------------------- */}
-      {/* Above the controls rather than below them: you write down why before
-          you act, not after. The database refuses the change without it. */}
-      <div className="rounded-card border border-border bg-card shadow-raised p-5">
-        <label
-          htmlFor="change-reason"
-          className="block font-semibold text-foreground"
-        >
-          Why are you making this change?
-        </label>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Required. Recorded permanently against your account.
-        </p>
-        <textarea
-          id="change-reason"
-          rows={2}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Raising the threshold after three low-quality suggestions were reported this week."
-          className="mt-2 w-full rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
-        />
-      </div>
-
       {/* --- Kill switch --------------------------------------------------- */}
       <div
-        className={`mt-5 rounded-card border p-5 ${
+        className={`rounded-card border p-5 ${
           current.ai_enabled
             ? 'border-border bg-card'
             : 'border-danger bg-danger-subtle'
@@ -118,24 +116,59 @@ export default function AiGovernance() {
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={!reasonGiven || save.isPending}
-            onClick={() =>
-              save.mutate({
+        </div>
+
+        {/* The reason sits with the control it explains, so the sentence in
+            the audit trail is the sentence somebody wrote about THIS act. */}
+        <label
+          htmlFor="switch-reason"
+          className="mt-4 block text-sm font-semibold text-foreground"
+        >
+          Why are you {current.ai_enabled ? 'turning this off' : 'turning this back on'}?
+        </label>
+        <textarea
+          id="switch-reason"
+          rows={2}
+          value={switchReason}
+          onChange={(e) => setSwitchReason(e.target.value)}
+          placeholder={
+            current.ai_enabled
+              ? 'Suspending generation while we investigate a suggestion reported by Parramatta West.'
+              : 'The reported suggestion was reviewed and the routing threshold has been raised.'
+          }
+          className="mt-1.5 w-full rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
+        />
+
+        <button
+          type="button"
+          disabled={switchReason.trim() === '' || save.isPending}
+          onClick={() =>
+            save.mutate(
+              {
                 aiEnabled: !current.ai_enabled,
                 confidenceThreshold: current.confidence_threshold,
-              })
-            }
-            className={`ml-auto rounded-btn px-4 py-2.5 font-semibold disabled:opacity-50 ${
-              current.ai_enabled
-                ? 'border border-danger text-danger-foreground'
-                : 'bg-success-strong text-white'
-            }`}
-          >
-            {current.ai_enabled ? 'Turn AI off' : 'Turn AI back on'}
-          </button>
-        </div>
+                reason: switchReason,
+              },
+              { onSuccess: () => setSwitchReason('') },
+            )
+          }
+          className={`mt-3 rounded-btn px-4 py-2.5 font-semibold disabled:opacity-50 ${
+            current.ai_enabled
+              ? 'border border-danger text-danger-foreground'
+              : 'bg-success-strong text-white'
+          }`}
+        >
+          {save.isPending
+            ? 'Saving…'
+            : current.ai_enabled
+              ? 'Turn AI off'
+              : 'Turn AI back on'}
+        </button>
+        {switchReason.trim() === '' && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Write a reason to enable this control.
+          </p>
+        )}
       </div>
 
       {/* --- Confidence threshold ------------------------------------------ */}
@@ -163,30 +196,60 @@ export default function AiGovernance() {
           className="mt-3 w-full max-w-md"
         />
 
-        {pendingThreshold !== current.confidence_threshold && (
-          <button
-            type="button"
-            disabled={!reasonGiven || save.isPending}
-            onClick={() =>
-              save.mutate({
-                aiEnabled: current.ai_enabled,
-                confidenceThreshold: pendingThreshold,
-              })
-            }
-            className="mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
-          >
-            {save.isPending
-              ? 'Saving…'
-              : `Change to ${Math.round(pendingThreshold * 100)}%`}
-          </button>
+        {/* The reason and the button appear together, only once the slider has
+            actually moved. Asking for a justification before there is anything
+            to justify is how a required field becomes something people fill in
+            with a full stop. */}
+        {thresholdMoved && (
+          <>
+            <label
+              htmlFor="threshold-reason"
+              className="mt-4 block text-sm font-semibold text-foreground"
+            >
+              Why are you moving it from{' '}
+              {Math.round(current.confidence_threshold * 100)}% to{' '}
+              {Math.round(pendingThreshold * 100)}%?
+            </label>
+            <textarea
+              id="threshold-reason"
+              rows={2}
+              value={thresholdReason}
+              onChange={(e) => setThresholdReason(e.target.value)}
+              placeholder="Three low-quality suggestions were reported this week, so more should go to a specialist first."
+              className="mt-1.5 w-full rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
+            />
+            <button
+              type="button"
+              disabled={thresholdReason.trim() === '' || save.isPending}
+              onClick={() =>
+                save.mutate(
+                  {
+                    aiEnabled: current.ai_enabled,
+                    confidenceThreshold: pendingThreshold,
+                    reason: thresholdReason,
+                  },
+                  {
+                    onSuccess: () => {
+                      setThresholdReason('')
+                      setThreshold(null)
+                    },
+                  },
+                )
+              }
+              className="mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {save.isPending
+                ? 'Saving…'
+                : `Change to ${Math.round(pendingThreshold * 100)}%`}
+            </button>
+            {thresholdReason.trim() === '' && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Write a reason to enable this control.
+              </p>
+            )}
+          </>
         )}
       </div>
-
-      {!reasonGiven && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Write a reason above to enable these controls.
-        </p>
-      )}
 
       {save.isError && (
         <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
