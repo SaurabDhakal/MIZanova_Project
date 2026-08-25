@@ -290,14 +290,32 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           </p>
         )}
 
+        {/*
+          THE EMPLOYER ROUTE, NOT THE INDIVIDUAL ONE, and the distinction is
+          legal rather than cosmetic.
+
+          This used to point at a Service NSW page that 404s — it has moved, so
+          the one link on this screen that helps somebody actually check a
+          child-safety credential went nowhere. Service NSW does still have a
+          status page, but it is the one a HOLDER uses to look up their own
+          check.
+
+          Special Miles is an organisation engaging people for child-related
+          work, and under the Child Protection (Working With Children) Act 2012
+          that means registering with the Office of the Children's Guardian and
+          verifying through the Employer Portal. Verifying is a legal
+          requirement with a fine attached, and it is what records that this
+          person works for us — so a link to the individual lookup would send a
+          reviewer to the wrong obligation entirely.
+        */}
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
           <a
-            href="https://www.service.nsw.gov.au/transaction/verify-working-children-check"
+            href="https://ocg.nsw.gov.au/working-children-check/wwcc-information-organisations/help-register-and-verify"
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-primary hover:underline"
           >
-            Verify a NSW WWCC ↗
+            Verify a NSW WWCC — employer portal ↗
           </a>
           <a
             href="https://www.ahpra.gov.au/registration/registers-of-practitioners.aspx"
