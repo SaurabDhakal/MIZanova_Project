@@ -134,6 +134,30 @@ export default function ParentDashboard() {
             if (goals.isPending) {
               return <p className="mt-2 text-4xl font-bold text-foreground">—</p>
             }
+            /*
+             * A FAILED QUERY IS NOT A CHILD WITH NO GOALS.
+             *
+             * This checked isPending and stopped. On an error `goals.data` is
+             * undefined, `active` falls through to an empty array, and the next
+             * branch told a parent "No active goals yet" — about their own
+             * child, who may have four. Every other version of this fault in
+             * the product showed a wrong number to staff; this one told a
+             * family something untrue about their child, on the screen they
+             * open most.
+             */
+            if (goals.isError) {
+              return (
+                <>
+                  <p className="mt-2 text-4xl font-bold text-danger-foreground">
+                    ?
+                  </p>
+                  <p className="mt-1 text-sm text-danger-foreground">
+                    Goals could not be loaded just now. This is unknown, not
+                    none — try again in a moment.
+                  </p>
+                </>
+              )
+            }
             if (active.length === 0) {
               return (
                 <p className="mt-2 text-sm text-muted-foreground">
