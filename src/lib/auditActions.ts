@@ -39,6 +39,36 @@ const ACTIONS: Record<string, AuditActionStyle> = {
     label: 'Moved school',
     className: 'bg-background text-muted-foreground',
   },
+
+  // db/064. Everything a platform admin does to a school, an invoice, an
+  // application or an enquiry. Added here at the same time as the triggers:
+  // the fallback below renders an unmapped action as its raw enum, which is
+  // exactly the fault that had Global Overview showing 'staff_moved_school'
+  // while the audit log two clicks away said 'Moved school'.
+  'school.created': {
+    label: 'School created',
+    className: 'bg-primary-subtle text-primary',
+  },
+  // Not styled as a failure. Suspending is a commercial state, not an
+  // incident, and one colour has to cover a school going onto trial as well.
+  'school.status_changed': {
+    label: 'School status changed',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  'invoice.voided': {
+    label: 'Invoice voided',
+    className: 'bg-danger-subtle text-danger-foreground',
+  },
+  // Whether somebody may work with children. The one on this list that is
+  // about a person rather than an account or a sum of money.
+  'application.decided': {
+    label: 'Application decided',
+    className: 'bg-success-subtle text-success-foreground',
+  },
+  'enquiry.triaged': {
+    label: 'Enquiry triaged',
+    className: 'bg-background text-muted-foreground',
+  },
 }
 
 export function auditAction(action: string): AuditActionStyle {
