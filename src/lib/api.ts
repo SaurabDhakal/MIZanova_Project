@@ -1854,6 +1854,15 @@ export type KpiOverview = {
   flagged_open: number
   median_ack_hours: number | null
   logs_shared: number
+  /*
+   * db/070. Hours since the OLDEST flagged incident nobody has acknowledged.
+   *
+   * Null means no flagged incident is waiting, which is good news — the
+   * opposite of what a null `median_ack_hours` means, where it says nothing has
+   * ever been acknowledged. Two nulls, two meanings; a screen showing them the
+   * same way reports a school's worst state as its calmest.
+   */
+  oldest_open_hours: number | null
 }
 
 export type WeeklyRow = {
@@ -2592,6 +2601,14 @@ export type SchoolBillingTotals = {
   overdue: number
   overdue_cents: number
   oldest_overdue: string | null
+  /*
+   * db/071. Issued, unpaid, and carrying no due date at all — so it can never
+   * become overdue however long it waits. A subset of outstanding and disjoint
+   * from overdue, which is what makes it safe to say "X past due, Y more with
+   * no date" without the two double-counting.
+   */
+  no_due_date: number
+  no_due_date_cents: number
 }
 
 export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]> {
@@ -2602,6 +2619,511 @@ export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]>
 
   if (error) throw new Error(error.message)
   return (data ?? []) as SchoolBillingTotals[]
+}
+
+// ---------------------------------------------------------------------------
+// The Academy — db/075. Structured program delivery.
+//
+// Nothing here filters by audience or by published state. db/075's policies do
+// it, so a course written for educators is not merely hidden from a parent's
+// screen — it does not arrive. A filter in this file would be a second place
+// for the rule to live and the easier of the two to forget.
+// ---------------------------------------------------------------------------
+
+export type CourseModule = {
+  id: string
+  title: string
+  body: string
+  video_url: string | null
+  sort_order: number
+}
+
+export type Course = {
+  id: string
+  title: string
+  summary: string
+  audiences: Role[]
+  is_published: boolean
+  published_at: string | null
+  created_at: string
+  course_modules: CourseModule[] | null
+}
+
+export type Enrolment = {
+  id: string
+  course_id: string
+  profile_id: string
+  enrolled_at: string
+  completed_at: string | null
+}
+
+export async function fetchCourses(): Promise<Course[]> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select(
+      'id, title, summary, audiences, is_published, published_at, created_at, ' +
+        'course_modules ( id, title, body, video_url, sort_order )',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as unknown as Course[]
+  // PostgREST cannot order an embedded table, so the modules arrive in
+  // whatever order the planner produced. A course whose steps are shuffled is
+  // worse than one with no steps at all.
+  return rows.map((c) => ({
+    ...c,
+    course_modules: [...(c.course_modules ?? [])].sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+  }))
+}
+
+/** My own enrolments. A platform admin gets everybody's — db/075. */
+export async function fetchMyEnrolments(): Promise<Enrolment[]> {
+  const { data, error } = await supabase
+    .from('course_enrolments')
+    .select('id, course_id, profile_id, enrolled_at, completed_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Enrolment[]
+}
+
+export async function fetchMyCompletions(): Promise<
+  { enrolment_id: string; module_id: string }[]
+> {
+  const { data, error } = await supabase
+    .from('module_completions')
+    .select('enrolment_id, module_id')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as { enrolment_id: string; module_id: string }[]
+}
+
+export async function enrolInCourse(courseId: string): Promise<void> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('course_enrolments')
+    .insert({ course_id: courseId, profile_id: auth.data.user?.id })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The enrolment')
+}
+
+/**
+ * Tick one module off.
+ *
+ * The enrolment finishing is NOT set here. db/075 has a trigger that closes it
+ * when the last module lands, so a progress dashboard cannot disagree with the
+ * tick somebody just saw — and two browsers finishing at once cannot both
+ * decide they were the last.
+ */
+export async function completeModule(
+  enrolmentId: string,
+  moduleId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('module_completions')
+    .insert({ enrolment_id: enrolmentId, module_id: moduleId })
+
+  // Already ticked is not a failure worth showing anybody: two taps on a slow
+  // connection is the normal way this happens.
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
+export type CourseInput = {
+  title: string
+  summary: string
+  audiences: Role[]
+}
+
+export async function createCourse(input: CourseInput): Promise<string> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('courses')
+    .insert({
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      audiences: input.audiences,
+      created_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data.id as string
+}
+
+/**
+ * Publish or withdraw.
+ *
+ * `published_at` moves with the flag because db/075 has a check constraint
+ * tying them together — a course cannot be published without a date, and
+ * cannot carry a date while unpublished.
+ */
+export async function setCoursePublished(
+  id: string,
+  published: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('courses')
+    .update({
+      is_published: published,
+      published_at: published ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The course')
+}
+
+export async function addCourseModule(
+  courseId: string,
+  title: string,
+  body: string,
+  videoUrl: string | null,
+  sortOrder: number,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('course_modules')
+    .insert({
+      course_id: courseId,
+      title: title.trim(),
+      body: body.trim(),
+      video_url: videoUrl?.trim() || null,
+      sort_order: sortOrder,
+    })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The module')
+}
+
+export async function deleteCourseModule(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('course_modules')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The module')
+}
+
+// ---------------------------------------------------------------------------
+// What a student sees of themselves — db/074.
+// ---------------------------------------------------------------------------
+
+export type StudentGoal = {
+  id: string
+  title: string
+  description: string
+  category: GoalCategory
+  status: 'not_started' | 'on_track' | 'needs_review' | 'achieved' | 'discontinued'
+  goal_milestones: { id: string; title: string; is_done: boolean }[] | null
+}
+
+/**
+ * The signed-in student's own goals.
+ *
+ * NO STUDENT ID IS PASSED, AND THAT IS THE SAFETY PROPERTY. db/074's policies
+ * match on `student_id = my_student_id()`, a security-definer helper that
+ * returns null unless the school has linked the account AND a guardian consent
+ * is live. So this query cannot be aimed at another child by changing an
+ * argument, because there is no argument — and if either key is turned off it
+ * returns nothing rather than somebody else's goals.
+ */
+export async function fetchMyGoals(): Promise<StudentGoal[]> {
+  const { data, error } = await supabase
+    .from('goals')
+    .select(
+      'id, title, description, category, status, ' +
+        'goal_milestones ( id, title, is_done )',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as StudentGoal[]
+}
+
+// ---------------------------------------------------------------------------
+// Appointments a family can see — db/073.
+// ---------------------------------------------------------------------------
+
+export type FamilyAppointment = {
+  id: string
+  student_id: string
+  starts_at: string
+  ends_at: string
+  duration_minutes: number
+  status: 'scheduled' | 'completed' | 'cancelled'
+  purpose: string | null
+  cancelled_reason: string | null
+  /** Null means no separate charge — included in what the school already pays. */
+  fee_cents: number | null
+  /** Set once a fee has been turned into an invoice. */
+  invoice_id: string | null
+  created_at: string
+  /*
+   * Later than `created_at` means somebody has moved or edited this booking
+   * since it was made. That is the whole reason a family may see appointments
+   * at all — see the note in the parent screen.
+   */
+  updated_at: string
+  profiles: { full_name: string | null } | null
+}
+
+/**
+ * One child's appointments, for their family.
+ *
+ * NEW READ, NOT A NEW QUERY SHAPE. db/059 admitted only the assigned specialist
+ * and a platform admin, so this returned nothing to a parent no matter how it
+ * was written — the policy in db/073 is what makes it work, and RLS is still
+ * what decides. Passing a student id the caller is not a guardian of returns an
+ * empty list rather than an error.
+ */
+export async function fetchAppointmentsForChild(
+  studentId: string,
+): Promise<FamilyAppointment[]> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .select(
+      'id, student_id, starts_at, ends_at, duration_minutes, status, purpose, ' +
+        'cancelled_reason, fee_cents, invoice_id, created_at, updated_at, ' +
+        'profiles!specialist_appointments_specialist_id_fkey ( full_name )',
+    )
+    .eq('student_id', studentId)
+    .order('starts_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as FamilyAppointment[]
+}
+
+// ---------------------------------------------------------------------------
+// Platform billing — db/072. The OTHER kind of money.
+//
+// `invoices` is a school billing a family for a named child. Everything below
+// is Special Miles billing the school for the platform, and the two must never
+// be added together or shown in one list: different payers, different readers,
+// and different rules about who may see a draft.
+// ---------------------------------------------------------------------------
+
+export type BillingPeriod = 'monthly' | 'termly' | 'annual'
+
+export type PlatformSubscription = {
+  id: string
+  school_id: string
+  plan_label: string
+  rate_cents: number
+  currency: string
+  period: BillingPeriod
+  starts_on: string
+  /** Null while it is running. An ended agreement is kept, never deleted. */
+  ends_on: string | null
+  note: string | null
+  created_at: string
+}
+
+export type PlatformInvoice = {
+  id: string
+  school_id: string
+  period_start: string
+  period_end: string
+  description: string
+  amount_cents: number
+  currency: string
+  status: InvoiceStatus
+  due_date: string | null
+  issued_at: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export type PlatformRevenueTotals = {
+  school_id: string
+  currency: string
+  invoices: number
+  drafts: number
+  collected_cents: number
+  outstanding_cents: number
+  overdue_cents: number
+  no_due_date_cents: number
+}
+
+/** Every agreement, live and ended. A platform admin sees all; a school its own. */
+export async function fetchSubscriptions(): Promise<PlatformSubscription[]> {
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .select(
+      'id, school_id, plan_label, rate_cents, currency, period, starts_on, ends_on, note, created_at',
+    )
+    .order('starts_on', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PlatformSubscription[]
+}
+
+export type SubscriptionInput = {
+  schoolId: string
+  planLabel: string
+  rateCents: number
+  period: BillingPeriod
+  note: string | null
+}
+
+/**
+ * Agree a rate with a school.
+ *
+ * ENDS ANY LIVE AGREEMENT FIRST, because db/072 allows only one at a time and
+ * the alternative is a unique-violation the screen would have to translate. The
+ * old row is ENDED rather than replaced — what a school used to pay is the
+ * answer to most billing questions, and an invoice already refers to it.
+ */
+export async function agreeSubscription(input: SubscriptionInput): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10)
+  const auth = await supabase.auth.getUser()
+
+  const { error: endError } = await supabase
+    .from('platform_subscriptions')
+    .update({ ends_on: today })
+    .eq('school_id', input.schoolId)
+    .is('ends_on', null)
+
+  if (endError) throw new Error(endError.message)
+
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .insert({
+      school_id: input.schoolId,
+      plan_label: input.planLabel.trim(),
+      rate_cents: input.rateCents,
+      period: input.period,
+      note: input.note?.trim() || null,
+      agreed_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The agreement')
+}
+
+/** Stop billing a school without deleting what it used to pay. */
+export async function endSubscription(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .update({ ends_on: new Date().toISOString().slice(0, 10) })
+    .eq('id', id)
+    .is('ends_on', null)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Ending the agreement')
+}
+
+export async function fetchPlatformInvoices(): Promise<PlatformInvoice[]> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .select(
+      'id, school_id, period_start, period_end, description, amount_cents, ' +
+        'currency, status, due_date, issued_at, paid_at, created_at',
+    )
+    .order('period_start', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  // `as unknown as` because PostgREST types a string select as its own row
+  // shape; the same cast every other fetcher in this file needs.
+  return (data ?? []) as unknown as PlatformInvoice[]
+}
+
+export type PlatformInvoiceInput = {
+  schoolId: string
+  subscriptionId: string
+  periodStart: string
+  periodEnd: string
+  description: string
+  amountCents: number
+  currency: string
+  dueDate: string | null
+}
+
+/**
+ * Raise a charge for one period, as a DRAFT.
+ *
+ * Draft first, always. db/072 hides drafts from the school, so this is the
+ * state in which a mistake costs nothing — and a button that issued a demand
+ * for money in one click is a button somebody eventually presses by accident.
+ */
+export async function raisePlatformInvoice(
+  input: PlatformInvoiceInput,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .insert({
+      school_id: input.schoolId,
+      subscription_id: input.subscriptionId,
+      period_start: input.periodStart,
+      period_end: input.periodEnd,
+      description: input.description.trim(),
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      due_date: input.dueDate,
+      status: 'draft',
+    })
+    .select('id')
+
+  if (error) {
+    // db/072's unique constraint on (school, period). Worth translating,
+    // because the raw message names an index nobody recognises.
+    if (error.code === '23505') {
+      throw new Error('That school has already been billed for this period.')
+    }
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The invoice')
+}
+
+/** Draft to open. The moment it becomes a demand for money — audited by db/072. */
+export async function issuePlatformInvoice(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .update({ status: 'open', issued_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', 'draft')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Issuing the invoice')
+}
+
+/**
+ * Cancel one, keeping the row.
+ *
+ * Void rather than delete, the rule db/020 set for family invoices: a charge
+ * that was raised and withdrawn is part of the record somebody may ask about.
+ */
+export async function voidPlatformInvoice(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .update({ status: 'void' })
+    .eq('id', id)
+    .neq('status', 'paid')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Voiding the invoice')
+}
+
+export async function fetchPlatformRevenueTotals(): Promise<
+  PlatformRevenueTotals[]
+> {
+  const { data, error } = await supabase
+    .from('platform_revenue_totals')
+    .select('*')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PlatformRevenueTotals[]
 }
 
 export type InvoiceFilter = {
@@ -3933,6 +4455,25 @@ const ENQUIRY_COLUMNS =
   'id, kind, plan_key, organisation_name, contact_name, contact_email, ' +
   'contact_phone, contact_role, student_count, message, created_at, status, ' +
   'handled_at, handled_note, handled_by:profiles!enquiries_handled_by_fkey(full_name)'
+
+/**
+ * One enquiry, by id — for turning it into a school.
+ *
+ * `maybeSingle` rather than `single`, because the id arrives from a URL that
+ * somebody can edit, keep in a bookmark, or follow after the row is gone. A
+ * missing enquiry is a thing to say plainly, not a thrown error on a page that
+ * otherwise works.
+ */
+export async function fetchEnquiry(id: string): Promise<EnquiryRow | null> {
+  const { data, error } = await supabase
+    .from('enquiries')
+    .select(ENQUIRY_COLUMNS)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as unknown as EnquiryRow | null
+}
 
 /** Platform admin only — RLS returns nothing to anybody else. */
 export async function fetchEnquiries(
@@ -5631,10 +6172,25 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
             ]
           : role === 'educator'
             ? [['unreadThreads', countUnreadThreads()]]
-            : [
-                ['unreadThreads', countUnreadThreads()],
-                ['invoicesDue', countInvoicesDue()],
-              ]
+            /*
+             * A STUDENT HAS AN EMPTY QUEUE, SAID EXPLICITLY.
+             *
+             * Without this branch db/074's new role falls into the parent one
+             * below and the bell asks for unread threads and invoices due —
+             * two things a student is not permitted to see. RLS returns 0 for
+             * both rather than an error, so nothing would look broken: the
+             * bell would just quietly report a number that cannot mean
+             * anything, about money a child does not owe.
+             *
+             * The bell counts work waiting for YOU. A student has one screen
+             * and nothing on it to action, so the honest count is none.
+             */
+            : role === 'student'
+              ? []
+              : [
+                  ['unreadThreads', countUnreadThreads()],
+                  ['invoicesDue', countInvoicesDue()],
+                ]
 
   const settled = await Promise.allSettled(jobs.map(([, p]) => p))
 
@@ -5659,6 +6215,7 @@ export const queryKeys = {
   queueCounts: (table: string) => ['queue-counts', table] as const,
   specialistApplications: (status: string) => ['applications', status] as const,
   enquiries: (status: string) => ['enquiries', status] as const,
+  enquiry: (id: string) => ['enquiry', id] as const,
   myMemberships: ['my-memberships'] as const,
   guardianCodes: (studentId: string) => ['guardian-codes', studentId] as const,
   invitations: ['invitations'] as const,
@@ -5714,6 +6271,14 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
+  courses: ['courses'] as const,
+  myEnrolments: ['my-enrolments'] as const,
+  myCompletions: ['my-completions'] as const,
+  myGoals: ['my-goals'] as const,
+  appointmentsForChild: (id: string) => ['appointments', id] as const,
+  subscriptions: ['platform-subscriptions'] as const,
+  platformInvoices: ['platform-invoices'] as const,
+  platformRevenue: ['platform-revenue'] as const,
   school: (id: string) => ['school', id] as const,
   allSchoolKpis: ['all-school-kpis'] as const,
   schoolDeletability: ['school-deletability'] as const,

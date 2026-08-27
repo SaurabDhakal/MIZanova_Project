@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ENQUIRY_PLANS,
@@ -198,8 +199,40 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           the primary button. Declining is a real outcome but not the expected
           one, so it is quiet and red-edged rather than solid. Putting an
           enquiry back is an undo and reads as one.
+
+          AND THE PASS THAT WROTE THAT LEFT THE OLD BUTTON BEHIND. A separate
+          outlined "Mark onboarded" survived with the condition
+          `status !== 'onboarded' && status !== 'new'`, which is TRUE for a
+          contacted enquiry — the exact case where NEXT_STEP already renders
+          "Mark onboarded" as the primary. So a contacted card carried the same
+          label twice, solid and outlined, firing the identical mutation.
+
+          Removed rather than re-conditioned. The only other status it reached
+          was 'declined', and offering a declined enquiry a jump straight to
+          onboarded skips the conversation that changed somebody's mind — "Put
+          back in the queue" is the honest route back, and it is right there.
         */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/*
+            THE STEP THAT ACTUALLY ONBOARDS ANYBODY. Marking an enquiry
+            onboarded only ever changed a word on a card: the school itself did
+            not exist, and creating it meant going to Schools and retyping a
+            name that was sitting on this screen. That is how one product ends
+            up with a school spelled two ways.
+
+            Primary here because on an onboarded enquiry nothing else is: the
+            status has nowhere further to go, so this is the only thing left
+            worth doing.
+          */}
+          {enquiry.status === 'onboarded' && (
+            <Link
+              to={`/platform-admin/tenants?enquiry=${enquiry.id}`}
+              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Create the school →
+            </Link>
+          )}
+
           {NEXT_STEP[enquiry.status] && (
             <button
               type="button"
@@ -223,17 +256,6 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
               className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
             >
               Decline
-            </button>
-          )}
-
-          {enquiry.status !== 'onboarded' && enquiry.status !== 'new' && (
-            <button
-              type="button"
-              disabled={update.isPending}
-              onClick={() => update.mutate({ status: 'onboarded' })}
-              className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
-            >
-              Mark onboarded
             </button>
           )}
 

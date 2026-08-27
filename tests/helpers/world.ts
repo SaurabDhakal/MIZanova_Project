@@ -91,7 +91,12 @@ export async function makeActor(
    * admins are made by running SQL deliberately, so the tests make them the
    * same way rather than pretending signup can.
    */
-  promoteTo?: 'school_admin' | 'platform_admin',
+  /*
+   * 'student' joins these for the same reason the other two are here: db/074
+   * adds the role, and `handle_new_user` accepts only the three self-signup
+   * roles — a child does not sign themselves up, the school links the account.
+   */
+  promoteTo?: 'school_admin' | 'platform_admin' | 'student',
 ): Promise<Actor> {
   const email = `rls-${runId}-${label}@mizanova-test.invalid`
   const password = randomBytes(18).toString('base64url')

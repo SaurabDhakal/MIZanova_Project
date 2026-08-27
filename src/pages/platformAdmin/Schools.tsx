@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  fetchEnquiry,
   PROFESSIONS,
   deleteSchool,
   fetchAllSchoolKpis,
@@ -29,6 +30,19 @@ import SchoolBadge from '../../components/SchoolBadge'
  * red on this page every time somebody stopped paying. Trial is the one worth
  * catching the eye: it is the row with a deadline attached.
  */
+/**
+ * Hours as something a person reads at a glance.
+ *
+ * Days past two, because "1252h" is a number you have to do arithmetic on
+ * before it means anything, and the whole point of the column is that somebody
+ * sees the problem without working for it.
+ */
+function duration(hours: number): string {
+  if (hours < 1) return '<1h'
+  if (hours < 48) return `${Math.round(hours)}h`
+  return `${Math.round(hours / 24)}d`
+}
+
 const STATUS_STYLE: Record<OrganisationStatus, string> = {
   active: 'bg-success-subtle text-success-foreground',
   trial: 'bg-warning-subtle text-warning-foreground',
@@ -65,6 +79,23 @@ const KIND_LABEL: Record<OrganisationKind, string> = {
  * students; a school admin gets exactly one. Same view, different answers.
  */
 export default function Schools() {
+  /*
+   * ARRIVING FROM AN ENQUIRY. Enquiries links here with `?enquiry=<id>` so the
+   * Add School form opens already carrying the name somebody typed on the
+   * marketing site.
+   *
+   * A QUERY STRING RATHER THAN ROUTER STATE, because router state does not
+   * survive a reload or a copied link — and this is a screen somebody leaves
+   * halfway through to go and check how the school spells itself.
+   */
+  const [params] = useSearchParams()
+  const fromEnquiryId = params.get('enquiry')
+  const fromEnquiry = useQuery({
+    queryKey: queryKeys.enquiry(fromEnquiryId ?? ''),
+    queryFn: () => fetchEnquiry(fromEnquiryId!),
+    enabled: Boolean(fromEnquiryId),
+  })
+
   const queryClient = useQueryClient()
   /*
    * Only CLOSING asks for confirmation. Reopening restores a school to the
@@ -188,6 +219,10 @@ export default function Schools() {
           label="Schools"
           value={schools.data.length}
           icon="schools"
+          /* The only tile of the three with nothing under its number, which
+             left it visibly shorter and said less than it could. Every status
+             is counted here, so it is worth saying that a trial is included. */
+          hint="Active, trial and suspended together."
         />
         <StatTile
           label="Students"
@@ -212,7 +247,24 @@ export default function Schools() {
         />
       </div>
 
-      <AddSchoolSection />
+      <AddSchoolSection
+        /*
+          Keyed on the enquiry so the form REBUILDS when you arrive from a
+          different one. Without the key it keeps the first enquiry's name in
+          state and quietly creates the wrong school — the same reason the
+          account and school forms are keyed children.
+        */
+        key={fromEnquiry.data?.id ?? 'blank'}
+        prefill={
+          fromEnquiry.data
+            ? {
+                name: fromEnquiry.data.organisation_name ?? '',
+                fromContact:
+                  fromEnquiry.data.contact_name || fromEnquiry.data.contact_email,
+              }
+            : undefined
+        }
+      />
 
       {schools.data.length === 0 ? (
         <EmptyState
@@ -221,7 +273,35 @@ export default function Schools() {
         />
       ) : (
         <div className="overflow-x-auto rounded-card border border-border bg-card shadow-raised">
-          <table className="w-full text-left">
+          {/*
+            EXPLICIT WIDTHS AND A FLOOR, the same fix the Audit Log needed.
+
+            With `table-auto` and no colgroup the browser sized these by
+            content, and the result was upside down: the four numeric columns —
+            "32", "204", "5", "—" — took room proportional to their HEADINGS
+            while the school name, the longest text on the row, was squeezed
+            until "Parramatta West Primary School" wrapped over four lines and
+            made every row four lines tall.
+
+            Below the floor the table scrolls sideways inside its card rather
+            than crushing seven columns. The page itself never scrolls
+            horizontally.
+          */}
+          <table className="w-full min-w-[62rem] table-fixed text-left">
+            <colgroup>
+              {/* The name, its suburb and the badge. The only column holding a
+                  sentence rather than a number. */}
+              <col className="w-[27%]" />
+              {/* A select, sized by its widest option plus the chevron. */}
+              <col className="w-[14%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
+              {/* Two-word headings over one-or-two digit values: the heading is
+                  what needs the room, not the number. */}
+              <col className="w-[13%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+            </colgroup>
             <caption className="sr-only">
               Schools with their status, student counts and safeguarding backlog
             </caption>
@@ -242,8 +322,12 @@ export default function Schools() {
                 <th scope="col" className="px-5 py-3 text-sm font-semibold">
                   Open safeguarding
                 </th>
+                {/* Was "Median response", which named the statistic rather
+                    than the question. The column answers "is this school on top
+                    of its safeguarding queue", and the median alone could not:
+                    see the cell below. */}
                 <th scope="col" className="px-5 py-3 text-sm font-semibold">
-                  Median response
+                  Response
                 </th>
                 <th scope="col" className="px-5 py-3 text-sm font-semibold">
                   <span className="sr-only">Actions</span>
@@ -340,23 +424,72 @@ export default function Schools() {
                     <td className="px-5 py-3 text-foreground">
                       {k?.logs_total ?? 0}
                     </td>
+                    {/*
+                      A RED NUMBER WITH NOWHERE TO GO IS A COMPLAINT, NOT A
+                      TASK. It links to the school's people — which is the
+                      action a vendor is actually entitled to take.
+
+                      NOT to the incidents. Special Miles processes this data
+                      and the school owns it; reading a flagged incident is
+                      reading a child's record by somebody with no part in their
+                      care, and it would leave no entry on Record Access — the
+                      same boundary db/069 closed. Whether the school's process
+                      is working is the vendor's business. What happened to the
+                      child is not.
+
+                      So the route out of this number is the list of that
+                      school's administrators: the people to ring.
+                    */}
                     <td className="px-5 py-3">
-                      <span
-                        className={
-                          open > 0
-                            ? 'font-semibold text-danger-foreground'
-                            : 'text-muted-foreground'
-                        }
-                      >
-                        {open}
-                      </span>
+                      {open > 0 ? (
+                        <Link
+                          to={`/platform-admin/tenants/${school.id}`}
+                          className="font-semibold text-danger-foreground hover:underline"
+                          title={`Open ${school.name} to find who to contact`}
+                        >
+                          {open}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">{open}</span>
+                      )}
                     </td>
+                    {/*
+                      THE WORST SCHOOL USED TO LOOK THE CALMEST. This showed the
+                      median time to acknowledge, which by definition can only
+                      describe incidents somebody has ALREADY dealt with. A
+                      school that had never acknowledged anything reported null,
+                      and null rendered as an em-dash — the quietest cell on the
+                      row, on the row that most needed a phone call.
+
+                      db/070 added the mirror number: how long the oldest
+                      unacknowledged incident has been waiting. It leads here,
+                      because a backlog outranks a historical average, and the
+                      median follows it as context rather than as the answer.
+                    */}
                     <td className="px-5 py-3 text-muted-foreground">
-                      {k?.median_ack_hours == null
-                        ? '—'
-                        : k.median_ack_hours < 1
-                          ? '<1h'
-                          : `${Math.round(k.median_ack_hours)}h`}
+                      {k?.oldest_open_hours != null ? (
+                        <>
+                          <span className="font-semibold text-danger-foreground">
+                            {duration(k.oldest_open_hours)} waiting
+                          </span>
+                          <span className="block text-xs">
+                            {k.median_ack_hours == null
+                              ? 'none acknowledged yet'
+                              : `median ${duration(k.median_ack_hours)}`}
+                          </span>
+                        </>
+                      ) : k?.median_ack_hours != null ? (
+                        <>
+                          {duration(k.median_ack_hours)}
+                          <span className="block text-xs">median</span>
+                        </>
+                      ) : (
+                        /* Now unambiguous: nothing is waiting AND nothing has
+                           been acknowledged means nothing has been flagged. */
+                        <span title="Nothing has been flagged at this school.">
+                          —
+                        </span>
+                      )}
                     </td>
                     {/* A school leaves by being CLOSED, never by being
                         deleted. Four tables reference it `on delete restrict`,

@@ -107,6 +107,21 @@ export default function GlobalOverview() {
   const unscreenedCount = unscreened.isSuccess ? unscreened.data.length : 0
 
   /*
+   * ONE LIST OF WHAT A PERSON DID, read by the chart AND the table below it.
+   *
+   * They used to disagree. The chart skipped rows with no actor; the table took
+   * `slice(0, 6)` of everything. So the same screen showed a chart captioned
+   * "actions taken by a person" beside six rows of which four were
+   * `RLS Storage Probe` created by the test suite — and a footnote explaining
+   * the chart's filter sat directly under the table that ignored it.
+   *
+   * On the screen headed "what needs Special Miles today", a row created by CI
+   * is the opposite of the answer. Everything, including those rows, is on the
+   * Audit Log, which can now be paged and filtered to find them.
+   */
+  const byPeople = (audit.data ?? []).filter((e) => e.profiles?.full_name)
+
+  /*
    * FOURTEEN DAYS, AND ONLY WHAT A PERSON DID.
    *
    * Audit rows written by the test suite and by the server carry no actor —
@@ -128,8 +143,7 @@ export default function GlobalOverview() {
       frame.push({ date: d, count: 0 })
     }
     const first = frame[0].date.getTime()
-    for (const e of audit.data ?? []) {
-      if (!e.profiles?.full_name) continue
+    for (const e of byPeople) {
       const when = new Date(e.occurred_at)
       const day = Math.floor((when.getTime() - first) / 86_400_000)
       if (day >= 0 && day < frame.length) frame[day].count += 1
@@ -370,9 +384,26 @@ export default function GlobalOverview() {
           icon="lock"
           tone={mfa.isSuccess && withoutMfa.length > 0 ? 'warning' : 'default'}
           hint={
-            mfa.isError
-              ? 'Could not check 2FA enrolment — this is unknown, not zero.'
-              : 'Required for their role, so they are locked out until they enrol.'
+            mfa.isError ? (
+              'Could not check 2FA enrolment — this is unknown, not zero.'
+            ) : withoutMfa.length > 0 ? (
+              /*
+                THE ONLY TILE THAT NAMED A PROBLEM AND OFFERED NO WAY TO IT.
+                Every other one here routes to the screen that resolves it.
+                Staff Verification already carries a 2FA column and the reset
+                action, so the destination existed the whole time — it simply
+                was not linked, which on a dashboard means the number is a
+                complaint rather than a task.
+              */
+              <Link
+                to="/platform-admin/verification"
+                className="font-semibold text-primary hover:underline"
+              >
+                Locked out until they enrol. See who →
+              </Link>
+            ) : (
+              'Everyone whose role requires it has enrolled.'
+            )
           }
         />
 
@@ -518,7 +549,7 @@ export default function GlobalOverview() {
       </h2>
       {audit.isPending ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (audit.data?.length ?? 0) === 0 ? (
+      ) : byPeople.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nothing recorded yet. Verifications, AI control changes and 2FA resets
           all appear here.
@@ -542,7 +573,7 @@ export default function GlobalOverview() {
               </tr>
             </thead>
             <tbody>
-              {audit.data!.slice(0, 6).map((event) => (
+              {byPeople.slice(0, 6).map((event) => (
                 <tr key={event.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-2.5 whitespace-nowrap tabular-nums text-muted-foreground">
                     {new Date(event.occurred_at).toLocaleString('en-AU', {
@@ -588,10 +619,11 @@ export default function GlobalOverview() {
         server itself is not running, nothing appears here — an empty list means
         nothing was reported, not that everything is working. Confirming the
         server is alive needs something outside it to check{' '}
-        <code>/api/health</code>, which nothing does yet. The activity chart
-        counts only actions taken by a person: the test suite and the server
-        write audit rows with no signed-in user, and on this database those
-        outnumber the real ones several times over.
+        <code>/api/health</code>, which nothing does yet. The chart and the
+        table above it both count only what a person did: the test suite and the
+        server write audit rows with no signed-in user, and on this database
+        those outnumber the real ones several times over. Everything, those rows
+        included, is on the Audit Log, which can be filtered and paged.
       </PageNote>
     </div>
   )

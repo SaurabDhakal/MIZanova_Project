@@ -23,6 +23,9 @@ export const ROLES = [
   'specialist',
   'school_admin',
   'platform_admin',
+  // db/074. Last, because it is the newest and because order here decides the
+  // order things are listed in wherever roles are enumerated.
+  'student',
 ] as const
 
 /** A union type: 'educator' | 'parent' | … TypeScript will now reject typos. */
@@ -153,6 +156,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'resources', label: 'Shared Resources', icon: 'resources', group: 'Keeping in touch', milestone: 'M12' },
       { path: 'schedule', label: 'Schedule', icon: 'schedule', milestone: 'M10' },
+      // db/075. Professional development for school staff.
+      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -166,8 +171,13 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'progress', label: 'Progress Highlights', icon: 'progress', group: 'Your child', milestone: 'M7' },
       { path: 'goals', label: 'Goals & IEP', icon: 'goals', group: 'Your child', milestone: 'M8' },
       { path: 'observations', label: 'Home Observations', icon: 'observations', group: 'Your child', milestone: 'M7' },
+      // db/073. A family could not see a booking at all — db/059 gave the
+      // read to the assigned specialist and to nobody at home.
+      { path: 'appointments', label: 'Appointments', icon: 'schedule', group: 'Your child', milestone: 'M13' },
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'resources', label: 'Resources', icon: 'resources', group: 'Keeping in touch', milestone: 'M12' },
+      // db/075. The Academy carries Empowered Parenting for this audience.
+      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
       { path: 'link-child', label: 'Link a child', icon: 'link', group: 'Your account', milestone: 'M7' },
       { path: 'privacy', label: 'Privacy & Consent', icon: 'privacy', group: 'Your account', milestone: 'M7' },
       { path: 'finance', label: 'Collab & Finance', icon: 'finance', group: 'Your account', milestone: 'M11' },
@@ -189,6 +199,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // read it on. See pages/specialist/Messages.tsx.
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'resources', label: 'Resources', icon: 'resources', group: 'Library', milestone: 'M12' },
+      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -211,6 +222,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // See pages/schoolAdmin/Messages.tsx.
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'invoices', label: 'Invoices', icon: 'invoices', group: 'Billing', milestone: 'M11' },
+      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -224,15 +236,42 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'tenants', label: 'Schools', icon: 'schools', group: 'Customers', milestone: 'M14' },
       { path: 'enquiries', label: 'Enquiries', icon: 'enquiries', group: 'Customers', milestone: 'M14' },
       { path: 'billing', label: 'Billing & Revenue', icon: 'finance', group: 'Customers', milestone: 'M14' },
+      // db/072. A SEPARATE ENTRY FROM BILLING, not a tab on it. Billing is a
+      // school invoicing a family for a named child; this is Special Miles
+      // invoicing the school. Two piles of money with different payers, and a
+      // combined total would mean nothing — Saurab read the Billing screen and
+      // asked how Special Miles bills a school, which is the confusion one
+      // shared screen would make permanent.
+      { path: 'subscriptions', label: 'Subscriptions', icon: 'invoices', group: 'Customers', milestone: 'M14' },
       { path: 'applications', label: 'Specialist Applications', icon: 'applications', group: 'The network', milestone: 'M14' },
       { path: 'screening', label: 'Screening', icon: 'screening', group: 'The network', milestone: 'M14' },
       // "Staff", not "Teacher": educators, specialists AND school admins all
       // appear on that screen and all three need verifying before they can see
       // a child's record. The old label described a third of the list.
       { path: 'verification', label: 'Staff Verification', icon: 'verification', group: 'The network', milestone: 'M14' },
+      // db/075. The CMS half of the brief's requirement 4.
+      { path: 'courses', label: 'Courses', icon: 'resources', group: 'The network', milestone: 'M15' },
       { path: 'ai-governance', label: 'AI Governance', icon: 'ai', group: 'Oversight', milestone: 'M14' },
       { path: 'audit', label: 'Audit Log', icon: 'audit', group: 'Oversight', milestone: 'M14' },
       { path: 'record-access', label: 'Record Access', icon: 'recordAccess', group: 'Oversight', milestone: 'M14' },
+    ],
+  },
+  /*
+   * ONE ITEM, BECAUSE THERE IS ONE THING A STUDENT MAY SEE. db/074 gives a
+   * student their own goals and deliberately nothing else — no behaviour logs,
+   * no IEP, no messages, no safeguarding. A second nav entry would have to lead
+   * somewhere empty, which reads as "not built yet" rather than "not yours".
+   */
+  student: {
+    label: 'Student',
+    summary: 'A young person seeing the goals they are working on at school.',
+    basePath: '/student',
+    nav: [
+      { path: '', label: 'My goals', icon: 'goals', milestone: 'M15' },
+      // db/075. Executive functioning and self-advocacy courses are written
+      // for this audience by name in the brief, so this is content FOR them
+      // rather than another window onto records ABOUT them.
+      { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
     ],
   },
 }
