@@ -160,6 +160,74 @@ describe('what a student may see', () => {
   })
 })
 
+describe('a student is a real role, not a half-configured one — db/077', () => {
+  /*
+   * my_role() returns a role only for parent/platform_admin or somebody holding
+   * a live membership, and `memberships.role` refuses 'student'. So every
+   * student account answered NULL and the account still looked fine, because
+   * db/074's own policies use my_student_id() and are independent of it.
+   *
+   * What broke silently was every ORDINARY role check. db/075's Academy matches
+   * `my_role() = any (audiences)`, so a course published for students reached
+   * no student at all — and no test noticed, because the academy suite
+   * exercises parents and educators.
+   */
+  test('my_role answers student rather than null', async () => {
+    const { data, error } = await student.db.rpc('my_role')
+
+    expect(error).toBeNull()
+    expect(data).toBe('student')
+  })
+
+  test('my_school_id answers their school', async () => {
+    const { data } = await student.db.rpc('my_school_id')
+
+    expect(data).toBe(world.schoolId)
+  })
+
+  test('a course published for students actually reaches one', async () => {
+    const { data: course } = await admin
+      .from('courses')
+      .insert({
+        title: `Study skills ${world.runId}`,
+        summary: 'Written for students.',
+        audiences: ['student'],
+        is_published: true,
+        published_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    const { data, error } = await student.db.from('courses').select('id')
+
+    expect(error).toBeNull()
+    expect(data?.some((c) => c.id === course!.id)).toBe(true)
+
+    await admin.from('courses').delete().eq('id', course!.id)
+  })
+
+  test('and a course for staff still does not', async () => {
+    const { data: course } = await admin
+      .from('courses')
+      .insert({
+        title: `Staff only ${world.runId}`,
+        summary: 'Written about families, for educators.',
+        audiences: ['educator'],
+        is_published: true,
+        published_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    const { data } = await student.db.from('courses').select('id')
+
+    // Widening my_role() must not have widened what it unlocks.
+    expect(data?.some((c) => c.id === course!.id)).toBe(false)
+
+    await admin.from('courses').delete().eq('id', course!.id)
+  })
+})
+
 describe('what a student must never see', () => {
   /*
    * A behaviour log is a staff observation written for other staff. A child

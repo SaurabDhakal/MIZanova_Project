@@ -1513,17 +1513,27 @@ export type AiControls = {
   confidence_threshold: number
   last_change_reason: string | null
   updated_at: string
+  /*
+   * db/026 added both and nothing ever read them, so the caps that decide how
+   * much can be spent in a day were invisible and uneditable. db/078 made a
+   * change to either one audited.
+   */
+  daily_limit_per_school: number
+  daily_limit_per_user: number
 }
 
 export async function fetchAiControls(): Promise<AiControls | null> {
   const { data, error } = await supabase
     .from('ai_controls')
-    .select('ai_enabled, confidence_threshold, last_change_reason, updated_at')
+    .select(
+      'ai_enabled, confidence_threshold, last_change_reason, updated_at, ' +
+        'daily_limit_per_school, daily_limit_per_user',
+    )
     .eq('id', true)
     .maybeSingle()
 
   if (error) throw new Error(error.message)
-  return data as AiControls | null
+  return data as unknown as AiControls | null
 }
 
 /**
@@ -1550,6 +1560,63 @@ export async function updateAiControls(input: {
 
   if (error) throw new Error(error.message)
   assertChanged(data, 'The AI control change')
+}
+
+export type AiUsageRow = {
+  school_id: string | null
+  requests_24h: number
+  requests_7d: number
+  requests_30d: number
+  people_30d: number
+  last_request_at: string | null
+}
+
+/**
+ * What the AI is actually being used for — db/078.
+ *
+ * db/026 built the quota and the usage table and nothing ever showed either, so
+ * a platform admin could not see which school was consuming the budget. The
+ * window is 24 HOURS rather than "today", matching the quota it is displayed
+ * against: a figure that reset at midnight would disagree with the limit
+ * refusing requests.
+ */
+export async function fetchAiUsage(): Promise<AiUsageRow[]> {
+  const { data, error } = await supabase
+    .from('ai_usage_by_school')
+    .select('*')
+    .order('requests_24h', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as AiUsageRow[]
+}
+
+/**
+ * Raise or lower what may be spent in a day.
+ *
+ * THE REASON IS NOT OPTIONAL and is not this function's politeness — db/012's
+ * trigger raises if it is blank, and db/078 made it record the limits too. A
+ * limit change is the AI control that decides how much money can be spent, and
+ * until db/078 it was the one that left no trail.
+ */
+export async function updateAiLimits(input: {
+  schoolLimit: number
+  userLimit: number
+  reason: string
+}): Promise<void> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('ai_controls')
+    .update({
+      daily_limit_per_school: input.schoolLimit,
+      daily_limit_per_user: input.userLimit,
+      last_change_reason: input.reason.trim(),
+      changed_by: auth.data.user?.id ?? null,
+    })
+    .eq('id', true)
+    .select('daily_limit_per_school')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The limit change')
 }
 
 export type AiControlEvent = {
@@ -1614,9 +1681,21 @@ export async function fetchAllStaff(): Promise<StaffRow[]> {
 export async function fetchStaffPage(
   verified: boolean,
   page = 0,
+  /*
+   * db/039 made a person's school a real question rather than a label, and this
+   * screen serves every school at once. Verification is an attestation that
+   * somebody may open children's records AT A SCHOOL, so narrowing to one is
+   * how a reviewer checks a name against the roster that will rely on it.
+   *
+   * Filtered in the DATABASE rather than after fetching, because the list is
+   * paginated: filtering a page would hide people on other pages and report a
+   * total that belonged to the unfiltered query.
+   */
+  schoolId?: string,
 ): Promise<Page<StaffRow>> {
   const from = page * PAGE_SIZE
-  const { data, error, count } = await supabase
+
+  let query = supabase
     .from('profiles')
     .select('id, full_name, email, role, is_verified, school_id', {
       count: 'exact',
@@ -1624,7 +1703,13 @@ export async function fetchStaffPage(
     .in('role', ['educator', 'specialist', 'school_admin'])
     .eq('is_verified', verified)
     .order('full_name')
-    .range(from, from + PAGE_SIZE - 1)
+
+  // 'none' is a real answer rather than the absence of a filter: somebody
+  // verified with no school attached is a specific problem worth looking for.
+  if (schoolId === 'none') query = query.is('school_id', null)
+  else if (schoolId) query = query.eq('school_id', schoolId)
+
+  const { data, error, count } = await query.range(from, from + PAGE_SIZE - 1)
 
   if (error) throw new Error(error.message)
   return toPage(data as StaffRow[], count, page, PAGE_SIZE)
@@ -2420,6 +2505,9 @@ export type ConsentType =
   | 'parent_portal_access'
   | 'specialist_referral'
   | 'photo_media'
+  // db/074. The second consent this software actually acts on — see
+  // CONSENT_COPY, where `enforced` says which ones are real.
+  | 'student_portal_access'
 
 export type ConsentRow = {
   id: string
@@ -2810,6 +2898,74 @@ export async function deleteCourseModule(id: string): Promise<void> {
 
   if (error) throw new Error(error.message)
   assertChanged(data, 'The module')
+}
+
+// ---------------------------------------------------------------------------
+// Giving a student an account — db/076.
+// ---------------------------------------------------------------------------
+
+export type StudentAccount = {
+  id: string
+  display_name: string
+  /** Set once an invitation has been redeemed. Null means no account. */
+  profile_id: string | null
+  /** A guardian has granted student_portal_access and not withdrawn it. */
+  hasConsent: boolean
+  /** An invitation exists and has neither been used nor withdrawn. */
+  invitePending: boolean
+}
+
+/**
+ * Every student at the school, with the state of db/074's two keys.
+ *
+ * THREE READS RATHER THAN ONE EMBED, and it is worth saying why. The obvious
+ * query embeds consents and invitations into students, but PostgREST cannot
+ * filter a parent row by a condition on an embedded table without `!inner`,
+ * and `!inner` would DROP every student who has no consent — which is exactly
+ * the set this screen exists to show.
+ *
+ * So the three are fetched separately and joined here. Each is filtered by RLS
+ * to the caller's own school, so this cannot be pointed at another school's
+ * children by changing anything.
+ */
+export async function fetchStudentAccounts(): Promise<StudentAccount[]> {
+  const [students, consents, invitations] = await Promise.all([
+    supabase
+      .from('students')
+      .select('id, display_name, profile_id')
+      .eq('is_active', true)
+      .order('display_name'),
+    supabase
+      .from('consents')
+      .select('student_id')
+      .eq('consent_type', 'student_portal_access')
+      .is('revoked_at', null),
+    supabase
+      .from('invitations')
+      .select('student_id')
+      .eq('role', 'student')
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .gt('expires_at', new Date().toISOString()),
+  ])
+
+  if (students.error) throw new Error(students.error.message)
+  // A failed consent or invitation read is NOT treated as "none". Reporting a
+  // child as having no consent when the query simply failed would invite
+  // somebody to grant one that already exists.
+  if (consents.error) throw new Error(consents.error.message)
+  if (invitations.error) throw new Error(invitations.error.message)
+
+  const consented = new Set((consents.data ?? []).map((c) => c.student_id))
+  const invited = new Set((invitations.data ?? []).map((i) => i.student_id))
+
+  return (students.data ?? []).map((s) => ({
+    id: s.id as string,
+    display_name: s.display_name as string,
+    profile_id: (s.profile_id as string | null) ?? null,
+    hasConsent: consented.has(s.id),
+    invitePending: invited.has(s.id),
+  }))
 }
 
 // ---------------------------------------------------------------------------
@@ -3472,6 +3628,14 @@ export type AppointmentRow = {
   purpose: string | null
   session_id: string | null
   cancelled_reason: string | null
+  /*
+   * db/073. Null means no separate charge — the session is inside what the
+   * school already pays, which is the normal case. Zero means somebody chose to
+   * charge nothing. The screen must not render those the same way.
+   */
+  fee_cents: number | null
+  /** Set once a fee has been turned into a draft invoice. */
+  invoice_id: string | null
 }
 
 /**
@@ -3499,14 +3663,68 @@ export async function fetchAppointments(): Promise<AppointmentRow[]> {
   const { data, error } = await supabase
     .from('specialist_appointments')
     .select(
-      'id, student_id, specialist_id, starts_at, duration_minutes, status, purpose, session_id, cancelled_reason',
+      'id, student_id, specialist_id, starts_at, duration_minutes, status, ' +
+        'purpose, session_id, cancelled_reason, fee_cents, invoice_id',
     )
     .gte('starts_at', from.toISOString())
     .order('starts_at')
     .limit(500)
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as AppointmentRow[]
+  // `as unknown as` since the select became a concatenated string — PostgREST
+  // types those as its own row shape, the same cast every other fetcher here
+  // needs.
+  return (data ?? []) as unknown as AppointmentRow[]
+}
+
+/**
+ * Record what a session costs — db/073.
+ *
+ * NULL AND ZERO ARE BOTH MEANINGFUL AND DIFFERENT. Null is "no separate
+ * charge", which is the normal case for school-based therapy inside whatever
+ * the school already pays. Zero is a session deliberately provided free, which
+ * is a decision somebody made. Storing one as the other would lose that.
+ */
+export async function setAppointmentFee(
+  id: string,
+  feeCents: number | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ fee_cents: feeCents })
+    .eq('id', id)
+    // Once billed, the amount is on an invoice somebody may already have been
+    // sent. Changing it here would leave the two disagreeing silently.
+    .is('invoice_id', null)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The fee')
+}
+
+/**
+ * Turn the fee into an invoice the family can pay.
+ *
+ * A DATABASE FUNCTION RATHER THAN AN INSERT, because db/020 lets only a school
+ * administrator create invoices and a specialist is not one. db/073's
+ * `raise_appointment_invoice` is the narrow exception: it writes exactly one
+ * invoice, for one appointment the caller owns, at the fee recorded on it.
+ *
+ * It arrives as a DRAFT. The school's name is on a family invoice, so the
+ * school decides what its families are asked to pay; the specialist says what
+ * the session cost.
+ */
+export async function billAppointment(
+  id: string,
+  dueDate: string | null,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('raise_appointment_invoice', {
+    p_appointment_id: id,
+    p_due_date: dueDate,
+  })
+
+  if (error) throw new Error(error.message)
+  return data as string
 }
 
 /**
@@ -4163,8 +4381,15 @@ export type Delivered = {
 
 export async function createInvitation(input: {
   email: string
-  role: 'educator' | 'specialist' | 'school_admin'
+  role: 'educator' | 'specialist' | 'school_admin' | 'student'
   schoolId?: string
+  /*
+   * db/076. Required for a student invitation and refused for any other, in
+   * both the server and a check constraint — an invitation that named a child
+   * while granting a staff role would be a way to attach a teacher's account
+   * to a child record, and it would read as a typo.
+   */
+  studentId?: string
 }): Promise<{ acceptUrl: string } & Delivered> {
   const { data: session } = await supabase.auth.getSession()
   const token = session.session?.access_token
@@ -6271,6 +6496,8 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
+  aiUsage: ['ai-usage'] as const,
+  studentAccounts: ['student-accounts'] as const,
   courses: ['courses'] as const,
   myEnrolments: ['my-enrolments'] as const,
   myCompletions: ['my-completions'] as const,

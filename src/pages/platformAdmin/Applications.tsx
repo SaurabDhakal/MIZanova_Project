@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
 import QueueTabs from '../../components/QueueTabs'
 import PageHeader from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
+import { screeningValidity } from '../../lib/screeningValidity'
 
 /**
  * Gate 1 review — `09-Onboarding-and-Tenancy.md` §5.
@@ -110,8 +111,19 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
       ? (application.profession_other ?? 'Other')
       : PROFESSIONS[application.profession]
 
-  const expired =
-    application.wwcc_expiry && new Date(application.wwcc_expiry) < new Date()
+  /*
+   * THE LOGIC LIVES IN src/lib/screeningValidity.ts SO IT CAN BE TESTED.
+   *
+   * db/047 refuses any edit to what an applicant claimed — "an application
+   * records what somebody claimed" — so an application with a lapsed check
+   * cannot be manufactured on a running database to look at. Inline here it
+   * could only be reasoned about, and reasoning about it is exactly what
+   * produced the bug: this asked whether a NUMBER existed, printed "EXPIRED"
+   * beside it in red, and enabled Approve anyway.
+   */
+  const validity = screeningValidity(application)
+  // Kept for the badge below, which labels the WWCC line specifically.
+  const expired = validity.wwccExpired
 
   /*
    * APPROVING WITHOUT A SCREENING NUMBER IS THE ONE MISTAKE THIS SCREEN MUST
@@ -132,14 +144,19 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
    * trusted staff, and the thing being prevented here is a tired reviewer at
    * the end of a queue, not an attacker.
    */
-  const screened = Boolean(
-    application.wwcc_number || application.ndis_screening_number,
-  )
+  const screened = validity.approvable
 
   /** Said once, in words, above the buttons they apply to. */
   const blockedReasons = [
+    // Said as two different sentences, because they are two different problems
+    // and "ask them for it" is the wrong instruction for a lapsed check.
+    // Two different problems, so two different sentences: "ask them for it" is
+    // the wrong instruction to send somebody whose check has simply lapsed.
     !screened &&
+      !validity.allExpired &&
       'Approving needs a WWCC or NDIS screening number on file — ask them for it.',
+    validity.allExpired &&
+      'Every check on file has expired. Approving would record a clearance that is no longer valid — ask for the current one.',
     !note.trim() &&
       'Declining or asking for more needs a note, because it is sent to them.',
   ].filter((reason): reason is string => typeof reason === 'string')

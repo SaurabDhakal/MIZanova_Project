@@ -1172,17 +1172,42 @@ const tooManyPeeks = rateLimiter({ windowMs: 60_000, max: 20 })
 const tooManyRequests = rateLimiter({ windowMs: 10 * 60_000, max: 30 })
 const tooManyEnquiries = rateLimiter({ windowMs: 10 * 60_000, max: 3 })
 
-/** Issue one. School admins for their own school; platform admins anywhere. */
+/**
+ * Issue one. School admins for their own school; platform admins anywhere.
+ *
+ * Also issues a STUDENT account since db/076, which needs a `studentId`. That
+ * turns only the first of db/074's two keys: the account is linked and can sign
+ * in, and shows nothing at all until a guardian grants student_portal_access on
+ * their own Privacy & Consent screen.
+ */
 app.post('/api/invitations', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
 
-  const { email, role, schoolId } = req.body ?? {}
+  const { email, role, schoolId, studentId } = req.body ?? {}
   if (!email || !role) {
     return res.status(400).json({ error: 'An email address and a role are required.' })
   }
-  if (!['educator', 'specialist', 'school_admin'].includes(role)) {
+  /*
+   * db/076 added 'student'. The list is repeated here rather than derived,
+   * because this check runs before anything touches the database and
+   * issue_invitation refuses the same set — two independent refusals is the
+   * point, not duplication to be tidied away.
+   */
+  if (!['educator', 'specialist', 'school_admin', 'student'].includes(role)) {
     return res.status(400).json({ error: `An invitation cannot grant ${role}.` })
+  }
+  // Both directions, matching db/076's check constraint, so the message names
+  // the mistake instead of quoting a constraint.
+  if (role === 'student' && !studentId) {
+    return res
+      .status(400)
+      .json({ error: 'Say which student the account is for.' })
+  }
+  if (role !== 'student' && studentId) {
+    return res
+      .status(400)
+      .json({ error: 'Only a student invitation names a student.' })
   }
 
   try {
@@ -1234,10 +1259,32 @@ app.post('/api/invitations', async (req, res) => {
       p_role: role,
       p_token_hash: hashToken(raw),
       p_invited_by: user.id,
+      // Null for staff. db/076 checks the child is at `targetSchool`, which is
+      // the school this server chose and never one from the request body — so a
+      // student id typed into a browser cannot reach across to another school.
+      p_student_id: role === 'student' ? studentId : null,
     })
 
     if (issueError) {
       console.error('issue_invitation failed:', issueError.message)
+
+      /*
+       * TRANSLATED, NOT FORWARDED. db/035 has a unique index allowing one live
+       * invitation per address, and Postgres reports that by naming the index:
+       * 'duplicate key value violates unique constraint
+       * "invitations_one_live_per_email"'. That reached the screen verbatim.
+       *
+       * It is a sentence about a database to somebody who was trying to invite
+       * a colleague, and it does not say the one thing they need — that a
+       * usable link already exists and can be withdrawn or passed on.
+       */
+      if (/invitations_one_live_per_email/.test(issueError.message)) {
+        return res.status(409).json({
+          error:
+            'There is already an unused invitation for that address. Withdraw it first, or pass on the link they were sent.',
+        })
+      }
+
       return res.status(400).json({ error: issueError.message })
     }
 
@@ -1425,7 +1472,13 @@ function normaliseCode(input) {
     .replace(/[^0-9A-Z]/g, '')
 }
 
-/** Issue one. School admins for their own school; platform admins anywhere. */
+/**
+ * Issue a guardian code, which links a family to a child.
+ *
+ * The comment here used to be the invitations one, copied along with the shape
+ * of the handler. It described school admins inviting staff anywhere, which is
+ * not what this route does to anybody.
+ */
 app.post('/api/guardian-codes', async (req, res) => {
   const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!bearer) return res.status(401).json({ error: 'Not signed in.' })
