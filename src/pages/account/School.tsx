@@ -8,6 +8,7 @@ import {
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import { showToast } from '../../lib/toast'
+import WhatWePaySection from '../../components/WhatWePaySection'
 
 /**
  * Settings → School. The details a school owns about itself.
@@ -264,5 +265,13 @@ export default function School() {
     )
   }
 
-  return <SchoolForm key={school.data.id} school={school.data} />
+  return (
+    <>
+      <SchoolForm key={school.data.id} school={school.data} />
+      {/* db/072 let a school read its own agreement and nothing ever asked.
+          It belongs here rather than on a page of its own: this is already the
+          screen about the school's relationship with Special Miles. */}
+      <WhatWePaySection schoolId={school.data.id} />
+    </>
+  )
 }
