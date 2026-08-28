@@ -13,6 +13,7 @@ import { ROLE_CONFIG, ROLES, type Role } from '../../lib/roles'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
+import LibraryFilesSection from '../../components/LibraryFilesSection'
 
 /**
  * Writing articles and case studies — db/079, the reading half of the brief's
@@ -398,15 +399,21 @@ export default function Articles() {
         </ul>
       )}
 
+      {/* db/080. The downloads that go with what is published above — kept on
+          this screen because they are written and uploaded in the same sitting,
+          and a separate page would be one nobody visits. */}
+      <LibraryFilesSection />
+
       <PageNote>
         Separate from the Academy on purpose: a course is a sequence somebody
         works through and is counted for, an article is a page somebody reads.
         Everything is a draft until published, and its audience sees nothing
         before then. A case study cannot be published until somebody confirms
         the people in it agreed — db/079 refuses it with a check constraint, so
-        it holds whatever this screen does. Media inside an article is not
-        possible yet: db/030&rsquo;s files belong to a school, and Special
-        Miles&rsquo; own need a platform-level bucket that does not exist.
+        it holds whatever this screen does. Downloads live in db/080&rsquo;s
+        bucket, which is separate from a school&rsquo;s own files for a reason
+        worth knowing: everything there is visible to every account on the
+        platform, so nothing about a child belongs in it.
       </PageNote>
     </div>
   )

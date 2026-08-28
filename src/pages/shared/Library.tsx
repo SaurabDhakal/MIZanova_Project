@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchArticles, queryKeys, type Article } from '../../lib/api'
+import {
+  fetchArticles,
+  fetchLibraryFiles,
+  libraryFileUrl,
+  queryKeys,
+  type Article,
+} from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 
@@ -44,6 +50,15 @@ export default function Library() {
   const articles = useQuery({
     queryKey: queryKeys.articles,
     queryFn: fetchArticles,
+  })
+  /*
+   * db/080. Downloads sit beside the reading rather than on a page of their
+   * own: a toolkit nobody can find is the same as no toolkit, and a separate
+   * "Files" nav item would be the entry nobody clicks.
+   */
+  const files = useQuery({
+    queryKey: queryKeys.libraryFiles,
+    queryFn: fetchLibraryFiles,
   })
 
   if (articles.isPending) return <LoadingCards count={3} />
@@ -115,6 +130,51 @@ export default function Library() {
             )
           })}
         </ul>
+      )}
+
+      {/* --- Downloads ------------------------------------------------------ */}
+      {files.isError ? (
+        <p className="mt-8 rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
+          Downloads could not be loaded, so this is unknown rather than empty.
+        </p>
+      ) : (
+        (files.data ?? []).length > 0 && (
+          <>
+            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+              Downloads
+            </h2>
+            <ul className="space-y-2">
+              {(files.data ?? []).map((f) => (
+                <li
+                  key={f.id}
+                  className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{f.title}</p>
+                    {f.description && (
+                      <p className="text-xs text-muted-foreground">
+                        {f.description}
+                      </p>
+                    )}
+                  </div>
+                  {f.storage_path && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void libraryFileUrl(f.storage_path!).then((url) =>
+                          window.open(url, '_blank', 'noopener'),
+                        )
+                      }}
+                      className="ml-auto rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+                    >
+                      Open
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )
       )}
 
       <PageNote>

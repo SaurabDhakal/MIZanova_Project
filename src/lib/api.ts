@@ -2710,6 +2710,128 @@ export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]>
 }
 
 // ---------------------------------------------------------------------------
+// Special Miles' own files — db/080.
+//
+// Mirrors uploadResource below rather than inventing a second upload path: row
+// first, then the object at '<row id>/<filename>', and the row deleted again if
+// the file does not land. The path convention is load-bearing — db/080's
+// storage policies read segment 1 of the object path as the row's id.
+// ---------------------------------------------------------------------------
+
+export type LibraryFile = {
+  id: string
+  title: string
+  description: string | null
+  storage_path: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  course_module_id: string | null
+  article_id: string | null
+  created_at: string
+}
+
+export const LIBRARY_MAX_BYTES = 50 * 1024 * 1024
+
+export async function fetchLibraryFiles(): Promise<LibraryFile[]> {
+  const { data, error } = await supabase
+    .from('library_files')
+    .select(
+      'id, title, description, storage_path, mime_type, size_bytes, ' +
+        'course_module_id, article_id, created_at',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as LibraryFile[]
+}
+
+export async function uploadLibraryFile(input: {
+  title: string
+  description: string | null
+  file: File
+  articleId?: string | null
+  courseModuleId?: string | null
+}): Promise<void> {
+  if (input.file.size > LIBRARY_MAX_BYTES) {
+    throw new Error(
+      `That file is ${formatBytes(input.file.size)}. The limit is ${formatBytes(LIBRARY_MAX_BYTES)}.`,
+    )
+  }
+
+  const auth = await supabase.auth.getUser()
+
+  const { data: row, error: insertError } = await supabase
+    .from('library_files')
+    .insert({
+      title: input.title.trim(),
+      description: input.description?.trim() || null,
+      article_id: input.articleId ?? null,
+      course_module_id: input.courseModuleId ?? null,
+      mime_type: input.file.type || null,
+      size_bytes: input.file.size,
+      uploaded_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (insertError) throw new Error(insertError.message)
+
+  const path = `${row.id}/${safeFileName(input.file.name)}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('library')
+    .upload(path, input.file, { contentType: input.file.type, upsert: false })
+
+  if (uploadError) {
+    // A row with no file is a download that 404s. Removed rather than left.
+    await supabase.from('library_files').delete().eq('id', row.id)
+    throw new Error(`The file could not be uploaded: ${uploadError.message}`)
+  }
+
+  const { error: updateError } = await supabase
+    .from('library_files')
+    .update({ storage_path: path })
+    .eq('id', row.id)
+
+  if (updateError) throw new Error(updateError.message)
+}
+
+/**
+ * A short-lived URL for one file.
+ *
+ * SIGNED RATHER THAN PUBLIC, even though every signed-in account may read this
+ * bucket. db/080 keeps `public = false` so an unpublished course's toolkit is
+ * not served to anybody who guesses the URL — the read policy is about people
+ * with accounts, not about the open internet.
+ */
+export async function libraryFileUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('library')
+    .createSignedUrl(storagePath, 300)
+
+  if (error) throw new Error(error.message)
+  return data.signedUrl
+}
+
+export async function deleteLibraryFile(
+  id: string,
+  storagePath: string | null,
+): Promise<void> {
+  // The object first. A deleted row with its file still in the bucket is
+  // storage nobody can find to clean up.
+  if (storagePath) await supabase.storage.from('library').remove([storagePath])
+
+  const { data, error } = await supabase
+    .from('library_files')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The file')
+}
+
+// ---------------------------------------------------------------------------
 // Articles and case studies — db/079. The reading half of the CMS.
 //
 // Separate from courses on purpose: a course is a sequence somebody works
@@ -6622,6 +6744,7 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
+  libraryFiles: ['library-files'] as const,
   articles: ['articles'] as const,
   aiUsage: ['ai-usage'] as const,
   studentAccounts: ['student-accounts'] as const,
