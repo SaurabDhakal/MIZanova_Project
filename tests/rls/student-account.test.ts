@@ -104,12 +104,46 @@ describe('the door needs two keys', () => {
     expect(data?.[0].id).toBe(world.childA)
   })
 
+  /*
+   * REVOKED THROUGH `revoke_consent`, NOT BY SENDING A TIMESTAMP.
+   *
+   * The first version of this test set `revoked_at` to `new Date()` from this
+   * machine — which is the precise bug db/021 exists to prevent. db/002
+   * constrains `revoked_at >= granted_at`, so when the laptop's clock sits
+   * behind the server's, revoking a consent granted a moment earlier violates
+   * the constraint and fails with 23514.
+   *
+   * The test did not check that error, so the revoke silently never happened
+   * and the assertion below failed for a reason that had nothing to do with
+   * what it was testing. It passed for hours and then did not, because clock
+   * drift is a moving target — which is exactly how db/021 describes the
+   * original.
+   *
+   * Two changes: it calls the same function the parent screen calls, so the
+   * timestamp is the database's; and it ASSERTS THE WRITE HAPPENED before
+   * drawing a conclusion from what follows.
+   */
   test('revoking the consent closes it again immediately', async () => {
-    await admin
+    const { data: row } = await admin
       .from('consents')
-      .update({ revoked_at: new Date().toISOString() })
+      .select('id')
       .eq('student_id', world.childA)
       .eq('consent_type', 'student_portal_access')
+      .is('revoked_at', null)
+      .single()
+
+    const { error: revokeError } = await admin.rpc('revoke_consent', {
+      p_consent_id: row!.id,
+    })
+    expect(revokeError).toBeNull()
+
+    const check = await admin
+      .from('consents')
+      .select('revoked_at')
+      .eq('id', row!.id)
+      .single()
+    // Without this, a failed revoke reads as a passing security test.
+    expect(check.data?.revoked_at).not.toBeNull()
 
     const { data } = await student.db.from('students').select('id')
 
@@ -120,8 +154,7 @@ describe('the door needs two keys', () => {
     await admin
       .from('consents')
       .update({ revoked_at: null })
-      .eq('student_id', world.childA)
-      .eq('consent_type', 'student_portal_access')
+      .eq('id', row!.id)
   })
 })
 
