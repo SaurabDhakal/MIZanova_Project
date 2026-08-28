@@ -359,13 +359,32 @@ export default function GlobalOverview() {
         rather than two implementations that drift.
       */}
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {/*
+          COUNTED BY THE DATABASE, NOT BY FILTERING THE FETCHED ROWS.
+
+          This tile used to read `awaiting.length`, which is
+          `fetchAllStaff().filter(p => !p.is_verified)`. That query asks for
+          rows with no range, so PostgREST caps it at its default 1000 and the
+          figure quietly becomes "unverified staff among the first thousand".
+
+          The bell already counts this properly — `staffAwaitingVerification`
+          in fetchWorkQueue, with `head: true` — so the two would have
+          disagreed on any platform big enough to matter, which is exactly what
+          the note above says cannot happen. The list of names below still
+          comes from the fetched rows, because showing eight of them does not
+          need all of them.
+        */}
         <StatTile
           label="Awaiting verification"
-          value={staff.isSuccess ? awaiting.length : undefined}
+          value={queue.data?.staffAwaitingVerification ?? undefined}
           icon="verification"
-          tone={awaiting.length > 0 ? 'warning' : 'default'}
+          tone={
+            (queue.data?.staffAwaitingVerification ?? 0) > 0
+              ? 'warning'
+              : 'default'
+          }
           hint={
-            awaiting.length > 0 ? (
+            (queue.data?.staffAwaitingVerification ?? 0) > 0 ? (
               <Link
                 to="/platform-admin/verification"
                 className="font-semibold text-primary hover:underline"
