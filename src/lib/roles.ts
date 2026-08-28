@@ -158,6 +158,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'schedule', label: 'Schedule', icon: 'schedule', milestone: 'M10' },
       // db/075. Professional development for school staff.
       { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      // db/079. Reading, as opposed to the Academy's doing.
+      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -181,6 +183,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'link-child', label: 'Link a child', icon: 'link', group: 'Your account', milestone: 'M7' },
       { path: 'privacy', label: 'Privacy & Consent', icon: 'privacy', group: 'Your account', milestone: 'M7' },
       { path: 'finance', label: 'Collab & Finance', icon: 'finance', group: 'Your account', milestone: 'M11' },
+      // db/079. Reading, as opposed to the Academy's doing.
+      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -200,6 +204,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'resources', label: 'Resources', icon: 'resources', group: 'Library', milestone: 'M12' },
       { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      // db/079. Reading, as opposed to the Academy's doing.
+      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -223,6 +229,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'invoices', label: 'Invoices', icon: 'invoices', group: 'Billing', milestone: 'M11' },
       { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      // db/079. Reading, as opposed to the Academy's doing.
+      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -251,6 +259,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'verification', label: 'Staff Verification', icon: 'verification', group: 'The network', milestone: 'M14' },
       // db/075. The CMS half of the brief's requirement 4.
       { path: 'courses', label: 'Courses', icon: 'resources', group: 'The network', milestone: 'M15' },
+      { path: 'articles', label: 'Articles', icon: 'resources', group: 'The network', milestone: 'M15' },
       { path: 'ai-governance', label: 'AI Governance', icon: 'ai', group: 'Oversight', milestone: 'M14' },
       { path: 'audit', label: 'Audit Log', icon: 'audit', group: 'Oversight', milestone: 'M14' },
       { path: 'record-access', label: 'Record Access', icon: 'recordAccess', group: 'Oversight', milestone: 'M14' },
@@ -272,6 +281,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // for this audience by name in the brief, so this is content FOR them
       // rather than another window onto records ABOUT them.
       { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
     ],
   },
 }

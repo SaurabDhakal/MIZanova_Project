@@ -2710,6 +2710,132 @@ export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]>
 }
 
 // ---------------------------------------------------------------------------
+// Articles and case studies — db/079. The reading half of the CMS.
+//
+// Separate from courses on purpose: a course is a sequence somebody works
+// THROUGH and is counted for, an article is a page somebody READS. A one-page
+// article modelled as a one-module course would arrive with an enrolment, a
+// progress bar and a "Mark as done" button — furniture for something nobody is
+// completing.
+// ---------------------------------------------------------------------------
+
+export type ArticleKind = 'article' | 'case_study'
+
+export type Article = {
+  id: string
+  kind: ArticleKind
+  title: string
+  summary: string
+  body: string
+  audiences: Role[]
+  /** Only meaningful for a case study — db/079 refuses to publish one without it. */
+  consent_confirmed: boolean
+  is_published: boolean
+  published_at: string | null
+  created_at: string
+}
+
+/** Published and for your role; a platform admin also sees drafts. RLS decides. */
+export async function fetchArticles(): Promise<Article[]> {
+  const { data, error } = await supabase
+    .from('articles')
+    .select(
+      'id, kind, title, summary, body, audiences, consent_confirmed, ' +
+        'is_published, published_at, created_at',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as Article[]
+}
+
+export type ArticleInput = {
+  kind: ArticleKind
+  title: string
+  summary: string
+  body: string
+  audiences: Role[]
+  consentConfirmed: boolean
+}
+
+export async function createArticle(input: ArticleInput): Promise<string> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('articles')
+    .insert({
+      kind: input.kind,
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      body: input.body.trim(),
+      audiences: input.audiences,
+      consent_confirmed: input.consentConfirmed,
+      created_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data.id as string
+}
+
+/**
+ * Publish or withdraw.
+ *
+ * db/079 refuses to publish a case study whose `consent_confirmed` is false,
+ * and that error is translated rather than forwarded: the raw message names a
+ * constraint, and the person reading it needs to be told what to do about a
+ * story written about a real family.
+ */
+export async function setArticlePublished(
+  id: string,
+  published: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('articles')
+    .update({
+      is_published: published,
+      published_at: published ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    if (/articles_case_study_needs_consent/.test(error.message)) {
+      throw new Error(
+        'A case study cannot be published until somebody confirms the people in it agreed to it.',
+      )
+    }
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The article')
+}
+
+export async function setArticleConsent(
+  id: string,
+  confirmed: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('articles')
+    .update({ consent_confirmed: confirmed })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The confirmation')
+}
+
+export async function deleteArticle(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('articles')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The article')
+}
+
+// ---------------------------------------------------------------------------
 // The Academy — db/075. Structured program delivery.
 //
 // Nothing here filters by audience or by published state. db/075's policies do
@@ -6496,6 +6622,7 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
+  articles: ['articles'] as const,
   aiUsage: ['ai-usage'] as const,
   studentAccounts: ['student-accounts'] as const,
   courses: ['courses'] as const,

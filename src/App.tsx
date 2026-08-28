@@ -98,6 +98,8 @@ const GlobalOverview = lazy(() => import('./pages/platformAdmin/GlobalOverview')
 const StudentGoals = lazy(() => import('./pages/student/MyGoals'))
 const Academy = lazy(() => import('./pages/shared/Academy'))
 const Courses = lazy(() => import('./pages/platformAdmin/Courses'))
+const Library = lazy(() => import('./pages/shared/Library'))
+const Articles = lazy(() => import('./pages/platformAdmin/Articles'))
 const Schools = lazy(() => import('./pages/platformAdmin/Schools'))
 const AiGovernance = lazy(() => import('./pages/platformAdmin/AiGovernance'))
 const Verification = lazy(() => import('./pages/platformAdmin/Verification'))
@@ -188,6 +190,13 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'specialist:academy': <Academy />,
   'school_admin:academy': <Academy />,
   'platform_admin:courses': <Courses />,
+  'platform_admin:articles': <Articles />,
+  // db/079. One component for every reader; the policies decide what arrives.
+  'student:library': <Library />,
+  'parent:library': <Library />,
+  'educator:library': <Library />,
+  'specialist:library': <Library />,
+  'school_admin:library': <Library />,
   'platform_admin:': <GlobalOverview />,
   'platform_admin:tenants': <Schools />,
   'platform_admin:ai-governance': <AiGovernance />,
