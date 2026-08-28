@@ -90,6 +90,20 @@ export default function AddSchoolSection({
       )
     : undefined
 
+  /*
+   * A GUARD THAT CANNOT RUN MUST SAY SO, NOT PASS.
+   *
+   * `?? []` means a FAILED schools query and a database with no schools produce
+   * the same answer: no match, no warning, and the form looks checked. This is
+   * a duplicate-name guard, so failing open silently is the one behaviour it
+   * must not have — the whole reason it exists is that organisations.name has
+   * no unique constraint and nothing downstream would object.
+   *
+   * The seventh instance of this exact pattern in this project, and I wrote it
+   * this morning.
+   */
+  const checkFailed = schools.isError
+
   const add = useMutation({
     mutationFn: () => createSchool({ name, suburb, state, kind, status }),
     onSuccess: (school) => {
@@ -201,6 +215,15 @@ export default function AddSchoolSection({
               onChange={(e) => setName(e.target.value)}
               placeholder="Parramatta West Primary School"
             />
+            {checkFailed && name.trim() !== '' && (
+              <p className="mt-1.5 text-sm text-warning-foreground">
+                <span className="font-semibold">
+                  The duplicate check could not run.
+                </span>{' '}
+                The existing schools could not be loaded, so this form does not
+                know whether this name is already taken.
+              </p>
+            )}
             {sameName && (
               <p className="mt-1.5 text-sm text-warning-foreground">
                 <span className="font-semibold">

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
+  fetchAppointmentsForChild,
   fetchGoals,
   fetchHomeObservations,
   fetchSharedLogs,
@@ -64,6 +65,18 @@ export default function ParentDashboard() {
     enabled: Boolean(child),
   })
 
+  /*
+   * WHAT IS COMING, not only what happened. Every other block on this page
+   * reports the past — an update shared yesterday, goals set last term, counts.
+   * The question a family actually opens this page with is when their child is
+   * next being seen, and db/073 made that answerable for the first time.
+   */
+  const appointments = useQuery({
+    queryKey: queryKeys.appointmentsForChild(child?.id ?? ''),
+    queryFn: () => fetchAppointmentsForChild(child!.id),
+    enabled: Boolean(child),
+  })
+
   const goals = useQuery({
     queryKey: queryKeys.goals(child?.id ?? ''),
     queryFn: () => fetchGoals(child!.id),
@@ -80,6 +93,19 @@ export default function ParentDashboard() {
   }
 
   const shared = logs.data ?? []
+
+  /*
+   * "Now" comes from the fetch rather than from render — `Date.now()` here is
+   * impure, and a value frozen at mount leaves a page open overnight still
+   * calling yesterday's session upcoming.
+   */
+  const nextAppointment = (appointments.data ?? [])
+    .filter(
+      (a) =>
+        a.status === 'scheduled' &&
+        new Date(a.starts_at).getTime() >= appointments.dataUpdatedAt,
+    )
+    .sort((a, b) => (a.starts_at < b.starts_at ? -1 : 1))[0]
   const latest = shared[0]
 
   return (
@@ -119,6 +145,51 @@ export default function ParentDashboard() {
             do, they appear here.
           </p>
         </div>
+      )}
+
+      {/* --- Coming up ------------------------------------------------------ */}
+      {appointments.isError ? (
+        /* Not silence. A family told nothing is booked, when the truth is that
+           the lookup failed, plans around an appointment that exists. */
+        <div className="mt-4 rounded-card border border-border bg-card shadow-raised p-5">
+          <p className="text-sm text-muted-foreground">
+            Appointments could not be loaded, so this is unknown rather than
+            empty. Nothing has been cancelled.
+          </p>
+        </div>
+      ) : (
+        nextAppointment && (
+          <div className="mt-4 rounded-card border border-border bg-card shadow-raised p-5">
+            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Coming up
+            </p>
+            <p className="mt-1 font-semibold text-foreground">
+              {nextAppointment.purpose || 'Specialist session'}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {new Date(nextAppointment.starts_at).toLocaleString('en-AU', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
+              {' · '}
+              {nextAppointment.duration_minutes} minutes
+              {nextAppointment.profiles?.full_name
+                ? ` · with ${nextAppointment.profiles.full_name}`
+                : ''}
+            </p>
+            {/* A time on a dashboard reads as a promise, and nothing emails a
+                family when one moves. The link is where that is said. */}
+            <Link
+              to="/parent/appointments"
+              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+            >
+              All appointments →
+            </Link>
+          </div>
+        )
       )}
 
       {/* --- Counts -------------------------------------------------------- */}
