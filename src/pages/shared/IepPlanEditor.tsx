@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import IepAgreement from '../../components/IepAgreement'
+import IepSupportSchedule from '../../components/IepSupportSchedule'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   IEP_OUTCOME_LABEL,
@@ -825,6 +827,8 @@ export default function IepPlanEditor() {
         </div>
       )}
 
+      <IepSupportSchedule planId={planId} />
+
       {/* --- agreement ----------------------------------------------------- */}
       {!frozen && (
         <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
@@ -888,6 +892,20 @@ export default function IepPlanEditor() {
               not a plan.
             </p>
           )}
+        </section>
+      )}
+
+      {/* --- who has personally agreed ------------------------------------- */}
+      {frozen && (
+        <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
+          <h2 className="text-section text-foreground">Agreement</h2>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            Marking a plan agreed records the school&rsquo;s decision. This
+            records the people who have said yes to it themselves — each person
+            can confirm only for their own account, so a family&rsquo;s
+            agreement cannot be added on their behalf.
+          </p>
+          <IepAgreement planId={planId} asGuardian={false} />
         </section>
       )}
     </div>

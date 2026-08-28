@@ -6399,6 +6399,187 @@ export async function agreeIepPlan(planId: string): Promise<void> {
   assertChanged(data, 'The agreement')
 }
 
+/**
+ * Who has personally confirmed a plan — db/054's `iep_plan_confirmations`.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS A SEPARATE FACT FROM `status = 'agreed'`
+ * ---------------------------------------------------------------------------
+ * `agreeIepPlan` above is a STAFF action. It freezes the wording and moves the
+ * plan to Agreed, and until now that was the only record of agreement the
+ * product held — which means a plan could read "Agreed" without a single
+ * family member having been asked.
+ *
+ * db/054 built the other half and said why: "everyone confirmed" is not the
+ * same fact as "the family confirmed". Its insert policy is
+ * `profile_id = auth.uid()` and nothing else, so a school admin cannot tick
+ * the box on a parent's behalf. That restriction is the only thing that makes
+ * the record worth anything, and it also means the row can ONLY be written by
+ * a screen the family can reach. There was no such screen.
+ */
+export type IepPlanConfirmation = {
+  id: string
+  profile_id: string
+  as_guardian: boolean
+  confirmed_at: string
+  /* Null when the reader may not see that person's profile. Rendered as an
+     unnamed confirmation rather than guessed at — see IepAgreement. */
+  profiles: { full_name: string | null } | null
+}
+
+export async function fetchIepPlanConfirmations(
+  planId: string,
+): Promise<IepPlanConfirmation[]> {
+  const { data, error } = await supabase
+    .from('iep_plan_confirmations')
+    .select('id, profile_id, as_guardian, confirmed_at, profiles ( full_name )')
+    .eq('plan_id', planId)
+    .order('confirmed_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IepPlanConfirmation[]
+}
+
+/**
+ * Record that YOU agree to this plan. Never anybody else — the caller does not
+ * get to name a profile, because db/054 would refuse it anyway and an argument
+ * that is always `auth.uid()` is an invitation to try.
+ */
+export async function confirmIepPlan(asGuardian: boolean, planId: string): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const profileId = session.user?.id
+  if (!profileId) throw new Error('You are signed out. Sign in and try again.')
+
+  const { error } = await supabase.from('iep_plan_confirmations').insert({
+    plan_id: planId,
+    profile_id: profileId,
+    as_guardian: asGuardian,
+  })
+
+  /* The unique (plan_id, profile_id) means confirming twice is a 23505 rather
+     than a second row. That is not a failure worth alarming somebody with —
+     they already agreed, which is what they were trying to achieve. */
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
+/**
+ * The weekly support schedule on a plan — db/054's `iep_support_sessions`.
+ *
+ * ---------------------------------------------------------------------------
+ * BUILT IN SQL, REACHED BY NOTHING
+ * ---------------------------------------------------------------------------
+ * db/054 created the table, an index, an updated_at trigger, a staff-only
+ * policy, a bounded `hours` column and the `iep_support_totals` view — and the
+ * suite has always tested all of it. No screen ever wrote a row, so the part of
+ * the IEP that says who supports this child, on which day, for how long has
+ * been unfillable since the migration landed.
+ *
+ * It is not decoration on the form. db/054's own note says the weekly total is
+ * "a number somebody puts in front of a funder", which is why `hours` is
+ * bounded rather than trusted.
+ */
+export const IEP_WEEKDAY_LABEL: Record<IepWeekday, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+}
+
+export type IepSupportSession = {
+  id: string
+  weekday: IepWeekday
+  staff_name: string
+  staff_role: string | null
+  intervention: string | null
+  hours: number
+}
+
+export async function fetchIepSupportSessions(
+  planId: string,
+): Promise<IepSupportSession[]> {
+  const { data, error } = await supabase
+    .from('iep_support_sessions')
+    .select('id, weekday, staff_name, staff_role, intervention, hours')
+    .eq('plan_id', planId)
+
+  if (error) throw new Error(error.message)
+  /* `hours` is numeric(4,2). PostgREST can hand a numeric back as a string
+     depending on its size, and 2.5 + '1.5' would silently become '2.51.5' in a
+     total. Coerced once, here, rather than at each place that adds up. */
+  return (data ?? []).map((s) => ({
+    ...s,
+    hours: Number(s.hours),
+  })) as IepSupportSession[]
+}
+
+/**
+ * The weekly total, ADDED UP BY THE DATABASE.
+ *
+ * `iep_support_totals` exists so this figure is computed in one place by
+ * something that cannot make an arithmetic slip, and db/054 gave it
+ * `security_invoker` so it cannot become a way around the table's policy. A
+ * `reduce` over the rows above would have been shorter and would have quietly
+ * given a different answer the first time a row was filtered out by RLS.
+ */
+export type IepSupportTotal = {
+  hours_per_week: number
+  days_covered: number
+  sessions: number
+}
+
+export async function fetchIepSupportTotal(
+  planId: string,
+): Promise<IepSupportTotal | null> {
+  const { data, error } = await supabase
+    .from('iep_support_totals')
+    .select('hours_per_week, days_covered, sessions')
+    .eq('plan_id', planId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+  return {
+    hours_per_week: Number(data.hours_per_week),
+    days_covered: Number(data.days_covered),
+    sessions: Number(data.sessions),
+  }
+}
+
+export async function createIepSupportSession(input: {
+  planId: string
+  weekday: IepWeekday
+  staffName: string
+  staffRole: string
+  intervention: string
+  hours: number
+}): Promise<void> {
+  const { error } = await supabase.from('iep_support_sessions').insert({
+    plan_id: input.planId,
+    weekday: input.weekday,
+    staff_name: input.staffName.trim(),
+    staff_role: input.staffRole.trim() === '' ? null : input.staffRole.trim(),
+    intervention:
+      input.intervention.trim() === '' ? null : input.intervention.trim(),
+    hours: input.hours,
+  })
+
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteIepSupportSession(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('iep_support_sessions')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // A delete RLS refuses returns success with nothing removed — the trap this
+  // project has hit before.
+  assertChanged(data, 'The session')
+}
+
 export async function createIepGoal(input: {
   planId: string
   areaOfConcern: string
@@ -6493,7 +6674,12 @@ export type WorkQueue = Partial<
     | 'openSafeguarding'
     | 'strategiesAwaitingReview'
     | 'unreadThreads'
-    | 'invoicesDue',
+    | 'invoicesDue'
+    /* db/072. Special Miles being owed money is work waiting on somebody, and
+       so is a school having been billed. Both were built and neither reached
+       the one place this product puts "what needs you". */
+    | 'platformInvoicesOverdue'
+    | 'platformInvoicesToPay',
     /** A number, or null when the count could not be read. Never absent-as-zero. */
     number | null
   >
@@ -6558,6 +6744,45 @@ async function countStrategiesAwaitingReview(): Promise<number> {
 }
 
 /** Bills a parent still owes. db/020 hides drafts from them entirely. */
+/**
+ * What Special Miles is owed and nobody has chased — db/072.
+ *
+ * PAST ITS DUE DATE, not merely unpaid. An invoice issued this morning is not
+ * work; one that went by its date is. db/071 established the same distinction
+ * for a school's own invoices, including that an invoice with NO due date can
+ * never become overdue — which is why this counts only dated ones and why the
+ * Subscriptions screen says separately how much carries no date at all.
+ */
+async function countPlatformInvoicesOverdue(): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10)
+  const { count, error } = await supabase
+    .from('platform_invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .not('due_date', 'is', null)
+    .lt('due_date', today)
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+/**
+ * What THIS school has been billed and not yet paid — db/072, the other side.
+ *
+ * Every issued one, not only the late ones. A school admin is the person who
+ * pays it, and "you have an unpaid invoice" is the useful prompt; telling them
+ * only once it is overdue would be withholding the thing that prevents that.
+ * db/072's policy already hides drafts, so this cannot count a charge Special
+ * Miles is still considering.
+ */
+async function countPlatformInvoicesToPay(): Promise<number> {
+  const { count, error } = await supabase
+    .from('platform_invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
 async function countInvoicesDue(): Promise<number> {
   const { count, error } = await supabase
     .from('invoices')
@@ -6629,6 +6854,7 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
           ['newEnquiries', countNewEnquiries()],
           ['newApplications', countNewApplications()],
           ['screeningDueSoon', countScreeningDueSoon()],
+          ['platformInvoicesOverdue', countPlatformInvoicesOverdue()],
         ]
       : role === 'school_admin'
         ? [
@@ -6637,6 +6863,7 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
               fetchSchoolSummary().then((s) => s?.flagged_open ?? 0),
             ],
             ['unreadThreads', countUnreadThreads()],
+            ['platformInvoicesToPay', countPlatformInvoicesToPay()],
           ]
         : role === 'specialist'
           ? [
@@ -6722,6 +6949,9 @@ export const queryKeys = {
   iepPlans: (studentId: string) => ['iep-plans', studentId] as const,
   goalPlanLinks: (studentId: string) => ['goal-plan-links', studentId] as const,
   iepPlan: (planId: string) => ['iep-plan', planId] as const,
+  iepPlanConfirmations: (planId: string) =>
+    ['iep-plan-confirmations', planId] as const,
+  iepSupport: (planId: string) => ['iep-support', planId] as const,
   threads: ['threads'] as const,
   messages: (id: string) => ['messages', id] as const,
   messageAttachment: (path: string) => ['message-attachment', path] as const,

@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
+import FamilyIepPlans from '../../components/FamilyIepPlans'
 import GoalCard from '../../components/GoalCard'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
@@ -150,6 +151,8 @@ export default function GoalsAndIep() {
           </ul>
         </>
       )}
+
+      <FamilyIepPlans studentId={child.id} />
 
       {/* --- IEP documents ------------------------------------------------- */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
