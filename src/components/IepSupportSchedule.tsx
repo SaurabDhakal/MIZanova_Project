@@ -107,6 +107,23 @@ export default function IepSupportSchedule({ planId }: { planId: string }) {
         the plan changing. The family sees the total hours, not the roster.
       </p>
 
+      {/*
+        A FAILED TOTAL IS NOT A MISSING ONE.
+
+        This banner was written as `total.isSuccess && total.data && (...)`,
+        which renders nothing when the query fails — so the sessions below
+        would still list and the weekly figure would simply be absent. This is
+        the number db/054 says goes in front of a funder; it vanishing quietly
+        is worse than it being wrong, because nothing prompts anybody to look
+        again. Said out loud instead.
+      */}
+      {total.isError && (
+        <p className="mt-4 rounded-card border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          The weekly total could not be read, so it is unknown rather than
+          zero. The sessions below are still what is recorded.
+        </p>
+      )}
+
       {/* The number that leaves the building, said once and prominently. */}
       {total.isSuccess && total.data && (
         <p className="mt-4 rounded-card border border-primary bg-primary-subtle px-4 py-3 text-foreground">

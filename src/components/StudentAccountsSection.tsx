@@ -58,8 +58,14 @@ function KeyState({ student }: { student: StudentAccount }) {
   }
   if (student.invitePending) {
     return (
+      /* ISSUED, not "sent". Whether the email actually left is known only in
+         the response to the request that created it — the server returns
+         `emailSent`, and nothing persists it. A row rendered from the database
+         a day later cannot tell a delivered invitation from one the mail
+         provider refused, and the overview has a `mail.invitation_not_sent`
+         event proving that is not hypothetical. */
       <span className="rounded-btn bg-background px-2 py-1 text-xs font-semibold text-muted-foreground">
-        Invitation sent, not used yet
+        Invitation issued, not used yet
       </span>
     )
   }

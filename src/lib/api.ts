@@ -272,6 +272,28 @@ export async function fetchRecentLogs(limit = 20): Promise<RecentLogRow[]> {
 export type BehaviourType = 'disruptive' | 'withdrawn' | 'emotional' | 'physical'
 export type BehaviourIntensity = 'standard' | 'medium' | 'high'
 
+/**
+ * The words for the four types and three intensities, in one place.
+ *
+ * StudentTimeline had these as a local map and BehaviourLogModal has its own
+ * list carrying icons and tints, so a third copy for the edit dialog would
+ * have been the point at which they started disagreeing about what
+ * "emotional" is called. The modal keeps its own — it needs the icons — but
+ * anything that only needs the word reads these.
+ */
+export const BEHAVIOUR_LABEL: Record<BehaviourType, string> = {
+  disruptive: 'Disruptive',
+  withdrawn: 'Withdrawn',
+  emotional: 'Emotional',
+  physical: 'Physical',
+}
+
+export const INTENSITY_LABEL: Record<BehaviourIntensity, string> = {
+  standard: 'Standard',
+  medium: 'Medium',
+  high: 'High',
+}
+
 export type NewBehaviourLog = {
   studentId: string
   /** Must be the signed-in user: the RLS policy checks logged_by = auth.uid(). */
@@ -441,6 +463,102 @@ export async function setLogShared(
   // Also catches the FR14 admin lock: after acknowledgement the author's
   // update matches no rows, and without this it would look like it worked.
   assertChanged(data, 'The sharing change')
+}
+
+/**
+ * One behaviour log, with the two fields that decide whether it may be edited.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS EXISTS SEPARATELY FROM THE TIMELINE ROW
+ * ---------------------------------------------------------------------------
+ * `TimelineRow` carries `actor_id` but not `safeguarding_acknowledged_at`, and
+ * acknowledgement is exactly what closes the author's window to edit — db/010:
+ * "The teacher keeps full control right up until a responsible adult formally
+ * looks at it, and not one moment after."
+ *
+ * Reading the row itself rather than widening the timeline view keeps this in
+ * app code, and reads the authoritative record instead of a projection of it
+ * that could go stale between the list loading and somebody clicking Edit.
+ */
+export type EditableBehaviourLog = {
+  id: string
+  behaviour_type: BehaviourType
+  intensity: BehaviourIntensity
+  notes: string | null
+  duration_seconds: number | null
+  occurred_at: string
+  logged_by: string | null
+  safeguarding_acknowledged_at: string | null
+}
+
+export async function fetchBehaviourLog(
+  logId: string,
+): Promise<EditableBehaviourLog> {
+  const { data, error } = await supabase
+    .from('behaviour_logs')
+    .select(
+      'id, behaviour_type, intensity, notes, duration_seconds, occurred_at, logged_by, safeguarding_acknowledged_at',
+    )
+    .eq('id', logId)
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data as EditableBehaviourLog
+}
+
+/**
+ * Correct an observation — the capability db/010 granted and nothing offered.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PROMISE THAT HAD NO CONTROL BEHIND IT
+ * ---------------------------------------------------------------------------
+ * db/010 replaced the update policy so the author may edit while
+ * `safeguarding_acknowledged_at is null`, and a school or platform admin may
+ * always edit "because someone has to be able to correct a genuine error".
+ * `audit_behaviour_log_edited` was written to record those edits. The educator
+ * dashboard tells a teacher, in the dialog that saves a log, "You can still
+ * add detail until an administrator acknowledges it."
+ *
+ * No screen ever issued the update. A teacher who mistyped what a child did
+ * had no way to fix it, and — because a log can be shared with the family —
+ * the wrong sentence was the one the parents read.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT IS NOT EDITABLE HERE, ON PURPOSE
+ * ---------------------------------------------------------------------------
+ * Not the student, not who logged it, not when it happened, and not the risk
+ * flag. Those are not corrections; changing any of them turns this record into
+ * a record of something else, and the flag is the safeguarding queue's own.
+ * A log about the wrong child is withdrawn, not renamed.
+ */
+export async function updateBehaviourLog(
+  logId: string,
+  fields: {
+    behaviourType: BehaviourType
+    intensity: BehaviourIntensity
+    notes: string
+    durationSeconds: number | null
+  },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('behaviour_logs')
+    .update({
+      behaviour_type: fields.behaviourType,
+      intensity: fields.intensity,
+      notes: fields.notes.trim() === '' ? null : fields.notes.trim(),
+      duration_seconds: fields.durationSeconds,
+    })
+    .eq('id', logId)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  /*
+   * The refusal this must catch: an author editing a log an administrator has
+   * since acknowledged. RLS filters the row out, the update touches nothing,
+   * and PostgREST answers 200 with an empty array — success, with the old text
+   * still in the database and a screen that says it saved.
+   */
+  assertChanged(data, 'The correction')
 }
 
 // ---------------------------------------------------------------------------
@@ -6949,6 +7067,7 @@ export const queryKeys = {
   iepPlans: (studentId: string) => ['iep-plans', studentId] as const,
   goalPlanLinks: (studentId: string) => ['goal-plan-links', studentId] as const,
   iepPlan: (planId: string) => ['iep-plan', planId] as const,
+  behaviourLog: (id: string) => ['behaviour-log', id] as const,
   iepPlanConfirmations: (planId: string) =>
     ['iep-plan-confirmations', planId] as const,
   iepSupport: (planId: string) => ['iep-support', planId] as const,

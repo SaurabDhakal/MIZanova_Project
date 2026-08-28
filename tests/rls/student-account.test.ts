@@ -297,6 +297,64 @@ describe('what a student must never see', () => {
     expect(data ?? []).toEqual([])
   })
 
+  /*
+   * THE STRUCTURED PLAN, NOT JUST THE UPLOADED FILE.
+   *
+   * The test above refuses `iep_documents`, and db/074's reasoning for it — a
+   * plan often names a diagnosis a family may not have discussed with the
+   * child — applies word for word to db/054's `iep_plans`, which holds the
+   * same content as rows instead of a PDF.
+   *
+   * Nothing in db/054 or db/074 mentions the other. It is closed only because
+   * `can_view_student` happens to have no student branch, so a single later
+   * migration widening that helper for some unrelated reason would open a
+   * child's own areas of concern to them with no test objecting. That is too
+   * quiet a way to lose this, so it is asserted here rather than inferred.
+   */
+  test('their own IEP plan, even once it is agreed', async () => {
+    const { data: plan } = await admin
+      .from('iep_plans')
+      .insert({
+        student_id: world.childA,
+        baseline: 'Settles quickly at drop-off.',
+      })
+      .select('id')
+      .single()
+    await admin
+      .from('iep_plans')
+      .update({ status: 'agreed' })
+      .eq('id', plan!.id)
+
+    const { data } = await student.db.from('iep_plans').select('id')
+
+    expect(data ?? []).toEqual([])
+  })
+
+  test('nor the areas of concern written on it', async () => {
+    const { data: plan } = await admin
+      .from('iep_plans')
+      .insert({ student_id: world.childA })
+      .select('id')
+      .single()
+    // The goal goes on while the plan is still a draft: db/054's freeze refuses
+    // one added afterwards, which is the point of agreeing.
+    const { error: goalError } = await admin.from('iep_goals').insert({
+      plan_id: plan!.id,
+      area_of_concern: 'Emotional regulation',
+      long_term_goal: 'Ask for a break before becoming distressed.',
+      short_term_goal: 'Use the break card once a day.',
+    })
+    expect(goalError).toBeNull()
+    await admin.from('iep_plans').update({ status: 'agreed' }).eq('id', plan!.id)
+
+    const { data } = await student.db.from('iep_goals').select('area_of_concern')
+
+    // iep_goals_select inherits the plan's visibility, so this follows from the
+    // test above — asserted separately because it is the row that carries the
+    // words a child should not meet on a screen.
+    expect(data ?? []).toEqual([])
+  })
+
   test('invoices — a child is not the payer', async () => {
     const { data } = await student.db.from('invoices').select('id')
 

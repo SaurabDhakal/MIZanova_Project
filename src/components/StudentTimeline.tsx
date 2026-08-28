@@ -21,6 +21,7 @@ import { ErrorState } from './QueryState'
 import Icon, { type IconName } from './Icon'
 import Spinner from './Spinner'
 import StrategyPanel from './StrategyPanel'
+import EditBehaviourLogDialog from './EditBehaviourLogDialog'
 
 /**
  * One child's story, in date order.
@@ -156,6 +157,7 @@ function Entry({
   sharing: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
   const time = timeLabel(row.occurred_at)
   const actionable = row.kind === 'behaviour'
 
@@ -245,6 +247,31 @@ function Entry({
                     : 'Not shared with parents'}
                 </span>
               </label>
+
+              {/*
+                CORRECTING THE OBSERVATION — db/010 allowed it and nothing
+                offered it. Shown to everyone who can see the log rather than
+                only its author: a school administrator may correct any of
+                them, and the dialog says which rule applies once it has read
+                the record. Hiding it here would have meant guessing at the
+                acknowledgement state from a timeline row that does not carry
+                it.
+              */}
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="mt-3 text-sm font-semibold text-primary hover:underline"
+              >
+                Correct this observation
+              </button>
+
+              {editing && (
+                <EditBehaviourLogDialog
+                  logId={row.source_id}
+                  studentId={studentId}
+                  onClose={() => setEditing(false)}
+                />
+              )}
 
               <div className="mt-3">
                 <StrategyPanel
