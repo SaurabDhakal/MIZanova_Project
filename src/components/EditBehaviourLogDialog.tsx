@@ -75,7 +75,6 @@ function CorrectionForm({
         behaviourType: behaviour,
         intensity,
         notes,
-        durationSeconds: log.duration_seconds,
       }),
     onSuccess: async () => {
       // The same prefix StudentTimeline invalidates after a share, so every

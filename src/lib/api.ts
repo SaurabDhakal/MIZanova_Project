@@ -426,21 +426,10 @@ export type StudentLogRow = {
   is_risk_flagged: boolean
 }
 
-/** Full behaviour history for one student, newest first. */
-export async function fetchStudentLogs(
-  studentId: string,
-): Promise<StudentLogRow[]> {
-  const { data, error } = await supabase
-    .from('behaviour_logs')
-    .select(
-      'id, behaviour_type, intensity, notes, notes_source, occurred_at, duration_seconds, shared_with_parents, is_risk_flagged',
-    )
-    .eq('student_id', studentId)
-    .order('occurred_at', { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return data ?? []
-}
+/* fetchStudentLogs lived here. db/056 folded the four per-type lists into
+   one timeline, so StudentTimeline reads `fetchStudentTimeline` instead and
+   nothing had called this since. StudentLogRow stays — fetchSharedLogs, the
+   parent dashboard's query, still returns it. */
 
 /**
  * Share a log with the child's guardians, or withdraw that.
@@ -485,7 +474,6 @@ export type EditableBehaviourLog = {
   behaviour_type: BehaviourType
   intensity: BehaviourIntensity
   notes: string | null
-  duration_seconds: number | null
   occurred_at: string
   logged_by: string | null
   safeguarding_acknowledged_at: string | null
@@ -497,7 +485,7 @@ export async function fetchBehaviourLog(
   const { data, error } = await supabase
     .from('behaviour_logs')
     .select(
-      'id, behaviour_type, intensity, notes, duration_seconds, occurred_at, logged_by, safeguarding_acknowledged_at',
+      'id, behaviour_type, intensity, notes, occurred_at, logged_by, safeguarding_acknowledged_at',
     )
     .eq('id', logId)
     .single()
@@ -537,16 +525,27 @@ export async function updateBehaviourLog(
     behaviourType: BehaviourType
     intensity: BehaviourIntensity
     notes: string
-    durationSeconds: number | null
   },
 ): Promise<void> {
+  /*
+   * `duration_seconds` IS NOT HERE, AND MUST NOT BE.
+   *
+   * db/005 declares it `generated always as (...)`, computed from the start
+   * and end of the observation. Postgres refuses ANY write to a generated
+   * column — including writing back the value you just read — with
+   * "column can only be updated to DEFAULT".
+   *
+   * The first version of this passed it straight through from the fetched row,
+   * on the reasoning that an unchanged field is safe to include. It is not:
+   * every correction failed with that error, and db/seed_demo_school.sql
+   * already carries the same warning about the same column.
+   */
   const { data, error } = await supabase
     .from('behaviour_logs')
     .update({
       behaviour_type: fields.behaviourType,
       intensity: fields.intensity,
       notes: fields.notes.trim() === '' ? null : fields.notes.trim(),
-      duration_seconds: fields.durationSeconds,
     })
     .eq('id', logId)
     .select('id')
@@ -4251,19 +4250,13 @@ export async function fetchSystemEvents(limit = 50): Promise<SystemEvent[]> {
  * this was. The event is never edited and never deleted; the note sits beside
  * it, and the database sets the timestamp so "I looked on Tuesday" cannot be
  * written on Friday.
+ *
+ * PLURAL, because the singular had no callers. A drill writes three identical
+ * events every run and an outage writes one per failed attempt, so reviewing
+ * them one at a time was never what anybody wanted; ReviewEvents.tsx has only
+ * ever called this. The one-event wrapper was deleted rather than kept "in
+ * case" — an exported function nothing calls reads as a feature that exists.
  */
-export async function reviewSystemEvent(
-  eventId: string,
-  note: string,
-): Promise<void> {
-  const { error } = await supabase.rpc('review_system_event', {
-    p_event_id: eventId,
-    p_note: note,
-  })
-  if (error) throw new Error(error.message)
-}
-
-/** The drill writes three identical events every run; review them together. */
 export async function reviewSystemEventsLike(
   source: string,
   event: string,
