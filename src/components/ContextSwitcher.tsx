@@ -71,6 +71,29 @@ export default function ContextSwitcher() {
     onError: (error) => showToast(error.message),
   })
 
+  /*
+   * A SWITCHER THAT VANISHES LOOKS LIKE ONE SCHOOL, NOT LIKE A FAILURE.
+   *
+   * This returned null whenever fewer than two memberships came back, and
+   * `?? []` meant a failed lookup came back as none. A specialist working at
+   * two schools would then see one school's caseload with no control to change
+   * it — and db/040 scopes what they can see to the current school, so the
+   * other school's children are simply absent. The honest reading of that
+   * screen is "those children are gone", which is exactly wrong.
+   *
+   * Said instead. It is a header control, so it says it in one line.
+   */
+  if (memberships.isError) {
+    return (
+      <span
+        className="max-w-52 truncate rounded-btn border border-border px-3 py-2 text-xs text-muted-foreground"
+        title={memberships.error.message}
+      >
+        Schools could not be loaded
+      </span>
+    )
+  }
+
   const all = memberships.data ?? []
   if (all.length < 2) return null
 

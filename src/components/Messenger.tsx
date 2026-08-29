@@ -483,26 +483,47 @@ export default function Messenger({
             </div>
           )}
 
-        {visibleThreads.length === 0 && canStartWith.length === 0 && (
-          !(
-            educatorInbox &&
-            studentThreads.length > 0 &&
-            (normalisedSearch || unreadOnly)
-          ) && (
-            <EmptyState
-              title={
-                studentId
-                  ? 'No conversations about this student yet'
-                  : 'No conversations yet'
-              }
-              detail={
-                studentId
-                  ? 'Start one below, or choose a different student.'
-                  : 'Conversations become available once staff are assigned and guardians are linked.'
-              }
-            />
-          )
+        {/*
+          THE EMPTY STATE EXPLAINS THE ABSENCE, SO IT MUST KNOW THE CAUSE.
+
+          `canStartWith` filters `careTeam.data ?? []`, so a failed lookup made
+          it empty and — with no threads to show — printed "Conversations
+          become available once staff are assigned and guardians are linked."
+          That is not a neutral emptiness; it names a reason, and the reason
+          would have been invented. Existing conversations are unaffected by
+          that lookup, which is worth saying so nobody assumes the whole screen
+          is broken.
+        */}
+        {careTeam.isError && visibleThreads.length === 0 && (
+          <p className="rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
+            Who you can start a conversation with could not be loaded, so this
+            is unknown rather than nobody. Conversations you already have are
+            not affected.
+          </p>
         )}
+
+        {!careTeam.isError &&
+          visibleThreads.length === 0 &&
+          canStartWith.length === 0 && (
+            !(
+              educatorInbox &&
+              studentThreads.length > 0 &&
+              (normalisedSearch || unreadOnly)
+            ) && (
+              <EmptyState
+                title={
+                  studentId
+                    ? 'No conversations about this student yet'
+                    : 'No conversations yet'
+                }
+                detail={
+                  studentId
+                    ? 'Start one below, or choose a different student.'
+                    : 'Conversations become available once staff are assigned and guardians are linked.'
+                }
+              />
+            )
+          )}
 
         {visibleThreads.length > 0 && (
           <ul className="overflow-hidden rounded-card border border-border bg-card shadow-raised">
