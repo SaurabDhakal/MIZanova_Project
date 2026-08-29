@@ -1493,9 +1493,35 @@ export type SafeguardingRow = {
  * query: a school admin's RLS reaches exactly their own school's students, so
  * adding one here would duplicate the boundary in a place that can be edited.
  */
+/**
+ * The safeguarding queue, with the TRUE number of incidents in it.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS COUNTS INSTEAD OF LETTING THE SCREEN MEASURE THE LIST
+ * ---------------------------------------------------------------------------
+ * This asked for rows with no range, so PostgREST returned at most its default
+ * 1000 and the screen printed `incidents.data.length` as "N incidents, oldest
+ * first". At a school with more open incidents than that, the sentence would
+ * have read "1000 incidents" for as long as the backlog lasted — a figure that
+ * looks precise, is wrong, and is wrong about safeguarding.
+ *
+ * `toPage`'s comment states the rule this broke: a Page exists "so no screen
+ * counts rows itself".
+ *
+ * ---------------------------------------------------------------------------
+ * A CAP THAT IS SAID OUT LOUD, NOT ONE THAT HAPPENS
+ * ---------------------------------------------------------------------------
+ * The range is explicit and much smaller than PostgREST's, because a limit the
+ * caller chose can be described to somebody and a limit inherited from a
+ * default cannot. Ordering is oldest-first and unchanged, so the rows returned
+ * are the ones that have been waiting longest — the right ones to show if only
+ * some can be. The screen says when it is showing part of a longer queue.
+ */
+export const SAFEGUARDING_PAGE = 200
+
 export async function fetchSafeguardingQueue(
   open: boolean,
-): Promise<SafeguardingRow[]> {
+): Promise<Page<SafeguardingRow>> {
   let query = supabase
     .from('behaviour_logs')
     .select(
@@ -1503,17 +1529,26 @@ export async function fetchSafeguardingQueue(
        safeguarding_acknowledged_at, safeguarding_note,
        students ( display_name, external_ref, year_level ),
        profiles!behaviour_logs_logged_by_fkey ( full_name )`,
+      // Same round trip. The count is the whole queue; the rows are a window
+      // onto it.
+      { count: 'exact' },
     )
     .eq('is_risk_flagged', true)
     .order('occurred_at', { ascending: true })
+    .range(0, SAFEGUARDING_PAGE - 1)
 
   query = open
     ? query.is('safeguarding_acknowledged_at', null)
     : query.not('safeguarding_acknowledged_at', 'is', null)
 
-  const { data, error } = await query
+  const { data, error, count } = await query
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as SafeguardingRow[]
+  return toPage(
+    (data ?? []) as unknown as SafeguardingRow[],
+    count,
+    0,
+    SAFEGUARDING_PAGE,
+  )
 }
 
 /**
