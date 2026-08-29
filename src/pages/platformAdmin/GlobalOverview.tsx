@@ -259,11 +259,42 @@ export default function GlobalOverview() {
           every payment from now on is taken by Stripe and never recorded. The
           server cannot tell them apart; a person can, once. */}
       {(() => {
-        const serious = (systemEvents.data ?? []).filter(
-          (e) =>
-            e.reviewed_at === null &&
-            (e.severity === 'critical' || e.severity === 'warning'),
-        )
+        /*
+         * THE FAULT THE NOTE ABOVE DESCRIBES, ON THE PANEL IT DESCRIBES.
+         *
+         * This read `(systemEvents.data ?? []).filter(...)` and returned null
+         * at zero — so a failed query and a healthy platform drew exactly the
+         * same thing: nothing. `screening` and `unscreened` were given
+         * `isError` branches for precisely this reason a few lines up; the
+         * events query, which is what actually raises the alarm, was missed.
+         *
+         * A silent panel now means the check ran and found nothing.
+         */
+        if (systemEvents.isError) {
+          return (
+            <div
+              role="alert"
+              className="mb-6 rounded-card border border-warning bg-warning-subtle p-5"
+            >
+              <p className="font-bold text-warning-foreground">
+                Recent problems could not be read
+              </p>
+              <p className="mt-1 max-w-prose text-sm text-foreground">
+                This panel is quiet because the check failed, not because
+                nothing is wrong. Reload the page; if it keeps failing, treat
+                that as the problem.
+              </p>
+            </div>
+          )
+        }
+
+        const serious = systemEvents.isSuccess
+          ? systemEvents.data.filter(
+              (e) =>
+                e.reviewed_at === null &&
+                (e.severity === 'critical' || e.severity === 'warning'),
+            )
+          : []
         if (serious.length === 0) return null
 
         return (
