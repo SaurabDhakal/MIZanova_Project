@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
     "lint": "eslint .",
     "server": "node --env-file=.env.local server/index.js",
     "apply-db": "node scripts/apply-db.mjs",

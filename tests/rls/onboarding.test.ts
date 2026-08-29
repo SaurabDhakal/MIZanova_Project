@@ -33,6 +33,26 @@ const sha256 = (raw: string) => createHash('sha256').update(raw).digest('hex')
 /** The server's normalisation: any case, dashes or spaces, all equivalent. */
 const normalise = (code: string) => code.toUpperCase().replace(/[^0-9A-Z]/g, '')
 
+/**
+ * AN EXPIRY THE TWO CLOCKS CANNOT DISAGREE ABOUT.
+ *
+ * Both expiry tests used `Date.now() - 1000` — one second in the past by THIS
+ * MACHINE's clock, checked against `expires_at < now()` evaluated on the
+ * DATABASE's. Measured on 29 August 2026 this laptop ran 943 ms ahead of the
+ * Supabase server, which left the row 57 ms in the server's past: still
+ * "expired", but by less than ordinary jitter. Drift a little further and the
+ * timestamp lands in the server's FUTURE, the invitation is perfectly valid,
+ * the redemption succeeds, and a test whose whole job is to prove expiry is
+ * enforced fails — or worse, passes while the rule is broken.
+ *
+ * This is the same fault db/021 exists to prevent and the second time it has
+ * bitten this suite; the consent test hit it earlier with `revoked_at`. An
+ * hour is not a nicer number, it is one no plausible clock difference between
+ * a laptop and a Sydney server can cross.
+ */
+const DEFINITELY_EXPIRED = () =>
+  new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
 let world: World
 /** Somebody with an account and no school, ready to be invited. */
 let newcomer: Actor
@@ -265,7 +285,7 @@ describe('redeeming an invitation', () => {
     await issueInvitation('expired@example.com', 'educator', raw)
     await admin
       .from('invitations')
-      .update({ expires_at: new Date(Date.now() - 1000).toISOString() })
+      .update({ expires_at: DEFINITELY_EXPIRED() })
       .eq('token_hash', sha256(raw))
 
     const { error } = await admin.rpc('redeem_invitation', {
@@ -508,7 +528,7 @@ describe('redeeming a guardian code', () => {
     await issueCode(world.childA, 'expiredcode@example.com', raw)
     await admin
       .from('guardian_access_codes')
-      .update({ expires_at: new Date(Date.now() - 1000).toISOString() })
+      .update({ expires_at: DEFINITELY_EXPIRED() })
       .eq('code_hash', sha256(normalise(raw)))
 
     const { data } = await admin.rpc('redeem_guardian_code', {
