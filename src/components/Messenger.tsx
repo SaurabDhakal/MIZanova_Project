@@ -801,7 +801,11 @@ export default function Messenger({
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {/* sr-only hides it from sight, NOT from a screen reader —
+                    it stays in the tab order, so without a name it is
+                    announced as an unlabelled file field. */}
                 <input
+                  aria-label="Attach files to this message"
                   ref={fileInputRef}
                   type="file"
                   multiple

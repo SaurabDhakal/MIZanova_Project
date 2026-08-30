@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { cloneElement, isValidElement, useId, useState } from 'react'
+import type { ReactElement } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import IepAgreement from '../../components/IepAgreement'
 import IepSupportSchedule from '../../components/IepSupportSchedule'
@@ -80,11 +81,50 @@ function Field({
   hint?: string
   children: React.ReactNode
 }) {
+  /*
+   * THE LABEL WAS A PARAGRAPH, SO THERE WAS NO LABEL.
+   *
+   * This rendered `<p>{label}</p>` above the control. It looked labelled and
+   * was not: nothing connected the words to the field, so a screen reader
+   * announced "edit text" with no name, and clicking the label focused
+   * nothing. Across the twelve fields of the plan editor — the longest form in
+   * the product, carrying a child's education plan.
+   *
+   * `FormField.tsx` has always done this correctly with `useId()`. This was a
+   * local shortcut that lost it, which is the easier mistake to make: the
+   * screen looks identical either way.
+   *
+   * The id is injected rather than asked for, so the twelve call sites do not
+   * change. Every one of them holds exactly one element — an input, a textarea,
+   * or the read-only paragraph the frozen plan shows instead — and cloning it
+   * to add `id` and `aria-describedby` is what lets the label point at it.
+   *
+   * The hint is a DESCRIPTION, not part of the name. Put inside the label it
+   * would be read out with every field: "Long term goal specific measurable
+   * achievable realistic timed". `aria-describedby` keeps it available without
+   * making it the field's name.
+   */
+  const id = useId()
+  const hintId = hint ? id + '-hint' : undefined
+
+  const control = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+        id,
+        'aria-describedby': hintId,
+      })
+    : children
+
   return (
     <div>
-      <p className="text-sm font-semibold text-foreground">{label}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      <div className="mt-1.5">{children}</div>
+      <label htmlFor={id} className="text-sm font-semibold text-foreground">
+        {label}
+      </label>
+      {hint && (
+        <p id={hintId} className="mt-0.5 text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      <div className="mt-1.5">{control}</div>
     </div>
   )
 }
@@ -661,13 +701,21 @@ function Participants({
 
       {!frozen && (
         <div className="mt-2 flex flex-wrap gap-2">
+          {/*
+            A PLACEHOLDER IS NOT A NAME. It disappears the moment somebody
+            types, several screen readers ignore it outright, and these two
+            sit in a row with no visible label of their own — so without this
+            they were announced as "edit text, edit text".
+          */}
           <input
+            aria-label="Name of somebody involved in this plan"
             className={`${inputClass} max-w-52`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Name"
           />
           <input
+            aria-label="Their role"
             className={`${inputClass} max-w-52`}
             value={role}
             onChange={(e) => setRole(e.target.value)}

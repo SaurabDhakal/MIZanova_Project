@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useModalDialog } from '../hooks/useModalDialog'
 
 /**
  * Confirming something that cannot be taken back.
@@ -56,15 +57,16 @@ export default function ConfirmDestructive({
   onConfirm: () => void
   onCancel: () => void
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dialogRef = useModalDialog(onCancel)
   const phraseRef = useRef<HTMLInputElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const [typed, setTyped] = useState('')
   const titleId = useId()
   const phraseId = useId()
 
+  /* The hook opens it; this only moves focus to the field somebody must type
+     in, or to Cancel when there is none. */
   useEffect(() => {
-    dialogRef.current?.showModal()
     ;(phraseRef.current ?? cancelRef.current)?.focus()
   }, [])
 

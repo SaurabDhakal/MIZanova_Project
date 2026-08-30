@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BEHAVIOUR_LABEL,
@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../lib/auth'
 import { showToast } from '../lib/toast'
 import { ErrorState } from './QueryState'
+import { useModalDialog } from '../hooks/useModalDialog'
 
 /**
  * Correcting an observation — db/010's update policy, which had no screen.
@@ -218,16 +219,13 @@ export default function EditBehaviourLogDialog({
   onClose: () => void
 }) {
   const { profile, session } = useAuth()
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dialogRef = useModalDialog(onClose)
 
   const log = useQuery({
     queryKey: queryKeys.behaviourLog(logId),
     queryFn: () => fetchBehaviourLog(logId),
   })
 
-  useEffect(() => {
-    dialogRef.current?.showModal()
-  }, [])
 
   const isAdmin =
     profile?.role === 'school_admin' || profile?.role === 'platform_admin'

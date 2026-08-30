@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   queryKeys,
@@ -13,6 +13,7 @@ import Icon from './Icon'
 import { type IconName } from '../lib/icons'
 import { formatDuration, useTimer } from '../hooks/useTimer'
 import { useSpeechToText } from '../hooks/useSpeechToText'
+import { useModalDialog } from '../hooks/useModalDialog'
 
 /**
  * Quick Log — docs/Figma Pages Design/Behaviour Logging Model.png.
@@ -92,7 +93,7 @@ export default function BehaviourLogModal({
   // to a teacher who had chosen both.
   const { session } = useAuth()
   const queryClient = useQueryClient()
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dialogRef = useModalDialog(onClose)
 
   const timer = useTimer()
   const [behaviour, setBehaviour] = useState<BehaviourType | null>(null)
@@ -111,9 +112,6 @@ export default function BehaviourLogModal({
     setNotes((current) => (current ? `${current} ${text}` : text))
   })
 
-  useEffect(() => {
-    dialogRef.current?.showModal()
-  }, [])
 
   const save = useMutation({
     // WITHOUT THIS, OFFLINE LOGGING CANNOT WORK.

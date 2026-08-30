@@ -312,6 +312,7 @@ export default function AddStudents() {
               read in this order: {IMPORT_COLUMNS.join(', ')}.
             </p>
             <textarea
+              aria-label="Paste student rows, one per line"
               rows={5}
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
@@ -338,6 +339,7 @@ export default function AddStudents() {
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
+                aria-label="Choose a spreadsheet of students"
                 ref={fileInput}
                 type="file"
                 accept=".csv,.xlsx,.xls,text/csv"
