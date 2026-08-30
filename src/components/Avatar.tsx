@@ -1,3 +1,4 @@
+import { colourFor } from '../lib/monogram'
 /**
  * A person, shown as a coloured monogram.
  *
@@ -31,30 +32,10 @@
  * rather than merely visible as shape.
  */
 
-const PALETTE = [
-  '#1b3a6b', // 11.27:1 with white
-  '#2b6f8f', //  5.57:1
-  '#3f7233', //  5.73:1
-  '#5b4b8a', //  7.45:1
-  '#8a4b2f', //  6.71:1
-  '#7d2f4f', //  8.78:1
-  '#2f6b5e', //  6.20:1
-  '#4a5568', //  7.53:1
-]
-
 const SIZES = {
   sm: 'h-7 w-7 text-[0.65rem]',
   md: 'h-9 w-9 text-xs',
   lg: 'h-12 w-12 text-base',
-}
-
-/** Stable across reloads and machines; `id` is a uuid, so any bucket is fine. */
-function colourFor(id: string): string {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0
-  }
-  return PALETTE[Math.abs(hash) % PALETTE.length]
 }
 
 /**

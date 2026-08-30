@@ -4,6 +4,7 @@ import {
   createSession,
   fetchGoals,
   fetchSessionNotes,
+  saveSessionNotes,
   fetchSessions,
   queryKeys,
   setSessionSharing,
@@ -34,22 +35,122 @@ import { showToast } from '../lib/toast'
  */
 
 function SessionNotes({ sessionId }: { sessionId: string }) {
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
   const notes = useQuery({
     queryKey: ['session-notes', sessionId],
     queryFn: () => fetchSessionNotes(sessionId),
   })
 
+  const save = useMutation({
+    mutationFn: () => saveSessionNotes(sessionId, draft),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['session-notes', sessionId],
+      })
+      setEditing(false)
+      setError(null)
+      showToast('Clinical note saved.')
+    },
+    onError: (e) => setError(e.message),
+  })
+
   if (notes.isPending) return null
-  if (!notes.data) return null
+
+  /*
+   * ABSENT NOTES USED TO RENDER NOTHING AT ALL, and that was the whole problem.
+   *
+   * createSession writes the session and the note as two statements, and when
+   * the second fails it tells the specialist "the session was saved but your
+   * clinical notes were not — open the session and add them again". This
+   * component returned null whenever there were no notes, so there was nothing
+   * to open and no way to add them. db/028 has always permitted both writing
+   * and revising; nothing called either.
+   */
+  const empty = !notes.data
 
   return (
     <div className="mt-3 rounded-btn bg-background p-3">
       <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         Clinical notes — specialists only
       </p>
-      <p className="mt-1 text-sm whitespace-pre-wrap text-foreground">
-        {notes.data}
-      </p>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-2 rounded-btn border border-danger bg-danger-subtle p-2 text-sm text-danger-foreground"
+        >
+          {error}
+        </p>
+      )}
+
+      {editing ? (
+        <form
+          className="mt-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (draft.trim() === '')
+              return setError('A clinical note cannot be empty.')
+            setError(null)
+            save.mutate()
+          }}
+        >
+          <textarea
+            aria-label="Clinical notes"
+            rows={4}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {/* Said because the equivalent control on a behaviour log carries
+                the opposite warning, and the difference is not obvious. */}
+            Not shown to the family. What they see is the shared summary above.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={save.isPending}
+              className="rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {save.isPending ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {empty ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              No clinical note on this session.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm whitespace-pre-wrap text-foreground">
+              {notes.data}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(notes.data ?? '')
+              setEditing(true)
+              setError(null)
+            }}
+            className="mt-2 text-xs font-semibold text-primary hover:underline"
+          >
+            {empty ? 'Add a clinical note' : 'Revise this note'}
+          </button>
+        </>
+      )}
     </div>
   )
 }

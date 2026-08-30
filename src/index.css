@@ -448,3 +448,93 @@ select:not([aria-invalid='true']) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ===========================================================================
+ * PRINTING — and why there is no PDF library in this project
+ * ===========================================================================
+ * The brief asks for "exportable reports (PDF/CSV)", and Pricing sells a
+ * "Quarterly 3-month progress report (PDF)" on the Mid-size plan, so this is a
+ * commitment to customers rather than a nice-to-have.
+ *
+ * It is done with the browser's own print engine and about two kilobytes of CSS
+ * instead of jsPDF or pdfmake, for three reasons that all come from this
+ * product rather than from taste:
+ *
+ * 1. EVERY BYTE IS PRECACHED. vite.config.ts precaches the whole shell so the
+ *    app opens from disk, and the brief names "Equity of Access and
+ *    Connectivity Limitations" as a core challenge — rural and remote schools
+ *    on unreliable connections. A ~100KB library downloaded and stored on every
+ *    laptop, for a button pressed once a term, is the wrong trade.
+ *
+ * 2. A RASTERISED PDF IS NOT ACCESSIBLE. The usual html2canvas + jsPDF route
+ *    produces an image of a page: no selectable text, no screen reader, no
+ *    search. For a neurodiversity product with an accessibility requirement,
+ *    handing a family a picture of their child's progress report is the wrong
+ *    artefact — especially one they may pass to a clinician.
+ *
+ * 3. The browser already does it properly: real fonts, real pagination, real
+ *    text, and "Save as PDF" is in the dialog on every platform.
+ * =========================================================================== */
+@media print {
+  /* Colour is the FIRST thing a print stylesheet has to settle. Browsers drop
+     backgrounds by default, which turns a coloured status pill into invisible
+     text on white. Keeping them costs ink; losing them loses meaning. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Whatever the reader's theme, a printed page is ink on white. Forcing the
+     light tokens stops a dark-mode user printing white text onto white paper —
+     which is a blank page rather than an obviously broken one. */
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+  }
+
+  @page {
+    /* Wide enough for a hole punch on the left, which is where a report like
+       this ends up: in a folder somebody brings to a meeting. */
+    margin: 18mm 14mm 16mm 20mm;
+  }
+
+  body {
+    background: white;
+  }
+
+  /* Nothing that cannot be pressed on paper. */
+  .print-hide,
+  nav,
+  aside,
+  button {
+    display: none !important;
+  }
+
+  /* Only shown on paper: the context a screen gets from its own chrome — whose
+     report this is, and when it was produced. Without it a printed page is a
+     list of goals belonging to nobody. */
+  .print-only {
+    display: block !important;
+  }
+
+  /* A card split across a page break reads as two half-cards. */
+  .print-keep {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Flat on paper. A drop shadow prints as a grey smear. */
+  .shadow-raised {
+    box-shadow: none !important;
+  }
+
+  a {
+    text-decoration: underline;
+  }
+}
+
+/* Hidden on screen, shown by the block above. Kept out of @media print so the
+   element is in the document and can be styled normally while building it. */
+.print-only {
+  display: none;
+}

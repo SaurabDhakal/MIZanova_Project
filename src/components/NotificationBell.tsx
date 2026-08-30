@@ -148,6 +148,32 @@ function itemsFor(queue: WorkQueue, basePath: string) {
     to: `${basePath}/finance`,
   }))
 
+  /*
+   * db/072's two sides, and they are different questions.
+   *
+   * A platform admin is owed money nobody has chased — so this counts only
+   * invoices PAST their due date, because one issued this morning is not work.
+   *
+   * A school admin owes it — so theirs counts every issued invoice, because
+   * "you have one to pay" is the prompt that prevents the overdue one, and
+   * waiting until it is late would be withholding it.
+   */
+  add(queue.platformInvoicesOverdue, (n) => ({
+    key: 'platform-invoices-overdue',
+    label: `${plural(n, 'school invoice', 'school invoices')} past its due date`,
+    detail: 'Issued to a school and not paid by the date on it',
+    to: `${basePath}/subscriptions`,
+  }))
+
+  add(queue.platformInvoicesToPay, (n) => ({
+    key: 'platform-invoices-to-pay',
+    label: `${plural(n, 'invoice', 'invoices')} from Special Miles`,
+    detail: 'Issued to your school and not settled yet',
+    // Settings, not this role's basePath: what a school pays Special Miles
+    // lives on Settings > School, beside the rest of that relationship.
+    to: '/account/school',
+  }))
+
   return { items, unreadable }
 }
 

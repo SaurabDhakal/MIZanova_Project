@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   createSchool,
+  fetchSchools,
   queryKeys,
   type OrganisationKind,
   type OrganisationStatus,
@@ -33,16 +34,75 @@ import { showToast } from '../lib/toast'
  * "Active" from the moment it was created, the status column would tell Special
  * Miles nothing — which is the state db/053 just finished getting out of.
  */
-export default function AddSchoolSection() {
+/**
+ * Arriving from an enquiry — see the note on `prefill` below.
+ *
+ * Only the name travels. An enquiry records a contact, a phone number and a
+ * rough student count; it records nothing about WHERE the school is, so suburb
+ * and state stay empty rather than being guessed. A guessed suburb that nobody
+ * corrects is worse than a blank one somebody has to fill.
+ */
+export type SchoolPrefill = {
+  name: string
+  /** Shown so it is obvious which enquiry this school is being created from. */
+  fromContact: string
+}
+
+export default function AddSchoolSection({
+  prefill,
+}: {
+  /*
+   * WHY THIS EXISTS. Marking an enquiry "onboarded" only ever changed a word on
+   * a card. The enquiry already held the school's name, the contact and their
+   * number, and creating the school meant navigating here and retyping it with
+   * the enquiry on another screen — which is how a name ends up spelled two
+   * ways in one product.
+   */
+  prefill?: SchoolPrefill
+} = {}) {
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
+  const [open, setOpen] = useState(Boolean(prefill))
+  const [name, setName] = useState(prefill?.name ?? '')
   const [suburb, setSuburb] = useState('')
   const [state, setState] = useState('NSW')
   const [kind, setKind] = useState<OrganisationKind>('school')
   const [status, setStatus] = useState<OrganisationStatus>('trial')
   const [created, setCreated] = useState<SchoolRow | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+
+  /*
+   * NOTHING STOPS TWO SCHOOLS SHARING A NAME. `organisations.name` carries no
+   * unique constraint, deliberately — two real schools can be called
+   * "St Mary's" — so the database will accept a second one without complaint.
+   *
+   * That matters more now there is a button that arrives here prefilled: coming
+   * back to the same enquiry twice, or a double click, silently produces two
+   * schools and only one of them ever gets an administrator.
+   *
+   * A WARNING RATHER THAN A BLOCK, because the duplicate is sometimes correct
+   * and this screen cannot tell. It names the existing one and links to it, so
+   * the choice is made with the answer in view.
+   */
+  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const sameName = name.trim()
+    ? (schools.data ?? []).find(
+        (s) => s.name.trim().toLowerCase() === name.trim().toLowerCase(),
+      )
+    : undefined
+
+  /*
+   * A GUARD THAT CANNOT RUN MUST SAY SO, NOT PASS.
+   *
+   * `?? []` means a FAILED schools query and a database with no schools produce
+   * the same answer: no match, no warning, and the form looks checked. This is
+   * a duplicate-name guard, so failing open silently is the one behaviour it
+   * must not have — the whole reason it exists is that organisations.name has
+   * no unique constraint and nothing downstream would object.
+   *
+   * The seventh instance of this exact pattern in this project, and I wrote it
+   * this morning.
+   */
+  const checkFailed = schools.isError
 
   const add = useMutation({
     mutationFn: () => createSchool({ name, suburb, state, kind, status }),
@@ -116,6 +176,19 @@ export default function AddSchoolSection() {
         school hangs off.
       </p>
 
+      {/* Says where the name came from, so nobody wonders why the field is
+          already filled in — and names the person to ring if it is wrong. */}
+      {prefill && (
+        <p className="mb-4 rounded-btn border border-border bg-background/60 px-3 py-2.5 text-sm text-muted-foreground">
+          From the enquiry by{' '}
+          <span className="font-semibold text-foreground">
+            {prefill.fromContact}
+          </span>
+          . Check the name is how the school spells it — an enquiry form is
+          typed in a hurry.
+        </p>
+      )}
+
       <form
         noValidate
         onSubmit={(event) => {
@@ -134,13 +207,39 @@ export default function AddSchoolSection() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            label="Name"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Parramatta West Primary School"
-          />
+          <div>
+            <FormField
+              label="Name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Parramatta West Primary School"
+            />
+            {checkFailed && name.trim() !== '' && (
+              <p className="mt-1.5 text-sm text-warning-foreground">
+                <span className="font-semibold">
+                  The duplicate check could not run.
+                </span>{' '}
+                The existing schools could not be loaded, so this form does not
+                know whether this name is already taken.
+              </p>
+            )}
+            {sameName && (
+              <p className="mt-1.5 text-sm text-warning-foreground">
+                <span className="font-semibold">
+                  A school with this name already exists.
+                </span>{' '}
+                Adding this one makes a second.{' '}
+                <Link
+                  to={`/platform-admin/tenants/${sameName.id}`}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Open the existing one
+                </Link>
+                {sameName.suburb ? ` (${sameName.suburb})` : ''}.
+              </p>
+            )}
+          </div>
           <FormField
             label="Suburb"
             value={suburb}

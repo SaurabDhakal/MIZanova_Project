@@ -11,6 +11,7 @@ import Pagination from '../../components/Pagination'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import StudentAccountsSection from '../../components/StudentAccountsSection'
 
 /**
  * Everyone connected to this school, on one page.
@@ -337,6 +338,10 @@ export default function People() {
         connects them. Nothing on this page is a score or an activity count:
         everything shown is a fact the system actually holds.
       </p>
+
+      {/* db/076. Students are people at this school too, and until now the only
+          way to give one an account was to write SQL. */}
+      <StudentAccountsSection />
     </div>
   )
 }

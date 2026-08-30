@@ -86,6 +86,7 @@ const AccountSchool = lazy(() => import('./pages/account/School'))
 // --- Saurab: parent/ and platformAdmin/ ---
 const ParentDashboard = lazy(() => import('./pages/parent/Dashboard'))
 const HomeObservations = lazy(() => import('./pages/parent/HomeObservations'))
+const ParentAppointments = lazy(() => import('./pages/parent/Appointments'))
 const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
 const ParentMessages = lazy(() => import('./pages/parent/Messages'))
 const ParentProgress = lazy(() => import('./pages/parent/Progress'))
@@ -94,11 +95,17 @@ const ParentFinance = lazy(() => import('./pages/parent/Finance'))
 const LinkChild = lazy(() => import('./pages/parent/LinkChild'))
 
 const GlobalOverview = lazy(() => import('./pages/platformAdmin/GlobalOverview'))
+const StudentGoals = lazy(() => import('./pages/student/MyGoals'))
+const Academy = lazy(() => import('./pages/shared/Academy'))
+const Courses = lazy(() => import('./pages/platformAdmin/Courses'))
+const Library = lazy(() => import('./pages/shared/Library'))
+const Articles = lazy(() => import('./pages/platformAdmin/Articles'))
 const Schools = lazy(() => import('./pages/platformAdmin/Schools'))
 const AiGovernance = lazy(() => import('./pages/platformAdmin/AiGovernance'))
 const Verification = lazy(() => import('./pages/platformAdmin/Verification'))
 const AuditLog = lazy(() => import('./pages/platformAdmin/AuditLog'))
 const Billing = lazy(() => import('./pages/platformAdmin/Billing'))
+const Subscriptions = lazy(() => import('./pages/platformAdmin/Subscriptions'))
 const Enquiries = lazy(() => import('./pages/platformAdmin/Enquiries'))
 const Applications = lazy(() => import('./pages/platformAdmin/Applications'))
 const Screening = lazy(() => import('./pages/platformAdmin/Screening'))
@@ -159,6 +166,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   // --- Saurab: parent: and platform_admin: ---
   'parent:': <ParentDashboard />,
   'parent:observations': <HomeObservations />,
+  'parent:appointments': <ParentAppointments />,
   'parent:goals': <GoalsAndIep />,
   'parent:messages': <ParentMessages />,
   'parent:progress': <ParentProgress />,
@@ -173,12 +181,29 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
 
   // Two links, two screens. These were both <Schools /> once — the landing
   // page answered the same question as the item below it.
+  'student:': <StudentGoals />,
+  // db/075. One component for every learner; db/075's policies decide
+  // which courses arrive, so this is not five screens that look alike.
+  'student:academy': <Academy />,
+  'parent:academy': <Academy />,
+  'educator:academy': <Academy />,
+  'specialist:academy': <Academy />,
+  'school_admin:academy': <Academy />,
+  'platform_admin:courses': <Courses />,
+  'platform_admin:articles': <Articles />,
+  // db/079. One component for every reader; the policies decide what arrives.
+  'student:library': <Library />,
+  'parent:library': <Library />,
+  'educator:library': <Library />,
+  'specialist:library': <Library />,
+  'school_admin:library': <Library />,
   'platform_admin:': <GlobalOverview />,
   'platform_admin:tenants': <Schools />,
   'platform_admin:ai-governance': <AiGovernance />,
   'platform_admin:verification': <Verification />,
   'platform_admin:audit': <AuditLog />,
   'platform_admin:billing': <Billing />,
+  'platform_admin:subscriptions': <Subscriptions />,
   'platform_admin:record-access': <PlatformRecordAccess />,
   'platform_admin:enquiries': <Enquiries />,
   'platform_admin:applications': <Applications />,

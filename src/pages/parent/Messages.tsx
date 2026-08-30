@@ -1,7 +1,7 @@
 import Messenger from '../../components/Messenger'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
-import { LoadingCards } from '../../components/QueryState'
+import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 
 /**
@@ -9,9 +9,34 @@ import NoChildYet from '../../components/NoChildYet'
  * Text only in v1.
  */
 export default function ParentMessages() {
-  const { children, child, selectChild, isPending } = useSelectedChild()
+  const { children, child, selectChild, isPending, isError, error } =
+    useSelectedChild()
 
   if (isPending) return <LoadingCards count={2} />
+
+  /*
+   * A FAILED LOOKUP IS NOT AN EMPTY ONE, and this screen was the only parent
+   * page that treated them the same.
+   *
+   * `isError` was ignored, so a lookup that failed left `child` undefined and
+   * fell through to NoChildYet — which tells a family "Your account is set up.
+   * No child is linked to it yet" and offers them a Link a child button.
+   *
+   * That is a confident false statement about their own child, made to the
+   * person least able to check it, and it sends them back through a linking
+   * flow they have already completed. Every other parent screen handles this;
+   * this one did not.
+   */
+  if (isError) {
+    return (
+      <ErrorState
+        message={
+          error?.message ??
+          'Your children could not be loaded. This is a problem reaching the server, not a change to who is linked to your account.'
+        }
+      />
+    )
+  }
 
   if (!child) {
     return (

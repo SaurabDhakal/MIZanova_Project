@@ -63,8 +63,14 @@ function formatDate(iso: string): string {
 }
 
 export default function ParentProgress() {
-  const { children, child, selectChild, isPending: childrenPending } =
-    useSelectedChild()
+  const {
+    children,
+    child,
+    selectChild,
+    isPending: childrenPending,
+    isError: childrenError,
+    error: childrenErrorObject,
+  } = useSelectedChild()
 
   const goals = useQuery({
     queryKey: queryKeys.goals(child?.id ?? ''),
@@ -79,6 +85,30 @@ export default function ParentProgress() {
   })
 
   if (childrenPending) return <LoadingCards count={3} />
+
+  /*
+   * A FAILED LOOKUP IS NOT AN EMPTY ONE.
+   *
+   * `isError` was dropped from the destructure above, so a children query that
+   * FAILED left `child` undefined and fell straight through to NoChildYet —
+   * which tells a family "Your account is set up. No child is linked to it
+   * yet" and hands them a Link a child button.
+   *
+   * That is a confident false statement about their own child, made to the
+   * person least able to check it, and it sends them back through a linking
+   * flow they have already completed. Five of the seven parent screens did
+   * this.
+   */
+  if (childrenError) {
+    return (
+      <ErrorState
+        message={
+          childrenErrorObject?.message ??
+          'Your children could not be loaded. This is a problem reaching the server, not a change to who is linked to your account.'
+        }
+      />
+    )
+  }
 
   if (!child) {
     return (
@@ -121,14 +151,54 @@ export default function ParentProgress() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Progress highlights
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          How {child.display_name} is tracking against the goals the school has
-          set, and what has gone well recently.
+      {/*
+        ON PAPER ONLY. A screen tells you whose report this is through the child
+        switcher, the sidebar and the account menu — none of which print. Without
+        this block a printed page is a list of goals belonging to nobody, which
+        is worse than useless in the folder somebody brings to a meeting.
+
+        The date is when it was PRINTED, said plainly, because a progress report
+        with no date gets read a year later as if it were current.
+      */}
+      <div className="print-only mb-6 border-b border-border pb-4">
+        <p className="text-sm font-semibold tracking-wide uppercase">
+          MiZanova — progress report
         </p>
+        <h1 className="mt-1 text-2xl font-bold">{child.display_name}</h1>
+        <p className="mt-1 text-sm">
+          Printed {new Date().toLocaleDateString('en-AU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </p>
+      </div>
+
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-title text-foreground">
+            Progress highlights
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            How {child.display_name} is tracking against the goals the school has
+            set, and what has gone well recently.
+          </p>
+        </div>
+
+        {/*
+          THE BROWSER'S PRINT DIALOG, AND THE LABEL SAYS SO. Every platform's
+          dialog offers "Save as PDF", so this produces a real PDF with
+          selectable text — but it is one step, not none, and a button promising
+          a download that instead opens a dialog is a small lie. See the note on
+          @media print in index.css for why there is no PDF library here.
+        */}
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground"
+        >
+          Print or save as PDF
+        </button>
       </header>
 
       <ChildSwitcher children={children} child={child} onSelect={selectChild} />

@@ -151,3 +151,105 @@ describe('and no more than that', () => {
     expect((data ?? []).map((p) => p.id)).toEqual([world.guardianOfA.id])
   })
 })
+
+/*
+ * ---------------------------------------------------------------------------
+ * A PARENT MAY CORRECT THEIR OWN NOTE. THE SCHOOL MAY NOT.
+ * ---------------------------------------------------------------------------
+ * db/007 states it plainly: "Authors may correct their own. Staff may not edit
+ * what a parent wrote — altering someone else's account of their own child is
+ * not a power the school should have."
+ *
+ * The policy had never been exercised by anything. No screen offered the
+ * correction until now, and no test asserted the refusal, so the sentence
+ * above was a comment rather than a guarantee. The second test is the one that
+ * matters: an educator who can READ the observation, and can edit plenty of
+ * other records about the same child, must not be able to touch this one.
+ */
+describe('who may correct a home observation — db/007', () => {
+  let observationId: string
+
+  beforeAll(async () => {
+    const { data, error } = await admin
+      .from('home_observations')
+      .insert({
+        student_id: world.childA,
+        logged_by: world.guardianOfA.id,
+        title: 'Slept badly',
+        body: 'Awake from three. Original wording.',
+        category: 'social_emotional',
+        observed_on: '2026-08-20',
+      })
+      .select('id')
+      .single()
+    if (error) throw new Error(error.message)
+    observationId = data.id
+  })
+
+  async function bodyOnRecord() {
+    const { data } = await admin
+      .from('home_observations')
+      .select('body')
+      .eq('id', observationId)
+      .single()
+    return data?.body ?? null
+  }
+
+  test('the parent who wrote it can', async () => {
+    const { data, error } = await world.guardianOfA.db
+      .from('home_observations')
+      .update({ body: 'Awake from three. Settled after a story.' })
+      .eq('id', observationId)
+      .select('id')
+
+    expect(error).toBeNull()
+    // The row came back, which is what assertChanged in the app reads.
+    expect(data).toHaveLength(1)
+    expect(await bodyOnRecord()).toBe('Awake from three. Settled after a story.')
+  })
+
+  test('a teacher who can read it cannot change it', async () => {
+    const before = await bodyOnRecord()
+
+    const { data, error } = await world.verifiedEducator.db
+      .from('home_observations')
+      .update({ body: 'Rewritten by the school.' })
+      .eq('id', observationId)
+      .select('id')
+
+    // No error — RLS filters the row out rather than refusing, which is why
+    // the app calls assertChanged on an empty array.
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+    expect(await bodyOnRecord()).toBe(before)
+  })
+
+  test('nor can another parent', async () => {
+    const { data } = await world.guardianOfB.db
+      .from('home_observations')
+      .update({ body: 'Rewritten by somebody else’s parent.' })
+      .eq('id', observationId)
+      .select('id')
+
+    expect(data ?? []).toEqual([])
+  })
+
+  test('and nobody can delete it — db/007 writes no delete policy', async () => {
+    await world.guardianOfA.db
+      .from('home_observations')
+      .delete()
+      .eq('id', observationId)
+    await world.verifiedEducator.db
+      .from('home_observations')
+      .delete()
+      .eq('id', observationId)
+
+    // An observation the school has read, and may have acted on, is corrected
+    // rather than made to disappear.
+    const { data } = await admin
+      .from('home_observations')
+      .select('id')
+      .eq('id', observationId)
+    expect(data).toHaveLength(1)
+  })
+})

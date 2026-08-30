@@ -3,13 +3,16 @@ import type { ConsentType } from './api'
 /**
  * What each consent type means, in words a parent can act on.
  *
- * `enforced` is the honest bit. Only `ai_strategy_generation` currently changes
- * what the software does — `server/index.js` calls `has_active_consent()` before
- * any student context is sent, and refuses without it. The other four are
- * records of an agreement the school keeps outside this system.
+ * `enforced` is the honest bit. TWO of these change what the software does.
+ * `ai_strategy_generation` is checked by `server/index.js` before any student
+ * context is sent. `student_portal_access` is checked by db/074's
+ * `my_student_id()` on every single query a student makes, so withdrawing it
+ * closes their account the moment it is pressed — no job to run, nothing to
+ * re-issue. The other four are records of an agreement the school keeps outside
+ * this system.
  *
- * That distinction is shown on screen. A row of five switches where one works
- * and four are filing would be a lie told by omission, and the person it would
+ * That distinction is shown on screen. A row of six switches where two work and
+ * four are filing would be a lie told by omission, and the person it would
  * mislead is a parent making a decision about their child.
  */
 export type ConsentCopy = {
@@ -55,6 +58,14 @@ export const CONSENT_COPY: Record<ConsentType, ConsentCopy> = {
       'This records your position. It does not remove a specialist who is already assigned — ask the school to do that.',
     enforced: false,
   },
+  student_portal_access: {
+    label: 'Your child’s own sign-in',
+    allows:
+      'Your child may sign in to MiZanova themselves and see the goals they are working on at school. They cannot see behaviour notes written about them, anything from the safeguarding record, their plan documents, messages between adults, or anything about any other child.',
+    ifWithdrawn:
+      'Their sign-in stops working straight away. The account is not deleted and their goals are untouched — they simply see nothing until you agree again.',
+    enforced: true,
+  },
   photo_media: {
     label: 'Photos and media',
     allows: 'Images or recordings of your child may be stored against their record.',
@@ -66,6 +77,10 @@ export const CONSENT_COPY: Record<ConsentType, ConsentCopy> = {
 /** Display order: the one that actually does something goes first. */
 export const CONSENT_ORDER: ConsentType[] = [
   'ai_strategy_generation',
+  // Next to the parent's own portal access, because they are the same kind of
+  // question asked about two different people, and a parent deciding about one
+  // is the right moment to see the other.
+  'student_portal_access',
   'data_processing',
   'specialist_referral',
   'parent_portal_access',

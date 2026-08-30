@@ -41,8 +41,14 @@ function formatDate(iso: string): string {
  */
 export default function Privacy() {
   const queryClient = useQueryClient()
-  const { children, child, selectChild, isPending: childrenPending } =
-    useSelectedChild()
+  const {
+    children,
+    child,
+    selectChild,
+    isPending: childrenPending,
+    isError: childrenError,
+    error: childrenErrorObject,
+  } = useSelectedChild()
 
   const consents = useQuery({
     queryKey: queryKeys.consents(child?.id ?? ''),
@@ -69,6 +75,30 @@ export default function Privacy() {
   const [confirming, setConfirming] = useState<string | null>(null)
 
   if (childrenPending) return <LoadingCards count={2} />
+
+  /*
+   * A FAILED LOOKUP IS NOT AN EMPTY ONE.
+   *
+   * `isError` was dropped from the destructure above, so a children query that
+   * FAILED left `child` undefined and fell straight through to NoChildYet —
+   * which tells a family "Your account is set up. No child is linked to it
+   * yet" and hands them a Link a child button.
+   *
+   * That is a confident false statement about their own child, made to the
+   * person least able to check it, and it sends them back through a linking
+   * flow they have already completed. Five of the seven parent screens did
+   * this.
+   */
+  if (childrenError) {
+    return (
+      <ErrorState
+        message={
+          childrenErrorObject?.message ??
+          'Your children could not be loaded. This is a problem reaching the server, not a change to who is linked to your account.'
+        }
+      />
+    )
+  }
 
   if (!child) {
     return (

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
+  billAppointment,
+  formatMoney,
+  setAppointmentFee,
   cancelAppointment,
   completeAppointment,
   queryKeys,
@@ -29,7 +32,7 @@ import FormField from './FormField'
 
 const DURATIONS = [15, 30, 45, 60, 90]
 
-type Mode = 'none' | 'reschedule' | 'cancel' | 'complete'
+type Mode = 'none' | 'reschedule' | 'cancel' | 'complete' | 'fee'
 
 export default function AppointmentPanel({
   appointment,
@@ -52,6 +55,13 @@ export default function AppointmentPanel({
   const [summary, setSummary] = useState('')
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [shareTeacher, setShareTeacher] = useState(false)
+  // Dollars in the field, cents in the column. Typing 9500 for $95 is the
+  // mistake a raw cents input invites.
+  const [fee, setFee] = useState(
+    appointment.fee_cents === null ? '' : String(appointment.fee_cents / 100),
+  )
+  const [dueDate, setDueDate] = useState('')
+  const [feeError, setFeeError] = useState<string | null>(null)
   const [shareParents, setShareParents] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -191,7 +201,37 @@ export default function AppointmentPanel({
               >
                 Cancel
               </button>
+              {/*
+                db/073. Quiet, and last. Most school-based therapy is inside
+                what the school already pays, so charging is the exception —
+                a prominent "Bill this" would make it look like the default.
+              */}
+              <button
+                type="button"
+                onClick={() => setMode('fee')}
+                className="rounded-btn px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+              >
+                {appointment.invoice_id
+                  ? 'Billed'
+                  : appointment.fee_cents === null
+                    ? 'Add a fee'
+                    : `Fee ${formatMoney(appointment.fee_cents)}`}
+              </button>
             </div>
+          )}
+
+          {mode === 'fee' && (
+            <FeePanel
+              appointment={appointment}
+              fee={fee}
+              setFee={setFee}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+              error={feeError}
+              setError={setFeeError}
+              onDone={() => setMode('none')}
+              finish={finish}
+            />
           )}
 
           {mode === 'reschedule' && (
@@ -350,6 +390,200 @@ function Actions({
       >
         Back
       </button>
+    </div>
+  )
+}
+
+
+/**
+ * What a session costs, and turning that into something payable — db/073.
+ *
+ * ---------------------------------------------------------------------------
+ * TWO STEPS, NOT ONE BUTTON
+ * ---------------------------------------------------------------------------
+ * Recording a fee and billing for it are separate acts and the screen keeps
+ * them separate. A fee is a note about what this session is worth, changeable
+ * while nothing has been sent. Billing writes an invoice into the school's
+ * ledger, and once that exists the amount is fixed here — db/073 refuses a fee
+ * change on a billed appointment rather than letting the two disagree.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY "INCLUDED" IS THE DEFAULT AND HAS ITS OWN BUTTON
+ * ---------------------------------------------------------------------------
+ * `fee_cents` null means no separate charge, which is the normal case for
+ * therapy inside what the school already pays. Clearing the box has to be
+ * possible and has to be distinguishable from typing 0 — zero is a session
+ * deliberately given free, which is a decision somebody made and a family may
+ * ask about. An empty input that silently saved as zero would erase that.
+ */
+function FeePanel({
+  appointment,
+  fee,
+  setFee,
+  dueDate,
+  setDueDate,
+  error,
+  setError,
+  onDone,
+  finish,
+}: {
+  appointment: AppointmentRow
+  fee: string
+  setFee: (v: string) => void
+  dueDate: string
+  setDueDate: (v: string) => void
+  error: string | null
+  setError: (v: string | null) => void
+  onDone: () => void
+  finish: (message: string) => void
+}) {
+  const billed = appointment.invoice_id !== null
+
+  const save = useMutation({
+    mutationFn: (cents: number | null) => setAppointmentFee(appointment.id, cents),
+    onSuccess: () => finish('Fee recorded.'),
+    onError: (e) => setError(e.message),
+  })
+
+  const bill = useMutation({
+    mutationFn: () => billAppointment(appointment.id, dueDate || null),
+    onSuccess: () =>
+      finish('Raised as a draft invoice. The school issues it to the family.'),
+    onError: (e) => setError(e.message),
+  })
+
+  if (billed) {
+    return (
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="text-sm text-muted-foreground">
+          This session has been billed. The invoice is a draft on the
+          school&rsquo;s Invoices screen until they issue it, and the amount
+          cannot be changed from here — an invoice somebody may already have
+          been sent and a fee saying something else would be two answers to one
+          question.
+        </p>
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-3 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+        >
+          Back
+        </button>
+      </div>
+    )
+  }
+
+  const amount = Number(fee)
+  const valid = fee.trim() === '' || (Number.isFinite(amount) && amount >= 0)
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      {error && (
+        <p
+          role="alert"
+          className="mb-3 rounded-btn border border-danger bg-danger-subtle p-2.5 text-sm text-danger-foreground"
+        >
+          {error}
+        </p>
+      )}
+
+      <label
+        htmlFor={`fee-${appointment.id}`}
+        className="block text-sm font-medium text-foreground"
+      >
+        What this session costs the family
+      </label>
+      <div className="mt-1 flex items-center gap-2">
+        <span className="text-muted-foreground">$</span>
+        <input
+          id={`fee-${appointment.id}`}
+          value={fee}
+          onChange={(e) => setFee(e.target.value)}
+          inputMode="decimal"
+          placeholder="95"
+          className="w-32 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+        />
+        <span className="text-sm text-muted-foreground">
+          {fee.trim() === ''
+            ? 'Included in what the school pays'
+            : amount === 0
+              ? 'Free, and recorded as a decision'
+              : ''}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={save.isPending || !valid}
+          onClick={() => {
+            setError(null)
+            if (!valid) return setError('That is not an amount.')
+            save.mutate(fee.trim() === '' ? null : Math.round(amount * 100))
+          }}
+          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {save.isPending ? 'Saving…' : 'Save the fee'}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+        >
+          Back
+        </button>
+      </div>
+
+      {/*
+        BILLING IS OFFERED ONLY ONCE A FEE IS SAVED, and against the SAVED
+        value rather than what is in the box. db/073 bills `fee_cents` as
+        stored, so offering it beside unsaved text would invoice an amount
+        different from the one on screen.
+      */}
+      {appointment.fee_cents !== null && appointment.fee_cents > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="text-sm text-muted-foreground">
+            Bill the family {formatMoney(appointment.fee_cents)} for this
+            session. It arrives as a draft on the school&rsquo;s Invoices
+            screen — they issue it, because their name is on it.
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <div>
+              <label
+                htmlFor={`due-${appointment.id}`}
+                className="block text-sm font-medium text-foreground"
+              >
+                Due
+              </label>
+              <input
+                id={`due-${appointment.id}`}
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+              />
+              {/* db/071's lesson, said where the gap would be created rather
+                  than reported afterwards. */}
+              {dueDate === '' && (
+                <p className="mt-1 text-xs text-warning-foreground">
+                  With no due date it can never show as overdue.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={bill.isPending}
+              onClick={() => {
+                setError(null)
+                bill.mutate()
+              }}
+              className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+            >
+              {bill.isPending ? 'Raising…' : 'Bill this session'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

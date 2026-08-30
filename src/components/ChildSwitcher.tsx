@@ -24,7 +24,10 @@ export default function ChildSwitcher({
   if (children.length < 2) return null
 
   return (
-    <div className="mb-6">
+    /* Not on paper. The printed report names one child in its own header, and a
+       row of tabs offering to switch to a sibling is a screen control that has
+       no meaning once it is ink. */
+    <div className="print-hide mb-6">
       <div
         role="tablist"
         aria-label="Choose a child"

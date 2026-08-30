@@ -337,6 +337,94 @@ describe('confirmation is first person only', () => {
   })
 })
 
+/*
+ * WHAT THE FAMILY'S OWN SCREEN ACTUALLY READS.
+ *
+ * The tests above prove a guardian may see the PLAN ROW. Until now nothing
+ * asked whether they may see what is written on it, because no family screen
+ * existed to read it — the plan editor and its routes were staff-only, so
+ * db/054's family half had never been fetched by anything.
+ *
+ * These four are the queries FamilyIepPlans and IepAgreement make. Had
+ * `iep_goals_select` been scoped to staff the way its sibling write policy is,
+ * a parent would have opened their child's plan and been shown a heading, a
+ * date and nothing else — an empty plan reading exactly like a plan with no
+ * goals in it.
+ */
+describe('the plan as the family reads it', () => {
+  test('a guardian reads the goals on their child’s agreed plan', async () => {
+    const { planId, goalId } = await makePlan(world.childA, 'agreed')
+
+    const { data, error } = await world.guardianOfA.db
+      .from('iep_goals')
+      .select('id, long_term_goal, strategies')
+      .eq('plan_id', planId)
+
+    expect(error).toBeNull()
+    expect(data?.some((g) => g.id === goalId)).toBe(true)
+  })
+
+  test('and the reviews written against them', async () => {
+    const { planId, goalId } = await makePlan(world.childA, 'agreed')
+    const { error: reviewError } = await admin.from('iep_goal_reviews').insert({
+      iep_goal_id: goalId,
+      outcome: 'partially_met',
+      comment: 'Finds one sleeve reliably now.',
+      reviewed_on: '2026-09-01',
+    })
+    expect(reviewError).toBeNull()
+
+    const { data } = await world.guardianOfA.db
+      .from('iep_goals')
+      .select('id, iep_goal_reviews ( outcome )')
+      .eq('plan_id', planId)
+
+    // The review is the half of the plan that says whether it worked, and a
+    // family being shown goals without outcomes would read as no progress.
+    expect(
+      (data?.[0] as unknown as { iep_goal_reviews: { outcome: string }[] })
+        ?.iep_goal_reviews?.[0]?.outcome,
+    ).toBe('partially_met')
+  })
+
+  test('a guardian sees who has confirmed their child’s plan', async () => {
+    const { planId } = await makePlan(world.childA, 'agreed')
+    const { error: insertError } = await world.guardianOfA.db
+      .from('iep_plan_confirmations')
+      .insert({
+        plan_id: planId,
+        profile_id: world.guardianOfA.id,
+        as_guardian: true,
+      })
+    expect(insertError).toBeNull()
+
+    const { data, error } = await world.guardianOfA.db
+      .from('iep_plan_confirmations')
+      .select('profile_id, as_guardian')
+      .eq('plan_id', planId)
+
+    // Reading it back is what lets the screen say "you have agreed" instead of
+    // offering the button a second time and failing on the unique constraint.
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+    expect(data?.[0].as_guardian).toBe(true)
+  })
+
+  test('but no goals from a plan still being drafted', async () => {
+    const { planId } = await makePlan(world.childA, 'draft')
+
+    const { data } = await world.guardianOfA.db
+      .from('iep_goals')
+      .select('id')
+      .eq('plan_id', planId)
+
+    // iep_goals_select carries no student check of its own — it asks whether
+    // the reader can see the PLAN. That inheritance is the whole security of
+    // the goal, so it is asserted rather than assumed.
+    expect(data ?? []).toEqual([])
+  })
+})
+
 describe('the support schedule', () => {
   test('the weekly total is counted by the database, not added up by hand', async () => {
     const { planId } = await makePlan(world.childA, 'draft')

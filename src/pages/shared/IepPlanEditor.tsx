@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import IepAgreement from '../../components/IepAgreement'
+import IepSupportSchedule from '../../components/IepSupportSchedule'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createIepGoalReview,
   IEP_OUTCOME_LABEL,
   IEP_STATUS_LABEL,
   addIepParticipant,
@@ -15,12 +18,17 @@ import {
   updateIepPlan,
   type IepGoalRow,
   type IepPlanDetail,
+  type IepReviewOutcome,
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import { showToast } from '../../lib/toast'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
+
+/* The four boxes on the paper form, taken from the labels rather than written
+   out again — a second list is where the two would start disagreeing. */
+const IEP_OUTCOMES = Object.keys(IEP_OUTCOME_LABEL) as IepReviewOutcome[]
 
 /**
  * The IEP/ILP form itself.
@@ -284,7 +292,169 @@ function GoalCard({
           {latestReview.comment}
         </blockquote>
       )}
+
+      {/*
+        THE REVIEW IS THE ONE THING THE FREEZE LETS THROUGH.
+
+        db/054 stops the wording and the goals changing once a plan is agreed,
+        and deliberately keeps reviews open: "the review can still be recorded
+        — that is the entire purpose of the later meeting." So this appears on
+        an agreed plan, beside controls that have gone read-only.
+
+        Until now nothing wrote a review at all. The badge above and the
+        comment beside it — and the outcome families see on their own screen —
+        were all rendering a row that could never exist, so a plan could be
+        agreed, worked to for a year, and never recorded as met or not.
+      */}
+      {frozen && <RecordReview goalId={goal.id} onSaved={invalidate} />}
     </li>
+  )
+}
+
+// ---------------------------------------------------------------------------
+function RecordReview({
+  goalId,
+  onSaved,
+}: {
+  goalId: string
+  onSaved: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [outcome, setOutcome] = useState<IepReviewOutcome | null>(null)
+  const [comment, setComment] = useState('')
+  /* Defaulted to today because that is usually right, and editable because a
+     meeting is often typed up days later. */
+  const [reviewedOn, setReviewedOn] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  )
+  const [error, setError] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: () =>
+      createIepGoalReview({
+        goalId,
+        outcome: outcome!,
+        comment,
+        reviewedOn,
+      }),
+    onSuccess: () => {
+      onSaved()
+      setOpen(false)
+      setOutcome(null)
+      setComment('')
+      showToast('Review recorded.')
+    },
+    onError: (e) => setError(e.message),
+  })
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 text-sm font-semibold text-primary hover:underline"
+      >
+        Record a review of this goal
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="mt-4 rounded-card border border-border bg-background/60 p-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!outcome) return setError('Choose an outcome.')
+        setError(null)
+        save.mutate()
+      }}
+    >
+      {error && (
+        <p
+          role="alert"
+          className="mb-3 rounded-btn border border-danger bg-danger-subtle p-2 text-sm text-danger-foreground"
+        >
+          {error}
+        </p>
+      )}
+
+      <fieldset>
+        <legend className="text-sm font-medium text-foreground">
+          How did it go?
+        </legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {IEP_OUTCOMES.map((o) => (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={outcome === o}
+              onClick={() => setOutcome(o)}
+              className={`rounded-btn border px-3 py-1.5 text-sm font-semibold ${
+                outcome === o
+                  ? 'border-primary bg-primary-subtle text-primary'
+                  : 'border-border bg-card text-foreground'
+              }`}
+            >
+              {IEP_OUTCOME_LABEL[o]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+        <div>
+          <label
+            htmlFor={`reviewed-on-${goalId}`}
+            className="block text-sm font-medium text-foreground"
+          >
+            Date of the review
+          </label>
+          <input
+            id={`reviewed-on-${goalId}`}
+            type="date"
+            value={reviewedOn}
+            onChange={(e) => setReviewedOn(e.target.value)}
+            className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor={`review-comment-${goalId}`}
+            className="block text-sm font-medium text-foreground"
+          >
+            What happened
+          </label>
+          <input
+            id={`review-comment-${goalId}`}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Uses the break card most days without a prompt."
+            className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          />
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        The family sees this outcome against the goal on their own screen.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {save.isPending ? 'Saving…' : 'Record it'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -825,6 +995,8 @@ export default function IepPlanEditor() {
         </div>
       )}
 
+      <IepSupportSchedule planId={planId} />
+
       {/* --- agreement ----------------------------------------------------- */}
       {!frozen && (
         <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
@@ -888,6 +1060,20 @@ export default function IepPlanEditor() {
               not a plan.
             </p>
           )}
+        </section>
+      )}
+
+      {/* --- who has personally agreed ------------------------------------- */}
+      {frozen && (
+        <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
+          <h2 className="text-section text-foreground">Agreement</h2>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            Marking a plan agreed records the school&rsquo;s decision. This
+            records the people who have said yes to it themselves — each person
+            can confirm only for their own account, so a family&rsquo;s
+            agreement cannot be added on their behalf.
+          </p>
+          <IepAgreement planId={planId} asGuardian={false} />
         </section>
       )}
     </div>

@@ -272,6 +272,28 @@ export async function fetchRecentLogs(limit = 20): Promise<RecentLogRow[]> {
 export type BehaviourType = 'disruptive' | 'withdrawn' | 'emotional' | 'physical'
 export type BehaviourIntensity = 'standard' | 'medium' | 'high'
 
+/**
+ * The words for the four types and three intensities, in one place.
+ *
+ * StudentTimeline had these as a local map and BehaviourLogModal has its own
+ * list carrying icons and tints, so a third copy for the edit dialog would
+ * have been the point at which they started disagreeing about what
+ * "emotional" is called. The modal keeps its own — it needs the icons — but
+ * anything that only needs the word reads these.
+ */
+export const BEHAVIOUR_LABEL: Record<BehaviourType, string> = {
+  disruptive: 'Disruptive',
+  withdrawn: 'Withdrawn',
+  emotional: 'Emotional',
+  physical: 'Physical',
+}
+
+export const INTENSITY_LABEL: Record<BehaviourIntensity, string> = {
+  standard: 'Standard',
+  medium: 'Medium',
+  high: 'High',
+}
+
 export type NewBehaviourLog = {
   studentId: string
   /** Must be the signed-in user: the RLS policy checks logged_by = auth.uid(). */
@@ -404,21 +426,10 @@ export type StudentLogRow = {
   is_risk_flagged: boolean
 }
 
-/** Full behaviour history for one student, newest first. */
-export async function fetchStudentLogs(
-  studentId: string,
-): Promise<StudentLogRow[]> {
-  const { data, error } = await supabase
-    .from('behaviour_logs')
-    .select(
-      'id, behaviour_type, intensity, notes, notes_source, occurred_at, duration_seconds, shared_with_parents, is_risk_flagged',
-    )
-    .eq('student_id', studentId)
-    .order('occurred_at', { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return data ?? []
-}
+/* fetchStudentLogs lived here. db/056 folded the four per-type lists into
+   one timeline, so StudentTimeline reads `fetchStudentTimeline` instead and
+   nothing had called this since. StudentLogRow stays — fetchSharedLogs, the
+   parent dashboard's query, still returns it. */
 
 /**
  * Share a log with the child's guardians, or withdraw that.
@@ -441,6 +452,112 @@ export async function setLogShared(
   // Also catches the FR14 admin lock: after acknowledgement the author's
   // update matches no rows, and without this it would look like it worked.
   assertChanged(data, 'The sharing change')
+}
+
+/**
+ * One behaviour log, with the two fields that decide whether it may be edited.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS EXISTS SEPARATELY FROM THE TIMELINE ROW
+ * ---------------------------------------------------------------------------
+ * `TimelineRow` carries `actor_id` but not `safeguarding_acknowledged_at`, and
+ * acknowledgement is exactly what closes the author's window to edit — db/010:
+ * "The teacher keeps full control right up until a responsible adult formally
+ * looks at it, and not one moment after."
+ *
+ * Reading the row itself rather than widening the timeline view keeps this in
+ * app code, and reads the authoritative record instead of a projection of it
+ * that could go stale between the list loading and somebody clicking Edit.
+ */
+export type EditableBehaviourLog = {
+  id: string
+  behaviour_type: BehaviourType
+  intensity: BehaviourIntensity
+  notes: string | null
+  occurred_at: string
+  logged_by: string | null
+  safeguarding_acknowledged_at: string | null
+}
+
+export async function fetchBehaviourLog(
+  logId: string,
+): Promise<EditableBehaviourLog> {
+  const { data, error } = await supabase
+    .from('behaviour_logs')
+    .select(
+      'id, behaviour_type, intensity, notes, occurred_at, logged_by, safeguarding_acknowledged_at',
+    )
+    .eq('id', logId)
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data as EditableBehaviourLog
+}
+
+/**
+ * Correct an observation — the capability db/010 granted and nothing offered.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PROMISE THAT HAD NO CONTROL BEHIND IT
+ * ---------------------------------------------------------------------------
+ * db/010 replaced the update policy so the author may edit while
+ * `safeguarding_acknowledged_at is null`, and a school or platform admin may
+ * always edit "because someone has to be able to correct a genuine error".
+ * `audit_behaviour_log_edited` was written to record those edits. The educator
+ * dashboard tells a teacher, in the dialog that saves a log, "You can still
+ * add detail until an administrator acknowledges it."
+ *
+ * No screen ever issued the update. A teacher who mistyped what a child did
+ * had no way to fix it, and — because a log can be shared with the family —
+ * the wrong sentence was the one the parents read.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT IS NOT EDITABLE HERE, ON PURPOSE
+ * ---------------------------------------------------------------------------
+ * Not the student, not who logged it, not when it happened, and not the risk
+ * flag. Those are not corrections; changing any of them turns this record into
+ * a record of something else, and the flag is the safeguarding queue's own.
+ * A log about the wrong child is withdrawn, not renamed.
+ */
+export async function updateBehaviourLog(
+  logId: string,
+  fields: {
+    behaviourType: BehaviourType
+    intensity: BehaviourIntensity
+    notes: string
+  },
+): Promise<void> {
+  /*
+   * `duration_seconds` IS NOT HERE, AND MUST NOT BE.
+   *
+   * db/005 declares it `generated always as (...)`, computed from the start
+   * and end of the observation. Postgres refuses ANY write to a generated
+   * column — including writing back the value you just read — with
+   * "column can only be updated to DEFAULT".
+   *
+   * The first version of this passed it straight through from the fetched row,
+   * on the reasoning that an unchanged field is safe to include. It is not:
+   * every correction failed with that error, and db/seed_demo_school.sql
+   * already carries the same warning about the same column.
+   */
+  const { data, error } = await supabase
+    .from('behaviour_logs')
+    .update({
+      behaviour_type: fields.behaviourType,
+      intensity: fields.intensity,
+      notes: fields.notes.trim() === '' ? null : fields.notes.trim(),
+    })
+    .eq('id', logId)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  /*
+   * The refusal this must catch: an author editing a log an administrator has
+   * since acknowledged. RLS filters the row out, the update touches nothing,
+   * and PostgREST answers 200 with an empty array — success, with the old text
+   * still in the database and a screen that says it saved.
+   */
+  assertChanged(data, 'The correction')
 }
 
 // ---------------------------------------------------------------------------
@@ -643,6 +760,49 @@ export async function fetchAllHomeObservations(): Promise<HomeObservationRow[]> 
 
   if (error) throw new Error(error.message)
   return data ?? []
+}
+
+/**
+ * A parent correcting their own home observation — db/007's update policy.
+ *
+ * ---------------------------------------------------------------------------
+ * THE POLICY SAYS WHO, AND IT IS NOT THE SCHOOL
+ * ---------------------------------------------------------------------------
+ * db/007: "Authors may correct their own. Staff may not edit what a parent
+ * wrote — altering someone else's account of their own child is not a power
+ * the school should have." The policy is `logged_by = auth.uid()` and nothing
+ * else, so the database enforces that on its own; this function exists because
+ * no screen ever offered the correction, which left a typo in something a
+ * parent wrote about their own child permanent.
+ *
+ * There is deliberately no delete counterpart. db/007 ends "No delete policy."
+ * — an observation the school has read and may have acted on does not vanish,
+ * it gets corrected.
+ */
+export async function updateHomeObservation(
+  id: string,
+  fields: {
+    title: string
+    body: string
+    category: ObservationCategory
+    observedOn: string
+  },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('home_observations')
+    .update({
+      title: fields.title.trim(),
+      body: fields.body.trim(),
+      category: fields.category,
+      observed_on: fields.observedOn,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // Anybody who is not the author is filtered out rather than refused, which
+  // without this would report a correction that never happened.
+  assertChanged(data, 'The correction')
 }
 
 export async function createHomeObservation(input: {
@@ -1376,9 +1536,35 @@ export type SafeguardingRow = {
  * query: a school admin's RLS reaches exactly their own school's students, so
  * adding one here would duplicate the boundary in a place that can be edited.
  */
+/**
+ * The safeguarding queue, with the TRUE number of incidents in it.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS COUNTS INSTEAD OF LETTING THE SCREEN MEASURE THE LIST
+ * ---------------------------------------------------------------------------
+ * This asked for rows with no range, so PostgREST returned at most its default
+ * 1000 and the screen printed `incidents.data.length` as "N incidents, oldest
+ * first". At a school with more open incidents than that, the sentence would
+ * have read "1000 incidents" for as long as the backlog lasted — a figure that
+ * looks precise, is wrong, and is wrong about safeguarding.
+ *
+ * `toPage`'s comment states the rule this broke: a Page exists "so no screen
+ * counts rows itself".
+ *
+ * ---------------------------------------------------------------------------
+ * A CAP THAT IS SAID OUT LOUD, NOT ONE THAT HAPPENS
+ * ---------------------------------------------------------------------------
+ * The range is explicit and much smaller than PostgREST's, because a limit the
+ * caller chose can be described to somebody and a limit inherited from a
+ * default cannot. Ordering is oldest-first and unchanged, so the rows returned
+ * are the ones that have been waiting longest — the right ones to show if only
+ * some can be. The screen says when it is showing part of a longer queue.
+ */
+export const SAFEGUARDING_PAGE = 200
+
 export async function fetchSafeguardingQueue(
   open: boolean,
-): Promise<SafeguardingRow[]> {
+): Promise<Page<SafeguardingRow>> {
   let query = supabase
     .from('behaviour_logs')
     .select(
@@ -1386,17 +1572,26 @@ export async function fetchSafeguardingQueue(
        safeguarding_acknowledged_at, safeguarding_note,
        students ( display_name, external_ref, year_level ),
        profiles!behaviour_logs_logged_by_fkey ( full_name )`,
+      // Same round trip. The count is the whole queue; the rows are a window
+      // onto it.
+      { count: 'exact' },
     )
     .eq('is_risk_flagged', true)
     .order('occurred_at', { ascending: true })
+    .range(0, SAFEGUARDING_PAGE - 1)
 
   query = open
     ? query.is('safeguarding_acknowledged_at', null)
     : query.not('safeguarding_acknowledged_at', 'is', null)
 
-  const { data, error } = await query
+  const { data, error, count } = await query
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as SafeguardingRow[]
+  return toPage(
+    (data ?? []) as unknown as SafeguardingRow[],
+    count,
+    0,
+    SAFEGUARDING_PAGE,
+  )
 }
 
 /**
@@ -1513,17 +1708,27 @@ export type AiControls = {
   confidence_threshold: number
   last_change_reason: string | null
   updated_at: string
+  /*
+   * db/026 added both and nothing ever read them, so the caps that decide how
+   * much can be spent in a day were invisible and uneditable. db/078 made a
+   * change to either one audited.
+   */
+  daily_limit_per_school: number
+  daily_limit_per_user: number
 }
 
 export async function fetchAiControls(): Promise<AiControls | null> {
   const { data, error } = await supabase
     .from('ai_controls')
-    .select('ai_enabled, confidence_threshold, last_change_reason, updated_at')
+    .select(
+      'ai_enabled, confidence_threshold, last_change_reason, updated_at, ' +
+        'daily_limit_per_school, daily_limit_per_user',
+    )
     .eq('id', true)
     .maybeSingle()
 
   if (error) throw new Error(error.message)
-  return data as AiControls | null
+  return data as unknown as AiControls | null
 }
 
 /**
@@ -1550,6 +1755,63 @@ export async function updateAiControls(input: {
 
   if (error) throw new Error(error.message)
   assertChanged(data, 'The AI control change')
+}
+
+export type AiUsageRow = {
+  school_id: string | null
+  requests_24h: number
+  requests_7d: number
+  requests_30d: number
+  people_30d: number
+  last_request_at: string | null
+}
+
+/**
+ * What the AI is actually being used for — db/078.
+ *
+ * db/026 built the quota and the usage table and nothing ever showed either, so
+ * a platform admin could not see which school was consuming the budget. The
+ * window is 24 HOURS rather than "today", matching the quota it is displayed
+ * against: a figure that reset at midnight would disagree with the limit
+ * refusing requests.
+ */
+export async function fetchAiUsage(): Promise<AiUsageRow[]> {
+  const { data, error } = await supabase
+    .from('ai_usage_by_school')
+    .select('*')
+    .order('requests_24h', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as AiUsageRow[]
+}
+
+/**
+ * Raise or lower what may be spent in a day.
+ *
+ * THE REASON IS NOT OPTIONAL and is not this function's politeness — db/012's
+ * trigger raises if it is blank, and db/078 made it record the limits too. A
+ * limit change is the AI control that decides how much money can be spent, and
+ * until db/078 it was the one that left no trail.
+ */
+export async function updateAiLimits(input: {
+  schoolLimit: number
+  userLimit: number
+  reason: string
+}): Promise<void> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('ai_controls')
+    .update({
+      daily_limit_per_school: input.schoolLimit,
+      daily_limit_per_user: input.userLimit,
+      last_change_reason: input.reason.trim(),
+      changed_by: auth.data.user?.id ?? null,
+    })
+    .eq('id', true)
+    .select('daily_limit_per_school')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The limit change')
 }
 
 export type AiControlEvent = {
@@ -1614,9 +1876,21 @@ export async function fetchAllStaff(): Promise<StaffRow[]> {
 export async function fetchStaffPage(
   verified: boolean,
   page = 0,
+  /*
+   * db/039 made a person's school a real question rather than a label, and this
+   * screen serves every school at once. Verification is an attestation that
+   * somebody may open children's records AT A SCHOOL, so narrowing to one is
+   * how a reviewer checks a name against the roster that will rely on it.
+   *
+   * Filtered in the DATABASE rather than after fetching, because the list is
+   * paginated: filtering a page would hide people on other pages and report a
+   * total that belonged to the unfiltered query.
+   */
+  schoolId?: string,
 ): Promise<Page<StaffRow>> {
   const from = page * PAGE_SIZE
-  const { data, error, count } = await supabase
+
+  let query = supabase
     .from('profiles')
     .select('id, full_name, email, role, is_verified, school_id', {
       count: 'exact',
@@ -1624,7 +1898,13 @@ export async function fetchStaffPage(
     .in('role', ['educator', 'specialist', 'school_admin'])
     .eq('is_verified', verified)
     .order('full_name')
-    .range(from, from + PAGE_SIZE - 1)
+
+  // 'none' is a real answer rather than the absence of a filter: somebody
+  // verified with no school attached is a specific problem worth looking for.
+  if (schoolId === 'none') query = query.is('school_id', null)
+  else if (schoolId) query = query.eq('school_id', schoolId)
+
+  const { data, error, count } = await query.range(from, from + PAGE_SIZE - 1)
 
   if (error) throw new Error(error.message)
   return toPage(data as StaffRow[], count, page, PAGE_SIZE)
@@ -1854,6 +2134,15 @@ export type KpiOverview = {
   flagged_open: number
   median_ack_hours: number | null
   logs_shared: number
+  /*
+   * db/070. Hours since the OLDEST flagged incident nobody has acknowledged.
+   *
+   * Null means no flagged incident is waiting, which is good news — the
+   * opposite of what a null `median_ack_hours` means, where it says nothing has
+   * ever been acknowledged. Two nulls, two meanings; a screen showing them the
+   * same way reports a school's worst state as its calmest.
+   */
+  oldest_open_hours: number | null
 }
 
 export type WeeklyRow = {
@@ -2204,6 +2493,36 @@ export async function fetchSchools(): Promise<SchoolRow[]> {
   return (data ?? []) as SchoolRow[]
 }
 
+/**
+ * One school, by id.
+ *
+ * WHY NOT `fetchSchools().find(...)`, WHICH IS WHAT THE DRILL-DOWN DID. Two
+ * reasons, and the second is a bug rather than waste.
+ *
+ * It read every school in the product to put one name in a heading. That is
+ * silly at four schools and wrong at four hundred.
+ *
+ * And `find` cannot tell "this school does not exist" from "the list never
+ * arrived". SchoolPeople rendered `{school && <InviteStaffSection/>}`, so a
+ * failed schools query produced a page that looked fine — the staff list was
+ * there, the heading just said "This school" — with the invite section silently
+ * absent. That section is the only way to give a school its first
+ * administrator, and a school with none cannot invite one itself.
+ *
+ * `maybeSingle` returns null for a genuine miss and throws for a real failure,
+ * so the screen can say which.
+ */
+export async function fetchSchool(id: string): Promise<SchoolRow | null> {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id, name, suburb, state, status, kind')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as SchoolRow | null
+}
+
 /** Per-school figures. A Platform Admin gets every school; others get theirs. */
 export async function fetchAllSchoolKpis(): Promise<
   (KpiOverview & { school_id: string })[]
@@ -2381,6 +2700,9 @@ export type ConsentType =
   | 'parent_portal_access'
   | 'specialist_referral'
   | 'photo_media'
+  // db/074. The second consent this software actually acts on — see
+  // CONSENT_COPY, where `enforced` says which ones are real.
+  | 'student_portal_access'
 
 export type ConsentRow = {
   id: string
@@ -2562,6 +2884,14 @@ export type SchoolBillingTotals = {
   overdue: number
   overdue_cents: number
   oldest_overdue: string | null
+  /*
+   * db/071. Issued, unpaid, and carrying no due date at all — so it can never
+   * become overdue however long it waits. A subset of outstanding and disjoint
+   * from overdue, which is what makes it safe to say "X past due, Y more with
+   * no date" without the two double-counting.
+   */
+  no_due_date: number
+  no_due_date_cents: number
 }
 
 export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]> {
@@ -2572,6 +2902,866 @@ export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]>
 
   if (error) throw new Error(error.message)
   return (data ?? []) as SchoolBillingTotals[]
+}
+
+// ---------------------------------------------------------------------------
+// Special Miles' own files — db/080.
+//
+// Mirrors uploadResource below rather than inventing a second upload path: row
+// first, then the object at '<row id>/<filename>', and the row deleted again if
+// the file does not land. The path convention is load-bearing — db/080's
+// storage policies read segment 1 of the object path as the row's id.
+// ---------------------------------------------------------------------------
+
+export type LibraryFile = {
+  id: string
+  title: string
+  description: string | null
+  storage_path: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  course_module_id: string | null
+  article_id: string | null
+  created_at: string
+}
+
+export const LIBRARY_MAX_BYTES = 50 * 1024 * 1024
+
+export async function fetchLibraryFiles(): Promise<LibraryFile[]> {
+  const { data, error } = await supabase
+    .from('library_files')
+    .select(
+      'id, title, description, storage_path, mime_type, size_bytes, ' +
+        'course_module_id, article_id, created_at',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as LibraryFile[]
+}
+
+export async function uploadLibraryFile(input: {
+  title: string
+  description: string | null
+  file: File
+  articleId?: string | null
+  courseModuleId?: string | null
+}): Promise<void> {
+  if (input.file.size > LIBRARY_MAX_BYTES) {
+    throw new Error(
+      `That file is ${formatBytes(input.file.size)}. The limit is ${formatBytes(LIBRARY_MAX_BYTES)}.`,
+    )
+  }
+
+  const auth = await supabase.auth.getUser()
+
+  const { data: row, error: insertError } = await supabase
+    .from('library_files')
+    .insert({
+      title: input.title.trim(),
+      description: input.description?.trim() || null,
+      article_id: input.articleId ?? null,
+      course_module_id: input.courseModuleId ?? null,
+      mime_type: input.file.type || null,
+      size_bytes: input.file.size,
+      uploaded_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (insertError) throw new Error(insertError.message)
+
+  const path = `${row.id}/${safeFileName(input.file.name)}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('library')
+    .upload(path, input.file, { contentType: input.file.type, upsert: false })
+
+  if (uploadError) {
+    // A row with no file is a download that 404s. Removed rather than left.
+    await supabase.from('library_files').delete().eq('id', row.id)
+    throw new Error(`The file could not be uploaded: ${uploadError.message}`)
+  }
+
+  const { error: updateError } = await supabase
+    .from('library_files')
+    .update({ storage_path: path })
+    .eq('id', row.id)
+
+  if (updateError) throw new Error(updateError.message)
+}
+
+/**
+ * A short-lived URL for one file.
+ *
+ * SIGNED RATHER THAN PUBLIC, even though every signed-in account may read this
+ * bucket. db/080 keeps `public = false` so an unpublished course's toolkit is
+ * not served to anybody who guesses the URL — the read policy is about people
+ * with accounts, not about the open internet.
+ */
+export async function libraryFileUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('library')
+    .createSignedUrl(storagePath, 300)
+
+  if (error) throw new Error(error.message)
+  return data.signedUrl
+}
+
+export async function deleteLibraryFile(
+  id: string,
+  storagePath: string | null,
+): Promise<void> {
+  // The object first. A deleted row with its file still in the bucket is
+  // storage nobody can find to clean up.
+  if (storagePath) await supabase.storage.from('library').remove([storagePath])
+
+  const { data, error } = await supabase
+    .from('library_files')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The file')
+}
+
+// ---------------------------------------------------------------------------
+// Articles and case studies — db/079. The reading half of the CMS.
+//
+// Separate from courses on purpose: a course is a sequence somebody works
+// THROUGH and is counted for, an article is a page somebody READS. A one-page
+// article modelled as a one-module course would arrive with an enrolment, a
+// progress bar and a "Mark as done" button — furniture for something nobody is
+// completing.
+// ---------------------------------------------------------------------------
+
+export type ArticleKind = 'article' | 'case_study'
+
+export type Article = {
+  id: string
+  kind: ArticleKind
+  title: string
+  summary: string
+  body: string
+  audiences: Role[]
+  /** Only meaningful for a case study — db/079 refuses to publish one without it. */
+  consent_confirmed: boolean
+  is_published: boolean
+  published_at: string | null
+  created_at: string
+}
+
+/** Published and for your role; a platform admin also sees drafts. RLS decides. */
+export async function fetchArticles(): Promise<Article[]> {
+  const { data, error } = await supabase
+    .from('articles')
+    .select(
+      'id, kind, title, summary, body, audiences, consent_confirmed, ' +
+        'is_published, published_at, created_at',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as Article[]
+}
+
+export type ArticleInput = {
+  kind: ArticleKind
+  title: string
+  summary: string
+  body: string
+  audiences: Role[]
+  consentConfirmed: boolean
+}
+
+export async function createArticle(input: ArticleInput): Promise<string> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('articles')
+    .insert({
+      kind: input.kind,
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      body: input.body.trim(),
+      audiences: input.audiences,
+      consent_confirmed: input.consentConfirmed,
+      created_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data.id as string
+}
+
+/**
+ * Publish or withdraw.
+ *
+ * db/079 refuses to publish a case study whose `consent_confirmed` is false,
+ * and that error is translated rather than forwarded: the raw message names a
+ * constraint, and the person reading it needs to be told what to do about a
+ * story written about a real family.
+ */
+export async function setArticlePublished(
+  id: string,
+  published: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('articles')
+    .update({
+      is_published: published,
+      published_at: published ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    if (/articles_case_study_needs_consent/.test(error.message)) {
+      throw new Error(
+        'A case study cannot be published until somebody confirms the people in it agreed to it.',
+      )
+    }
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The article')
+}
+
+export async function setArticleConsent(
+  id: string,
+  confirmed: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('articles')
+    .update({ consent_confirmed: confirmed })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The confirmation')
+}
+
+export async function deleteArticle(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('articles')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The article')
+}
+
+// ---------------------------------------------------------------------------
+// The Academy — db/075. Structured program delivery.
+//
+// Nothing here filters by audience or by published state. db/075's policies do
+// it, so a course written for educators is not merely hidden from a parent's
+// screen — it does not arrive. A filter in this file would be a second place
+// for the rule to live and the easier of the two to forget.
+// ---------------------------------------------------------------------------
+
+export type CourseModule = {
+  id: string
+  title: string
+  body: string
+  video_url: string | null
+  sort_order: number
+}
+
+export type Course = {
+  id: string
+  title: string
+  summary: string
+  audiences: Role[]
+  is_published: boolean
+  published_at: string | null
+  created_at: string
+  course_modules: CourseModule[] | null
+}
+
+export type Enrolment = {
+  id: string
+  course_id: string
+  profile_id: string
+  enrolled_at: string
+  completed_at: string | null
+}
+
+export async function fetchCourses(): Promise<Course[]> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select(
+      'id, title, summary, audiences, is_published, published_at, created_at, ' +
+        'course_modules ( id, title, body, video_url, sort_order )',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as unknown as Course[]
+  // PostgREST cannot order an embedded table, so the modules arrive in
+  // whatever order the planner produced. A course whose steps are shuffled is
+  // worse than one with no steps at all.
+  return rows.map((c) => ({
+    ...c,
+    course_modules: [...(c.course_modules ?? [])].sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+  }))
+}
+
+/** My own enrolments. A platform admin gets everybody's — db/075. */
+export async function fetchMyEnrolments(): Promise<Enrolment[]> {
+  const { data, error } = await supabase
+    .from('course_enrolments')
+    .select('id, course_id, profile_id, enrolled_at, completed_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Enrolment[]
+}
+
+export async function fetchMyCompletions(): Promise<
+  { enrolment_id: string; module_id: string }[]
+> {
+  const { data, error } = await supabase
+    .from('module_completions')
+    .select('enrolment_id, module_id')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as { enrolment_id: string; module_id: string }[]
+}
+
+export async function enrolInCourse(courseId: string): Promise<void> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('course_enrolments')
+    .insert({ course_id: courseId, profile_id: auth.data.user?.id })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The enrolment')
+}
+
+/**
+ * Tick one module off.
+ *
+ * The enrolment finishing is NOT set here. db/075 has a trigger that closes it
+ * when the last module lands, so a progress dashboard cannot disagree with the
+ * tick somebody just saw — and two browsers finishing at once cannot both
+ * decide they were the last.
+ */
+export async function completeModule(
+  enrolmentId: string,
+  moduleId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('module_completions')
+    .insert({ enrolment_id: enrolmentId, module_id: moduleId })
+
+  // Already ticked is not a failure worth showing anybody: two taps on a slow
+  // connection is the normal way this happens.
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
+export type CourseInput = {
+  title: string
+  summary: string
+  audiences: Role[]
+}
+
+export async function createCourse(input: CourseInput): Promise<string> {
+  const auth = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('courses')
+    .insert({
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      audiences: input.audiences,
+      created_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data.id as string
+}
+
+/**
+ * Publish or withdraw.
+ *
+ * `published_at` moves with the flag because db/075 has a check constraint
+ * tying them together — a course cannot be published without a date, and
+ * cannot carry a date while unpublished.
+ */
+export async function setCoursePublished(
+  id: string,
+  published: boolean,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('courses')
+    .update({
+      is_published: published,
+      published_at: published ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The course')
+}
+
+export async function addCourseModule(
+  courseId: string,
+  title: string,
+  body: string,
+  videoUrl: string | null,
+  sortOrder: number,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('course_modules')
+    .insert({
+      course_id: courseId,
+      title: title.trim(),
+      body: body.trim(),
+      video_url: videoUrl?.trim() || null,
+      sort_order: sortOrder,
+    })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The module')
+}
+
+/**
+ * Correct a module without destroying anybody's progress.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE ABSENCE OF THIS COST MORE THAN A RETYPE
+ * ---------------------------------------------------------------------------
+ * db/075 declares `module_completions.module_id ... on delete cascade`. So
+ * deleting a module deletes every record of every learner having completed it.
+ * With only create and delete available, fixing a typo in a title meant
+ * withdrawing the course, deleting the module, losing the completions,
+ * retyping it and publishing again — and the new module is a new id, so the
+ * progress does not come back.
+ *
+ * The Courses screen already disables deletion on a published course, warning
+ * that "somebody may be part-way through it". That instinct was right and the
+ * remedy it offered was still lossy. db/075's update policy was the answer all
+ * along and nothing called it.
+ *
+ * Editing is therefore allowed while published, unlike deletion: the id does
+ * not move, so nobody's completion is affected by a corrected sentence.
+ */
+export async function updateCourseModule(
+  id: string,
+  fields: { title: string; body: string; videoUrl: string | null },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('course_modules')
+    .update({
+      title: fields.title.trim(),
+      body: fields.body.trim(),
+      video_url: fields.videoUrl?.trim() || null,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The module')
+}
+
+export async function deleteCourseModule(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('course_modules')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The module')
+}
+
+// ---------------------------------------------------------------------------
+// Giving a student an account — db/076.
+// ---------------------------------------------------------------------------
+
+export type StudentAccount = {
+  id: string
+  display_name: string
+  /** Set once an invitation has been redeemed. Null means no account. */
+  profile_id: string | null
+  /** A guardian has granted student_portal_access and not withdrawn it. */
+  hasConsent: boolean
+  /** An invitation exists and has neither been used nor withdrawn. */
+  invitePending: boolean
+}
+
+/**
+ * Every student at the school, with the state of db/074's two keys.
+ *
+ * THREE READS RATHER THAN ONE EMBED, and it is worth saying why. The obvious
+ * query embeds consents and invitations into students, but PostgREST cannot
+ * filter a parent row by a condition on an embedded table without `!inner`,
+ * and `!inner` would DROP every student who has no consent — which is exactly
+ * the set this screen exists to show.
+ *
+ * So the three are fetched separately and joined here. Each is filtered by RLS
+ * to the caller's own school, so this cannot be pointed at another school's
+ * children by changing anything.
+ */
+export async function fetchStudentAccounts(): Promise<StudentAccount[]> {
+  const [students, consents, invitations] = await Promise.all([
+    supabase
+      .from('students')
+      .select('id, display_name, profile_id')
+      .eq('is_active', true)
+      .order('display_name'),
+    supabase
+      .from('consents')
+      .select('student_id')
+      .eq('consent_type', 'student_portal_access')
+      .is('revoked_at', null),
+    supabase
+      .from('invitations')
+      .select('student_id')
+      .eq('role', 'student')
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .gt('expires_at', new Date().toISOString()),
+  ])
+
+  if (students.error) throw new Error(students.error.message)
+  // A failed consent or invitation read is NOT treated as "none". Reporting a
+  // child as having no consent when the query simply failed would invite
+  // somebody to grant one that already exists.
+  if (consents.error) throw new Error(consents.error.message)
+  if (invitations.error) throw new Error(invitations.error.message)
+
+  const consented = new Set((consents.data ?? []).map((c) => c.student_id))
+  const invited = new Set((invitations.data ?? []).map((i) => i.student_id))
+
+  return (students.data ?? []).map((s) => ({
+    id: s.id as string,
+    display_name: s.display_name as string,
+    profile_id: (s.profile_id as string | null) ?? null,
+    hasConsent: consented.has(s.id),
+    invitePending: invited.has(s.id),
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// What a student sees of themselves — db/074.
+// ---------------------------------------------------------------------------
+
+export type StudentGoal = {
+  id: string
+  title: string
+  description: string
+  category: GoalCategory
+  status: 'not_started' | 'on_track' | 'needs_review' | 'achieved' | 'discontinued'
+  goal_milestones: { id: string; title: string; is_done: boolean }[] | null
+}
+
+/**
+ * The signed-in student's own goals.
+ *
+ * NO STUDENT ID IS PASSED, AND THAT IS THE SAFETY PROPERTY. db/074's policies
+ * match on `student_id = my_student_id()`, a security-definer helper that
+ * returns null unless the school has linked the account AND a guardian consent
+ * is live. So this query cannot be aimed at another child by changing an
+ * argument, because there is no argument — and if either key is turned off it
+ * returns nothing rather than somebody else's goals.
+ */
+export async function fetchMyGoals(): Promise<StudentGoal[]> {
+  const { data, error } = await supabase
+    .from('goals')
+    .select(
+      'id, title, description, category, status, ' +
+        'goal_milestones ( id, title, is_done )',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as StudentGoal[]
+}
+
+// ---------------------------------------------------------------------------
+// Appointments a family can see — db/073.
+// ---------------------------------------------------------------------------
+
+export type FamilyAppointment = {
+  id: string
+  student_id: string
+  starts_at: string
+  ends_at: string
+  duration_minutes: number
+  status: 'scheduled' | 'completed' | 'cancelled'
+  purpose: string | null
+  cancelled_reason: string | null
+  /** Null means no separate charge — included in what the school already pays. */
+  fee_cents: number | null
+  /** Set once a fee has been turned into an invoice. */
+  invoice_id: string | null
+  created_at: string
+  /*
+   * Later than `created_at` means somebody has moved or edited this booking
+   * since it was made. That is the whole reason a family may see appointments
+   * at all — see the note in the parent screen.
+   */
+  updated_at: string
+  profiles: { full_name: string | null } | null
+}
+
+/**
+ * One child's appointments, for their family.
+ *
+ * NEW READ, NOT A NEW QUERY SHAPE. db/059 admitted only the assigned specialist
+ * and a platform admin, so this returned nothing to a parent no matter how it
+ * was written — the policy in db/073 is what makes it work, and RLS is still
+ * what decides. Passing a student id the caller is not a guardian of returns an
+ * empty list rather than an error.
+ */
+export async function fetchAppointmentsForChild(
+  studentId: string,
+): Promise<FamilyAppointment[]> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .select(
+      'id, student_id, starts_at, ends_at, duration_minutes, status, purpose, ' +
+        'cancelled_reason, fee_cents, invoice_id, created_at, updated_at, ' +
+        'profiles!specialist_appointments_specialist_id_fkey ( full_name )',
+    )
+    .eq('student_id', studentId)
+    .order('starts_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as FamilyAppointment[]
+}
+
+// ---------------------------------------------------------------------------
+// Platform billing — db/072. The OTHER kind of money.
+//
+// `invoices` is a school billing a family for a named child. Everything below
+// is Special Miles billing the school for the platform, and the two must never
+// be added together or shown in one list: different payers, different readers,
+// and different rules about who may see a draft.
+// ---------------------------------------------------------------------------
+
+export type BillingPeriod = 'monthly' | 'termly' | 'annual'
+
+export type PlatformSubscription = {
+  id: string
+  school_id: string
+  plan_label: string
+  rate_cents: number
+  currency: string
+  period: BillingPeriod
+  starts_on: string
+  /** Null while it is running. An ended agreement is kept, never deleted. */
+  ends_on: string | null
+  note: string | null
+  created_at: string
+}
+
+export type PlatformInvoice = {
+  id: string
+  school_id: string
+  period_start: string
+  period_end: string
+  description: string
+  amount_cents: number
+  currency: string
+  status: InvoiceStatus
+  due_date: string | null
+  issued_at: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export type PlatformRevenueTotals = {
+  school_id: string
+  currency: string
+  invoices: number
+  drafts: number
+  collected_cents: number
+  outstanding_cents: number
+  overdue_cents: number
+  no_due_date_cents: number
+}
+
+/** Every agreement, live and ended. A platform admin sees all; a school its own. */
+export async function fetchSubscriptions(): Promise<PlatformSubscription[]> {
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .select(
+      'id, school_id, plan_label, rate_cents, currency, period, starts_on, ends_on, note, created_at',
+    )
+    .order('starts_on', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PlatformSubscription[]
+}
+
+export type SubscriptionInput = {
+  schoolId: string
+  planLabel: string
+  rateCents: number
+  period: BillingPeriod
+  note: string | null
+}
+
+/**
+ * Agree a rate with a school.
+ *
+ * ENDS ANY LIVE AGREEMENT FIRST, because db/072 allows only one at a time and
+ * the alternative is a unique-violation the screen would have to translate. The
+ * old row is ENDED rather than replaced — what a school used to pay is the
+ * answer to most billing questions, and an invoice already refers to it.
+ */
+export async function agreeSubscription(input: SubscriptionInput): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10)
+  const auth = await supabase.auth.getUser()
+
+  const { error: endError } = await supabase
+    .from('platform_subscriptions')
+    .update({ ends_on: today })
+    .eq('school_id', input.schoolId)
+    .is('ends_on', null)
+
+  if (endError) throw new Error(endError.message)
+
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .insert({
+      school_id: input.schoolId,
+      plan_label: input.planLabel.trim(),
+      rate_cents: input.rateCents,
+      period: input.period,
+      note: input.note?.trim() || null,
+      agreed_by: auth.data.user?.id ?? null,
+    })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The agreement')
+}
+
+/** Stop billing a school without deleting what it used to pay. */
+export async function endSubscription(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .update({ ends_on: new Date().toISOString().slice(0, 10) })
+    .eq('id', id)
+    .is('ends_on', null)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Ending the agreement')
+}
+
+export async function fetchPlatformInvoices(): Promise<PlatformInvoice[]> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .select(
+      'id, school_id, period_start, period_end, description, amount_cents, ' +
+        'currency, status, due_date, issued_at, paid_at, created_at',
+    )
+    .order('period_start', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  // `as unknown as` because PostgREST types a string select as its own row
+  // shape; the same cast every other fetcher in this file needs.
+  return (data ?? []) as unknown as PlatformInvoice[]
+}
+
+export type PlatformInvoiceInput = {
+  schoolId: string
+  subscriptionId: string
+  periodStart: string
+  periodEnd: string
+  description: string
+  amountCents: number
+  currency: string
+  dueDate: string | null
+}
+
+/**
+ * Raise a charge for one period, as a DRAFT.
+ *
+ * Draft first, always. db/072 hides drafts from the school, so this is the
+ * state in which a mistake costs nothing — and a button that issued a demand
+ * for money in one click is a button somebody eventually presses by accident.
+ */
+export async function raisePlatformInvoice(
+  input: PlatformInvoiceInput,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .insert({
+      school_id: input.schoolId,
+      subscription_id: input.subscriptionId,
+      period_start: input.periodStart,
+      period_end: input.periodEnd,
+      description: input.description.trim(),
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      due_date: input.dueDate,
+      status: 'draft',
+    })
+    .select('id')
+
+  if (error) {
+    // db/072's unique constraint on (school, period). Worth translating,
+    // because the raw message names an index nobody recognises.
+    if (error.code === '23505') {
+      throw new Error('That school has already been billed for this period.')
+    }
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The invoice')
+}
+
+/** Draft to open. The moment it becomes a demand for money — audited by db/072. */
+export async function issuePlatformInvoice(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .update({ status: 'open', issued_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', 'draft')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Issuing the invoice')
+}
+
+/**
+ * Cancel one, keeping the row.
+ *
+ * Void rather than delete, the rule db/020 set for family invoices: a charge
+ * that was raised and withdrawn is part of the record somebody may ask about.
+ */
+export async function voidPlatformInvoice(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('platform_invoices')
+    .update({ status: 'void' })
+    .eq('id', id)
+    .neq('status', 'paid')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Voiding the invoice')
+}
+
+export async function fetchPlatformRevenueTotals(): Promise<
+  PlatformRevenueTotals[]
+> {
+  const { data, error } = await supabase
+    .from('platform_revenue_totals')
+    .select('*')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PlatformRevenueTotals[]
 }
 
 export type InvoiceFilter = {
@@ -2828,6 +4018,55 @@ export async function fetchSessionNotes(
   return data?.notes ?? null
 }
 
+/**
+ * Write or revise the clinical note on a session — db/028's write policy.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ERROR MESSAGE ABOVE PROMISED THIS
+ * ---------------------------------------------------------------------------
+ * `createSession` writes the session and the note as two statements, and when
+ * the second fails it says: "The session was saved but your clinical notes
+ * were not ... Open the session and add them again." There was no way to add
+ * them again. A specialist who hit that error had a session with no clinical
+ * record and no route back to one.
+ *
+ * db/028 also says the note may be revised — "written and revised only by the
+ * specialist who ran the session" — and nothing offered that either. The table
+ * has carried an `updated_at` trigger since it was created, which only makes
+ * sense for a row somebody expected to change.
+ *
+ * ---------------------------------------------------------------------------
+ * NO FAMILY READS THIS, WHICH IS WHY THERE IS NO LOCK
+ * ---------------------------------------------------------------------------
+ * A behaviour log freezes once an administrator acknowledges it (db/010),
+ * because a record somebody senior has read must not be quietly reworded. That
+ * reasoning does not reach here: db/028's select policy admits only the
+ * assigned specialist and platform admins — deliberately not school admins,
+ * and not guardians at all. What a family sees is the separate `shared_summary`
+ * on the session itself. So there is nobody who could have read this note and
+ * been misled by a later correction.
+ *
+ * Upsert rather than insert-or-update, because `session_id` is the primary key
+ * — one note per session — so both jobs are the same statement.
+ */
+export async function saveSessionNotes(
+  sessionId: string,
+  notes: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_session_notes')
+    .upsert(
+      { session_id: sessionId, notes: notes.trim() },
+      { onConflict: 'session_id' },
+    )
+    .select('session_id')
+
+  if (error) throw new Error(error.message)
+  // A specialist who did not run this session is filtered out rather than
+  // refused, which without this would look like a saved note.
+  assertChanged(data, 'The clinical note')
+}
+
 export async function createSession(input: {
   studentId: string
   sessionDate: string
@@ -2920,6 +4159,14 @@ export type AppointmentRow = {
   purpose: string | null
   session_id: string | null
   cancelled_reason: string | null
+  /*
+   * db/073. Null means no separate charge — the session is inside what the
+   * school already pays, which is the normal case. Zero means somebody chose to
+   * charge nothing. The screen must not render those the same way.
+   */
+  fee_cents: number | null
+  /** Set once a fee has been turned into a draft invoice. */
+  invoice_id: string | null
 }
 
 /**
@@ -2947,14 +4194,68 @@ export async function fetchAppointments(): Promise<AppointmentRow[]> {
   const { data, error } = await supabase
     .from('specialist_appointments')
     .select(
-      'id, student_id, specialist_id, starts_at, duration_minutes, status, purpose, session_id, cancelled_reason',
+      'id, student_id, specialist_id, starts_at, duration_minutes, status, ' +
+        'purpose, session_id, cancelled_reason, fee_cents, invoice_id',
     )
     .gte('starts_at', from.toISOString())
     .order('starts_at')
     .limit(500)
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as AppointmentRow[]
+  // `as unknown as` since the select became a concatenated string — PostgREST
+  // types those as its own row shape, the same cast every other fetcher here
+  // needs.
+  return (data ?? []) as unknown as AppointmentRow[]
+}
+
+/**
+ * Record what a session costs — db/073.
+ *
+ * NULL AND ZERO ARE BOTH MEANINGFUL AND DIFFERENT. Null is "no separate
+ * charge", which is the normal case for school-based therapy inside whatever
+ * the school already pays. Zero is a session deliberately provided free, which
+ * is a decision somebody made. Storing one as the other would lose that.
+ */
+export async function setAppointmentFee(
+  id: string,
+  feeCents: number | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ fee_cents: feeCents })
+    .eq('id', id)
+    // Once billed, the amount is on an invoice somebody may already have been
+    // sent. Changing it here would leave the two disagreeing silently.
+    .is('invoice_id', null)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The fee')
+}
+
+/**
+ * Turn the fee into an invoice the family can pay.
+ *
+ * A DATABASE FUNCTION RATHER THAN AN INSERT, because db/020 lets only a school
+ * administrator create invoices and a specialist is not one. db/073's
+ * `raise_appointment_invoice` is the narrow exception: it writes exactly one
+ * invoice, for one appointment the caller owns, at the fee recorded on it.
+ *
+ * It arrives as a DRAFT. The school's name is on a family invoice, so the
+ * school decides what its families are asked to pay; the specialist says what
+ * the session cost.
+ */
+export async function billAppointment(
+  id: string,
+  dueDate: string | null,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('raise_appointment_invoice', {
+    p_appointment_id: id,
+    p_due_date: dueDate,
+  })
+
+  if (error) throw new Error(error.message)
+  return data as string
 }
 
 /**
@@ -3115,19 +4416,13 @@ export async function fetchSystemEvents(limit = 50): Promise<SystemEvent[]> {
  * this was. The event is never edited and never deleted; the note sits beside
  * it, and the database sets the timestamp so "I looked on Tuesday" cannot be
  * written on Friday.
+ *
+ * PLURAL, because the singular had no callers. A drill writes three identical
+ * events every run and an outage writes one per failed attempt, so reviewing
+ * them one at a time was never what anybody wanted; ReviewEvents.tsx has only
+ * ever called this. The one-event wrapper was deleted rather than kept "in
+ * case" — an exported function nothing calls reads as a feature that exists.
  */
-export async function reviewSystemEvent(
-  eventId: string,
-  note: string,
-): Promise<void> {
-  const { error } = await supabase.rpc('review_system_event', {
-    p_event_id: eventId,
-    p_note: note,
-  })
-  if (error) throw new Error(error.message)
-}
-
-/** The drill writes three identical events every run; review them together. */
 export async function reviewSystemEventsLike(
   source: string,
   event: string,
@@ -3611,8 +4906,15 @@ export type Delivered = {
 
 export async function createInvitation(input: {
   email: string
-  role: 'educator' | 'specialist' | 'school_admin'
+  role: 'educator' | 'specialist' | 'school_admin' | 'student'
   schoolId?: string
+  /*
+   * db/076. Required for a student invitation and refused for any other, in
+   * both the server and a check constraint — an invitation that named a child
+   * while granting a staff role would be a way to attach a teacher's account
+   * to a child record, and it would read as a typo.
+   */
+  studentId?: string
 }): Promise<{ acceptUrl: string } & Delivered> {
   const { data: session } = await supabase.auth.getSession()
   const token = session.session?.access_token
@@ -3903,6 +5205,25 @@ const ENQUIRY_COLUMNS =
   'id, kind, plan_key, organisation_name, contact_name, contact_email, ' +
   'contact_phone, contact_role, student_count, message, created_at, status, ' +
   'handled_at, handled_note, handled_by:profiles!enquiries_handled_by_fkey(full_name)'
+
+/**
+ * One enquiry, by id — for turning it into a school.
+ *
+ * `maybeSingle` rather than `single`, because the id arrives from a URL that
+ * somebody can edit, keep in a bookmark, or follow after the row is gone. A
+ * missing enquiry is a thing to say plainly, not a thrown error on a page that
+ * otherwise works.
+ */
+export async function fetchEnquiry(id: string): Promise<EnquiryRow | null> {
+  const { data, error } = await supabase
+    .from('enquiries')
+    .select(ENQUIRY_COLUMNS)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as unknown as EnquiryRow | null
+}
 
 /** Platform admin only — RLS returns nothing to anybody else. */
 export async function fetchEnquiries(
@@ -5355,6 +6676,234 @@ export async function agreeIepPlan(planId: string): Promise<void> {
   assertChanged(data, 'The agreement')
 }
 
+/**
+ * Who has personally confirmed a plan — db/054's `iep_plan_confirmations`.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS A SEPARATE FACT FROM `status = 'agreed'`
+ * ---------------------------------------------------------------------------
+ * `agreeIepPlan` above is a STAFF action. It freezes the wording and moves the
+ * plan to Agreed, and until now that was the only record of agreement the
+ * product held — which means a plan could read "Agreed" without a single
+ * family member having been asked.
+ *
+ * db/054 built the other half and said why: "everyone confirmed" is not the
+ * same fact as "the family confirmed". Its insert policy is
+ * `profile_id = auth.uid()` and nothing else, so a school admin cannot tick
+ * the box on a parent's behalf. That restriction is the only thing that makes
+ * the record worth anything, and it also means the row can ONLY be written by
+ * a screen the family can reach. There was no such screen.
+ */
+export type IepPlanConfirmation = {
+  id: string
+  profile_id: string
+  as_guardian: boolean
+  confirmed_at: string
+  /* Null when the reader may not see that person's profile. Rendered as an
+     unnamed confirmation rather than guessed at — see IepAgreement. */
+  profiles: { full_name: string | null } | null
+}
+
+export async function fetchIepPlanConfirmations(
+  planId: string,
+): Promise<IepPlanConfirmation[]> {
+  const { data, error } = await supabase
+    .from('iep_plan_confirmations')
+    .select('id, profile_id, as_guardian, confirmed_at, profiles ( full_name )')
+    .eq('plan_id', planId)
+    .order('confirmed_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IepPlanConfirmation[]
+}
+
+/**
+ * Record that YOU agree to this plan. Never anybody else — the caller does not
+ * get to name a profile, because db/054 would refuse it anyway and an argument
+ * that is always `auth.uid()` is an invitation to try.
+ */
+export async function confirmIepPlan(asGuardian: boolean, planId: string): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const profileId = session.user?.id
+  if (!profileId) throw new Error('You are signed out. Sign in and try again.')
+
+  const { error } = await supabase.from('iep_plan_confirmations').insert({
+    plan_id: planId,
+    profile_id: profileId,
+    as_guardian: asGuardian,
+  })
+
+  /* The unique (plan_id, profile_id) means confirming twice is a 23505 rather
+     than a second row. That is not a failure worth alarming somebody with —
+     they already agreed, which is what they were trying to achieve. */
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
+/**
+ * The weekly support schedule on a plan — db/054's `iep_support_sessions`.
+ *
+ * ---------------------------------------------------------------------------
+ * BUILT IN SQL, REACHED BY NOTHING
+ * ---------------------------------------------------------------------------
+ * db/054 created the table, an index, an updated_at trigger, a staff-only
+ * policy, a bounded `hours` column and the `iep_support_totals` view — and the
+ * suite has always tested all of it. No screen ever wrote a row, so the part of
+ * the IEP that says who supports this child, on which day, for how long has
+ * been unfillable since the migration landed.
+ *
+ * It is not decoration on the form. db/054's own note says the weekly total is
+ * "a number somebody puts in front of a funder", which is why `hours` is
+ * bounded rather than trusted.
+ */
+export const IEP_WEEKDAY_LABEL: Record<IepWeekday, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+}
+
+export type IepSupportSession = {
+  id: string
+  weekday: IepWeekday
+  staff_name: string
+  staff_role: string | null
+  intervention: string | null
+  hours: number
+}
+
+export async function fetchIepSupportSessions(
+  planId: string,
+): Promise<IepSupportSession[]> {
+  const { data, error } = await supabase
+    .from('iep_support_sessions')
+    .select('id, weekday, staff_name, staff_role, intervention, hours')
+    .eq('plan_id', planId)
+
+  if (error) throw new Error(error.message)
+  /* `hours` is numeric(4,2). PostgREST can hand a numeric back as a string
+     depending on its size, and 2.5 + '1.5' would silently become '2.51.5' in a
+     total. Coerced once, here, rather than at each place that adds up. */
+  return (data ?? []).map((s) => ({
+    ...s,
+    hours: Number(s.hours),
+  })) as IepSupportSession[]
+}
+
+/**
+ * The weekly total, ADDED UP BY THE DATABASE.
+ *
+ * `iep_support_totals` exists so this figure is computed in one place by
+ * something that cannot make an arithmetic slip, and db/054 gave it
+ * `security_invoker` so it cannot become a way around the table's policy. A
+ * `reduce` over the rows above would have been shorter and would have quietly
+ * given a different answer the first time a row was filtered out by RLS.
+ */
+export type IepSupportTotal = {
+  hours_per_week: number
+  days_covered: number
+  sessions: number
+}
+
+export async function fetchIepSupportTotal(
+  planId: string,
+): Promise<IepSupportTotal | null> {
+  const { data, error } = await supabase
+    .from('iep_support_totals')
+    .select('hours_per_week, days_covered, sessions')
+    .eq('plan_id', planId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+  return {
+    hours_per_week: Number(data.hours_per_week),
+    days_covered: Number(data.days_covered),
+    sessions: Number(data.sessions),
+  }
+}
+
+export async function createIepSupportSession(input: {
+  planId: string
+  weekday: IepWeekday
+  staffName: string
+  staffRole: string
+  intervention: string
+  hours: number
+}): Promise<void> {
+  const { error } = await supabase.from('iep_support_sessions').insert({
+    plan_id: input.planId,
+    weekday: input.weekday,
+    staff_name: input.staffName.trim(),
+    staff_role: input.staffRole.trim() === '' ? null : input.staffRole.trim(),
+    intervention:
+      input.intervention.trim() === '' ? null : input.intervention.trim(),
+    hours: input.hours,
+  })
+
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteIepSupportSession(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('iep_support_sessions')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // A delete RLS refuses returns success with nothing removed — the trap this
+  // project has hit before.
+  assertChanged(data, 'The session')
+}
+
+/**
+ * Record how a goal actually went — db/054's `iep_goal_reviews`.
+ *
+ * ---------------------------------------------------------------------------
+ * THE HALF OF THE PLAN THAT SAYS WHETHER IT WORKED
+ * ---------------------------------------------------------------------------
+ * db/054 created this table with insert, update and delete policies, and the
+ * suite has always asserted that a review can be recorded against an AGREED
+ * plan — "the review can still be recorded, that is the point of the meeting",
+ * the one thing the freeze deliberately lets through.
+ *
+ * Three places read a review. `IepPlanEditor` prints the latest outcome as a
+ * badge on the goal and the comment underneath it; `FamilyIepPlans` shows
+ * families the outcome and date against each goal. Nothing ever wrote one, so
+ * every one of those displays was rendering a row that could not exist, and an
+ * IEP could be agreed, worked to for a year and never recorded as met or not.
+ *
+ * ---------------------------------------------------------------------------
+ * THE DATE COMES FROM THE CALLER, NOT FROM now()
+ * ---------------------------------------------------------------------------
+ * Unlike an acknowledgement or an agreement — which are stamped by the server
+ * precisely so nobody can say they looked on Tuesday when they looked on
+ * Friday — a review records WHEN THE MEETING HAPPENED. That is often a week
+ * before somebody types it up, so it is the caller's to state.
+ */
+export async function createIepGoalReview(input: {
+  goalId: string
+  outcome: IepReviewOutcome
+  comment: string
+  reviewedOn: string
+}): Promise<void> {
+  const { data, error } = await supabase
+    .from('iep_goal_reviews')
+    .insert({
+      iep_goal_id: input.goalId,
+      outcome: input.outcome,
+      comment: input.comment.trim() === '' ? null : input.comment.trim(),
+      reviewed_on: input.reviewedOn,
+    })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // A staff member on another school's plan is filtered out rather than
+  // refused, which without this would look like a saved review.
+  assertChanged(data, 'The review')
+}
+
 export async function createIepGoal(input: {
   planId: string
   areaOfConcern: string
@@ -5449,7 +6998,12 @@ export type WorkQueue = Partial<
     | 'openSafeguarding'
     | 'strategiesAwaitingReview'
     | 'unreadThreads'
-    | 'invoicesDue',
+    | 'invoicesDue'
+    /* db/072. Special Miles being owed money is work waiting on somebody, and
+       so is a school having been billed. Both were built and neither reached
+       the one place this product puts "what needs you". */
+    | 'platformInvoicesOverdue'
+    | 'platformInvoicesToPay',
     /** A number, or null when the count could not be read. Never absent-as-zero. */
     number | null
   >
@@ -5514,6 +7068,45 @@ async function countStrategiesAwaitingReview(): Promise<number> {
 }
 
 /** Bills a parent still owes. db/020 hides drafts from them entirely. */
+/**
+ * What Special Miles is owed and nobody has chased — db/072.
+ *
+ * PAST ITS DUE DATE, not merely unpaid. An invoice issued this morning is not
+ * work; one that went by its date is. db/071 established the same distinction
+ * for a school's own invoices, including that an invoice with NO due date can
+ * never become overdue — which is why this counts only dated ones and why the
+ * Subscriptions screen says separately how much carries no date at all.
+ */
+async function countPlatformInvoicesOverdue(): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10)
+  const { count, error } = await supabase
+    .from('platform_invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .not('due_date', 'is', null)
+    .lt('due_date', today)
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+/**
+ * What THIS school has been billed and not yet paid — db/072, the other side.
+ *
+ * Every issued one, not only the late ones. A school admin is the person who
+ * pays it, and "you have an unpaid invoice" is the useful prompt; telling them
+ * only once it is overdue would be withholding the thing that prevents that.
+ * db/072's policy already hides drafts, so this cannot count a charge Special
+ * Miles is still considering.
+ */
+async function countPlatformInvoicesToPay(): Promise<number> {
+  const { count, error } = await supabase
+    .from('platform_invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
 async function countInvoicesDue(): Promise<number> {
   const { count, error } = await supabase
     .from('invoices')
@@ -5585,6 +7178,7 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
           ['newEnquiries', countNewEnquiries()],
           ['newApplications', countNewApplications()],
           ['screeningDueSoon', countScreeningDueSoon()],
+          ['platformInvoicesOverdue', countPlatformInvoicesOverdue()],
         ]
       : role === 'school_admin'
         ? [
@@ -5593,6 +7187,7 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
               fetchSchoolSummary().then((s) => s?.flagged_open ?? 0),
             ],
             ['unreadThreads', countUnreadThreads()],
+            ['platformInvoicesToPay', countPlatformInvoicesToPay()],
           ]
         : role === 'specialist'
           ? [
@@ -5601,10 +7196,25 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
             ]
           : role === 'educator'
             ? [['unreadThreads', countUnreadThreads()]]
-            : [
-                ['unreadThreads', countUnreadThreads()],
-                ['invoicesDue', countInvoicesDue()],
-              ]
+            /*
+             * A STUDENT HAS AN EMPTY QUEUE, SAID EXPLICITLY.
+             *
+             * Without this branch db/074's new role falls into the parent one
+             * below and the bell asks for unread threads and invoices due —
+             * two things a student is not permitted to see. RLS returns 0 for
+             * both rather than an error, so nothing would look broken: the
+             * bell would just quietly report a number that cannot mean
+             * anything, about money a child does not owe.
+             *
+             * The bell counts work waiting for YOU. A student has one screen
+             * and nothing on it to action, so the honest count is none.
+             */
+            : role === 'student'
+              ? []
+              : [
+                  ['unreadThreads', countUnreadThreads()],
+                  ['invoicesDue', countInvoicesDue()],
+                ]
 
   const settled = await Promise.allSettled(jobs.map(([, p]) => p))
 
@@ -5629,6 +7239,7 @@ export const queryKeys = {
   queueCounts: (table: string) => ['queue-counts', table] as const,
   specialistApplications: (status: string) => ['applications', status] as const,
   enquiries: (status: string) => ['enquiries', status] as const,
+  enquiry: (id: string) => ['enquiry', id] as const,
   myMemberships: ['my-memberships'] as const,
   guardianCodes: (studentId: string) => ['guardian-codes', studentId] as const,
   invitations: ['invitations'] as const,
@@ -5662,6 +7273,10 @@ export const queryKeys = {
   iepPlans: (studentId: string) => ['iep-plans', studentId] as const,
   goalPlanLinks: (studentId: string) => ['goal-plan-links', studentId] as const,
   iepPlan: (planId: string) => ['iep-plan', planId] as const,
+  behaviourLog: (id: string) => ['behaviour-log', id] as const,
+  iepPlanConfirmations: (planId: string) =>
+    ['iep-plan-confirmations', planId] as const,
+  iepSupport: (planId: string) => ['iep-support', planId] as const,
   threads: ['threads'] as const,
   messages: (id: string) => ['messages', id] as const,
   messageAttachment: (path: string) => ['message-attachment', path] as const,
@@ -5684,6 +7299,19 @@ export const queryKeys = {
   adminAudit: ['admin-audit'] as const,
   auditTimeline: ['audit-timeline'] as const,
   schools: ['schools'] as const,
+  libraryFiles: ['library-files'] as const,
+  articles: ['articles'] as const,
+  aiUsage: ['ai-usage'] as const,
+  studentAccounts: ['student-accounts'] as const,
+  courses: ['courses'] as const,
+  myEnrolments: ['my-enrolments'] as const,
+  myCompletions: ['my-completions'] as const,
+  myGoals: ['my-goals'] as const,
+  appointmentsForChild: (id: string) => ['appointments', id] as const,
+  subscriptions: ['platform-subscriptions'] as const,
+  platformInvoices: ['platform-invoices'] as const,
+  platformRevenue: ['platform-revenue'] as const,
+  school: (id: string) => ['school', id] as const,
   allSchoolKpis: ['all-school-kpis'] as const,
   schoolDeletability: ['school-deletability'] as const,
   billingTotals: ['billing-totals'] as const,

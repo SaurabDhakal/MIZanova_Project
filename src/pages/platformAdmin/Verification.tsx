@@ -5,7 +5,12 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { fetchStaffPage, queryKeys, setStaffVerified } from '../../lib/api'
+import {
+  fetchSchools,
+  fetchStaffPage,
+  queryKeys,
+  setStaffVerified,
+} from '../../lib/api'
 import Pagination from '../../components/Pagination'
 import { adminResetMfa, fetchStaffMfaStatus } from '../../lib/mfa'
 import { ROLE_CONFIG } from '../../lib/roles'
@@ -41,20 +46,34 @@ export default function Verification() {
    */
   const [waitingPage, setWaitingPage] = useState(0)
   const [verifiedPage, setVerifiedPage] = useState(0)
+  const [schoolId, setSchoolId] = useState('')
   const waitingTop = useRef<HTMLHeadingElement>(null)
   const verifiedTop = useRef<HTMLHeadingElement>(null)
 
+  // The school belongs in BOTH keys. Without it, changing the filter shows the
+  // previous answer to a different question.
   const waiting = useQuery({
-    queryKey: [...queryKeys.allStaff, 'unverified', waitingPage],
-    queryFn: () => fetchStaffPage(false, waitingPage),
+    queryKey: [...queryKeys.allStaff, 'unverified', waitingPage, schoolId],
+    queryFn: () => fetchStaffPage(false, waitingPage, schoolId || undefined),
     placeholderData: keepPreviousData,
   })
 
   const verified = useQuery({
-    queryKey: [...queryKeys.allStaff, 'verified', verifiedPage],
-    queryFn: () => fetchStaffPage(true, verifiedPage),
+    queryKey: [...queryKeys.allStaff, 'verified', verifiedPage, schoolId],
+    queryFn: () => fetchStaffPage(true, verifiedPage, schoolId || undefined),
     placeholderData: keepPreviousData,
   })
+
+  /*
+   * Every school, from its own query rather than from the names on this page —
+   * a school with nobody awaiting verification must still be selectable, or the
+   * filter cannot be used to establish that there is nobody.
+   */
+  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const schoolName = (id: string | null) =>
+    id === null
+      ? null
+      : (schools.data?.find((sc) => sc.id === id)?.name ?? 'Unknown school')
 
   // Who actually has an authenticator. Without this the reset button looked
   // the same before and after use, and the same for someone who never had 2FA.
@@ -120,6 +139,47 @@ export default function Verification() {
         </p>
       )}
 
+      {/*
+        ONE SCHOOL AT A TIME, when that is the question being asked. This screen
+        serves every school at once, and a reviewer checking a name is usually
+        checking it against one roster. Filtered in the database — see
+        fetchStaffPage — because filtering a page would hide people on other
+        pages and report a total belonging to the unfiltered query.
+      */}
+      <div className="mb-5 flex flex-wrap items-end gap-3">
+        <div>
+          <label
+            htmlFor="verification-school"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            School
+          </label>
+          <select
+            id="verification-school"
+            value={schoolId}
+            onChange={(e) => {
+              setSchoolId(e.target.value)
+              // Both lists go back to the start. Staying on page 3 of a filter
+              // that now has one page shows an empty list with no way back.
+              setWaitingPage(0)
+              setVerifiedPage(0)
+            }}
+            className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          >
+            <option value="">Every school</option>
+            {/* Its own answer, not the absence of one: somebody verified with
+                no school attached can act nowhere, and finding them is a real
+                question. */}
+            <option value="none">Nobody&rsquo;s school</option>
+            {(schools.data ?? []).map((school) => (
+              <option key={school.id} value={school.id}>
+                {school.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <h2
         ref={waitingTop}
         className="mb-3 scroll-mt-6 text-lg font-semibold text-foreground"
@@ -146,7 +206,22 @@ export default function Verification() {
                 <p className="text-sm text-muted-foreground">
                   {ROLE_CONFIG[person.role].label}
                   {person.email && ` · ${person.email}`}
-                  {!person.school_id && ' · no school assigned'}
+                </p>
+                {/*
+                  WHICH SCHOOL, which this screen fetched and never showed.
+                  Verifying is an attestation that somebody may open children's
+                  records at a school; without naming it, a reviewer cannot
+                  check the person against the roster that will rely on it.
+                */}
+                <p className="text-sm text-muted-foreground">
+                  {person.school_id ? (
+                    schoolName(person.school_id)
+                  ) : (
+                    <span className="text-warning-foreground">
+                      No school assigned — verifying grants nothing until they
+                      have one
+                    </span>
+                  )}
                 </p>
               </div>
               <button
@@ -196,6 +271,15 @@ export default function Verification() {
                 <p className="text-sm text-muted-foreground">
                   {ROLE_CONFIG[person.role].label}
                   {person.email && ` · ${person.email}`}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {person.school_id ? (
+                    schoolName(person.school_id)
+                  ) : (
+                    <span className="text-warning-foreground">
+                      No school assigned
+                    </span>
+                  )}
                 </p>
                 <p className="mt-1 text-sm">
                   {mfa.isPending ? (

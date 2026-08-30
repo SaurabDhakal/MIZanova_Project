@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createHomeObservation,
+  updateHomeObservation,
   fetchHomeObservations,
   queryKeys,
   type ObservationCategory,
@@ -29,10 +30,26 @@ import { OBSERVATION_CATEGORIES } from '../../lib/observationCategories'
 
 export default function HomeObservations() {
   const queryClient = useQueryClient()
-  const { children, child, selectChild, isPending: childrenPending } =
-    useSelectedChild()
+  const {
+    children,
+    child,
+    selectChild,
+    isPending: childrenPending,
+    isError: childrenError,
+    error: childrenErrorObject,
+  } = useSelectedChild()
 
   const [open, setOpen] = useState(false)
+  /*
+   * THE SAME FORM, IN TWO MODES.
+   *
+   * db/007 lets an author correct their own observation and forbids staff from
+   * touching it. Rather than a second form with the same four fields — which
+   * is where two forms start disagreeing about what a category is — the
+   * existing panel is reused, loaded with the row being corrected. Null means
+   * "writing a new one", which is what it always did.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -67,7 +84,51 @@ export default function HomeObservations() {
     },
   })
 
+  const update = useMutation({
+    mutationFn: () =>
+      updateHomeObservation(editingId!, {
+        title,
+        body,
+        category,
+        observedOn,
+      }),
+    onSuccess: async () => {
+      setEditingId(null)
+      setTitle('')
+      setBody('')
+      setCategory('social_emotional')
+      setOpen(false)
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.homeObservations(child!.id),
+      })
+    },
+  })
+
   if (childrenPending) return <LoadingCards count={2} />
+
+  /*
+   * A FAILED LOOKUP IS NOT AN EMPTY ONE.
+   *
+   * `isError` was dropped from the destructure above, so a children query that
+   * FAILED left `child` undefined and fell straight through to NoChildYet —
+   * which tells a family "Your account is set up. No child is linked to it
+   * yet" and hands them a Link a child button.
+   *
+   * That is a confident false statement about their own child, made to the
+   * person least able to check it, and it sends them back through a linking
+   * flow they have already completed. Five of the seven parent screens did
+   * this.
+   */
+  if (childrenError) {
+    return (
+      <ErrorState
+        message={
+          childrenErrorObject?.message ??
+          'Your children could not be loaded. This is a problem reaching the server, not a change to who is linked to your account.'
+        }
+      />
+    )
+  }
 
   if (!child) {
     return (
@@ -120,16 +181,17 @@ export default function HomeObservations() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              create.mutate()
+              if (editingId) update.mutate()
+              else create.mutate()
             }}
             className="space-y-4"
           >
-            {create.isError && (
+            {(create.isError || update.isError) && (
               <p
                 role="alert"
                 className="rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
               >
-                {create.error.message}
+                {(create.error ?? update.error)?.message}
               </p>
             )}
 
@@ -198,14 +260,23 @@ export default function HomeObservations() {
             <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
-                disabled={create.isPending}
+                disabled={create.isPending || update.isPending}
                 className="flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
               >
-                {create.isPending ? 'Sharing…' : 'Share with school'}
+                {editingId
+                  ? update.isPending
+                    ? 'Saving…'
+                    : 'Save the correction'
+                  : create.isPending
+                    ? 'Sharing…'
+                    : 'Share with school'}
               </button>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setEditingId(null)
+                  setOpen(false)
+                }}
                 className="rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
               >
                 Cancel
@@ -213,7 +284,9 @@ export default function HomeObservations() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              This is shared with the staff assigned to {child.display_name}.
+              {editingId
+                ? 'The staff assigned to your child see the corrected version. Observations are corrected rather than deleted.'
+                : `This is shared with the staff assigned to ${child.display_name}.`}
             </p>
           </form>
         )}
@@ -259,7 +332,17 @@ export default function HomeObservations() {
               detail={`Nothing matched “${search}”.`}
             />
           ) : (
-            <HomeObservationList observations={visible} />
+            <HomeObservationList
+              observations={visible}
+              onEdit={(o) => {
+                setEditingId(o.id)
+                setTitle(o.title)
+                setBody(o.body)
+                setCategory(o.category)
+                setObservedOn(o.observed_on)
+                setOpen(true)
+              }}
+            />
           )}
         </>
       )}

@@ -251,7 +251,7 @@ export default function Safeguarding() {
         />
       )}
 
-      {incidents.isSuccess && incidents.data.length === 0 && (
+      {incidents.isSuccess && incidents.data.total === 0 && (
         <EmptyState
           title={open ? 'Nothing waiting for review' : 'Nothing acknowledged yet'}
           detail={
@@ -262,14 +262,30 @@ export default function Safeguarding() {
         />
       )}
 
-      {incidents.isSuccess && incidents.data.length > 0 && (
+      {incidents.isSuccess && incidents.data.total > 0 && (
         <>
+          {/*
+            THE COUNT IS THE QUEUE, NOT THE PAGE.
+
+            This read `incidents.data.length` — the rows that came back — while
+            the query asked for them with no range, so PostgREST returned at
+            most its default 1000. A school with a longer backlog would have
+            been told "1000 incidents" indefinitely. `total` is counted by the
+            database over the whole queue.
+          */}
           <p className="mb-3 text-sm text-muted-foreground">
-            {incidents.data.length} incident
-            {incidents.data.length === 1 ? '' : 's'}, oldest first.
+            {incidents.data.total} incident
+            {incidents.data.total === 1 ? '' : 's'}, oldest first.
+            {incidents.data.rows.length < incidents.data.total && (
+              <>
+                {' '}
+                Showing the {incidents.data.rows.length} that have been waiting
+                longest.
+              </>
+            )}
           </p>
           <ul className="space-y-4">
-            {incidents.data.map((incident) => (
+            {incidents.data.rows.map((incident) => (
               <IncidentCard
                 key={incident.id}
                 incident={incident}

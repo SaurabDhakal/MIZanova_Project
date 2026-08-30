@@ -6,6 +6,12 @@ import type { EnquiryPlan } from '../lib/api'
 /**
  * Pricing — docs/Untitled (4)/P-005 Pricing.jpg and P-005 Pricing (Parents View).jpg.
  *
+ * THE SCHOOL FIGURES ALSO LIVE IN src/lib/plans.ts, which Subscriptions reads
+ * when a platform admin records what a school agreed. They were only here, so
+ * that screen had nothing to compare a typed rate against and the first
+ * agreement it recorded contradicted this page. Keep the two in step: this page
+ * is what a customer is shown, and that screen is what they are charged.
+ *
  * Every figure here is copied from those designs. Nothing is estimated,
  * averaged or rounded, because a price is a statement to a customer and
  * inventing one is a different kind of wrong from inventing a dashboard
