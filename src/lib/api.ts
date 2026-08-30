@@ -6726,6 +6726,53 @@ export async function deleteIepSupportSession(id: string): Promise<void> {
   assertChanged(data, 'The session')
 }
 
+/**
+ * Record how a goal actually went — db/054's `iep_goal_reviews`.
+ *
+ * ---------------------------------------------------------------------------
+ * THE HALF OF THE PLAN THAT SAYS WHETHER IT WORKED
+ * ---------------------------------------------------------------------------
+ * db/054 created this table with insert, update and delete policies, and the
+ * suite has always asserted that a review can be recorded against an AGREED
+ * plan — "the review can still be recorded, that is the point of the meeting",
+ * the one thing the freeze deliberately lets through.
+ *
+ * Three places read a review. `IepPlanEditor` prints the latest outcome as a
+ * badge on the goal and the comment underneath it; `FamilyIepPlans` shows
+ * families the outcome and date against each goal. Nothing ever wrote one, so
+ * every one of those displays was rendering a row that could not exist, and an
+ * IEP could be agreed, worked to for a year and never recorded as met or not.
+ *
+ * ---------------------------------------------------------------------------
+ * THE DATE COMES FROM THE CALLER, NOT FROM now()
+ * ---------------------------------------------------------------------------
+ * Unlike an acknowledgement or an agreement — which are stamped by the server
+ * precisely so nobody can say they looked on Tuesday when they looked on
+ * Friday — a review records WHEN THE MEETING HAPPENED. That is often a week
+ * before somebody types it up, so it is the caller's to state.
+ */
+export async function createIepGoalReview(input: {
+  goalId: string
+  outcome: IepReviewOutcome
+  comment: string
+  reviewedOn: string
+}): Promise<void> {
+  const { data, error } = await supabase
+    .from('iep_goal_reviews')
+    .insert({
+      iep_goal_id: input.goalId,
+      outcome: input.outcome,
+      comment: input.comment.trim() === '' ? null : input.comment.trim(),
+      reviewed_on: input.reviewedOn,
+    })
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // A staff member on another school's plan is filtered out rather than
+  // refused, which without this would look like a saved review.
+  assertChanged(data, 'The review')
+}
+
 export async function createIepGoal(input: {
   planId: string
   areaOfConcern: string
