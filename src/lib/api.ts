@@ -4018,6 +4018,55 @@ export async function fetchSessionNotes(
   return data?.notes ?? null
 }
 
+/**
+ * Write or revise the clinical note on a session — db/028's write policy.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ERROR MESSAGE ABOVE PROMISED THIS
+ * ---------------------------------------------------------------------------
+ * `createSession` writes the session and the note as two statements, and when
+ * the second fails it says: "The session was saved but your clinical notes
+ * were not ... Open the session and add them again." There was no way to add
+ * them again. A specialist who hit that error had a session with no clinical
+ * record and no route back to one.
+ *
+ * db/028 also says the note may be revised — "written and revised only by the
+ * specialist who ran the session" — and nothing offered that either. The table
+ * has carried an `updated_at` trigger since it was created, which only makes
+ * sense for a row somebody expected to change.
+ *
+ * ---------------------------------------------------------------------------
+ * NO FAMILY READS THIS, WHICH IS WHY THERE IS NO LOCK
+ * ---------------------------------------------------------------------------
+ * A behaviour log freezes once an administrator acknowledges it (db/010),
+ * because a record somebody senior has read must not be quietly reworded. That
+ * reasoning does not reach here: db/028's select policy admits only the
+ * assigned specialist and platform admins — deliberately not school admins,
+ * and not guardians at all. What a family sees is the separate `shared_summary`
+ * on the session itself. So there is nobody who could have read this note and
+ * been misled by a later correction.
+ *
+ * Upsert rather than insert-or-update, because `session_id` is the primary key
+ * — one note per session — so both jobs are the same statement.
+ */
+export async function saveSessionNotes(
+  sessionId: string,
+  notes: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_session_notes')
+    .upsert(
+      { session_id: sessionId, notes: notes.trim() },
+      { onConflict: 'session_id' },
+    )
+    .select('session_id')
+
+  if (error) throw new Error(error.message)
+  // A specialist who did not run this session is filtered out rather than
+  // refused, which without this would look like a saved note.
+  assertChanged(data, 'The clinical note')
+}
+
 export async function createSession(input: {
   studentId: string
   sessionDate: string
