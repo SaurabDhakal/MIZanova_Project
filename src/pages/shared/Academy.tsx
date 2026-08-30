@@ -90,6 +90,20 @@ export default function Academy() {
   const done = new Set(
     (completions.data ?? []).map((c) => `${c.enrolment_id}:${c.module_id}`),
   )
+  /*
+   * NOT ENROLLED, OR NOT FOUND OUT? THEY LOOKED THE SAME.
+   *
+   * `enrolmentFor` reads `enrolments.data ?? []`, and `moduleProgress` returns
+   * `done: 0` when there is no enrolment. So a failed lookup told every
+   * learner they had completed none of every course and offered them "Start
+   * this course" — which, for somebody already enrolled, is an invitation to
+   * press a button that cannot succeed: one enrolment per person per course is
+   * the point of the table.
+   *
+   * Progress is only progress when both queries answered.
+   */
+  const progressUnknown = enrolments.isError || completions.isError
+
   const enrolmentFor = (courseId: string) =>
     (enrolments.data ?? []).find((e) => e.course_id === courseId)
 
@@ -147,14 +161,29 @@ export default function Academy() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {total === 0
                         ? 'No modules yet'
-                        : enrolment
-                          ? `${doneCount} of ${total} modules done`
-                          : `${total} module${total === 1 ? '' : 's'}`}
+                        : progressUnknown
+                          ? `${total} module${total === 1 ? '' : 's'} · your progress could not be loaded`
+                          : enrolment
+                            ? `${doneCount} of ${total} modules done`
+                            : `${total} module${total === 1 ? '' : 's'}`}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    {!enrolment ? (
+                    {progressUnknown ? (
+                      /* Neither "Start" nor "Continue" is safe to offer when
+                         we do not know which one is true. */
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void enrolments.refetch()
+                          void completions.refetch()
+                        }}
+                        className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                      >
+                        Try again
+                      </button>
+                    ) : !enrolment ? (
                       <button
                         type="button"
                         disabled={enrol.isPending || total === 0}
