@@ -341,3 +341,55 @@ describe('correcting a log is audited without repeating what it said', () => {
     }
   })
 })
+
+/*
+ * ---------------------------------------------------------------------------
+ * THE COUNT IS INDEPENDENT OF THE WINDOW
+ * ---------------------------------------------------------------------------
+ * `fetchSafeguardingQueue` returns a Page: `rows` is a deliberate window onto
+ * the queue and `total` is how many incidents are actually in it. The screen
+ * prints `total` and, when the window is smaller, says so.
+ *
+ * That only holds if PostgREST's exact count ignores the range — which is the
+ * documented behaviour and also the entire reason the fix works. If a future
+ * change made the count reflect the returned rows instead, the screen would go
+ * straight back to reporting the size of the page as the size of the queue,
+ * quietly, and the manual check that caught it the first time only worked
+ * because the numbers were small enough to compare by eye.
+ *
+ * Asserted with a range of one row rather than by inserting two hundred
+ * incidents: the mechanism is what matters, and this needs no fixture.
+ */
+describe('the safeguarding queue counts past the end of its page', () => {
+  test('an exact count is not narrowed by the range', async () => {
+    const { data, error, count } = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact' })
+      .eq('is_risk_flagged', true)
+      .range(0, 0)
+
+    expect(error).toBeNull()
+    // One row asked for, one row back — the window.
+    expect(data?.length).toBe(1)
+    // And a count that describes the queue, not the window.
+    expect(count).not.toBeNull()
+    expect(count!).toBeGreaterThan(0)
+    expect(count!).toBeGreaterThanOrEqual(data!.length)
+  })
+
+  test('and the count matches an independent head-only count', async () => {
+    const windowed = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact' })
+      .eq('is_risk_flagged', true)
+      .range(0, 0)
+
+    const headOnly = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_risk_flagged', true)
+
+    // Two different ways of asking, so neither is marking its own homework.
+    expect(windowed.count).toBe(headOnly.count)
+  })
+})
