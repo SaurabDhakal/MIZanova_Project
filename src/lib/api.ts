@@ -762,6 +762,49 @@ export async function fetchAllHomeObservations(): Promise<HomeObservationRow[]> 
   return data ?? []
 }
 
+/**
+ * A parent correcting their own home observation — db/007's update policy.
+ *
+ * ---------------------------------------------------------------------------
+ * THE POLICY SAYS WHO, AND IT IS NOT THE SCHOOL
+ * ---------------------------------------------------------------------------
+ * db/007: "Authors may correct their own. Staff may not edit what a parent
+ * wrote — altering someone else's account of their own child is not a power
+ * the school should have." The policy is `logged_by = auth.uid()` and nothing
+ * else, so the database enforces that on its own; this function exists because
+ * no screen ever offered the correction, which left a typo in something a
+ * parent wrote about their own child permanent.
+ *
+ * There is deliberately no delete counterpart. db/007 ends "No delete policy."
+ * — an observation the school has read and may have acted on does not vanish,
+ * it gets corrected.
+ */
+export async function updateHomeObservation(
+  id: string,
+  fields: {
+    title: string
+    body: string
+    category: ObservationCategory
+    observedOn: string
+  },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('home_observations')
+    .update({
+      title: fields.title.trim(),
+      body: fields.body.trim(),
+      category: fields.category,
+      observed_on: fields.observedOn,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // Anybody who is not the author is filtered out rather than refused, which
+  // without this would report a correction that never happened.
+  assertChanged(data, 'The correction')
+}
+
 export async function createHomeObservation(input: {
   studentId: string
   title: string

@@ -11,8 +11,22 @@ import type { HomeObservationRow } from '../lib/api'
  */
 export default function HomeObservationList({
   observations,
+  onEdit,
 }: {
   observations: HomeObservationRow[]
+  /*
+   * OPT-IN, AND ABSENT MEANS NO CONTROL.
+   *
+   * db/007 is explicit that staff may not edit a parent's observation:
+   * "altering someone else's account of their own child is not a power the
+   * school should have." Only the parent screen uses this list today, so the
+   * control could simply have been rendered — but a list component that grows
+   * an edit button by default is one staff screen away from offering the
+   * school something the database will refuse and the migration forbids.
+   * Passing the handler is a deliberate act; not passing it is the safe
+   * default.
+   */
+  onEdit?: (observation: HomeObservationRow) => void
 }) {
   return (
     <ul className="space-y-3">
@@ -42,6 +56,15 @@ export default function HomeObservationList({
                 </span>
               </div>
               <p className="mt-1 text-foreground">{observation.body}</p>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(observation)}
+                  className="mt-2 text-sm font-semibold text-primary hover:underline"
+                >
+                  Correct this
+                </button>
+              )}
             </div>
           </li>
         )
