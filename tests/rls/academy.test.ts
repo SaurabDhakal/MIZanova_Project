@@ -270,3 +270,105 @@ describe('enrolling and getting through it', () => {
     expect(data?.some((e) => e.profile_id === world.guardianOfA.id)).toBe(true)
   })
 })
+
+/*
+ * ---------------------------------------------------------------------------
+ * CORRECTING A MODULE MUST NOT COST ANYBODY THEIR PROGRESS
+ * ---------------------------------------------------------------------------
+ * db/075 declares `module_completions.module_id ... on delete cascade`. Until
+ * the Courses screen gained an edit control, fixing a typo in a module title
+ * meant deleting the module — which silently took every completion of it with
+ * them, and gave the replacement a new id so nothing came back.
+ *
+ * These two assert the difference the edit makes, in the order that makes it
+ * obvious: an update leaves the completion alone, and a delete does not. The
+ * second is not testing our code; it is pinning the cascade that made the
+ * first one necessary, so that if somebody later "simplifies" the edit into a
+ * delete-and-recreate the suite objects.
+ */
+describe('editing a module keeps progress, deleting one does not', () => {
+  async function moduleWithACompletion() {
+    const { data: mod } = await admin
+      .from('course_modules')
+      .insert({
+        course_id: publishedForParents,
+        title: 'Original title',
+        body: 'Original body.',
+        sort_order: 90,
+      })
+      .select('id')
+      .single()
+
+    /*
+     * REUSED IF IT EXISTS. Earlier tests in this file already enrol this
+     * guardian on this course, and one enrolment per person per course is the
+     * point of the table — so inserting a second returns null data with an
+     * error this helper originally threw away, and the failure surfaced three
+     * lines later as "cannot read properties of null".
+     */
+    const existing = await admin
+      .from('course_enrolments')
+      .select('id')
+      .eq('course_id', publishedForParents)
+      .eq('profile_id', world.guardianOfA.id)
+      .maybeSingle()
+
+    let enrolmentId = existing.data?.id as string | undefined
+    let created = false
+    if (!enrolmentId) {
+      const made = await admin
+        .from('course_enrolments')
+        .insert({ course_id: publishedForParents, profile_id: world.guardianOfA.id })
+        .select('id')
+        .single()
+      if (made.error) throw new Error(made.error.message)
+      enrolmentId = made.data.id
+      created = true
+    }
+
+    const { error } = await admin
+      .from('module_completions')
+      .insert({ enrolment_id: enrolmentId, module_id: mod!.id })
+    if (error) throw new Error(error.message)
+
+    return { moduleId: mod!.id as string, enrolmentId: enrolmentId!, created }
+  }
+
+  async function completionsFor(moduleId: string) {
+    const { count } = await admin
+      .from('module_completions')
+      .select('id', { count: 'exact', head: true })
+      .eq('module_id', moduleId)
+    return count ?? 0
+  }
+
+  test('an update leaves the completion attached', async () => {
+    const { moduleId, enrolmentId, created } = await moduleWithACompletion()
+    expect(await completionsFor(moduleId)).toBe(1)
+
+    const { data, error } = await admin
+      .from('course_modules')
+      .update({ title: 'Corrected title' })
+      .eq('id', moduleId)
+      .select('id')
+
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+    // The id never moved, so the foreign key never noticed.
+    expect(await completionsFor(moduleId)).toBe(1)
+
+    if (created) await admin.from('course_enrolments').delete().eq('id', enrolmentId)
+    await admin.from('course_modules').delete().eq('id', moduleId)
+  })
+
+  test('a delete takes it with them — which is why the edit exists', async () => {
+    const { moduleId, enrolmentId, created } = await moduleWithACompletion()
+    expect(await completionsFor(moduleId)).toBe(1)
+
+    await admin.from('course_modules').delete().eq('id', moduleId)
+
+    expect(await completionsFor(moduleId)).toBe(0)
+
+    if (created) await admin.from('course_enrolments').delete().eq('id', enrolmentId)
+  })
+})

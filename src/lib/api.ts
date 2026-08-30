@@ -3332,6 +3332,45 @@ export async function addCourseModule(
   assertChanged(data, 'The module')
 }
 
+/**
+ * Correct a module without destroying anybody's progress.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE ABSENCE OF THIS COST MORE THAN A RETYPE
+ * ---------------------------------------------------------------------------
+ * db/075 declares `module_completions.module_id ... on delete cascade`. So
+ * deleting a module deletes every record of every learner having completed it.
+ * With only create and delete available, fixing a typo in a title meant
+ * withdrawing the course, deleting the module, losing the completions,
+ * retyping it and publishing again — and the new module is a new id, so the
+ * progress does not come back.
+ *
+ * The Courses screen already disables deletion on a published course, warning
+ * that "somebody may be part-way through it". That instinct was right and the
+ * remedy it offered was still lossy. db/075's update policy was the answer all
+ * along and nothing called it.
+ *
+ * Editing is therefore allowed while published, unlike deletion: the id does
+ * not move, so nobody's completion is affected by a corrected sentence.
+ */
+export async function updateCourseModule(
+  id: string,
+  fields: { title: string; body: string; videoUrl: string | null },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('course_modules')
+    .update({
+      title: fields.title.trim(),
+      body: fields.body.trim(),
+      video_url: fields.videoUrl?.trim() || null,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The module')
+}
+
 export async function deleteCourseModule(id: string): Promise<void> {
   const { data, error } = await supabase
     .from('course_modules')

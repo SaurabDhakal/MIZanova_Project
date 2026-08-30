@@ -4,6 +4,7 @@ import {
   addCourseModule,
   createCourse,
   deleteCourseModule,
+  updateCourseModule,
   fetchCourses,
   queryKeys,
   setCoursePublished,
@@ -171,6 +172,17 @@ function ModuleEditor({ course }: { course: Course }) {
   const [body, setBody] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /*
+   * CORRECTING A MODULE, WHICH IS NOT THE SAME AS REPLACING ONE.
+   *
+   * Deletion cascades to `module_completions`, so the only previous way to fix
+   * a typo took everybody's progress with it. Editing keeps the id, so it is
+   * offered on a published course where deletion is not.
+   */
+  const [editing, setEditing] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editBody, setEditBody] = useState('')
+  const [editVideo, setEditVideo] = useState('')
 
   const modules = course.course_modules ?? []
 
@@ -191,6 +203,22 @@ function ModuleEditor({ course }: { course: Course }) {
       setBody('')
       setVideoUrl('')
       setError(null)
+    },
+    onError: (e) => setError(e.message),
+  })
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateCourseModule(editing!, {
+        title: editTitle,
+        body: editBody,
+        videoUrl: editVideo || null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courses })
+      setEditing(null)
+      setError(null)
+      showToast('Module updated.')
     },
     onError: (e) => setError(e.message),
   })
@@ -227,6 +255,19 @@ function ModuleEditor({ course }: { course: Course }) {
               )}
               <button
                 type="button"
+                onClick={() => {
+                  setEditing(m.id)
+                  setEditTitle(m.title)
+                  setEditBody(m.body ?? '')
+                  setEditVideo(m.video_url ?? '')
+                  setError(null)
+                }}
+                className="ml-auto text-xs font-semibold text-primary"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
                 disabled={remove.isPending || course.is_published}
                 onClick={() => remove.mutate(m.id)}
                 title={
@@ -234,10 +275,64 @@ function ModuleEditor({ course }: { course: Course }) {
                     ? 'Withdraw the course first — somebody may be part-way through it.'
                     : undefined
                 }
-                className="ml-auto text-xs font-semibold text-danger-foreground disabled:opacity-40"
+                className="text-xs font-semibold text-danger-foreground disabled:opacity-40"
               >
                 Remove
               </button>
+
+              {editing === m.id && (
+                <form
+                  className="mt-2 w-full space-y-2 border-t border-border pt-2"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (editTitle.trim() === '')
+                      return setError('A module needs a title.')
+                    save.mutate()
+                  }}
+                >
+                  <input
+                    aria-label="Module title"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                  />
+                  <textarea
+                    aria-label="Module text"
+                    rows={3}
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    className="w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                  />
+                  <input
+                    aria-label="Video link"
+                    value={editVideo}
+                    onChange={(e) => setEditVideo(e.target.value)}
+                    placeholder="Video link (optional)"
+                    className="w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {/* Said because deletion right beside it is not. */}
+                    Safe on a published course — the module keeps its identity,
+                    so nobody&rsquo;s progress changes.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      disabled={save.isPending}
+                      className="rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                    >
+                      {save.isPending ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(null)}
+                      className="rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
             </li>
           ))}
         </ol>
