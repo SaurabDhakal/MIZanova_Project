@@ -17,6 +17,7 @@ import express from 'express'
 import cors from 'cors'
 import { createClient } from '@supabase/supabase-js'
 import { buildAnonymousPayload } from './anonymise.js'
+import { pushConfigured, sendToProfile, vapidPublicKey } from './push.js'
 import {
   ENQUIRIES_TO,
   usingTestSender,
@@ -1783,6 +1784,89 @@ const PLAN_LABELS = {
  * that they asked, and a human replies. See db/045 for the rest of the
  * reasoning, including why the enquirer gets no email.
  */
+// ---------------------------------------------------------------------------
+// Push notifications — db/081
+// ---------------------------------------------------------------------------
+/**
+ * The three endpoints a browser needs to turn notifications on and off.
+ *
+ * The SUBSCRIPTION IS WRITTEN WITH THE SERVICE KEY, not by the browser, so the
+ * row's `profile_id` is whoever the access token says they are rather than
+ * whoever the request body claims. db/081 has an insert policy as well, but a
+ * client that could name its own profile_id is a client that could point
+ * somebody else's notifications at its own device.
+ */
+
+app.get('/api/push/key', (_req, res) => {
+  // Not an error when unconfigured. A deployment with no VAPID keys should
+  // decline to offer notifications, and the screen needs to be able to ask.
+  if (!pushConfigured()) return res.json({ configured: false, key: null })
+  return res.json({ configured: true, key: vapidPublicKey() })
+})
+
+app.post('/api/push/subscribe', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { endpoint, keys, userAgent } = req.body ?? {}
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    return res.status(400).json({ error: 'That subscription is incomplete.' })
+  }
+
+  const userClient = clientForUser(token)
+  const {
+    data: { user },
+    error: whoError,
+  } = await userClient.auth.getUser()
+  if (whoError || !user) return res.status(401).json({ error: 'Not signed in.' })
+
+  /*
+   * Upsert on the endpoint, which IS the identity of a browser's subscription.
+   * A browser that re-subscribes hands back the same endpoint with fresh keys;
+   * inserting would collide and accumulating rows would send duplicates.
+   */
+  const { error } = await admin.from('push_subscriptions').upsert(
+    {
+      profile_id: user.id,
+      endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+      // Truncated: this is shown back to the person to help them recognise a
+      // device, not parsed, and some user agents are enormous.
+      user_agent: typeof userAgent === 'string' ? userAgent.slice(0, 200) : null,
+    },
+    { onConflict: 'endpoint' },
+  )
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json({ subscribed: true })
+})
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { endpoint } = req.body ?? {}
+  if (!endpoint) return res.status(400).json({ error: 'Which subscription?' })
+
+  const userClient = clientForUser(token)
+  const {
+    data: { user },
+  } = await userClient.auth.getUser()
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+
+  // Scoped to the caller as well as the endpoint. Without profile_id, knowing
+  // somebody's endpoint would be enough to switch their notifications off.
+  const { error } = await admin
+    .from('push_subscriptions')
+    .delete()
+    .eq('endpoint', endpoint)
+    .eq('profile_id', user.id)
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json({ subscribed: false })
+})
+
 app.post('/api/enquiries', async (req, res) => {
   // The flood ceiling. Nowhere near what a person fixing a typo will reach.
   if (tooManyRequests(req.ip)) {

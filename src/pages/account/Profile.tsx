@@ -11,6 +11,7 @@ import { useAuth, type Profile as ProfileRow } from '../../lib/auth'
 import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
+import PushNotificationsSection from '../../components/PushNotificationsSection'
 
 /**
  * The Account tab — who this account is, and the facts about it you cannot
@@ -445,14 +446,23 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           )}
         </section>
 
+        <PushNotificationsSection />
+
         <section className="rounded-card border border-border bg-background p-6">
           <h2 className="font-semibold text-foreground">Not built yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            The design also shows clinical preferences, caseload settings, a
-            per-user audit log and notification switches. None of those have
-            anything behind them — MiZanova sends no notifications at all — so
-            they are absent rather than drawn as controls that would change
-            nothing.
+            The design also shows clinical preferences, caseload settings and a
+            per-user audit log. None of those have anything behind them, so they
+            are absent rather than drawn as controls that would change nothing.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {/* This paragraph used to end "MiZanova sends no notifications at
+                all", which stopped being true with db/081. A note about what
+                is missing has to be maintained as carefully as the features,
+                or it becomes the most confident wrong sentence on the page. */}
+            Notification switches were on that list until the section above
+            them existed. What is still missing there is email: the server can
+            send it, but nothing yet sends a digest of what is waiting.
           </p>
         </section>
       </div>
