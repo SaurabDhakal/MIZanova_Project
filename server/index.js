@@ -80,6 +80,88 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
 })
 
 /** A client acting AS the signed-in user, so RLS still applies to their reads. */
+
+/**
+ * Tell a school's safeguarding leads that something is waiting.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ONLY THING THIS PRODUCT INTERRUPTS SOMEBODY FOR
+ * ---------------------------------------------------------------------------
+ * The notification bell counts seven kinds of work. Six of them — unread
+ * messages, invoices, screening due, applications — are things that can wait
+ * until somebody opens the app, and notifying on all of them is how a person
+ * turns notifications off for good and then misses the one that mattered.
+ *
+ * A flagged safeguarding incident is the exception. db/010 exists because a
+ * record somebody senior has read must not be quietly reworded; the queue
+ * exists because "a flag a human never sees is not a safeguard". This is the
+ * same argument one step earlier: a flag nobody is TOLD about waits as long as
+ * the next time somebody happens to look.
+ *
+ * ---------------------------------------------------------------------------
+ * A COUNT, AND THE SCHOOL. NOTHING ELSE.
+ * ---------------------------------------------------------------------------
+ * Not which child, not what happened, not who logged it. The count is read
+ * from the queue rather than passed in, so it says how many are actually
+ * waiting rather than how many times this fired.
+ *
+ * ---------------------------------------------------------------------------
+ * NEVER THROWS, NEVER BLOCKS
+ * ---------------------------------------------------------------------------
+ * Called with `void`. A push service having a bad afternoon must not fail the
+ * request that flagged the incident — the flag itself is the safeguard and it
+ * is already written. This is an accelerant on top of a durable queue, which
+ * is also why a client that never calls the endpoint below costs a nudge and
+ * not a record.
+ */
+async function notifySafeguardingLeads(schoolId) {
+  if (!pushConfigured() || !schoolId) return
+
+  try {
+    const [{ data: leads }, { data: school }, { data: students }] =
+      await Promise.all([
+        admin
+          .from('profiles')
+          .select('id')
+          .eq('role', 'school_admin')
+          .eq('school_id', schoolId),
+        admin.from('schools').select('name').eq('id', schoolId).maybeSingle(),
+        admin.from('students').select('id').eq('school_id', schoolId),
+      ])
+
+    if (!leads?.length) return
+
+    const ids = (students ?? []).map((s) => s.id)
+    if (!ids.length) return
+
+    const { count } = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_risk_flagged', true)
+      .is('safeguarding_acknowledged_at', null)
+      .in('student_id', ids)
+
+    await Promise.all(
+      leads.map((lead) =>
+        sendToProfile(admin, lead.id, {
+          count: count ?? 1,
+          where: school?.name ?? null,
+          url: '/school-admin/safeguarding',
+        }),
+      ),
+    )
+  } catch (err) {
+    // Recorded rather than raised: somebody should know the nudge stopped
+    // working, and nobody's request should fail because it did.
+    recordEvent(
+      'warning',
+      'push',
+      'safeguarding_notify_failed',
+      err?.message ?? String(err),
+    )
+  }
+}
+
 function clientForUser(accessToken) {
   return createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -535,6 +617,11 @@ app.post('/api/strategies', async (req, res) => {
         .from('behaviour_logs')
         .update({ is_risk_flagged: true, risk_note: result.riskReason })
         .eq('id', log.id)
+
+      // And tell somebody. The comment above says a flag a human never sees is
+      // not a safeguard; a flag nobody is told about waits for the next time
+      // one of them happens to look. Not awaited — see notifySafeguardingLeads.
+      void notifySafeguardingLeads(student.school_id)
     }
 
     const visible = inserted.filter((s) => s.status === 'published')
@@ -1802,6 +1889,68 @@ app.get('/api/push/key', (_req, res) => {
   // decline to offer notifications, and the screen needs to be able to ask.
   if (!pushConfigured()) return res.json({ configured: false, key: null })
   return res.json({ configured: true, key: vapidPublicKey() })
+})
+
+/**
+ * A teacher flagged an observation themselves — nudge the safeguarding leads.
+ *
+ * WHY AN ENDPOINT AND NOT A DATABASE TRIGGER. A behaviour log is inserted
+ * straight into Supabase by the browser, deliberately: src/lib/offlineQueue.ts
+ * keeps a log written in a corridor with no signal and syncs it later, and
+ * routing that through this server would break the one thing the offline
+ * support exists for. Postgres cannot send a web push, so the client has to
+ * say when it has flagged one.
+ *
+ * WHICH MEANS THIS IS NOT TRUSTED. The caller passes a log id and nothing else:
+ * this reads the row with the service key and refuses unless it is genuinely
+ * flagged and genuinely unacknowledged. Otherwise the endpoint would be a way
+ * for any signed-in account to make every school administrator's phone buzz.
+ *
+ * A client that never calls it costs a nudge, not a record. The incident is in
+ * the queue either way, which is the actual safeguard.
+ */
+app.post('/api/safeguarding/notify', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { behaviourLogId } = req.body ?? {}
+  if (!behaviourLogId) return res.status(400).json({ error: 'Which log?' })
+
+  const userClient = clientForUser(token)
+  const {
+    data: { user },
+  } = await userClient.auth.getUser()
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+
+  /*
+   * Read AS THE CALLER first. If their own policies do not let them see this
+   * log, they have no business announcing it — and this is what stops the
+   * endpoint confirming the existence of a log at another school.
+   */
+  const { data: visible } = await userClient
+    .from('behaviour_logs')
+    .select('id')
+    .eq('id', behaviourLogId)
+    .maybeSingle()
+  if (!visible) return res.status(404).json({ error: 'No such log.' })
+
+  // Then read the state with the service key, so the decision to notify rests
+  // on the row rather than on anything the caller said about it.
+  const { data: log } = await admin
+    .from('behaviour_logs')
+    .select('id, is_risk_flagged, safeguarding_acknowledged_at, students ( school_id )')
+    .eq('id', behaviourLogId)
+    .maybeSingle()
+
+  if (!log?.is_risk_flagged || log.safeguarding_acknowledged_at) {
+    // Not an error. A log that is not flagged, or already dealt with, simply
+    // has nobody to wake.
+    return res.json({ notified: false })
+  }
+
+  const schoolId = log.students?.school_id ?? null
+  void notifySafeguardingLeads(schoolId)
+  return res.json({ notified: true })
 })
 
 app.post('/api/push/subscribe', async (req, res) => {

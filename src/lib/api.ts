@@ -323,8 +323,42 @@ export type NewBehaviourLog = {
 }
 
 /** Save a behaviour observation. */
+/**
+ * Nudge the school's safeguarding leads about a flagged log.
+ *
+ * Deliberately fire-and-forget, and deliberately incapable of failing the
+ * thing that called it. The incident is already written and already in the
+ * queue — that is the safeguard. This is only the difference between somebody
+ * being told now and finding it next time they look.
+ *
+ * The server refuses to notify unless the log really is flagged and really is
+ * unacknowledged, so nothing here is trusted; this only says "go and check".
+ */
+function nudgeSafeguarding(behaviourLogId: string): void {
+  void (async () => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session
+        ?.access_token
+      if (!token) return
+      await fetch(`${API_URL}/api/safeguarding/notify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ behaviourLogId }),
+      })
+    } catch {
+      /* A teacher who has just flagged an incident must not be shown an error
+         about a notification. The flag is saved either way. */
+    }
+  })()
+}
+
 export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
-  const { error } = await supabase.from('behaviour_logs').insert({
+  const { data, error } = await supabase
+    .from('behaviour_logs')
+    .insert({
     student_id: log.studentId,
     logged_by: log.loggedBy,
     behaviour_type: log.behaviourType,
@@ -346,7 +380,8 @@ export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
         : log.riskFlagged
           ? 'Flagged by the teacher who logged it.'
           : null,
-  })
+    })
+    .select('id')
 
   if (error) {
     // 23505 is a unique-constraint violation, which here means this exact log
@@ -354,6 +389,14 @@ export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
     if (error.code === '23505') return
     throw new Error(error.message)
   }
+
+  /*
+   * Only for a flagged one, and only after it is safely written. An offline
+   * log syncs later through the queue rather than here, so it reaches the
+   * safeguarding queue without a nudge — which is the right trade: the record
+   * is what matters and it is not lost.
+   */
+  if (log.riskFlagged && data?.[0]?.id) nudgeSafeguarding(data[0].id)
 }
 
 /**
