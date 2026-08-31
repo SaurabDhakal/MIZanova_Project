@@ -39,8 +39,31 @@ const SUBJECT = process.env.VAPID_SUBJECT ?? ''
 let ready = false
 
 if (PUBLIC_KEY && PRIVATE_KEY && SUBJECT) {
-  webpush.setVapidDetails(SUBJECT, PUBLIC_KEY, PRIVATE_KEY)
-  ready = true
+  /*
+   * GUARDED, because a bad subject took the whole server down.
+   *
+   * `setVapidDetails` validates and THROWS — "Vapid subject is not a url or
+   * mailto url" — and this runs at import. So a VAPID_SUBJECT of
+   * "someone@example.com" rather than "mailto:someone@example.com" crashed the
+   * process before it could serve a single request, and the only symptom was a
+   * server that would not start. Found the first time somebody set it.
+   *
+   * A misconfigured optional feature must degrade to being switched off, never
+   * take everything else with it. The error is printed rather than swallowed:
+   * silence here would leave somebody wondering why the switch says
+   * "not switched on for this deployment" when they can see the keys in the
+   * environment.
+   */
+  try {
+    webpush.setVapidDetails(SUBJECT, PUBLIC_KEY, PRIVATE_KEY)
+    ready = true
+  } catch (err) {
+    console.error(
+      'Push notifications are off: VAPID configuration was rejected.',
+      err?.message ?? err,
+      'VAPID_SUBJECT must be a mailto: or https: URL, for example mailto:you@example.com',
+    )
+  }
 }
 
 export function pushConfigured() {
