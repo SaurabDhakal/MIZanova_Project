@@ -21,6 +21,7 @@
     "webhook-check": "node --env-file=.env.local scripts/webhook-check.mjs",
     "storage-check": "node scripts/storage-check.mjs",
     "mail-check": "node scripts/mail-check.mjs",
+    "push-check": "node scripts/push-check.mjs",
     "purge": "node scripts/purge.mjs",
     "backup": "node scripts/backup.mjs",
     "start": "node server/index.js",
