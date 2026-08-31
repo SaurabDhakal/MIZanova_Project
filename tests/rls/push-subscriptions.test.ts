@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { admin, buildWorld, destroyWorld, type World } from '../helpers/world'
+import {
+  admin,
+  buildWorld,
+  destroyWorld,
+  makeActor,
+  type Actor,
+  type World,
+} from '../helpers/world'
 
 /**
  * db/081 — a device's address belongs to one person and to nobody else.
@@ -8,11 +15,15 @@ import { admin, buildWorld, destroyWorld, type World } from '../helpers/world'
  * WHY THIS IS TESTED ROLE BY ROLE RATHER THAN ONCE
  * ---------------------------------------------------------------------------
  * The screen that turns notifications on is at /account/profile, which every
- * role reaches — `allow={[...ROLES]}` — so a parent, a teacher, a school
- * administrator and a platform administrator all meet the same switch. A
+ * role reaches — `allow={[...ROLES]}` — so a parent, a teacher, a specialist,
+ * a school administrator, a platform administrator and a student all meet the
+ * same switch. A
  * policy that happened to work for the account it was written against would
  * leave the rest of them with a control that silently does nothing, and this
  * project has shipped exactly that before.
+ *
+ * All six are exercised, including the student — the newest role, and the one
+ * most likely to have been forgotten by a policy written before db/074.
  *
  * ---------------------------------------------------------------------------
  * AN ENDPOINT IS A CAPABILITY, NOT A PREFERENCE
@@ -27,6 +38,19 @@ import { admin, buildWorld, destroyWorld, type World } from '../helpers/world'
 
 let world: World
 
+/*
+ * Built here rather than taken from the shared world, which does not carry
+ * them. An earlier version of this file tested four roles and argued the other
+ * two followed "by construction" — true, since every policy on the table is
+ * `profile_id = auth.uid()` with no role condition, but an argument is not a
+ * test and the switch is on a screen all six of them reach.
+ *
+ * The student is made as a parent and promoted, the way db/074 requires: a
+ * child does not sign themselves up.
+ */
+let specialist: Actor
+let student: Actor
+
 /* Endpoints are unique, so every row needs its own. Shaped like the real thing
    — a push service URL — because a test that inserts 'x' proves nothing about
    a column that will hold 300 characters of opaque token. */
@@ -35,7 +59,23 @@ const endpointFor = (who: string) =>
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+
+  specialist = await makeActor(
+    'specialist',
+    world.runId,
+    'push-spec',
+    world.schoolId,
+    true,
+  )
+  student = await makeActor(
+    'parent',
+    world.runId,
+    'push-pupil',
+    world.schoolId,
+    true,
+    'student',
+  )
+}, 90_000)
 
 afterAll(async () => {
   if (world) {
@@ -47,23 +87,27 @@ afterAll(async () => {
         world.verifiedEducator.id,
         world.schoolAdmin.id,
         world.platformAdmin.id,
+        specialist.id,
+        student.id,
       ])
     await destroyWorld(world)
   }
 }, 60_000)
 
-/** Every role that meets the switch, and the id it should be tied to. */
+/** All six roles that meet the switch, and the id each should be tied to. */
 function everyone() {
   return [
     ['a parent', world.guardianOfA],
     ['a teacher', world.verifiedEducator],
+    ['a specialist', specialist],
     ['a school administrator', world.schoolAdmin],
     ['a platform administrator', world.platformAdmin],
+    ['a student', student],
   ] as const
 }
 
 describe('every role can register their own device', () => {
-  test('each of the four can subscribe and read it back', async () => {
+  test('each of the six can subscribe and read it back', async () => {
     for (const [label, actor] of everyone()) {
       const endpoint = endpointFor(label.replace(/\s/g, '-'))
 
