@@ -45,8 +45,30 @@ const PORT = process.env.PORT || 8887
  *
  * Defaults to the dev server. Set APP_URL in .env.local when the app is
  * deployed, or every invitation will point at somebody's laptop.
+ *
+ * ---------------------------------------------------------------------------
+ * THE TRAILING SLASH IS STRIPPED, AND IT BROKE EVERY EMAILED LINK
+ * ---------------------------------------------------------------------------
+ * A dashboard's environment field is filled in by a person copying an address
+ * out of a browser, and a browser shows `https://example.com/`. Every use
+ * below appends a path, so one invisible character produced:
+ *
+ *     https://mizanova-project.onrender.com//invite/Vb8NzLK6v-PLd5...
+ *
+ * React Router does not match `//invite/:token`, so the first real invitation
+ * sent to a school administrator opened Not Found. The email was correct, the
+ * token was valid, and the link was dead.
+ *
+ * It is not only the links. `Origin` headers never carry a trailing slash, so
+ * CORS_ORIGINS and ALLOWED_ORIGINS both held a value no browser could ever
+ * match — the second of which decides where Stripe sends a parent after they
+ * pay.
+ *
+ * Normalised here rather than at each of the five use sites, because the next
+ * person to add a link would have to know to do it, and would find out the way
+ * we did.
  */
-const APP_URL = process.env.APP_URL || 'http://localhost:5273'
+const APP_URL = (process.env.APP_URL || 'http://localhost:5273').replace(/\/+$/, '')
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const PUBLISHABLE_KEY =
