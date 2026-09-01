@@ -21,6 +21,7 @@
     "webhook-check": "node --env-file=.env.local scripts/webhook-check.mjs",
     "storage-check": "node scripts/storage-check.mjs",
     "mail-check": "node scripts/mail-check.mjs",
+    "push-check": "node scripts/push-check.mjs",
     "purge": "node scripts/purge.mjs",
     "backup": "node scripts/backup.mjs",
     "start": "node server/index.js",
@@ -45,7 +46,8 @@
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
     "stripe": "^22.4.0",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

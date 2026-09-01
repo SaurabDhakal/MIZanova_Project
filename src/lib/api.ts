@@ -323,8 +323,42 @@ export type NewBehaviourLog = {
 }
 
 /** Save a behaviour observation. */
+/**
+ * Nudge the school's safeguarding leads about a flagged log.
+ *
+ * Deliberately fire-and-forget, and deliberately incapable of failing the
+ * thing that called it. The incident is already written and already in the
+ * queue — that is the safeguard. This is only the difference between somebody
+ * being told now and finding it next time they look.
+ *
+ * The server refuses to notify unless the log really is flagged and really is
+ * unacknowledged, so nothing here is trusted; this only says "go and check".
+ */
+function nudgeSafeguarding(behaviourLogId: string): void {
+  void (async () => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session
+        ?.access_token
+      if (!token) return
+      await fetch(`${API_URL}/api/safeguarding/notify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ behaviourLogId }),
+      })
+    } catch {
+      /* A teacher who has just flagged an incident must not be shown an error
+         about a notification. The flag is saved either way. */
+    }
+  })()
+}
+
 export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
-  const { error } = await supabase.from('behaviour_logs').insert({
+  const { data, error } = await supabase
+    .from('behaviour_logs')
+    .insert({
     student_id: log.studentId,
     logged_by: log.loggedBy,
     behaviour_type: log.behaviourType,
@@ -346,7 +380,8 @@ export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
         : log.riskFlagged
           ? 'Flagged by the teacher who logged it.'
           : null,
-  })
+    })
+    .select('id')
 
   if (error) {
     // 23505 is a unique-constraint violation, which here means this exact log
@@ -354,6 +389,14 @@ export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
     if (error.code === '23505') return
     throw new Error(error.message)
   }
+
+  /*
+   * Only for a flagged one, and only after it is safely written. An offline
+   * log syncs later through the queue rather than here, so it reaches the
+   * safeguarding queue without a nudge — which is the right trade: the record
+   * is what matters and it is not lost.
+   */
+  if (log.riskFlagged && data?.[0]?.id) nudgeSafeguarding(data[0].id)
 }
 
 /**
@@ -558,6 +601,163 @@ export async function updateBehaviourLog(
    * still in the database and a screen that says it saved.
    */
   assertChanged(data, 'The correction')
+}
+
+// ---------------------------------------------------------------------------
+// Push notifications — db/081
+// ---------------------------------------------------------------------------
+/**
+ * Turning notifications on for THIS browser.
+ *
+ * A subscription belongs to a browser, not to a person: enabling it on a
+ * classroom desktop says nothing about the phone in somebody's pocket. So all
+ * three of these work on `navigator.serviceWorker` here and now, and the
+ * screen that uses them talks about "this device" rather than "your account".
+ *
+ * What a notification is allowed to SAY is decided in two other places — the
+ * server composes only a count and a school, and src/sw.ts ignores anything
+ * else it is handed. Nothing about the content is decided here.
+ */
+
+export type PushAvailability =
+  | { state: 'ready'; key: string }
+  /** The deployment has no VAPID keys, so notifications cannot be offered. */
+  | { state: 'unconfigured' }
+  /** This browser cannot do Web Push — Safari without the site installed, or
+   *  a private window. Worth saying rather than showing a dead switch. */
+  | { state: 'unsupported' }
+
+export async function pushAvailability(): Promise<PushAvailability> {
+  if (
+    typeof window === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window) ||
+    !('Notification' in window)
+  ) {
+    return { state: 'unsupported' }
+  }
+
+  const res = await fetch(`${API_URL}/api/push/key`)
+  if (!res.ok) return { state: 'unconfigured' }
+
+  const body = (await res.json()) as { configured: boolean; key: string | null }
+  return body.configured && body.key
+    ? { state: 'ready', key: body.key }
+    : { state: 'unconfigured' }
+}
+
+/** Whether THIS browser already has a subscription, asked of the browser
+ *  rather than of the database — the database can hold a row for a browser
+ *  profile that has since been wiped. */
+export async function pushSubscribedHere(): Promise<boolean> {
+  if (!('serviceWorker' in navigator)) return false
+  const registration = await navigator.serviceWorker.getRegistration()
+  const existing = await registration?.pushManager.getSubscription()
+  return Boolean(existing)
+}
+
+/**
+ * The VAPID public key arrives as base64url and `subscribe` wants bytes.
+ * Written out rather than pulled from a package: it is eight lines and a
+ * dependency for eight lines is a dependency to keep updated forever.
+ */
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4))
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+  const raw = atob(padded)
+
+  /* Built over an explicit ArrayBuffer rather than `Uint8Array.from`, because
+     that returns `Uint8Array<ArrayBufferLike>` and `applicationServerKey` will
+     not take one — ArrayBufferLike admits SharedArrayBuffer, which cannot be
+     transferred to the push service. */
+  const bytes = new Uint8Array(new ArrayBuffer(raw.length))
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i)
+  return bytes
+}
+
+export async function enablePush(vapidKey: string): Promise<void> {
+  const registration = await navigator.serviceWorker.ready
+
+  /*
+   * ASKED HERE, not on page load. A permission prompt that appears the moment
+   * somebody arrives is the one everybody denies, and a denial is sticky —
+   * the browser will not ask again, so an accidental "block" costs the feature
+   * permanently. This runs from a button press, where the person has just said
+   * what they want.
+   */
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') {
+    throw new Error(
+      permission === 'denied'
+        ? 'This browser is set to block notifications from MiZanova. You can change that in its site settings.'
+        : 'Notifications were not enabled.',
+    )
+  }
+
+  const subscription = await registration.pushManager.subscribe({
+    // Required to be true by every browser: a push must always be shown to the
+    // person, never used silently to wake the app up.
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidKey),
+  })
+
+  const token = (await supabase.auth.getSession()).data.session?.access_token
+  if (!token) throw new Error('You are signed out. Sign in and try again.')
+
+  const json = subscription.toJSON() as {
+    endpoint?: string
+    keys?: { p256dh?: string; auth?: string }
+  }
+
+  const res = await fetch(`${API_URL}/api/push/subscribe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // The server records the subscription AS YOU, so the browser never gets
+      // to say whose device this is.
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      endpoint: json.endpoint,
+      keys: json.keys,
+      userAgent: navigator.userAgent,
+    }),
+  })
+
+  if (!res.ok) {
+    /* Undo the browser-side subscription, or the browser believes it is
+       subscribed to a server that has never heard of it and no notification
+       ever arrives with no way to tell why. */
+    await subscription.unsubscribe()
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? 'Could not turn notifications on.')
+  }
+}
+
+export async function disablePush(): Promise<void> {
+  const registration = await navigator.serviceWorker.getRegistration()
+  const subscription = await registration?.pushManager.getSubscription()
+  if (!subscription) return
+
+  const token = (await supabase.auth.getSession()).data.session?.access_token
+
+  /* The browser first. If the server call fails afterwards the worst case is a
+     dead row that the sender deletes on its next 410 — whereas telling the
+     server first and failing to unsubscribe leaves a browser that still
+     receives. */
+  await subscription.unsubscribe()
+
+  if (token) {
+    await fetch(`${API_URL}/api/push/unsubscribe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ endpoint: subscription.endpoint }),
+    })
+  }
 }
 
 // ---------------------------------------------------------------------------
