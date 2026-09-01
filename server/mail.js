@@ -113,6 +113,25 @@ async function smtpTransport() {
       port: SMTP_PORT,
       secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
+      /*
+       * IPv4, FORCED — the reason Gmail SMTP "did not work" twice before.
+       *
+       * `smtp.gmail.com` resolves to both A and AAAA records. Node 17 changed
+       * the default DNS result order to `verbatim`, which hands back the IPv6
+       * address first, and Render gives a service no routable IPv6 — so the
+       * connection dies before TLS with:
+       *
+       *     connect ENETUNREACH 2404:6800:4003:c03::6d:465
+       *
+       * It is recorded twice in `system_events`: 22 Aug on port 587 and 1 Sep
+       * on 465, which is why changing the port looked like it had been tried
+       * and ruled out. Both ports were reachable; neither address was.
+       *
+       * Nothing about the symptom points here. It is not authentication, not
+       * an App Password, not a blocked port and not a Workspace policy — the
+       * four things anybody would check first, and all four were checked.
+       */
+      family: 4,
     })
   }
   return transport
