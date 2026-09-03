@@ -129,7 +129,16 @@ function SessionNotes({ sessionId }: { sessionId: string }) {
         </form>
       ) : (
         <>
-          {empty ? (
+          {notes.isError ? (
+            /* `empty` is `!notes.data`, which is also true when the query
+               FAILED — so a failure said "No clinical note on this session"
+               about a clinical record. A specialist reading that could
+               conclude a colleague never documented the session and write a
+               second note, or act as though nothing had been recorded. */
+            <p className="mt-1 text-sm text-warning-foreground">
+              The note could not be loaded, so whether one exists is unknown.
+            </p>
+          ) : empty ? (
             <p className="mt-1 text-sm text-muted-foreground">
               No clinical note on this session.
             </p>

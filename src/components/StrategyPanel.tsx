@@ -25,6 +25,7 @@ export default function StrategyPanel({
   studentId,
   strategies,
   status,
+  statusUnknown = false,
 }: {
   logId: string
   studentId: string
@@ -34,6 +35,9 @@ export default function StrategyPanel({
    * a teacher. Undefined while it loads.
    */
   status?: LogStrategyStatus
+  /** True when the status query FAILED, which `status === undefined` cannot
+   *  distinguish from "still loading" on its own. */
+  statusUnknown?: boolean
 }) {
   const queryClient = useQueryClient()
   const [notice, setNotice] = useState<string | null>(null)
@@ -127,6 +131,27 @@ export default function StrategyPanel({
     // specialist who had already decided.
     const pending = status?.pending ?? 0
     const rejected = status?.rejected ?? 0
+
+    /*
+     * A FAILED STATUS QUERY IS NOT "NOTHING HAPPENED".
+     *
+     * Both counts fall to 0 when the query fails, which sends this straight to
+     * the bare Generate button — recreating precisely the confusion the comment
+     * above describes: a teacher whose suggestions were held or rejected sees
+     * no sign of it, presses the button, and is told to wait for a specialist
+     * who may have already decided.
+     */
+    if (statusUnknown) {
+      return (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-sm text-warning-foreground">
+            Whether earlier suggestions are with a specialist could not be
+            checked. Asking for a fresh set may duplicate a request that is
+            already waiting.
+          </p>
+        </div>
+      )
+    }
 
     return (
       <div className="mt-3 border-t border-border pt-3">

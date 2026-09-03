@@ -146,6 +146,7 @@ function Entry({
   studentId,
   strategies,
   status,
+  statusUnknown,
   onShare,
   sharing,
 }: {
@@ -153,6 +154,10 @@ function Entry({
   studentId: string
   strategies: StrategyRow[]
   status?: LogStrategyStatus
+  /* `status` is undefined both while it loads and when the query failed, and
+     StrategyPanel treats undefined as "nothing pending, nothing rejected".
+     This tells the two apart. */
+  statusUnknown: boolean
   onShare: (id: string, shared: boolean) => void
   sharing: boolean
 }) {
@@ -279,6 +284,7 @@ function Entry({
                   studentId={studentId}
                   strategies={strategies}
                   status={status}
+                  statusUnknown={statusUnknown}
                 />
               </div>
             </div>
@@ -438,6 +444,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
                   (s) => s.behaviour_log_id === row.source_id,
                 )}
                 status={(strategyStatus.data ?? {})[row.source_id]}
+                statusUnknown={strategyStatus.isError}
                 onShare={(id, shared) => share.mutate({ id, shared })}
                 sharing={share.isPending}
               />

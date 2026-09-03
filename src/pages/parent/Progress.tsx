@@ -302,7 +302,32 @@ export default function ParentProgress() {
         Recent highlights
       </h2>
 
-      {highlights.length === 0 ? (
+      {/*
+        A FAILED OBSERVATIONS QUERY IS NOT AN EMPTY ONE, AND THE EMPTY STATE
+        BELOW SAYS SO IN THE WORST POSSIBLE WORDS.
+
+        `highlights` is completed goal steps plus `observations.data ?? []`.
+        When that query failed it contributed nothing, and a family with no
+        completed steps yet was told "Nothing to show yet — completed goal
+        steps appear here, alongside the observations you share from home."
+        That is a confident false statement AND a quiet implication that they
+        have not written anything, made to the one person who knows they have.
+
+        The same fault as the five parent screens db/052 era fixed. `goals` on
+        this page was already guarded; this query was missed.
+      */}
+      {observations.isError && (
+        <p
+          role="alert"
+          className="mb-3 rounded-card border border-warning bg-warning-subtle p-4 text-sm text-warning-foreground"
+        >
+          <b>What you have shared from home could not be loaded.</b> Anything
+          you wrote is missing from this list rather than absent from it. The
+          completed goal steps are unaffected.
+        </p>
+      )}
+
+      {highlights.length === 0 && !observations.isError ? (
         <EmptyState
           title="Nothing to show yet"
           detail="Completed goal steps appear here, alongside the observations you share from home."
