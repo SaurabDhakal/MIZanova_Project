@@ -64,6 +64,14 @@ type Item = {
 }
 
 /** `1 thing` / `2 things`, without an "(s)" anywhere in the product. */
+/*
+ * `plural` covers the LABEL. The details beside them were fixed strings, and
+ * two of them disagreed with the number they sat under: "1 specialist
+ * application — Nobody has opened THESE yet", and "3 new enquiries — A SCHOOL
+ * asked to talk to us". A caption that contradicts its own figure makes a
+ * reader distrust the figure rather than the sentence, and the same pair of
+ * mistakes existed on Global Overview, which has its own copy of this text.
+ */
 function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`
 }
@@ -107,14 +115,17 @@ function itemsFor(queue: WorkQueue, basePath: string) {
   add(queue.newApplications, (n) => ({
     key: 'applications',
     label: `${plural(n, 'specialist application', 'specialist applications')}`,
-    detail: 'Nobody has opened these yet',
+    detail: n === 1 ? 'Nobody has opened this yet' : 'Nobody has opened these yet',
     to: `${basePath}/applications`,
   }))
 
   add(queue.newEnquiries, (n) => ({
     key: 'enquiries',
     label: `${plural(n, 'new enquiry', 'new enquiries')}`,
-    detail: 'A school asked to talk to us and has had no reply',
+    detail:
+      n === 1
+        ? 'A school asked to talk to us and has had no reply'
+        : 'Schools asked to talk to us and have had no reply',
     to: `${basePath}/enquiries`,
   }))
 
@@ -160,7 +171,7 @@ function itemsFor(queue: WorkQueue, basePath: string) {
    */
   add(queue.platformInvoicesOverdue, (n) => ({
     key: 'platform-invoices-overdue',
-    label: `${plural(n, 'school invoice', 'school invoices')} past its due date`,
+    label: `${plural(n, 'school invoice', 'school invoices')} past ${n === 1 ? 'its' : 'their'} due date`,
     detail: 'Issued to a school and not paid by the date on it',
     to: `${basePath}/subscriptions`,
   }))
