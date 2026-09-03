@@ -136,6 +136,18 @@ export default function AddStudent() {
                 That student ID is already used in your current school.
               </span>
             )}
+            {/* THIS CHECK FAILS OPEN, so it has to say when it did not run.
+                `duplicateRef` is computed against `existingRefs.data ?? []`,
+                and a failed query makes that an empty set — no warning, and
+                the Add button stays enabled. Two children under one reference
+                is far easier to prevent than to unpick, and silence looked
+                exactly like "this one is free". */}
+            {existingRefs.isError && !duplicateRef && (
+              <span className="mt-1 block text-xs text-warning-foreground">
+                Existing student IDs could not be checked, so this one has not
+                been compared against them.
+              </span>
+            )}
           </label>
 
           <label className="text-sm font-medium text-foreground sm:col-span-2">

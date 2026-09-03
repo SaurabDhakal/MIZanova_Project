@@ -256,6 +256,36 @@ select:not([aria-invalid='true']) {
   border-color: var(--color-input-border);
 }
 
+/* ---------------------------------------------------------------------------
+   A HORIZONTAL SCROLLER MUST BE ITS OWN CONTAINING BLOCK
+
+   Every wide table in this product sits in a `overflow-x-auto` box so the table
+   scrolls and the page does not. That worked for the table and failed for one
+   thing inside it: `sr-only`, which Tailwind implements with
+   `position: absolute`.
+
+   An `overflow` box only clips absolutely-positioned descendants when it is
+   ALSO their containing block — that is, when it is positioned. These wrappers
+   were `position: static`, so the visually-hidden "Actions" column heading
+   inside the table had `body` as its offsetParent, sat at x=1145 on a 1101px
+   viewport, and escaped the clip entirely. The whole page then scrolled 45px
+   sideways on every screen with a wide table — measured on Schools, and the
+   span's right edge (1146) was exactly the document's scroll width.
+
+   It is worth knowing why the obvious fixes all failed: `overflow-x: hidden`
+   on <main>, on the flex column and on <body> changed nothing, because none of
+   them was the containing block either. Only positioning the scroller works.
+
+   Done here rather than by adding `relative` to fourteen className strings, for
+   the same reason as the rule above: the fifteenth would be written without it,
+   and the symptom points nowhere near the cause. The `:not()` guards leave any
+   scroller that deliberately positions itself alone — those are Tailwind's own
+   class names, so a wrapper written `absolute overflow-x-auto` still wins.
+--------------------------------------------------------------------------- */
+.overflow-x-auto:not(.absolute):not(.fixed):not(.sticky):not(.static) {
+  position: relative;
+}
+
 /* Respect the OS "reduce motion" setting — vestibular disorders are common in
    our user base, and this is a one-off fix rather than a per-animation one. */
 @media (prefers-reduced-motion: reduce) {

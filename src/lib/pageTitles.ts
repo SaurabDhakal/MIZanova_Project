@@ -11,7 +11,10 @@ import { ROLES, ROLE_CONFIG } from './roles'
  * components.
  */
 const PUBLIC_TITLES: Record<string, string> = {
-  '/': 'MiZanova — support every learner',
+  // NOT "MiZanova — support every learner": DocumentTitle appends " · MiZanova"
+  // to every title, so carrying the name here too put it in the browser tab
+  // twice — on the landing page, which is the first tab anybody opens.
+  '/': 'Support every learner',
   '/pricing': 'Pricing',
   '/enquiry': 'Talk to us',
   '/for-specialists': 'Join the network',

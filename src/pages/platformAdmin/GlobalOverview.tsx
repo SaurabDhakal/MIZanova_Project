@@ -486,7 +486,13 @@ export default function GlobalOverview() {
                 to="/platform-admin/enquiries"
                 className="font-semibold text-primary hover:underline"
               >
-                A school asked to talk to us. Reply →
+                {/* Agrees with the number above it. It read "A school asked to
+                    talk to us" beneath a tile showing 3, which is the sort of
+                    thing that makes a reader distrust the number rather than
+                    the sentence. */}
+                {(queue.data?.newEnquiries ?? 0) === 1
+                  ? 'A school asked to talk to us. Reply →'
+                  : `${queue.data?.newEnquiries} schools asked to talk to us. Reply →`}
               </Link>
             ) : (
               'Nobody is waiting on a reply.'
@@ -505,7 +511,9 @@ export default function GlobalOverview() {
                 to="/platform-admin/applications"
                 className="font-semibold text-primary hover:underline"
               >
-                Nobody has opened these yet. Review →
+                {(queue.data?.newApplications ?? 0) === 1
+                  ? 'Nobody has opened this yet. Review →'
+                  : 'Nobody has opened these yet. Review →'}
               </Link>
             ) : (
               'Nothing waiting on a decision.'

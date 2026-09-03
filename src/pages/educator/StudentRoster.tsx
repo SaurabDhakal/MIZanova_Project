@@ -217,16 +217,37 @@ export default function StudentRoster() {
                 {yearLevels.length}
               </dd>
             </div>
+            {/*
+              AN EM-DASH WHEN THE QUERY FAILED, NOT A ZERO.
+
+              Both figures are counted from a separate query, and this strip
+              renders as soon as `students` succeeds — so either could fail on
+              its own and reduce to nothing. "Open flags: 0" then tells a
+              teacher that no child in their class has an unacknowledged
+              safeguarding flag, which is the single worst thing on this screen
+              to be wrong about. "Notes from home: 0" tells them no family has
+              written anything, on the strip that exists precisely so a family's
+              writing gets read rather than sitting unopened.
+
+              StatTile already draws this distinction on the platform admin
+              screens; this strip is hand-rolled and never got it.
+            */}
             <div className="rounded-card border border-border bg-card p-4 shadow-raised">
               <dt className="text-sm text-muted-foreground">Open flags</dt>
-              <dd className="mt-1 text-2xl font-semibold text-danger-foreground">
-                {openFlagCount}
+              <dd
+                className={`mt-1 text-2xl font-semibold ${logs.isError ? 'text-muted-foreground' : 'text-danger-foreground'}`}
+                title={logs.isError ? 'Not known — this could not be loaded' : undefined}
+              >
+                {logs.isError ? '—' : openFlagCount}
               </dd>
             </div>
             <div className="rounded-card border border-border bg-card p-4 shadow-raised">
               <dt className="text-sm text-muted-foreground">Notes from home</dt>
-              <dd className="mt-1 text-2xl font-semibold text-success-foreground">
-                {homeNoteCount}
+              <dd
+                className={`mt-1 text-2xl font-semibold ${homeNotes.isError ? 'text-muted-foreground' : 'text-success-foreground'}`}
+                title={homeNotes.isError ? 'Not known — this could not be loaded' : undefined}
+              >
+                {homeNotes.isError ? '—' : homeNoteCount}
               </dd>
             </div>
           </dl>
