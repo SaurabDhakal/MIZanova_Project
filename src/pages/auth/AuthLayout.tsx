@@ -26,7 +26,17 @@ export default function AuthLayout({
         </Link>
       </header>
 
-      <main className="flex flex-1 items-center justify-center p-4">
+      {/* `id` and `tabIndex` so DocumentTitle can move focus here on a route
+          change, and `aria-label` so landing here says WHICH signed-out screen
+          you are on. Every other layout in the product had these; this one did
+          not, so moving between Sign in, Forgot password and Enter your code
+          announced nothing and left focus on the link you came from. */}
+      <main
+        id="main"
+        tabIndex={-1}
+        aria-label={title}
+        className="flex flex-1 items-center justify-center p-4"
+      >
         <div className="w-full max-w-md rounded-card border border-border bg-card shadow-raised p-8">
           <h1 className="text-center text-3xl font-bold text-foreground">
             {title}
@@ -38,7 +48,23 @@ export default function AuthLayout({
         </div>
       </main>
 
-      <footer className="px-6 py-4 text-center text-xs text-muted-foreground">
+      {/* Privacy and Help are reachable from every page of the public site and
+          were reachable from none of the signed-out ones — which is backwards.
+          Somebody who cannot get in is the person most likely to want help, and
+          a product holding children's records should never make its privacy
+          statement something you have to be signed in to find. */}
+      <footer className="px-6 py-6 text-center text-xs text-muted-foreground">
+        <nav aria-label="Footer" className="mb-2 flex justify-center gap-4">
+          <Link to="/privacy" className="hover:text-foreground hover:underline">
+            Privacy
+          </Link>
+          <Link to="/help" className="hover:text-foreground hover:underline">
+            Help
+          </Link>
+          <Link to="/security" className="hover:text-foreground hover:underline">
+            Security
+          </Link>
+        </nav>
         © 2026 MiZanova · Special Miles · Data hosted in Australia
       </footer>
     </div>
