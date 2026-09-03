@@ -432,6 +432,25 @@ export default function Screening() {
         />
       )}
 
+      {/*
+        THE MOST URGENT SECTION ON THIS SCREEN CANNOT BE ALLOWED TO VANISH.
+        It renders only on `isSuccess`, which is right — but nothing said so
+        when the query FAILED. The section simply did not appear, the expiring
+        list below rendered as normal, and the page looked complete. A reader
+        would take it as "nobody is missing a check", which is the exact
+        omission this section exists to prevent.
+      */}
+      {missing.isError && (
+        <div
+          role="alert"
+          className="mb-8 rounded-card border border-warning bg-warning-subtle p-4 text-sm text-warning-foreground"
+        >
+          <b>Who has no check on file could not be read.</b> This is unknown
+          rather than none — the list below shows only checks that are expiring,
+          and would never have included them.
+        </div>
+      )}
+
       {/* --- Approved with nothing on file ---------------------------------
           First, because there is nothing to expire and therefore nothing that
           would ever appear in the list below. */}

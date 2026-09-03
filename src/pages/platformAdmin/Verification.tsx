@@ -286,6 +286,22 @@ export default function Verification() {
                     <span className="text-muted-foreground">
                       Checking two-factor…
                     </span>
+                  ) : mfa.isError ? (
+                    /*
+                     * A FAILED LOOKUP IS NOT "OFF".
+                     *
+                     * Without this branch a failed query fell straight through
+                     * to the warning below and told a platform admin that every
+                     * member of staff on the screen had two-factor switched off
+                     * — in warning colour, on the security screen, about people
+                     * who may well have had it on. Somebody would then chase
+                     * staff who had already done it, or draw a conclusion about
+                     * the platform's security posture from a query that never
+                     * answered.
+                     */
+                    <span className="text-muted-foreground">
+                      Two-factor status could not be read — unknown, not off
+                    </span>
                   ) : mfa.data?.[person.id]?.hasAuthenticator ? (
                     <span className="font-medium text-success-foreground">
                       🔒 Two-factor on ·{' '}
