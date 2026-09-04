@@ -12,6 +12,7 @@ import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
 import PushNotificationsSection from '../../components/PushNotificationsSection'
+import NotBuiltYet from '../../components/NotBuiltYet'
 
 /**
  * The Account tab — who this account is, and the facts about it you cannot
@@ -448,14 +449,13 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
 
         <PushNotificationsSection />
 
-        <section className="rounded-card border border-border bg-background p-6">
-          <h2 className="font-semibold text-foreground">Not built yet</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <NotBuiltYet>
+          <p>
             The design also shows clinical preferences, caseload settings and a
             per-user audit log. None of those have anything behind them, so they
             are absent rather than drawn as controls that would change nothing.
           </p>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p>
             {/* This paragraph used to end "MiZanova sends no notifications at
                 all", which stopped being true with db/081. A note about what
                 is missing has to be maintained as carefully as the features,
@@ -464,7 +464,7 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             them existed. What is still missing there is email: the server can
             send it, but nothing yet sends a digest of what is waiting.
           </p>
-        </section>
+        </NotBuiltYet>
       </div>
     </div>
   )

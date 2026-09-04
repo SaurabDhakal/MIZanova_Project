@@ -14,6 +14,7 @@ import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 import { ErrorState } from '../../components/QueryState'
 import Spinner from '../../components/Spinner'
 import FormField from '../../components/FormField'
+import NotBuiltYet from '../../components/NotBuiltYet'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -452,9 +453,8 @@ export default function Security() {
       </section>
 
       {/* --- What this page does not do ------------------------------------- */}
-      <section className="mt-6 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Not built yet</h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+      <NotBuiltYet>
+        <p>
           The design for this screen also shows SMS codes, a 20-minute
           auto-lock, re-verification before sensitive actions, alerts on
           sign-in from a new device, a list of active sessions, and a sign-in
@@ -463,7 +463,7 @@ export default function Security() {
           worse than an admission on a page about whether your account is
           protected.
         </p>
-      </section>
+      </NotBuiltYet>
     </div>
   )
 }

@@ -11,6 +11,7 @@ import {
 } from '../../lib/api'
 import { CONSENT_COPY, CONSENT_ORDER } from '../../lib/consent'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import NotBuiltYet from '../../components/NotBuiltYet'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -290,19 +291,18 @@ export default function Compliance() {
         </div>
       )}
 
-      <section className="mt-6 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Not built yet</h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+      <NotBuiltYet>
+        <p>
           The design for this screen also shows overdue documents, upcoming
           deadlines, missing signatures, service minutes, therapy delivery
           percentages, and buttons to draft reports and send reminders. There
           are no review cycles, due dates or therapy minutes in the database,
-          and no report generator or notification system, so none of those
-          numbers could be anything but invented. Two of them the product
-          deliberately does not do at all: MiZanova records that a document was
-          read, never that it was signed.
+          and no report generator, so none of those numbers could be anything
+          but invented. Two of them the product deliberately does not do at
+          all: MiZanova records that a document was read, never that it was
+          signed.
         </p>
-      </section>
+      </NotBuiltYet>
     </div>
   )
 }

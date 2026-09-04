@@ -13,6 +13,7 @@ import StatTile from '../../components/StatTile'
 import AppointmentCalendar from '../../components/AppointmentCalendar'
 import BookAppointmentForm from '../../components/BookAppointmentForm'
 import AppointmentPanel from '../../components/AppointmentPanel'
+import NotBuiltYet from '../../components/NotBuiltYet'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -357,25 +358,30 @@ export default function Schedule() {
         </ul>
       )}
 
-      <section className="mt-8 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Not built yet</h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+      <NotBuiltYet>
+        <p>
           An empty slot in the grid means nothing is booked in it, not that you
           are free — working hours are recorded nowhere in MiZanova, so
           availability is a claim this calendar cannot make, however much a time
           grid looks like a diary. Nobody is told about an appointment either:
-          there is no email in this product, so a booking, a move and a
-          cancellation reach the family and the teacher only if you tell them
-          yourself. Both are said here rather than implied, because a calendar
-          that looks complete is one people stop double-checking.
+          {/* This said "there is no email in this product", which stopped
+              being true when the server started sending invitations,
+              enquiries, application decisions and access codes. What is
+              actually missing is narrower and worth naming precisely —
+              appointments raise no mail of any kind. */}{' '}
+          the server sends email, but nothing on this screen raises any, so a
+          booking, a move and a cancellation reach the family and the teacher
+          only if you tell them yourself. Both are said here rather than
+          implied, because a calendar that looks complete is one people stop
+          double-checking.
         </p>
-        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+        <p>
           The calendar loads roughly four months of history and everything
           ahead. Page back beyond that and it goes blank because nothing was
           fetched, not because nothing was booked — the sessions below are the
           record of what was delivered, and they are not windowed.
         </p>
-      </section>
+      </NotBuiltYet>
     </div>
   )
 }
