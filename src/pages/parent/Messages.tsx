@@ -58,9 +58,20 @@ export default function ParentMessages() {
 
       <Messenger studentId={child.id} />
 
+      {/* THIS SAID "cannot be edited or deleted once sent", AND HALF OF THAT
+          WAS FALSE. Messenger gates Unsend on `mine && !deleted && within 15
+          minutes` and on nothing else — no role check — so a family has always
+          had the same fifteen minutes the staff screens tell their own users
+          about. A parent who sent something about their child by mistake was
+          being told it was permanent, and would never have looked for the
+          button sitting on their own message. The half that was true is that
+          nothing can be EDITED; that stays. */}
       <p className="mt-4 max-w-prose text-xs text-muted-foreground">
-        Messages are stored with your child&rsquo;s records and cannot be edited
-        or deleted once sent - corrections are sent as a new message. This is
+        Messages are stored with your child&rsquo;s records. You can unsend your
+        own message for 15 minutes after sending it — the conversation then
+        shows &ldquo;Message unsent&rdquo; in its place, so the school can see
+        something was withdrawn rather than the message quietly vanishing. A
+        message cannot be edited: send a correction as a new message. This is
         not a channel for emergencies; contact the school directly if something
         is urgent.
       </p>

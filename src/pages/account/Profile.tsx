@@ -13,6 +13,7 @@ import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
 import PushNotificationsSection from '../../components/PushNotificationsSection'
 import NotBuiltYet from '../../components/NotBuiltYet'
+import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 
 /**
  * The Account tab — who this account is, and the facts about it you cannot
@@ -221,7 +222,22 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
                     <Pill tone="warn">Awaiting verification</Pill>
                   ))}
                 {mfaEnrolment === 'enrolled' && <Pill tone="good">✓ 2FA on</Pill>}
-                {mfaEnrolment === 'none' && <Pill tone="warn">2FA required</Pill>}
+                {/* REQUIRED OF FOUR ROLES, NOT OF EVERYONE. This warned anybody
+                    without an authenticator, so a family — for whom two-factor
+                    is deliberately optional, because locking them out of the
+                    daily summary over a changed phone does more harm than the
+                    risk it removes — was told their account was short of
+                    something it is not. The Security screen two clicks away
+                    says "Off · Set up an authenticator app" and offers it as a
+                    choice, which is the accurate version.
+
+                    No pill at all when it is optional and absent: "Two-factor:
+                    Not set up" already appears in the details below, stated as
+                    a fact rather than as a warning about nothing. */}
+                {mfaEnrolment === 'none' &&
+                  MFA_REQUIRED_ROLES.includes(profile.role) && (
+                    <Pill tone="warn">2FA required</Pill>
+                  )}
               </div>
             </div>
 
