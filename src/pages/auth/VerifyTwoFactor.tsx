@@ -28,7 +28,7 @@ export default function VerifyTwoFactor() {
   const [submitting, setSubmitting] = useState(false)
 
   const factors = useQuery({
-    queryKey: ['mfa-factors'],
+    queryKey: ['mfa-factors', session?.user.id ?? null],
     queryFn: listTotpFactors,
     enabled: Boolean(session),
   })
