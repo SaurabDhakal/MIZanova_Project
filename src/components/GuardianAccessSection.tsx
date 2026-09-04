@@ -125,10 +125,16 @@ export default function GuardianAccessSection({
   return (
     <section className="mt-10">
       <h2 className="text-lg font-semibold text-foreground">Family access</h2>
+      {/* NOT "you name them": there is no name field, and there never was.
+          The form takes an address and a relationship, and `createGuardianCode`
+          accepts nothing else — the person names themselves when they redeem
+          the code. Describing a field that is not on the screen sends somebody
+          looking for it. */}
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">
-        Give a parent or carer their own account for this child. You name them
-        and their email address; they get a code to enter once. Only that
-        address can use it, so a forwarded letter is not enough on its own.
+        Give a parent or carer their own account for this child. You give their
+        email address and how they are related; they get a code to enter once.
+        Only that address can use it, so a forwarded letter is not enough on its
+        own.
       </p>
 
       <form
@@ -150,7 +156,25 @@ export default function GuardianAccessSection({
           </p>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+        {/*
+          STACKED, BECAUSE `sm:` ASKS THE WRONG QUESTION.
+
+          This was `sm:grid-cols-[1fr_auto_auto]`, and Tailwind's `sm:` responds
+          to the VIEWPORT. The section only ever renders in the narrow right
+          column of a student record, so on a 1101px screen the breakpoint fired
+          into a 288px container and split it three ways: 54px for the email,
+          83px for the relationship, 83px for the button.
+
+          Fifty-four pixels for an email address. The label wrapped onto three
+          lines, "Guardian" was clipped mid-word, and you could not read the
+          address you were typing — on the one control whose own caption says to
+          check that address against your enrolment records first.
+
+          A container query would also fix it, but there is nothing to gain from
+          a row here: three stacked fields read perfectly well, and they stay
+          readable at every width this column has ever had.
+        */}
+        <div className="grid gap-4">
           <FormField
             label="Their email address"
             type="email"

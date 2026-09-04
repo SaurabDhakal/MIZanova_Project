@@ -258,12 +258,26 @@ export default function InviteStaffSection({
       {invitations.isSuccess && invitations.data.length === 0 && (
         <EmptyState
           title="No invitations yet"
-          detail="Invited staff appear here with whether they have accepted."
+          detail="Invitations appear here with whether they have been accepted."
         />
       )}
 
       {invitations.isSuccess && invitations.data.length > 0 && (
-        <ul className="space-y-2">
+        <>
+          {/* HEADED SEPARATELY, because this list is not only staff.
+              `fetchInvitations` returns every invitation the school has issued,
+              and a STUDENT invitation is created on the People screen — so one
+              can appear here, under a section titled "Invite staff", beside
+              educators and specialists.
+
+              Filtering it out would be worse: this is the only screen that
+              lists a pending invitation or offers Withdraw, so a student's
+              invitation would then be visible and cancellable nowhere. The
+              list is right; the heading above it was doing the misleading. */}
+          <h3 className="mt-6 mb-2 text-sm font-semibold text-foreground">
+            Invitations sent
+          </h3>
+          <ul className="space-y-2">
           {invitations.data.map((invitation) => {
             const status = statusOf(invitation)
             return (
@@ -301,7 +315,8 @@ export default function InviteStaffSection({
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </>
       )}
     </section>
   )

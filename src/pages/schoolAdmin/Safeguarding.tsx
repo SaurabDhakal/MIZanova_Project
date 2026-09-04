@@ -136,6 +136,22 @@ function IncidentCard({
           >
             What action did you take?
           </label>
+          {/* REQUIRED, and it was not.
+
+              This screen's own heading says acknowledging "records what you
+              did about it", and acknowledging LOCKS the record — the teacher
+              who wrote it can never edit it again. An empty note met neither:
+              api.ts stored '' as null, so a child's incident could be sealed
+              with nothing recorded about what was done.
+
+              The product already requires a reason for its other consequential
+              acts — every AI Governance change, and declining a specialist
+              application. A safeguarding acknowledgement is at least as
+              consequential as either. */}
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Required. This is the record of what was done, and acknowledging
+            cannot be undone.
+          </p>
           <textarea
             id={`ack-${incident.id}`}
             rows={2}
@@ -149,7 +165,7 @@ function IncidentCard({
             <button
               type="button"
               onClick={() => acknowledge.mutate()}
-              disabled={acknowledge.isPending}
+              disabled={acknowledge.isPending || note.trim() === ''}
               className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {acknowledge.isPending ? 'Recording…' : 'Acknowledge'}

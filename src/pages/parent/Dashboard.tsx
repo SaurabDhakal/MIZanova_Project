@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchAppointmentsForChild,
@@ -48,10 +49,19 @@ function relativeDay(iso: string): string {
   return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
 }
 
+/* Updates drawn before "See more". Enough to be a week of school, few enough
+   that a phone screen still reaches what is under them. */
+const SHARED_SHOWN = 5
+
 export default function ParentDashboard() {
   const { profile } = useAuth()
   const { children, child, selectChild, isPending, isError, error } =
     useSelectedChild()
+
+  /* Declared with the other hooks, above the early returns below — a hook after
+     a conditional return runs in a different order on the render where the
+     return fires. */
+  const [showAllShared, setShowAllShared] = useState(false)
 
   const logs = useQuery({
     queryKey: queryKeys.sharedLogs(child?.id ?? ''),
@@ -93,6 +103,21 @@ export default function ParentDashboard() {
   }
 
   const shared = logs.data ?? []
+
+  /*
+   * A RECENT WINDOW, BECAUSE THIS IS A PHONE SCREEN.
+   *
+   * `fetchSharedLogs` has no limit and this list had no slice, so a family a
+   * year into the product opened their home screen to every update a teacher
+   * had ever shared — on the one screen whose own note says "a parent reads
+   * this on a phone, often standing up".
+   *
+   * There is nowhere else to send them: no parent screen lists shared updates
+   * in full, so the rest expand here rather than living behind a link that
+   * does not exist.
+   */
+  const visibleShared = showAllShared ? shared : shared.slice(0, SHARED_SHOWN)
+  const hiddenShared = shared.length - visibleShared.length
 
   /*
    * "Now" comes from the fetch rather than from render — `Date.now()` here is
@@ -331,7 +356,7 @@ export default function ParentDashboard() {
 
       {shared.length > 0 && (
         <ul className="space-y-3">
-          {shared.map((log) => (
+          {visibleShared.map((log) => (
             <li
               key={log.id}
               className="rounded-card border border-border bg-card shadow-raised p-4"
@@ -353,6 +378,26 @@ export default function ParentDashboard() {
             </li>
           ))}
         </ul>
+      )}
+
+      {hiddenShared > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAllShared(true)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+        >
+          See {hiddenShared} earlier update{hiddenShared === 1 ? '' : 's'}
+        </button>
+      )}
+
+      {showAllShared && shared.length > SHARED_SHOWN && (
+        <button
+          type="button"
+          onClick={() => setShowAllShared(false)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+        >
+          Show fewer
+        </button>
       )}
     </div>
   )

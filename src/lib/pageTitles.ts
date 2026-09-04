@@ -58,7 +58,28 @@ export function titleFor(pathname: string): string {
     const items = [...config.nav].sort((a, b) => b.path.length - a.path.length)
     for (const item of items) {
       const full = item.path ? `${config.basePath}/${item.path}` : config.basePath
-      if (pathname === full || pathname.startsWith(`${full}/`)) {
+
+      /*
+       * THE LANDING PAGE MATCHES ITS OWN URL AND NOTHING BELOW IT.
+       *
+       * Sorting longest-first puts the index item (path '') last, which looks
+       * like it defers to everything else — but its `full` is the base path, so
+       * `startsWith(base + '/')` swallowed every sub-path that no nav item
+       * claimed, and it did so before the detail-page fallback underneath could
+       * run.
+       *
+       * The educator never noticed because `students` is one of their nav
+       * items. A specialist reaches a child through `caseload`, so every
+       * `/specialist/students/<id>` — the record, its plans, the plan editor —
+       * came back as "Command Centre". That is the browser tab, the history
+       * entry, and the aria-label AppShell puts on <main>, so opening a child's
+       * file announced the dashboard.
+       */
+      const matches = item.path
+        ? pathname === full || pathname.startsWith(`${full}/`)
+        : pathname === full
+
+      if (matches) {
         return `${item.label} — ${config.label}`
       }
     }

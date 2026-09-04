@@ -786,6 +786,51 @@ export type StrategyRow = {
  * on a specialist. That filtering is not written here on purpose: if it were,
  * someone could remove it. See db/006_ai_strategies.sql.
  */
+/**
+ * Put the child's name back before a teacher reads the advice.
+ *
+ * `server/anonymise.js` replaces every name with `[STUDENT]` before the request
+ * leaves us, and `server/claude.js` tells the model that is what it is reading.
+ * So the model writes `[STUDENT]` in its reply — correctly — and nothing ever
+ * put a name back. A teacher opening the panel was told to "point to it briefly
+ * as the timer approaches so [STUDENT] can read ahead", which reads as a broken
+ * screen rather than as advice about the child in front of them.
+ *
+ * DONE ON THE WAY OUT OF THE DATABASE, NOT ON THE WAY IN. The stored row keeps
+ * the placeholder, so `ai_strategies` still holds no child's name — the same
+ * guarantee `anonymised_input` exists to prove. The name is added for the
+ * person reading, who is already entitled to it, and never written down.
+ *
+ * The first name alone, because these are sentences: "so Arlo can read ahead"
+ * reads, and "so Arlo K. can read ahead" does not.
+ */
+async function nameTheStudent(
+  rows: StrategyRow[],
+  studentId: string,
+): Promise<StrategyRow[]> {
+  if (!rows.some((r) => `${r.title}${r.body}${r.rationale.join('')}`.includes('[STUDENT]'))) {
+    return rows
+  }
+
+  const { data } = await supabase
+    .from('students')
+    .select('first_name')
+    .eq('id', studentId)
+    .maybeSingle()
+
+  // A failed lookup must not leave the placeholder on screen. "this student"
+  // is a sentence; "[STUDENT]" is a bug report.
+  const name = data?.first_name?.trim() || 'this student'
+  const swap = (text: string) => text.split('[STUDENT]').join(name)
+
+  return rows.map((r) => ({
+    ...r,
+    title: swap(r.title),
+    body: swap(r.body),
+    rationale: r.rationale.map(swap),
+  }))
+}
+
 export async function fetchStrategiesForStudent(
   studentId: string,
 ): Promise<StrategyRow[]> {
@@ -798,7 +843,7 @@ export async function fetchStrategiesForStudent(
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as StrategyRow[]
+  return nameTheStudent((data ?? []) as StrategyRow[], studentId)
 }
 
 export type StrategyResponse = {
@@ -1809,12 +1854,26 @@ export async function acknowledgeIncident(
   const profileId = auth.user?.id
   if (!profileId) throw new Error('You are not signed in.')
 
+  /*
+   * THE NOTE IS THE POINT, so an empty one is refused here and not only by a
+   * disabled button. Acknowledging seals the incident — the teacher who wrote
+   * it can never edit it again — and the screen promises it "records what you
+   * did about it". This used to normalise '' to null, which allowed a child's
+   * incident to be locked with nothing recorded against it.
+   */
+  const action = note.trim()
+  if (action === '') {
+    throw new Error(
+      'Write what you did about this incident before acknowledging it. Acknowledging locks the record, and the note is what it locks in.',
+    )
+  }
+
   const { data, error } = await supabase
     .from('behaviour_logs')
     .update({
       safeguarding_acknowledged_at: new Date().toISOString(),
       safeguarding_acknowledged_by: profileId,
-      safeguarding_note: note.trim() === '' ? null : note.trim(),
+      safeguarding_note: action,
     })
     .eq('id', logId)
     .select('id')
@@ -2744,7 +2803,7 @@ export type PendingStrategyRow = {
   routing_reason: string | null
   created_at: string
   anonymised_input: string
-  students: { display_name: string } | null
+  students: { display_name: string; first_name: string } | null
   behaviour_logs: {
     behaviour_type: BehaviourType
     intensity: BehaviourIntensity
@@ -2766,14 +2825,43 @@ export async function fetchPendingStrategies(): Promise<PendingStrategyRow[]> {
     .from('ai_strategies')
     .select(
       `id, title, body, rationale, confidence, routing_reason, created_at, anonymised_input,
-       students ( display_name ),
+       students ( display_name, first_name ),
        behaviour_logs ( behaviour_type, intensity, notes, occurred_at )`,
     )
     .eq('status', 'pending_review')
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as PendingStrategyRow[]
+
+  /*
+   * THE SAME REHYDRATION THE TEACHER'S VIEW GETS, and it was missed here.
+   *
+   * `nameTheStudent` was added to `fetchStrategiesForStudent` so a teacher
+   * stops reading "so [STUDENT] can read ahead". A held suggestion travels a
+   * different path — this one — and would have shown the specialist the raw
+   * placeholder while they decided whether to release it. Nothing in the seed
+   * data carries one, which is exactly why it would have gone unnoticed until a
+   * real low-confidence generation landed in the queue.
+   *
+   * `first_name` rather than `display_name`, because these are sentences:
+   * "so Mia can read ahead" reads and "so Mia N. can read ahead" does not. The
+   * heading above each card still names them as "For Mia N.".
+   *
+   * The stored row keeps the placeholder either way — `anonymised_input` is
+   * shown on this very screen to prove no name was ever sent.
+   */
+  const rows = (data ?? []) as unknown as PendingStrategyRow[]
+  return rows.map((row) => {
+    const name = row.students?.first_name?.trim()
+    if (!name) return row
+    const swap = (text: string) => text.split('[STUDENT]').join(name)
+    return {
+      ...row,
+      title: swap(row.title),
+      body: swap(row.body),
+      rationale: row.rationale.map(swap),
+    }
+  })
 }
 
 export type StrategyConfidenceRow = {
