@@ -14,6 +14,7 @@ import { observationCategoryStyle } from '../../lib/observationCategories'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SessionsSection from '../../components/SessionsSection'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Progress Highlights - docs/Figma Pages Design/Parent Progress Highlights.png.
@@ -174,7 +175,7 @@ export default function ParentProgress() {
         <p className="text-sm font-semibold tracking-wide uppercase">
           MiZanova — progress report
         </p>
-        <h1 className="mt-1 text-2xl font-bold">{child.display_name}</h1>
+        <h1 className="mt-1 text-2xl font-bold">{fullName(child)}</h1>
         <p className="mt-1 text-sm">
           Printed {new Date().toLocaleDateString('en-AU', {
             day: 'numeric',
@@ -190,7 +191,7 @@ export default function ParentProgress() {
             Progress highlights
           </h1>
           <p className="mt-1 text-muted-foreground">
-            How {child.display_name} is tracking against the goals the school has
+            How {fullName(child)} is tracking against the goals the school has
             set, and what has gone well recently.
           </p>
         </div>

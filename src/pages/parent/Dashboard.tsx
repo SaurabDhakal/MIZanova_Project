@@ -13,7 +13,7 @@ import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
-import { withFullStop } from '../../lib/displayName'
+import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
 
 /**
@@ -22,12 +22,21 @@ import NoChildYet from '../../components/NoChildYet'
  * Mobile-first (NFR3): a parent reads this on a phone, often standing up.
  * Single column by default, widening on larger screens.
  *
- * The child is referred to by `display_name` throughout. For a parent's OWN
- * child that is a design choice rather than a protection — they obviously know
- * their child's surname. The protection is Row-Level Security, which means a
- * parent never receives a row about anyone else's child in the first place.
- * Using the short form here keeps the two consistent and means a screenshot of
- * this page, shared in a group chat, carries no surname.
+ * The child is named in full here, which REVERSES what this comment used to
+ * describe. It said the short form "Ethan M." was a design choice rather than a
+ * protection — the protection being Row-Level Security, which never sends a
+ * parent a row about anyone else's child — and that was right. Saurab's call on
+ * 4 September 2026 was that a parent should read their own child's name.
+ *
+ * ONE THING WAS TRADED AWAY AND IS WORTH REMEMBERING. The old comment gave a
+ * second reason for the short form: a screenshot of this page, shared in a group
+ * chat, carried no surname. That is now false. It is a real cost, it was a
+ * deliberate choice to accept it, and it is recorded here rather than lost —
+ * because the next person to find a surname in a shared screenshot should find
+ * this paragraph rather than a bug report.
+ *
+ * `fullName()` is used only on parent screens. Staff screens keep display_name:
+ * a roster is many families at once, which is the case it exists for.
  */
 
 const TYPE_LABEL: Record<BehaviourType, string> = {
@@ -141,7 +150,7 @@ export default function ParentDashboard() {
           Welcome back{profile?.first_name ? `, ${profile.first_name}` : ''} 👋
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Here is the latest on {withFullStop(child.display_name)}
+          Here is the latest on {withFullStop(fullName(child))}
         </p>
       </header>
 

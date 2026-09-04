@@ -170,6 +170,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     basePath: '/parent',
     nav: [
       { path: '', label: 'Home', icon: 'home', milestone: 'M7' },
+      // First in the group on purpose: it answers who your child IS and who can
+      // see them, which is the frame for everything under it.
+      { path: 'about', label: 'About your child', icon: 'students', group: 'Your child', milestone: 'M7' },
       { path: 'progress', label: 'Progress Highlights', icon: 'progress', group: 'Your child', milestone: 'M7' },
       { path: 'goals', label: 'Goals & IEP', icon: 'goals', group: 'Your child', milestone: 'M8' },
       { path: 'observations', label: 'Home Observations', icon: 'observations', group: 'Your child', milestone: 'M7' },

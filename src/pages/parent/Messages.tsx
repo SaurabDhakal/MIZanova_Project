@@ -3,6 +3,7 @@ import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Parent messaging - docs/Figma Pages Design/Parent Messages.png.
@@ -49,7 +50,7 @@ export default function ParentMessages() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Messages</h1>
         <p className="mt-1 text-muted-foreground">
-          Talk to the people supporting {child.display_name} at school.
+          Talk to the people supporting {fullName(child)} at school.
         </p>
       </header>
 

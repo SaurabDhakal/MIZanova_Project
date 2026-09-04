@@ -11,6 +11,7 @@ import NoChildYet from '../../components/NoChildYet'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import AppointmentCalendar from '../../components/AppointmentCalendar'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import { fullName } from '../../lib/displayName'
 
 /**
  * When your child is being seen — db/073.
@@ -170,7 +171,7 @@ export default function Appointments() {
                 booked" when the booking is nine days away. */}
             <AppointmentCalendar
               appointments={rows}
-              nameOf={() => child?.display_name ?? 'Your child'}
+              nameOf={() => (child ? fullName(child) : 'Your child')}
               currentUserId={null}
               selectedId={null}
               initialView="dayGridMonth"

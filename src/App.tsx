@@ -87,6 +87,7 @@ const AccountSchool = lazy(() => import('./pages/account/School'))
 const ParentDashboard = lazy(() => import('./pages/parent/Dashboard'))
 const HomeObservations = lazy(() => import('./pages/parent/HomeObservations'))
 const ParentAppointments = lazy(() => import('./pages/parent/Appointments'))
+const AboutChild = lazy(() => import('./pages/parent/AboutChild'))
 const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
 const ParentMessages = lazy(() => import('./pages/parent/Messages'))
 const ParentProgress = lazy(() => import('./pages/parent/Progress'))
@@ -165,6 +166,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
 
   // --- Saurab: parent: and platform_admin: ---
   'parent:': <ParentDashboard />,
+  'parent:about': <AboutChild />,
   'parent:observations': <HomeObservations />,
   'parent:appointments': <ParentAppointments />,
   'parent:goals': <GoalsAndIep />,

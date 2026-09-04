@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { withFullStop } from '../../lib/displayName'
+import { fullName, withFullStop } from '../../lib/displayName'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createHomeObservation,
@@ -150,7 +150,7 @@ export default function HomeObservations() {
         <h1 className="text-title text-foreground">Home observations</h1>
         <p className="mt-1 text-muted-foreground">
           Sharing moments from home helps the school build a fuller picture of{' '}
-          {withFullStop(child.display_name)}
+          {withFullStop(fullName(child))}
         </p>
       </header>
 
@@ -287,7 +287,7 @@ export default function HomeObservations() {
             <p className="text-xs text-muted-foreground">
               {editingId
                 ? 'The staff assigned to your child see the corrected version. Observations are corrected rather than deleted.'
-                : `This is shared with the staff assigned to ${withFullStop(child.display_name)}`}
+                : `This is shared with the staff assigned to ${withFullStop(fullName(child))}`}
             </p>
           </form>
         )}

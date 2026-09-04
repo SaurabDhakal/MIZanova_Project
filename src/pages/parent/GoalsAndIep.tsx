@@ -14,6 +14,7 @@ import GoalCard from '../../components/GoalCard'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SignedFileLink from '../../components/SignedFileLink'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Goals & IEP for a parent — docs/Figma Pages Design/Parent Goals & IEP.png.
@@ -99,7 +100,7 @@ export default function GoalsAndIep() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Goals &amp; IEP</h1>
         <p className="mt-1 text-muted-foreground">
-          What the school is working on with {child.display_name}, and the
+          What the school is working on with {fullName(child)}, and the
           documents that go with it.
         </p>
       </header>
