@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { acceptInvitation, peekInvitation } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { ROLE_CONFIG, pathForRole } from '../../lib/roles'
+import { MFA_REQUIRED_ROLES, ROLE_CONFIG, pathForRole } from '../../lib/roles'
 import Spinner from '../../components/Spinner'
 import AuthLayout from './AuthLayout'
 
@@ -147,12 +147,31 @@ export default function AcceptInvitation() {
           </p>
         </div>
 
+        {/* WHAT HAPPENS NEXT, SAID BEFORE IT HAPPENS. Four roles can open
+            records about identifiable children, and ProtectedRoute sends them
+            to Settings → Security & 2FA to enrol before anything else opens.
+            That is correct and it is explained once they arrive — but a button
+            promising a dashboard, followed by a settings screen, reads as the
+            product going wrong at the exact moment somebody is deciding
+            whether to trust it. A student or a family goes straight through
+            and is told nothing extra. */}
+        {MFA_REQUIRED_ROLES.includes(role) && (
+          <p className="mt-4 rounded-btn bg-background p-3 text-sm text-muted-foreground">
+            One thing first: your role can open records about identifiable
+            children, so MiZanova will ask you to set up two-factor
+            authentication before the rest of it opens. It takes about a minute
+            and you will need your phone.
+          </p>
+        )}
+
         <button
           type="button"
           onClick={() => navigate(pathForRole(role), { replace: true })}
           className="mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
         >
-          Go to your dashboard
+          {MFA_REQUIRED_ROLES.includes(role)
+            ? 'Set up two-factor and continue'
+            : 'Go to your dashboard'}
         </button>
       </AuthLayout>
     )
