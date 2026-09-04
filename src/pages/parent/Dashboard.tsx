@@ -13,6 +13,7 @@ import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import { withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
 
 /**
@@ -140,7 +141,7 @@ export default function ParentDashboard() {
           Welcome back{profile?.first_name ? `, ${profile.first_name}` : ''} 👋
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Here is the latest on {child.display_name}.
+          Here is the latest on {withFullStop(child.display_name)}
         </p>
       </header>
 

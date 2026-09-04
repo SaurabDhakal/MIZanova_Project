@@ -20,9 +20,19 @@ import SessionsSection from '../../components/SessionsSection'
  *
  * The design shows skill percentages against IEP goals, and a list of recent
  * breakthroughs. Both are built here from data that already exists: skill
- * progress is the goals grouped by category with the percentage the database
- * computes from ticked milestones, and highlights are milestones that were
- * actually completed plus what the family themselves wrote.
+ * progress is the goals grouped by category with `progress_percent`, and
+ * highlights are milestones that were actually completed plus what the family
+ * themselves wrote.
+ *
+ * THAT PERCENTAGE HAS TWO DIFFERENT MEANINGS, and this screen used to state
+ * only one of them. db/008 maintains it by trigger when a goal has milestones
+ * — done over total — and leaves it to be typed by hand when it has none. The
+ * schema says so in as many words. This page told families it came "from the
+ * steps your child's teachers have ticked off" either way, and at the time of
+ * writing 56 of the 57 goals in the product had no milestones at all. So on the
+ * screen a parent uses to judge how their child is going, a teacher's estimate
+ * was being presented as a count. The copy now follows the branch it already
+ * had to make.
  *
  * TWO THINGS FROM THE DESIGN ARE DELIBERATELY ABSENT.
  *
@@ -263,7 +273,7 @@ export default function ParentProgress() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {goal.goal_milestones.length > 0
                           ? `${done} of ${goal.goal_milestones.length} steps complete`
-                          : 'No steps recorded yet'}
+                          : 'Set by the teacher · no steps recorded yet'}
                         {goal.target_date &&
                           ` · target ${new Date(goal.target_date).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`}
                       </p>
@@ -277,8 +287,10 @@ export default function ParentProgress() {
       )}
 
       <p className="mt-3 text-sm text-muted-foreground">
-        Percentages come from the steps your child&rsquo;s teachers have ticked
-        off — the same figures they see.{' '}
+        Where a goal has steps, the percentage is how many have been ticked
+        off — the same figure the teacher sees. Where it has none, it is the
+        teacher&rsquo;s own assessment of how it is going, not a count of
+        anything.{' '}
         <Link
           to="/parent/goals"
           className="font-medium text-primary hover:underline"
