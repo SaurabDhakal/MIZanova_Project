@@ -1,19 +1,30 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchStudents, fetchUpcomingGoals, queryKeys } from '../../lib/api'
 import { GOAL_CATEGORY_LABEL } from '../../lib/goalCategories'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import EducatorSchoolContext from '../../components/EducatorSchoolContext'
+import AppointmentCalendar from '../../components/AppointmentCalendar'
+import type { CalendarAppointment } from '../../components/AppointmentCalendar'
 
 /**
  * Educator schedule — what is coming up for the children you teach.
  *
- * THE LAST PLACEHOLDER IN THE PRODUCT, and it is not a calendar. The same
- * reasoning as the specialist's: nothing in MiZanova books anything. There are
- * no slots, no availability, no invitations and no reminders, so a week grid
- * would be a picture of a feature, and every empty cell would be a promise
- * that something could be dropped into it.
+ * A MONTH GRID OVER A LIST, and the grid draws dates, not bookings. Nothing in
+ * MiZanova books a teacher: there are no slots, no availability, no invitations
+ * and no reminders, and RLS does not even let an educator read the specialist
+ * appointment table (db/059 admits the assigned specialist, the platform admin
+ * and, since db/073, the family — nobody else). So a grid of hours here would
+ * be a picture of a feature, and every empty cell a promise something could be
+ * dropped into it.
+ *
+ * WHAT IT DRAWS INSTEAD is the goal target dates below, on the day each falls
+ * due, as all-day events — because a target date names a day and never an
+ * hour. The calendar and the list are the same goals in two shapes: the list
+ * answers "what is coming", the month answers "when is my crunch", and the
+ * filters govern both. The note at the foot says the grid is not bookable,
+ * which matters more now that there is a grid to misread.
  *
  * WHAT A TEACHER ACTUALLY HAS DATED. Two things, and only two:
  *
@@ -138,6 +149,7 @@ function GoalLine({
 }
 
 export default function Schedule() {
+  const navigate = useNavigate()
   const [studentFilter, setStudentFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [dateFilter, setDateFilter] = useState<
@@ -201,6 +213,27 @@ export default function Schedule() {
   })
   const later = visibleGoals.filter((g) => daysUntil(g.target_date!) > 60)
   const filtersActive = Boolean(studentFilter || categoryFilter || dateFilter)
+
+  /*
+   * The goals the lists below draw, in the shape the calendar reads.
+   *
+   * `duration_minutes` is 0 and never used — these are all-day events, so the
+   * component omits the end rather than computing start + 0ms and drawing a
+   * sliver nobody can click. `status` is only what picks the colour, and the
+   * cut is 14 days to agree with the tile above it; the sections underneath
+   * split at 60 because a list can afford a wider bucket, where a month grid
+   * showing about thirty days would render every one of them amber.
+   */
+  const calendarGoals: CalendarAppointment[] = visibleGoals.map((goal) => {
+    const days = daysUntil(goal.target_date!)
+    return {
+      id: goal.id,
+      student_id: goal.student_id,
+      starts_at: goal.target_date!,
+      duration_minutes: 0,
+      status: days < 0 ? 'overdue' : days <= 14 ? 'soon' : 'later',
+    }
+  })
 
   return (
     <div>
@@ -342,6 +375,63 @@ export default function Schedule() {
         </>
       )}
 
+      {visibleGoals.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="text-lg font-semibold text-foreground">
+              When they fall due
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Click a goal to open the child&rsquo;s record. The filters above
+              narrow this too.
+            </p>
+          </div>
+
+          {/* No onPickSlot. There is nothing to book, and the component drops
+              the pointer cursor and the hover state when the handler is absent
+              rather than inviting a press that would do nothing. */}
+          <AppointmentCalendar
+            appointments={calendarGoals}
+            nameOf={nameOf}
+            currentUserId={null}
+            selectedId={null}
+            initialView="dayGridMonth"
+            allDay
+            onSelect={(goal) =>
+              void navigate(`/educator/students/${goal.student_id}`)
+            }
+          />
+
+          {/* COLOUR IS NOT THE ONLY CARRIER. A block in the grid says whose
+              goal it is and nothing about urgency but its fill, so the words
+              are given here — and the lists underneath are the same goals with
+              "3 days overdue" written out, on the same screen. */}
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block h-3 w-3 rounded-sm bg-danger-strong"
+              />
+              Overdue
+            </li>
+            <li className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block h-3 w-3 rounded-sm bg-warning-foreground"
+              />
+              Due within 14 days
+            </li>
+            <li className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block h-3 w-3 rounded-sm bg-primary"
+              />
+              Later
+            </li>
+          </ul>
+        </section>
+      )}
+
       {goals.data.length > 0 && visibleGoals.length === 0 && (
         <div className="mb-8 rounded-card border border-border bg-card p-8 text-center shadow-raised">
           <h2 className="text-lg font-semibold text-foreground">
@@ -403,16 +493,19 @@ export default function Schedule() {
         </section>
       )}
 
-      {/* Said once, at the bottom, rather than as an empty calendar grid that
-          implies the opposite on every screen it appears on. */}
+      {/* SAID ONCE, AND NOW LOAD-BEARING. The month grid above is the shape
+          people read as a diary, so the sentence that it books nothing is
+          more necessary with it than it was without it. */}
       <p className="mt-6 max-w-prose text-sm text-muted-foreground">
         <strong className="font-semibold text-foreground">
           This is not a booking calendar.
         </strong>{' '}
         MiZanova has no appointment slots, no availability and no reminders, so
-        there is nothing here to book or move. What it shows is the only thing
-        the system has a date for: the targets set on your students&rsquo;
-        goals. Session booking is a separate piece of work with its own tables.
+        there is nothing here to book or move, and an empty day means nothing
+        falls due on it rather than that you are free. What it shows is the
+        only thing the system has a date for: the targets set on your
+        students&rsquo; goals, drawn on the day each is due. A specialist&rsquo;s
+        bookings are a separate table, and a teacher is not given sight of it.
       </p>
     </div>
   )
