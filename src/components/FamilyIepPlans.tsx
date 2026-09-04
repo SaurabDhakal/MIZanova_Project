@@ -4,8 +4,8 @@ import {
   fetchIepPlan,
   fetchIepPlans,
   IEP_OUTCOME_LABEL,
-  IEP_STATUS_LABEL,
   queryKeys,
+  type IepPlanStatus,
 } from '../lib/api'
 import { ErrorState, LoadingCards } from './QueryState'
 import IepAgreement from './IepAgreement'
@@ -121,6 +121,31 @@ function PlanBody({ planId }: { planId: string }) {
   )
 }
 
+/**
+ * The plan's status, said the way a family reads it.
+ *
+ * TWO DIFFERENT AGREEMENTS SIT ON THIS CARD AND BOTH WERE CALLED "Agreed".
+ * db/054 defines the status as "agreed at a meeting; the content is now
+ * frozen" — a lifecycle state the SCHOOL sets, which is why an agreed plan
+ * can no longer be edited. Whether this particular parent has personally
+ * agreed is a separate `iep_plan_confirmations` row, and it is what the button
+ * underneath offers and what the panel inside reports back.
+ *
+ * So a family saw a pill saying "Agreed" directly above a button saying "Read
+ * it and agree", and had no way to tell whether their own agreement had
+ * registered. Both were correct and the pair was unreadable.
+ *
+ * IEP_STATUS_LABEL is left alone: on the two staff screens that share it,
+ * "Agreed" is unambiguous because staff know whose agreement it names.
+ */
+const FAMILY_STATUS_LABEL: Record<IepPlanStatus, string> = {
+  draft: 'Being written',
+  agreed: 'Agreed at the meeting',
+  in_review: 'Review under way',
+  closed: 'Reviewed and closed',
+  superseded: 'Replaced by a later plan',
+}
+
 export default function FamilyIepPlans({ studentId }: { studentId: string }) {
   const [open, setOpen] = useState<string | null>(null)
   const plans = useQuery({
@@ -163,7 +188,7 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
                     Plan of {day(p.plan_date)}
                   </h3>
                   <span className="rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
-                    {IEP_STATUS_LABEL[p.status]}
+                    {FAMILY_STATUS_LABEL[p.status]}
                   </span>
                 </div>
 
