@@ -38,11 +38,21 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/account/profile': 'Your account',
   '/account/school': 'Your school',
   '/design-tokens': 'Design tokens',
+  '/link': 'Connect to your child',
 }
 
 export function titleFor(pathname: string): string {
   const exact = PUBLIC_TITLES[pathname]
   if (exact) return exact
+
+  /*
+   * A ROUTE WHOSE NAME CARRIES A TOKEN. `/invite/:token` matched no exact key
+   * and no role section, so it fell all the way through to "Page not found" —
+   * on a working page, in the browser tab and in what a screen reader
+   * announces on arrival. The first thing an invited person ever sees of this
+   * product told them it did not exist.
+   */
+  if (pathname.startsWith('/invite/')) return 'Your invitation'
 
   // Role sections: match the sidebar label, so the tab says the same words the
   // person clicked. Longest path first, or '' would match everything.

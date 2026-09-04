@@ -84,12 +84,46 @@ export default function AcceptInvitation() {
           Invitations expire after 14 days and can only be used once. Ask
           whoever invited you to send a new one.
         </p>
-        <Link
-          to="/login"
-          className="mt-6 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
-        >
-          Go to sign in
-        </Link>
+
+        {/* THE PERSON WHO JUST USED THE LINK SEES THIS TOO, AND IT FRIGHTENED
+            THEM. An accepted invitation is consumed, so opening the link again
+            — a back button, a refresh, the email still sitting there — returns
+            exactly the same refusal as a forged token. The server does that on
+            purpose and should keep doing it: answering "already used"
+            differently from "never existed" tells a stranger which tokens are
+            real.
+
+            But it can say something about the READER without saying anything
+            about the token. Somebody signed in with a role already has the
+            account the invitation was for; the refusal is about the link, not
+            about them, and a dead end offering only "Go to sign in" to a person
+            who is signed in is the part that was wrong. */}
+        {session && profile ? (
+          <>
+            <p className="mt-4 text-sm text-muted-foreground">
+              You are signed in as{' '}
+              <strong className="font-semibold text-foreground">
+                {profile.first_name} {profile.last_name}
+              </strong>
+              , a {ROLE_CONFIG[profile.role].label.toLowerCase()}. If you have
+              already used this link, nothing is wrong — your account is ready.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(pathForRole(profile.role), { replace: true })}
+              className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+            >
+              Go to {ROLE_CONFIG[profile.role].label}
+            </button>
+          </>
+        ) : (
+          <Link
+            to="/login"
+            className="mt-6 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
+          >
+            Go to sign in
+          </Link>
+        )}
       </AuthLayout>
     )
   }
