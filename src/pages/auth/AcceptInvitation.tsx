@@ -23,7 +23,7 @@ import AuthLayout from './AuthLayout'
  */
 export default function AcceptInvitation() {
   const { token = '' } = useParams()
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [done, setDone] = useState(false)
 
@@ -35,7 +35,36 @@ export default function AcceptInvitation() {
 
   const accept = useMutation({
     mutationFn: () => acceptInvitation(token),
-    onSuccess: () => setDone(true),
+    /*
+     * THE ROLE JUST CHANGED ON THE SERVER AND NOTHING TOLD THE BROWSER.
+     *
+     * This set `done` and no more. The server promotes the account — db/044
+     * gives every self sign-up the role `parent`, and the invitation is what
+     * makes them an educator, a specialist, a school administrator or a
+     * student — but AuthProvider only refetches the profile when the USER
+     * changes, and the user did not change. So `profile.role` stayed `parent`,
+     * and ProtectedRoute sent them to pathForRole('parent'): the family home
+     * screen, asking a newly invited teacher to enter a code for a child.
+     *
+     * Every invited account landed there. It looked like the invitation had
+     * failed, and it had not — only the browser was a step behind.
+     *
+     * Awaited BEFORE `done`, so the button on the next screen navigates with
+     * the new role already in hand rather than racing it.
+     */
+    onSuccess: async () => {
+      /* Guarded, because the invitation IS accepted by this point — the server
+         has already changed the role. Letting a failed refresh stop `done`
+         would leave somebody staring at a Join button for something that has
+         already worked, with `accept.isError` false and nothing to explain it.
+         A refresh that fails here is corrected by the focus refetch anyway. */
+      try {
+        await refreshProfile()
+      } catch {
+        /* nothing useful to do — the next focus corrects it */
+      }
+      setDone(true)
+    },
   })
 
   if (loading || invitation.isPending) {

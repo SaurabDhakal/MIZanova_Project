@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
+import type { Role } from '../lib/roles'
 import { supabase } from '../lib/supabase'
 import { getAssuranceLevel, listTotpFactors } from '../lib/mfa'
 import { clearRosterCache } from '../lib/rosterCache'
@@ -229,6 +230,31 @@ export default function AuthProvider({
     if (profileRow?.id === userId) return profileRow
     return readCachedProfile(userId)
   }, [userId, profileRow])
+
+  /*
+   * A ROLE CHANGES UNDER A SIGNED-IN ACCOUNT, AND EVERY CACHED ANSWER WAS
+   * SCOPED TO THE OLD ONE.
+   *
+   * Accepting an invitation is the ordinary case: db/044 gives every self
+   * sign-up the role `parent`, the invitation then promotes the account to
+   * educator, specialist, school_admin or student, and the person is the same
+   * person throughout — so the effect above, which watches the user id, never
+   * fires. Everything React Query holds was fetched as a parent, by policies
+   * that answer differently now.
+   *
+   * Only a change BETWEEN two known roles. The first load goes from null to a
+   * role and must keep its warm cache; that is arrival, not promotion.
+   */
+  const lastRole = useRef<Role | null>(null)
+
+  useEffect(() => {
+    const previous = lastRole.current
+    const current = profile?.role ?? null
+    if (current === null) return
+    lastRole.current = current
+    if (previous === null || previous === current) return
+    queryClient.clear()
+  }, [profile?.role, queryClient])
 
   // --- 2b. Does this session still owe a second factor? ---------------------
   //
