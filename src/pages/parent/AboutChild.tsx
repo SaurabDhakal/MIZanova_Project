@@ -273,6 +273,32 @@ export default function AboutChild() {
         </div>
       )}
 
+      {/* SOMETHING WRONG WITH THESE DETAILS IS A REAL CASE, NOT A HYPOTHETICAL.
+          A misspelt name, a date of birth typed wrong at enrolment, a year
+          level nobody moved on after the child changed grade — the family is
+          the one person who always knows, and `students_update` admits the
+          platform admin, a school admin at that school, and staff assigned to
+          the child. No guardian branch, deliberately: a record the school is
+          accountable for should not be editable by the family it describes.
+
+          But read-only with no way to report an error is a dead end, and this
+          screen is where the error gets noticed. So it says who can change it
+          and points at the screen that reaches them. */}
+      {overview.isSuccess && (
+        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+          Something here not right? These are the school&rsquo;s records and only
+          the school can change them, which is what stops anyone else altering
+          your child&rsquo;s details.{' '}
+          <Link
+            to="/parent/messages"
+            className="font-medium text-primary hover:underline"
+          >
+            Message your child&rsquo;s teacher
+          </Link>{' '}
+          and they will correct it.
+        </p>
+      )}
+
       {/* --- Who can see this record ---------------------------------------- */}
       <h2 className="mt-10 mb-2 text-lg font-semibold text-foreground">
         Who can see this record
