@@ -3,7 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { acceptInvitation, peekInvitation } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { MFA_REQUIRED_ROLES, ROLE_CONFIG, pathForRole } from '../../lib/roles'
+import {
+  article,
+  MFA_REQUIRED_ROLES,
+  ROLE_CONFIG,
+  pathForRole,
+} from '../../lib/roles'
 import Spinner from '../../components/Spinner'
 import AuthLayout from './AuthLayout'
 
@@ -105,7 +110,8 @@ export default function AcceptInvitation() {
               <strong className="font-semibold text-foreground">
                 {profile.first_name} {profile.last_name}
               </strong>
-              , a {ROLE_CONFIG[profile.role].label.toLowerCase()}. If you have
+              , {article(ROLE_CONFIG[profile.role].label)}{' '}
+              {ROLE_CONFIG[profile.role].label.toLowerCase()}. If you have
               already used this link, nothing is wrong — your account is ready.
             </p>
             <button
@@ -141,7 +147,8 @@ export default function AcceptInvitation() {
             Your account is now linked to {schoolName}.
           </p>
           <p className="mt-2">
-            You are a {ROLE_CONFIG[role].label.toLowerCase()} there, and already
+            You are {article(ROLE_CONFIG[role].label)}{' '}
+            {ROLE_CONFIG[role].label.toLowerCase()} there, and already
             verified — {schoolName} confirmed that when they invited you, so
             there is nothing to wait for.
           </p>
@@ -184,7 +191,8 @@ export default function AcceptInvitation() {
         <div className="rounded-btn border border-border bg-background p-4 text-sm">
           <p className="text-foreground">
             You have been invited to join{' '}
-            <strong className="font-semibold">{schoolName}</strong> as a{' '}
+            <strong className="font-semibold">{schoolName}</strong> as{' '}
+            {article(ROLE_CONFIG[role].label)}{' '}
             <strong className="font-semibold">{ROLE_CONFIG[role].label}</strong>.
           </p>
           <p className="mt-2 text-muted-foreground">
@@ -262,7 +270,7 @@ export default function AcceptInvitation() {
       <div className="rounded-btn border border-border bg-background p-4 text-sm">
         <p className="text-foreground">
           <strong className="font-semibold">{schoolName}</strong> has invited you
-          to join as a{' '}
+          to join as {article(ROLE_CONFIG[role].label)}{' '}
           <strong className="font-semibold">{ROLE_CONFIG[role].label}</strong>.
         </p>
         <p className="mt-2 text-muted-foreground">
@@ -270,7 +278,8 @@ export default function AcceptInvitation() {
         </p>
         {profile && profile.role !== role && (
           <p className="mt-2 text-muted-foreground">
-            Your account is currently a {ROLE_CONFIG[profile.role].label} — that
+            Your account is currently {article(ROLE_CONFIG[profile.role].label)}{' '}
+            {ROLE_CONFIG[profile.role].label} — that
             will change to {ROLE_CONFIG[role].label}.
           </p>
         )}

@@ -74,6 +74,22 @@ export const MFA_REQUIRED_ROLES: Role[] = [
   'platform_admin',
 ]
 
+/**
+ * "a" or "an", for a role label read aloud.
+ *
+ * The first screen an invited person ever sees said "You have been invited to
+ * join Parramatta West Primary School as a Educator." Educator is the only
+ * label here that begins with a vowel, which is exactly why it survived: five
+ * of the six roles read correctly and the sixth was never the one anybody
+ * tested with.
+ *
+ * On the letter, not a dictionary. Every label this is used with is an
+ * ordinary word, and no role is ever going to be a "unicorn" or an "hour".
+ */
+export function article(label: string): string {
+  return /^[aeiou]/i.test(label) ? 'an' : 'a'
+}
+
 /** Where someone with this role lands after signing in. */
 export function pathForRole(role: Role): string {
   return ROLE_CONFIG[role].basePath
