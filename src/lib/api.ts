@@ -8315,28 +8315,50 @@ export async function fetchMyBookings(): Promise<IndividualBooking[]> {
   return (data ?? []) as unknown as IndividualBooking[]
 }
 
+/**
+ * THROUGH THE SERVER, THOUGH RLS STILL DECIDES.
+ *
+ * The browser could write this row itself — and did, and that version shipped
+ * with a hole: nothing on earth told the specialist somebody had asked. The
+ * server writes it with the caller's own token, so the same policies apply,
+ * and then does the one thing a browser cannot: reads the other person's email
+ * address and tells them.
+ */
+async function bookingCall(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const parsed = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(parsed.error ?? `Request failed (${res.status}).`)
+}
+
 export async function requestBooking(input: {
   specialistId: string
   startsAt: string
   purpose: string
 }): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser()
-  const id = auth.user?.id
-  if (!id) throw new Error('You are not signed in.')
-
-  const starts = new Date(input.startsAt)
-  const { error } = await supabase.from('individual_bookings').insert({
-    profile_id: id,
-    specialist_id: input.specialistId,
-    starts_at: starts.toISOString(),
-    duration_minutes: 45,
-    ends_at: new Date(starts.getTime() + 45 * 60000).toISOString(),
-    purpose: input.purpose.trim() || null,
-    // The policy refuses anything else on insert; sent explicitly so the
-    // intent is visible at the call site rather than only in the schema.
-    status: 'requested',
+  await bookingCall('/api/bookings/request', {
+    specialistId: input.specialistId,
+    startsAt: input.startsAt,
+    purpose: input.purpose,
   })
-  if (error) throw new Error(error.message)
 }
 
 /** Withdrawing is all the person who asked is allowed to do — db/103. */
@@ -8387,27 +8409,7 @@ export async function answerBooking(input: {
   status: 'accepted' | 'declined'
   note: string
 }): Promise<void> {
-  const { error } = await supabase
-    .from('individual_bookings')
-    .update({
-      status: input.status,
-      outcome_note: input.note.trim() || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', input.id)
-
-  /*
-   * The clash is refused by an exclusion constraint, not by this function —
-   * two specialists' screens can both look free a second apart. Translated
-   * here so the loser is told what actually happened.
-   */
-  if (error) {
-    throw new Error(
-      error.message.includes('individual_bookings_no_clash')
-        ? 'Something else was accepted for that time while this was open. Refresh and take another look.'
-        : error.message,
-    )
-  }
+  await bookingCall('/api/bookings/answer', input)
 }
 
 export const queryKeys = {

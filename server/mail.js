@@ -515,3 +515,59 @@ export function guardianCodeEmail({ childName, schoolName, code, link }) {
     ].join('\n'),
   }
 }
+
+
+/**
+ * Somebody with no school has asked a specialist for an hour — db/103.
+ *
+ * WHAT THEY WROTE IS NOT IN HERE. The person's `purpose` is what they are
+ * finding hard, in their own words, and email is the least private channel
+ * this product has — it sits on a mail server, in a phone's notification
+ * shade, and in whatever backup the provider keeps. The specialist reads it
+ * inside the account, where RLS decides who may. This says only that somebody
+ * asked and when.
+ */
+export function bookingRequestedEmail({ whenText }) {
+  return {
+    subject: 'Somebody has asked you for a session — MiZanova',
+    text: [
+      'Somebody with no school attached has asked you for forty-five minutes.',
+      '',
+      `They asked for ${whenText}.`,
+      '',
+      'What they want out of it, and their name, are on your schedule in',
+      'MiZanova — not in this email, because an email is the least private',
+      'place this product could put them.',
+      '',
+      'Accepting puts it in your calendar. Declining asks you for a line to',
+      'send back, which is worth writing: a refusal with no reason is the',
+      'thing people remember.',
+    ].join('\n'),
+  }
+}
+
+/**
+ * A specialist has answered — db/103.
+ *
+ * The note travels because the specialist wrote it TO this person, which is a
+ * different thing from the person's own account of what they are struggling
+ * with. Withholding a reason to protect somebody from their own reply would be
+ * a strange kind of care.
+ */
+export function bookingAnsweredEmail({ accepted, whenText, note }) {
+  return {
+    subject: accepted
+      ? 'Your session is confirmed — MiZanova'
+      : 'About the session you asked for — MiZanova',
+    text: [
+      accepted
+        ? `That is confirmed: ${whenText}.`
+        : `The session you asked for — ${whenText} — cannot go ahead.`,
+      '',
+      ...(note ? ['They said:', '', note, ''] : []),
+      accepted
+        ? 'It is in your account under Sessions. If you need to withdraw, you can do that there.'
+        : 'You can ask for another time under Sessions in your account. Nothing is charged either way.',
+    ].join('\n'),
+  }
+}

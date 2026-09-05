@@ -19,6 +19,8 @@ import { createClient } from '@supabase/supabase-js'
 import { buildAnonymousPayload, redact } from './anonymise.js'
 import { pushConfigured, sendToProfile, vapidPublicKey } from './push.js'
 import {
+  bookingAnsweredEmail,
+  bookingRequestedEmail,
   ENQUIRIES_TO,
   usingTestSender,
   applicationDecisionEmail,
@@ -728,6 +730,228 @@ app.post('/api/strategies', async (req, res) => {
     }
     console.error('Strategy generation failed:', err)
     return res.status(500).json({ error: 'Could not generate strategies.' })
+  }
+})
+
+/**
+ * The time, as the person will read it — db/103.
+ *
+ * Australia/Sydney explicitly rather than the server's clock. Render runs in
+ * Singapore, and an email telling an Australian their session is at 7am when
+ * it is at 9am is worse than no email.
+ */
+function whenInSydney(date) {
+  return date.toLocaleString('en-AU', {
+    timeZone: 'Australia/Sydney',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * Tell the other person, by whatever means they have.
+ *
+ * Email and push both, because they answer different questions: push reaches
+ * somebody who is holding their phone, email reaches somebody who is not. A
+ * booking matters enough to be worth both, and neither is guaranteed to be
+ * configured — a missing VAPID key or SMTP host makes each a no-op rather than
+ * an error.
+ *
+ * NEVER AWAITED BY A ROUTE. Somebody whose booking went through must not be
+ * told it failed because a mail server was slow.
+ */
+async function notifyAboutBooking(profileId, kind, { whenText, note }) {
+  try {
+    const { data: person } = await admin
+      .from('profiles')
+      .select('email')
+      .eq('id', profileId)
+      .single()
+
+    const letter =
+      kind === 'requested'
+        ? bookingRequestedEmail({ whenText })
+        : bookingAnsweredEmail({
+            accepted: kind === 'accepted',
+            whenText,
+            note,
+          })
+
+    if (person?.email) {
+      const sent = await sendMail({ to: person.email, ...letter })
+      if (!sent?.ok && sent?.error) {
+        recordEvent('warning', 'booking', 'mail_failed', sent.error)
+      }
+    }
+
+    await sendToProfile(admin, profileId, {
+      count: 1,
+      where: null,
+      url: kind === 'requested' ? '/specialist/schedule' : '/individual/book',
+    })
+  } catch (err) {
+    // Recorded rather than raised, for the reason above.
+    recordEvent(
+      'warning',
+      'booking',
+      'notify_failed',
+      err?.message ?? String(err),
+    )
+  }
+}
+
+/**
+ * Booking, through the server so somebody is actually told — db/103.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THESE EXIST WHEN THE BROWSER COULD WRITE THE ROW ITSELF
+ * ---------------------------------------------------------------------------
+ * It could, and it did. Row-Level Security already decides who may ask and who
+ * may answer, so the write needed no server at all — which is exactly why the
+ * first version of this feature shipped with a hole in it: an individual asked
+ * for an hour and nothing on earth told the specialist, and the specialist
+ * answered and nothing told the individual. Both had to keep coming back to
+ * look.
+ *
+ * So the write still happens AS THE USER, with their own token, and RLS is
+ * still the authority on whether it is allowed. The server's only addition is
+ * the part a browser cannot do: reading the other person's email address and
+ * sending them something.
+ *
+ * ---------------------------------------------------------------------------
+ * THE MAIL IS NEVER ALLOWED TO FAIL THE REQUEST
+ * ---------------------------------------------------------------------------
+ * Same rule as the AI usage meter: somebody whose booking went through should
+ * not be told it failed because a mail server was slow. The send is not
+ * awaited and its failure is recorded rather than raised.
+ */
+app.post('/api/bookings/request', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { specialistId, startsAt, purpose } = req.body ?? {}
+  if (!specialistId || !startsAt) {
+    return res.status(400).json({ error: 'A specialist and a time are required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const starts = new Date(startsAt)
+    const ends = new Date(starts.getTime() + 45 * 60000)
+
+    // AS THE USER. `individual_bookings_ask` refuses a row for anybody else,
+    // and refuses any status but 'requested'.
+    const { data: booking, error: insertError } = await userClient
+      .from('individual_bookings')
+      .insert({
+        profile_id: user.id,
+        specialist_id: specialistId,
+        starts_at: starts.toISOString(),
+        duration_minutes: 45,
+        ends_at: ends.toISOString(),
+        purpose: (purpose ?? '').trim() || null,
+        status: 'requested',
+      })
+      .select('id, starts_at')
+      .single()
+
+    if (insertError) return res.status(400).json({ error: insertError.message })
+
+    void notifyAboutBooking(specialistId, 'requested', {
+      whenText: whenInSydney(starts),
+    })
+
+    return res.json({ id: booking.id })
+  } catch (err) {
+    console.error('Booking request failed:', err)
+    return res.status(500).json({ error: 'Could not ask for that time.' })
+  }
+})
+
+app.post('/api/bookings/answer', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { id, status, note } = req.body ?? {}
+  if (!id || (status !== 'accepted' && status !== 'declined')) {
+    return res.status(400).json({ error: 'An answer of accepted or declined is required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    /*
+     * AS THE USER AGAIN. `individual_bookings_answer` lets the specialist set
+     * any status and the person who asked set only 'cancelled', so a person
+     * accepting their own request is refused by the database rather than by a
+     * check here that could drift away from it.
+     */
+    const { data: rows, error: updateError } = await userClient
+      .from('individual_bookings')
+      .update({
+        status,
+        outcome_note: (note ?? '').trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('id, profile_id, starts_at')
+
+    if (updateError) {
+      /*
+       * Three different refusals, and a person should be told which. The RLS
+       * one is what somebody hits by answering a booking that is not theirs —
+       * `individual_bookings_answer` lets the person who asked set only
+       * 'cancelled' — and "new row violates row-level security policy" is not
+       * a sentence anybody should read on a screen.
+       */
+      const raw = updateError.message
+      return res.status(400).json({
+        error: raw.includes('individual_bookings_no_clash')
+          ? 'Something else was accepted for that time while this was open. Refresh and take another look.'
+          : raw.includes('row-level security')
+            ? 'Only the specialist can accept or decline this. You can withdraw it instead.'
+            : raw,
+      })
+    }
+
+    /*
+     * ZERO ROWS IS A REFUSAL, NOT A SUCCESS. An update RLS declines returns
+     * success with an empty array and no error — the trap `assertChanged`
+     * exists for elsewhere in this codebase. Without this, somebody answering
+     * a booking that is not theirs would be told it worked.
+     */
+    const booking = rows?.[0]
+    if (!booking) {
+      return res.status(403).json({ error: 'That is not yours to answer.' })
+    }
+
+    void notifyAboutBooking(booking.profile_id, status, {
+      whenText: whenInSydney(new Date(booking.starts_at)),
+      note: (note ?? '').trim(),
+    })
+
+    return res.json({ ok: true })
+  } catch (err) {
+    console.error('Booking answer failed:', err)
+    return res.status(500).json({ error: 'Could not send that answer.' })
   }
 })
 

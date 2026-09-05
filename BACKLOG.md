@@ -65,11 +65,12 @@ bulk import as gaps, and both shipped since it was written.
       verified specialists who have hours. It is a REQUEST rather than a
       purchase — `fee_cents` is ready and null, because nobody has set a price
       for a session and a specialist's afternoon is not bought off a shelf.
-- [ ] **Nothing emails anybody about a booking.** The request and the answer
-      both live in the account. The server can send mail — invitations,
-      enquiries, access codes all use it — but no booking raises any, so both
-      people have to come back and look. This is the next thing worth doing on
-      the individual side.
+- [x] ~~**Nothing emails anybody about a booking.**~~ Both directions now go
+      through the server, which writes the row with the CALLER'S token so RLS
+      still decides, then sends email and push — the one thing a browser cannot
+      do. The specialist's email deliberately carries only the time: what
+      somebody wrote about what they are finding hard stays in the account,
+      where RLS governs who reads it.
 - [ ] **A session has no price.** Deliberate, not missing: `plans.ts` says
       figures come from the client and the brief says willingness to pay is
       still being researched. When Special Miles sets one, the accept step
