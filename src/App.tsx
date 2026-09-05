@@ -96,6 +96,7 @@ const IndividualSuggestions = lazy(
 )
 const IndividualReceipts = lazy(() => import('./pages/individual/Receipts'))
 const IndividualGoals = lazy(() => import('./pages/individual/Goals'))
+const IndividualBook = lazy(() => import('./pages/individual/Book'))
 const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
 const ParentMessages = lazy(() => import('./pages/parent/Messages'))
 const ParentProgress = lazy(() => import('./pages/parent/Progress'))
@@ -260,6 +261,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'individual:library': <Library />,
   'individual:suggestions': <IndividualSuggestions />,
   'individual:goals': <IndividualGoals />,
+  'individual:book': <IndividualBook />,
   'individual:receipts': <IndividualReceipts />,
 }
 

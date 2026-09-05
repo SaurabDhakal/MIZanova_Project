@@ -404,20 +404,20 @@ export default function IndividualHome() {
         </>
       )}
 
-      {/* NOT BUILT, SAID PLAINLY. The brief lists bookable sessions as a real
-          product, and booking runs through a student record, which needs a
-          school — so it does not exist for somebody here, and a tile offering
-          it would be a promise with nothing behind it.
-
-          Paying is no longer on this list. db/092 built it, so claiming it was
-          missing would be the same fault pointing the other way. */}
+      {/* THIS PANEL HAS NOW OUTLIVED BOTH THINGS IT WAS WRITTEN ABOUT.
+          Paying went first (db/092), and booking went with db/102-104. What is
+          left is narrower and true: you can ask for a session, and nothing
+          sends anybody an email about it. Kept and narrowed rather than
+          deleted, because a note about what is missing has to be maintained as
+          carefully as the features or it becomes the most confident wrong
+          sentence on the page. */}
       <section className="mt-10 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Not built yet</h2>
+        <h2 className="font-semibold text-foreground">Worth knowing</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          Booking a session with a specialist does not work from this account.
-          Booking a time runs through a school and a student record, and you
-          have neither. It is part of the plan; it is not here yet, and nothing
-          on these pages will pretend otherwise.
+          You can ask a specialist for a session, and they answer here &mdash;
+          but nothing emails either of you about it yet, so check this account
+          for their reply rather than waiting for a message. There is no price
+          for a session either, so nobody will ask you for a card.
         </p>
       </section>
     </div>

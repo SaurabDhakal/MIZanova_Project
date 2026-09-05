@@ -8247,6 +8247,169 @@ export async function removeAvailability(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+// ---------------------------------------------------------------------------
+// Asking for a time — db/103, db/104
+// ---------------------------------------------------------------------------
+
+export type BookableSpecialist = {
+  id: string
+  full_name: string | null
+  avatar_path: string | null
+  availability_bands: number
+}
+
+export type IndividualBooking = {
+  id: string
+  specialist_id: string
+  starts_at: string
+  duration_minutes: number
+  ends_at: string
+  status: 'requested' | 'accepted' | 'declined' | 'cancelled'
+  purpose: string | null
+  outcome_note: string | null
+}
+
+export async function fetchBookableSpecialists(): Promise<BookableSpecialist[]> {
+  const { data, error } = await supabase
+    .from('bookable_specialists')
+    .select('id, full_name, avatar_path, availability_bands')
+    .order('full_name')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as BookableSpecialist[]
+}
+
+/**
+ * The hours actually free, worked out by the database.
+ *
+ * Derived rather than stored, and derived THERE rather than here: the function
+ * checks the specialist's school diary as well as this one, which the browser
+ * has no business reading. It gets back start times and nothing about who is
+ * in the slots it cannot have.
+ */
+export async function fetchFreeSlots(
+  specialistId: string,
+  days = 21,
+): Promise<string[]> {
+  const from = new Date()
+  const to = new Date(Date.now() + days * 86400000)
+  const { data, error } = await supabase.rpc('free_slots', {
+    p_specialist: specialistId,
+    p_from: from.toISOString().slice(0, 10),
+    p_to: to.toISOString().slice(0, 10),
+    p_minutes: 45,
+  })
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as { slot: string }[]).map((r) => r.slot)
+}
+
+export async function fetchMyBookings(): Promise<IndividualBooking[]> {
+  const { data, error } = await supabase
+    .from('individual_bookings')
+    .select(
+      'id, specialist_id, starts_at, duration_minutes, ends_at, status, purpose, outcome_note',
+    )
+    .order('starts_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IndividualBooking[]
+}
+
+export async function requestBooking(input: {
+  specialistId: string
+  startsAt: string
+  purpose: string
+}): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser()
+  const id = auth.user?.id
+  if (!id) throw new Error('You are not signed in.')
+
+  const starts = new Date(input.startsAt)
+  const { error } = await supabase.from('individual_bookings').insert({
+    profile_id: id,
+    specialist_id: input.specialistId,
+    starts_at: starts.toISOString(),
+    duration_minutes: 45,
+    ends_at: new Date(starts.getTime() + 45 * 60000).toISOString(),
+    purpose: input.purpose.trim() || null,
+    // The policy refuses anything else on insert; sent explicitly so the
+    // intent is visible at the call site rather than only in the schema.
+    status: 'requested',
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Withdrawing is all the person who asked is allowed to do — db/103. */
+export async function cancelMyBooking(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('individual_bookings')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * The requests waiting for a specialist to answer — db/103.
+ *
+ * The individual's name is joined in from `profiles`. A specialist may read it
+ * because `individual_bookings_read` admits both people in the booking, and
+ * knowing who is asking is the whole basis on which they decide.
+ */
+export type IncomingBooking = {
+  id: string
+  profile_id: string
+  starts_at: string
+  ends_at: string
+  status: 'requested' | 'accepted' | 'declined' | 'cancelled'
+  purpose: string | null
+  profiles: { full_name: string | null } | null
+}
+
+export async function fetchIncomingBookings(): Promise<IncomingBooking[]> {
+  const { data: auth } = await supabase.auth.getUser()
+  const me = auth.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  const { data, error } = await supabase
+    .from('individual_bookings')
+    .select(
+      'id, profile_id, starts_at, ends_at, status, purpose, profiles!individual_bookings_profile_id_fkey (full_name)',
+    )
+    .eq('specialist_id', me)
+    .order('starts_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IncomingBooking[]
+}
+
+export async function answerBooking(input: {
+  id: string
+  status: 'accepted' | 'declined'
+  note: string
+}): Promise<void> {
+  const { error } = await supabase
+    .from('individual_bookings')
+    .update({
+      status: input.status,
+      outcome_note: input.note.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.id)
+
+  /*
+   * The clash is refused by an exclusion constraint, not by this function —
+   * two specialists' screens can both look free a second apart. Translated
+   * here so the loser is told what actually happened.
+   */
+  if (error) {
+    throw new Error(
+      error.message.includes('individual_bookings_no_clash')
+        ? 'Something else was accepted for that time while this was open. Refresh and take another look.'
+        : error.message,
+    )
+  }
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -8337,6 +8500,10 @@ export const queryKeys = {
   courseCatalogue: ['course-catalogue'] as const,
   myPersonalGoals: ['my-personal-goals'] as const,
   availability: (id: string) => ['availability', id] as const,
+  bookableSpecialists: ['bookable-specialists'] as const,
+  freeSlots: (id: string) => ['free-slots', id] as const,
+  myBookings: ['my-bookings'] as const,
+  incomingBookings: ['incoming-bookings'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,

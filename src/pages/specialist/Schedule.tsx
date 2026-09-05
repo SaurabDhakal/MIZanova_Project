@@ -15,6 +15,7 @@ import BookAppointmentForm from '../../components/BookAppointmentForm'
 import AppointmentPanel from '../../components/AppointmentPanel'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import WorkingHoursSection from '../../components/WorkingHoursSection'
+import SessionRequestsSection from '../../components/SessionRequestsSection'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -358,6 +359,8 @@ export default function Schedule() {
           ))}
         </ul>
       )}
+
+      <SessionRequestsSection />
 
       {profile && (
         <WorkingHoursSection specialistId={profile.id} canEdit />

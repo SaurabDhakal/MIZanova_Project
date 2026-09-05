@@ -329,6 +329,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
       { path: 'goals', label: 'My goals', icon: 'goals', milestone: 'M15' },
       { path: 'suggestions', label: 'Suggestions', icon: 'ai', milestone: 'M15' },
+      { path: 'book', label: 'Sessions', icon: 'schedule', milestone: 'M15' },
       { path: 'receipts', label: 'Receipts', icon: 'invoices', milestone: 'M15' },
     ],
   },
