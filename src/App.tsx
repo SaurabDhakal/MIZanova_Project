@@ -47,6 +47,7 @@ const Enquiry = lazy(() => import('./pages/Enquiry'))
 const ApplyAsSpecialist = lazy(() => import('./pages/ApplyAsSpecialist'))
 const ForSchools = lazy(() => import('./pages/public/ForSchools'))
 const ForParents = lazy(() => import('./pages/public/ForParents'))
+const ForIndividuals = lazy(() => import('./pages/public/ForIndividuals'))
 const About = lazy(() => import('./pages/public/About'))
 const Features = lazy(() => import('./pages/public/Features'))
 const PublicSecurity = lazy(() => import('./pages/public/Security'))
@@ -357,6 +358,14 @@ export default function App() {
           element={
             <Suspense fallback={<Spinner label="Loading" />}>
               <ForParents />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/for-individuals"
+          element={
+            <Suspense fallback={<Spinner label="Loading" />}>
+              <ForIndividuals />
             </Suspense>
           }
         />

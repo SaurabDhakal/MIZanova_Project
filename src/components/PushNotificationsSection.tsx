@@ -7,6 +7,7 @@ import {
   pushSubscribedHere,
 } from '../lib/api'
 import { showToast } from '../lib/toast'
+import { useAuth } from '../lib/auth'
 
 /**
  * Notifications, for this browser — db/081.
@@ -39,6 +40,9 @@ import { showToast } from '../lib/toast'
  * the browser's own site settings.
  */
 export default function PushNotificationsSection() {
+  const { profile } = useAuth()
+  const inASchool = profile !== null && profile.role !== 'individual'
+
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
@@ -107,12 +111,28 @@ export default function PushNotificationsSection() {
         Notifications on this device
       </h2>
 
-      <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-        A notification tells you <b>how many</b> things need you and{' '}
-        <b>which school</b>. It never names a child or says what happened —
-        these screens are open on shared classroom machines, and a notification
-        can be read without signing in.
-      </p>
+      {/* WHAT A NOTIFICATION SAYS DEPENDS ON WHETHER THERE IS A SCHOOL.
+          Every notification MiZanova sends today is about a child at one, and
+          an individual (db/088) is not connected to any — so this control is
+          real, the browser permission is real, and nothing would ever arrive
+          through it. Offering it without saying so is a promise with nothing
+          behind it, which is the fault this codebase keeps finding in itself. */}
+      {inASchool ? (
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          A notification tells you <b>how many</b> things need you and{' '}
+          <b>which school</b>. It never names a child or says what happened —
+          these screens are open on shared classroom machines, and a
+          notification can be read without signing in.
+        </p>
+      ) : (
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          <b>Nothing sends you one yet.</b> Every notification MiZanova sends
+          today is about a child at a school, and this account is not connected
+          to one. You can switch this on and the browser will remember it, but
+          it will stay quiet until there is something here worth telling you
+          about.
+        </p>
+      )}
 
       {availability.isPending && (
         <p className="mt-4 text-sm text-muted-foreground">Checking…</p>

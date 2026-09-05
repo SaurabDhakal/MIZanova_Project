@@ -104,6 +104,15 @@ const VERIFIED_ROLES = ['educator', 'specialist', 'school_admin']
 
 function ProfileForm({ profile }: { profile: ProfileRow }) {
   const { refreshProfile, session, mfaEnrolment, changeEmail } = useAuth()
+
+  /*
+   * SOME OF THIS SCREEN IS ADDRESSED TO SCHOOL STAFF AND SOME PEOPLE HERE HAVE
+   * NO SCHOOL. An individual (db/088) has no colleagues, gets no invitations
+   * and has never seen a classroom machine — three sentences below told them
+   * otherwise, which reads as having wandered into somebody else's product on
+   * the one screen that is meant to be about them.
+   */
+  const inASchool = profile !== null && profile.role !== 'individual'
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [firstName, setFirstName] = useState(profile.first_name ?? '')
@@ -182,7 +191,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             <div>
               <h2 className="text-lg font-bold text-foreground">Your details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                How you appear to colleagues and families on every screen.
+                {inASchool
+                  ? 'How you appear to colleagues and families on every screen.'
+                  : 'Your name and picture, as they appear on your own screens.'}
               </p>
             </div>
             {/* The action sits in the card header, as the design has it —
@@ -276,8 +287,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           </div>
 
           <p className="mt-2 text-xs text-muted-foreground">
-            PNG, JPEG or WebP, up to 2 MB. Anyone signed in can see it,
-            including families — that is what it is for.
+            {inASchool
+              ? 'PNG, JPEG or WebP, up to 2 MB. Anyone signed in can see it, including families — that is what it is for.'
+              : 'PNG, JPEG or WebP, up to 2 MB. Nobody shares this account, so this is for the corner of your own screen.'}
           </p>
           {(photoError || upload.isError || removePhoto.isError) && (
             <p role="alert" className="mt-2 text-sm font-medium text-danger-foreground">
@@ -324,7 +336,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
         <section className={card}>
           <h2 className="text-lg font-bold text-foreground">Email address</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            What you sign in with, and where invitations and password resets go.
+            {inASchool
+              ? 'What you sign in with, and where invitations and password resets go.'
+              : 'What you sign in with, and where a password reset would be sent.'}
           </p>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">

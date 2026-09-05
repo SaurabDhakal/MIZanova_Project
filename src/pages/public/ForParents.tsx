@@ -76,8 +76,16 @@ export default function ForParents() {
           and does not replace signing something where the school requires it.
         </p>
         <p>
-          Children do not have their own accounts. Nothing here asks a child to
-          log in.
+          {/* This said "children do not have their own accounts", which
+              stopped being true with db/074. A child CAN have one — it shows
+              their goals and nothing else — and it is issued by the school
+              only after a family consents. Saying the opposite on the page a
+              parent reads before deciding anything was the worst place in the
+              product for that sentence to go stale. */}
+          A child can have a sign-in of their own, but only if you agree to it
+          first and only if the school issues it. It shows them the goals they
+          are working on and nothing else &mdash; no behaviour notes, no plan
+          documents, and no messages between adults.
         </p>
       </NotThis>
 

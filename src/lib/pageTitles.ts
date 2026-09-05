@@ -20,6 +20,7 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/for-specialists': 'Join the network',
   '/for-schools': 'For schools',
   '/for-parents': 'For families',
+  '/for-individuals': 'For individuals',
   '/about': 'About',
   '/features': 'Features',
   '/security': 'Security',
