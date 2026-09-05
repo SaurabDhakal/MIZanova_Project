@@ -61,6 +61,18 @@ function moduleProgress(
 export default function Academy() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState<string | null>(null)
+  /*
+   * WHICH PART THEY ARE READING, not which course. Opening a course used to
+   * unroll every module at once — three or eight of them, each several
+   * paragraphs, all on screen together. That is a document, and this is meant
+   * to be something you work through: there was no sense of being anywhere in
+   * it, and nothing to come back to.
+   *
+   * Null means "wherever they are up to", worked out below rather than stored,
+   * so somebody who returns after a week lands on the part they had not read
+   * instead of on part one.
+   */
+  const [openModule, setOpenModule] = useState<string | null>(null)
 
   const courses = useQuery({ queryKey: queryKeys.courses, queryFn: fetchCourses })
   const enrolments = useQuery({
@@ -178,7 +190,31 @@ export default function Academy() {
    * the learner's screen, and an unpublished course has nothing to enrol in.
    * They write them on Courses.
    */
-  const visible = courses.data.filter((c) => c.is_published)
+  const published = courses.data.filter((c) => c.is_published)
+
+  /*
+   * ---------------------------------------------------------------------
+   * WHAT YOU ARE PARTWAY THROUGH COMES FIRST
+   * ---------------------------------------------------------------------
+   * The list came back in whatever order the database returned it, so a course
+   * somebody was halfway through could sit under two they had never opened.
+   * The one with a bookmark in it is the reason they came to this screen.
+   *
+   * Finished ones sink rather than disappear: they are still readable, and
+   * removing something somebody completed would read as losing it.
+   *
+   * Ordering is skipped entirely while progress is unknown — a list that
+   * reshuffles itself the moment a failed query succeeds is worse than one
+   * that never moved.
+   */
+  const rank = (c: Course) => {
+    const e = enrolmentFor(c.id)
+    if (!e) return 1 // not started
+    return e.completed_at ? 2 : 0 // finished sinks, in progress leads
+  }
+  const visible = progressUnknown
+    ? published
+    : [...published].sort((a, b) => rank(a) - rank(b))
 
   return (
     <div>
@@ -305,12 +341,30 @@ export default function Academy() {
                         {total === 0 ? 'Not ready yet' : 'Start this course'}
                       </button>
                     ) : (
+                      /* CONTINUE IS THE PRIMARY ACTION AND WAS DRESSED AS THE
+                         WEAKEST THING ON THE CARD. An outlined button sat
+                         beside solid ones on every course somebody had NOT
+                         started, so the page pushed hardest on starting
+                         something new and whispered about finishing what was
+                         already open. Backwards: carrying on is the thing this
+                         product wants and the thing the person came for.
+
+                         "Hide" stays outlined, because closing a panel is not
+                         an action worth a solid button. */
                       <button
                         type="button"
                         onClick={() => setOpen(isOpen ? null : course.id)}
-                        className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                        className={
+                          isOpen
+                            ? 'rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground'
+                            : 'rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground'
+                        }
                       >
-                        {isOpen ? 'Hide' : 'Continue'}
+                        {isOpen
+                          ? 'Hide'
+                          : enrolment.completed_at
+                            ? 'Read it again'
+                            : 'Continue'}
                       </button>
                     )}
                   </div>
@@ -318,10 +372,15 @@ export default function Academy() {
 
                 {/* A bar rather than a percentage. "3 of 8" is already on the
                     card; the bar is for the glance, and a number to one decimal
-                    place would be false precision about eight things. */}
+                    place would be false precision about eight things.
+
+                    THICKER AND CLOSER THAN IT WAS. At 1.5px hugging the bottom
+                    edge it read as a border somebody had coloured in — the one
+                    thing on the card that shows momentum, and the easiest to
+                    miss. */}
                 {enrolment && total > 0 && (
                   <div
-                    className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-background"
+                    className="mt-4 h-2 w-full overflow-hidden rounded-full bg-background"
                     role="progressbar"
                     aria-valuenow={doneCount}
                     aria-valuemin={0}
@@ -336,14 +395,45 @@ export default function Academy() {
                 )}
 
                 {isOpen && enrolment && (
-                  <ol className="mt-4 space-y-3 border-t border-border pt-4">
+                  <ol className="mt-4 space-y-2 border-t border-border pt-4">
                     {(course.course_modules ?? []).map((m, i) => {
                       const isDone = done.has(`${enrolment.id}:${m.id}`)
+                      /* Where they are up to: the first part not yet done, or
+                         the last one if they have finished the lot. */
+                      const upTo =
+                        (course.course_modules ?? []).find(
+                          (x) => !done.has(`${enrolment.id}:${x.id}`),
+                        )?.id ?? (course.course_modules ?? []).at(-1)?.id
+                      const showing = (openModule ?? upTo) === m.id
                       return (
-                        <li key={m.id} className="rounded-card border border-border p-4">
-                          <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="text-xs font-semibold text-muted-foreground">
-                              {i + 1}
+                        <li
+                          key={m.id}
+                          className={`rounded-card border p-4 ${
+                            showing
+                              ? 'border-primary bg-card'
+                              : 'border-border bg-background'
+                          }`}
+                        >
+                          {/* THE WHOLE ROW OPENS IT. A title somebody has to
+                              hit exactly is a worse target than the card they
+                              are already looking at, and this list is read on
+                              phones. */}
+                          <button
+                            type="button"
+                            onClick={() => setOpenModule(showing ? '' : m.id)}
+                            aria-expanded={showing}
+                            className="flex w-full flex-wrap items-baseline gap-2 text-left"
+                          >
+                            <span
+                              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${
+                                isDone
+                                  ? 'bg-success-subtle text-success-foreground'
+                                  : showing
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground'
+                              }`}
+                            >
+                              {isDone ? '✓' : i + 1}
                             </span>
                             <h3 className="font-semibold text-foreground">
                               {m.title}
@@ -353,9 +443,9 @@ export default function Academy() {
                                 Done
                               </span>
                             )}
-                          </div>
+                          </button>
 
-                          {m.body && (
+                          {showing && m.body && (
                             /* whitespace-pre-line, not dangerouslySetInnerHTML.
                                db/075 stores plain text on purpose — rendering
                                staff-written content as markup is how a content
@@ -366,7 +456,7 @@ export default function Academy() {
                             </p>
                           )}
 
-                          {m.video_url && (
+                          {showing && m.video_url && (
                             <a
                               href={m.video_url}
                               target="_blank"
@@ -377,7 +467,7 @@ export default function Academy() {
                             </a>
                           )}
 
-                          {!isDone && (
+                          {showing && !isDone && (
                             <button
                               type="button"
                               disabled={tick.isPending}
