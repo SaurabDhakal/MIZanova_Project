@@ -348,27 +348,34 @@ function GoalCard({
         >
           How is it going?
         </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="rounded-btn border border-border bg-background px-4 py-2 font-semibold text-foreground"
-        >
-          Done with this
-        </button>
-        <button
-          type="button"
-          onClick={onPark}
-          className="rounded-btn border border-border bg-background px-4 py-2 font-semibold text-foreground"
-        >
-          Park it
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="ml-auto text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-        >
-          Delete
-        </button>
+        {/* FOUR EQUAL BUTTONS MEANT NO PRIMARY ACTION. Checking in is the
+            thing somebody opens this screen to do and it competed with two
+            ways to stop and one way to erase. Finishing and parking are
+            occasional and now read as such; deleting sits apart, because it is
+            not in the same family as the other three. */}
+        <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <button
+            type="button"
+            onClick={onDone}
+            className="font-semibold text-primary hover:underline"
+          >
+            Done with this
+          </button>
+          <button
+            type="button"
+            onClick={onPark}
+            className="font-semibold text-muted-foreground hover:underline"
+          >
+            Park it
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+          >
+            Delete
+          </button>
+        </span>
       </div>
 
       {open && (
@@ -407,11 +414,77 @@ function GoalCard({
 
       {checkins.length > 0 && (
         <>
-          <p className="mt-5 text-sm font-semibold text-foreground">
-            {checkins.length} check-in{checkins.length === 1 ? '' : 's'}
+          {/* ---------------------------------------------------------------
+              THE PATTERN, WHICH IS THE WHOLE POINT OF CHECKING IN
+              ---------------------------------------------------------------
+              This was a list of dates and words. A list tells you what
+              happened on the 6th; it does not tell you that three hard weeks
+              have turned into two mixed ones, which is the only thing somebody
+              tracking a goal actually wants to know and the reason they came
+              back.
+
+              Oldest on the left, so it reads the way time runs.
+
+              NOT COLOUR ALONE. Each bar carries a title, and the counts below
+              say the same thing in words — somebody who cannot tell the
+              colours apart gets the identical information, which is the rule
+              the rest of this product follows for status.
+              --------------------------------------------------------------- */}
+          {/* Its own panel, and not called "How it has been going" — that sat
+              directly under a button reading "How is it going?" and the two
+              were read as the same control. */}
+          <div className="mt-5 rounded-card border border-border bg-background p-4">
+            <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+              Every check-in, oldest first
+            </p>
+            {/* Scrolls in its own container rather than pushing the page
+                sideways. Six marks fit anywhere; somebody who has checked in
+                weekly since March has forty, and the phone is where they will
+                be looking at them. */}
+            <div
+              className="mt-3 flex items-end gap-1.5 overflow-x-auto pb-1"
+              aria-hidden
+            >
+              {[...checkins].reverse().map((c) => (
+                <span
+                  key={c.id}
+                  title={`${new Date(c.created_at).toLocaleDateString('en-AU', {
+                    day: 'numeric',
+                    month: 'short',
+                  })} — ${HOW.find((h) => h.value === c.how_it_went)?.label}`}
+                  /* Tall enough to be a mark rather than a speck. At 12x24 the
+                     whole strip was a smear you had to lean in to read, which
+                     defeats the one thing it is for. */
+                  className={`h-10 w-5 shrink-0 rounded-sm ${
+                    c.how_it_went === 'good'
+                      ? 'bg-success-foreground'
+                      : c.how_it_went === 'mixed'
+                        ? 'bg-brand-blue'
+                        : 'bg-warning-foreground'
+                  }`}
+                />
+              ))}
+            </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {(['good', 'mixed', 'hard'] as const)
+              .map((v) => ({
+                n: checkins.filter((c) => c.how_it_went === v).length,
+                label: HOW.find((h) => h.value === v)!.label.toLowerCase(),
+              }))
+              .filter((x) => x.n > 0)
+              .map((x) => `${x.n} ${x.label}`)
+              .join(' · ')}
+          </p>
+          </div>
+
+          {/* Three, not five. The strip above already carries the shape; this
+              is here for the words somebody wrote, and a long list of them
+              buries the goal underneath it. */}
+          <p className="mt-4 text-sm font-semibold text-foreground">
+            What you wrote
           </p>
           <ul className="mt-2 space-y-2">
-            {checkins.slice(0, 5).map((c) => (
+            {checkins.slice(0, 3).map((c) => (
               <li key={c.id} className="text-sm">
                 <span className="text-muted-foreground">
                   {new Date(c.created_at).toLocaleDateString('en-AU', {
