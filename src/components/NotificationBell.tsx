@@ -155,6 +155,16 @@ function itemsFor(queue: WorkQueue, basePath: string) {
     to: `${basePath}/book`,
   }))
 
+  /* db/106. "To look at", never "overdue" — nothing on this account is owed
+     to anybody, and a bell that implies otherwise would undo the care taken
+     over the wording on the screen it points at. */
+  add(queue.goalsToLookAt, (n) => ({
+    key: 'goals-to-look-at',
+    label: `${plural(n, 'goal', 'goals')} to look at`,
+    detail: 'Nobody has asked how these are going',
+    to: `${basePath}/goals`,
+  }))
+
   add(queue.unreadThreads, (n) => ({
     key: 'messages',
     label: `${plural(n, 'conversation', 'conversations')} unread`,

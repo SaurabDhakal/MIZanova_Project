@@ -126,6 +126,17 @@ and never checked.
       a session request answered — which clears when they open the screen it
       points at, the test the bell requires of anything in it.
 
+- [x] ~~**Nothing followed up.**~~ db/106. A goal nobody has asked about in a
+      week is surfaced on the home screen, on the goal itself and in the bell —
+      pulled when somebody opens the product, never pushed by a clock, because
+      server/index.js already decided there is no scheduler here and its first
+      act must not be mailing people. "Not now" snoozes rather than dismisses.
+- [ ] **The AI never sees what happened before.** Every question starts cold —
+      it does not know they asked about mornings three weeks ago, or that "hard
+      going" has appeared four times in their check-ins. That is the difference
+      between a good answer generator and something that knows them, and it is
+      a real build rather than polish.
+
 ### The demo account
 
 `individual.demo@mizanova.test` / `Demo!Individual2026` — an individual with one

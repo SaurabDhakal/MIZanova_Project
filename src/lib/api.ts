@@ -7583,11 +7583,26 @@ export type WorkQueue = Partial<
     /* db/105. An individual's queue was empty and truthfully so — until a
        specialist could answer them, and the answer had nowhere to be noticed
        except the page itself. */
-    | 'sessionAnswers',
+    | 'sessionAnswers'
+    /* db/106. Not "overdue" — nothing here is owed to anybody. It is a goal
+       nobody has asked about in a while. */
+    | 'goalsToLookAt',
     /** A number, or null when the count could not be read. Never absent-as-zero. */
     number | null
   >
 >
+
+/**
+ * Goals nobody has asked about in a while — db/106.
+ *
+ * Counted through the same `goalNeedsAsking` the screens use, rather than a
+ * second query with the rule written out again: a bell that counts one thing
+ * while the screen it points at shows another is worse than no bell.
+ */
+async function countGoalsToLookAt(): Promise<number> {
+  const goals = await fetchMyGoalsPersonal()
+  return goals.filter((g) => goalNeedsAsking(g)).length
+}
 
 /** Answered and not yet seen — db/105. Clears when they open Sessions. */
 async function countSessionAnswers(): Promise<number> {
@@ -7809,6 +7824,7 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
                    requires of anything appearing in it. */
                 ([
                   ['sessionAnswers', countSessionAnswers()],
+                  ['goalsToLookAt', countGoalsToLookAt()],
                 ] as [keyof WorkQueue, Promise<number>][])
               : role === 'student'
               ? []
@@ -8025,14 +8041,91 @@ export type IndividualGoal = {
   target_date: string | null
   created_at: string
   done_at: string | null
+  nudge_snoozed_until: string | null
   individual_goal_checkins: GoalCheckin[]
+}
+
+/** Seven days. A goal is a weekly sort of thing, and sooner is nagging. */
+export const NUDGE_AFTER_DAYS = 7
+
+/**
+ * Is it fair to ask how this is going?
+ *
+ * ---------------------------------------------------------------------------
+ * ONE DEFINITION, BECAUSE THREE PLACES ASK
+ * ---------------------------------------------------------------------------
+ * The home screen, the goals screen and the notification bell all need this
+ * answer, and a bell that counts one thing while the screen it points at shows
+ * another is worse than no bell — that is the rule NotificationBell.tsx sets
+ * for anything appearing in it.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT COUNTS AS "LONG ENOUGH"
+ * ---------------------------------------------------------------------------
+ * Time since the last check-in, or since the goal was set if there has never
+ * been one. A goal set this morning is not overdue, and neither is one checked
+ * in on yesterday.
+ *
+ * A snooze wins over everything. Somebody who said not now meant it, and the
+ * date they chose is the date — nothing here second-guesses it.
+ */
+export function goalNeedsAsking(goal: IndividualGoal, now = Date.now()): boolean {
+  if (goal.status !== 'active') return false
+  if (
+    goal.nudge_snoozed_until &&
+    +new Date(goal.nudge_snoozed_until) > now
+  ) {
+    return false
+  }
+  const last = goal.individual_goal_checkins.reduce<number>(
+    (newest, c) => Math.max(newest, +new Date(c.created_at)),
+    +new Date(goal.created_at),
+  )
+  return now - last > NUDGE_AFTER_DAYS * 86400000
+}
+
+/** How long it has been, in words somebody thinks in. */
+export function sinceLastLook(goal: IndividualGoal, now = Date.now()): string {
+  const last = goal.individual_goal_checkins.reduce<number>(
+    (newest, c) => Math.max(newest, +new Date(c.created_at)),
+    +new Date(goal.created_at),
+  )
+  const days = Math.floor((now - last) / 86400000)
+  if (days < 14) return `${days} days`
+  if (days < 60) return `${Math.round(days / 7)} weeks`
+  return `${Math.round(days / 30)} months`
+}
+
+/**
+ * Not now — ask again later.
+ *
+ * The person chooses when, and db/106 explains why it is a snooze rather than
+ * a dismissal: without one, "not now" means the same prompt on the next page
+ * load; without it being temporary, "not now" means never, and somebody who
+ * put a goal down in a bad month is exactly who should be asked in a better
+ * one.
+ */
+export async function snoozeGoalNudge(
+  goalId: string,
+  days: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from('individual_goals')
+    .update({
+      nudge_snoozed_until: new Date(
+        Date.now() + days * 86400000,
+      ).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', goalId)
+  if (error) throw new Error(error.message)
 }
 
 export async function fetchMyGoalsPersonal(): Promise<IndividualGoal[]> {
   const { data, error } = await supabase
     .from('individual_goals')
     .select(
-      'id, title, why, status, target_date, created_at, done_at, individual_goal_checkins (id, how_it_went, note, created_at)',
+      'id, title, why, status, target_date, created_at, done_at, nudge_snoozed_until, individual_goal_checkins (id, how_it_went, note, created_at)',
     )
     .order('created_at', { ascending: false })
 

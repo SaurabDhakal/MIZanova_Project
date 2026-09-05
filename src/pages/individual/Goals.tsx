@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addMyGoal,
+  goalNeedsAsking,
+  sinceLastLook,
+  snoozeGoalNudge,
   checkInOnGoal,
   deleteMyGoal,
   fetchMyGoalsPersonal,
@@ -62,8 +65,20 @@ export default function Goals() {
     queryFn: fetchMyGoalsPersonal,
   })
 
+  /*
+   * THE BELL COUNTS THE SAME GOALS THIS SCREEN SHOWS, so it has to be told
+   * when they change. Without this, snoozing a nudge cleared the prompt here
+   * and left the badge lit for two minutes — the bell reporting one thing
+   * while the screen it points at showed another, which is the one thing
+   * NotificationBell.tsx says must never happen.
+   */
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.myPersonalGoals })
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.myPersonalGoals }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.workQueue('individual'),
+      }),
+    ])
 
   const add = useMutation({
     mutationFn: addMyGoal,
@@ -305,6 +320,12 @@ function GoalCard({
   const [note, setNote] = useState('')
   const [open, setOpen] = useState(false)
 
+  const snooze = useMutation({
+    mutationFn: (days: number) => snoozeGoalNudge(goal.id, days),
+    onSuccess: onCheckedIn,
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
   const checkIn = useMutation({
     mutationFn: checkInOnGoal,
     onSuccess: () => {
@@ -337,6 +358,49 @@ function GoalCard({
             year: 'numeric',
           })}
         </p>
+      )}
+
+      {/* ---------------------------------------------------------------
+          ASKING, NOT TELLING THEM OFF.
+          ---------------------------------------------------------------
+          Every word here was chosen against the obvious version. Not "you have
+          not checked in for 3 weeks" — that is a fact arranged as an
+          accusation, and this account is used by people for whom a bad
+          fortnight is a symptom rather than a failure of will. The elapsed
+          time is still shown, because pretending not to know would be worse,
+          but it is offered as context rather than as a score.
+
+          "Not now" is a real answer with a real effect: it is not a dismissal
+          somebody has to keep giving, and not a permanent one either. db/106
+          has the reasoning.
+          --------------------------------------------------------------- */}
+      {goalNeedsAsking(goal) && !open && (
+        <div className="mt-4 rounded-card border border-primary bg-primary-subtle p-4">
+          <p className="font-semibold text-foreground">
+            How has this been going?
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            It has been {sinceLastLook(goal)} since you last looked at it. No
+            rush &mdash; even &ldquo;hard going&rdquo; is worth writing down.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Tell it how it went
+            </button>
+            <button
+              type="button"
+              disabled={snooze.isPending}
+              onClick={() => snooze.mutate(7)}
+              className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">

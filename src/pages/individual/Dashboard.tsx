@@ -6,6 +6,8 @@ import {
   fetchMyCompletions,
   fetchMyEnrolments,
   fetchMyGoalsPersonal,
+  goalNeedsAsking,
+  sinceLastLook,
   fetchMyPurchases,
   formatMoney,
   queryKeys,
@@ -148,7 +150,18 @@ export default function IndividualHome() {
    * something that exists and says its real name.
    */
   const unfinished = started.find((s) => s.enrolment.completed_at === null)
-  const nextThing = activeGoals[0]
+  /* db/106. A goal nobody has asked about outranks one checked in yesterday —
+     it is the thing most likely to be quietly slipping, and the whole point of
+     following anything up. */
+  const toLookAt = activeGoals.find((g) => goalNeedsAsking(g))
+  const nextThing = toLookAt
+    ? {
+        eyebrow: `Not looked at in ${sinceLastLook(toLookAt)}`,
+        title: toLookAt.title,
+        to: '/individual/goals',
+        cta: 'How did it go?',
+      }
+    : activeGoals[0]
     ? {
         eyebrow: 'Pick up where you left off',
         title: activeGoals[0].title,
