@@ -76,6 +76,22 @@ export const PUBLISHED_PLANS: PublishedPlan[] = [
     annualCents: null,
   },
   {
+    /*
+     * NO FIGURE, AND THAT IS THE POINT — db/095.
+     *
+     * The bands above are priced per student. docs/11 sets out why that ruler
+     * does not fit a Montessori setting: it is substantially early childhood
+     * in Australia, a centre is not sized like a primary school, and there are
+     * no year levels to count children into. A number here would be one
+     * arrived at by analogy, which is inventing a price.
+     */
+    key: 'montessori',
+    name: 'Montessori & early years',
+    subtitle: 'Centres, preschools and long day care',
+    termCents: null,
+    annualCents: null,
+  },
+  {
     key: 'essential',
     name: 'Essential',
     subtitle: 'Families, per month',

@@ -5708,6 +5708,7 @@ export const ENQUIRY_PLANS = {
   small_school: 'Small schools',
   mid_school: 'Mid-size schools',
   large_school: 'Large schools',
+  montessori: 'Montessori & early years',
   essential: 'Essential',
   premium: 'Premium',
 } as const
