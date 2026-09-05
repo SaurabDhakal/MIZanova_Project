@@ -231,14 +231,22 @@ export default function Academy() {
                     <p className="mt-1 max-w-prose text-sm text-muted-foreground">
                       {course.summary}
                     </p>
+                    {/* A COUNT WOULD BE A LIE ON A PRICED COURSE.
+                        db/097 shows an unpaid visitor only the sample module,
+                        so `total` here is 1 however many the course really
+                        has — and "1 module" undersells a course somebody is
+                        being asked to pay for. Say what is readable instead of
+                        counting what happens to have come back. */}
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {total === 0
-                        ? 'No modules yet'
-                        : progressUnknown
-                          ? `${total} module${total === 1 ? '' : 's'} · your progress could not be loaded`
-                          : enrolment
-                            ? `${doneCount} of ${total} modules done`
-                            : `${total} module${total === 1 ? '' : 's'}`}
+                      {needsPaying && !enrolment
+                        ? 'Read the first part free, then buy it to carry on'
+                        : total === 0
+                          ? 'No modules yet'
+                          : progressUnknown
+                            ? `${total} module${total === 1 ? '' : 's'} · your progress could not be loaded`
+                            : enrolment
+                              ? `${doneCount} of ${total} modules done`
+                              : `${total} module${total === 1 ? '' : 's'}`}
                     </p>
                   </div>
 
