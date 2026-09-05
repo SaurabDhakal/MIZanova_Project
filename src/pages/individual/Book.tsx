@@ -12,6 +12,8 @@ import {
 } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import Avatar from '../../components/Avatar'
+import Icon from '../../components/Icon'
 
 /**
  * Asking a specialist for an hour — db/102, db/103, db/104.
@@ -154,17 +156,34 @@ export default function Book() {
 
   return (
     <div>
-      <header className="mb-6">
+      {/* TWO PARAGRAPHS OF CAVEATS BECAME THREE CHIPS. The facts are the same
+          and they are the facts somebody actually wants — how long, what it
+          costs, whether pressing the button commits them — but as things you
+          can take in at a glance rather than prose to read before you are
+          allowed to start. */}
+      <header className="mb-8">
         <h1 className="text-title text-foreground">Ask for a session</h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
-          Forty-five minutes with a specialist from the Special Miles network.
-          You are asking, not booking &mdash; they decide, and you will see
-          their answer here.
+          Time with a verified specialist from the Special Miles network.
         </p>
-        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          Nothing is charged. There is no price for a session yet, so nobody
-          will ask you for a card, and asking does not commit you to anything.
-        </p>
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {[
+            ['stopwatch', '45 minutes'],
+            ['tick', 'Nothing to pay'],
+            ['hand', 'They decide — you are asking'],
+          ].map(([icon, label]) => (
+            <li
+              key={label}
+              className="inline-flex items-center gap-1.5 rounded-btn bg-primary-subtle px-3 py-1.5 text-sm font-medium text-foreground"
+            >
+              <Icon
+                name={icon as 'tick'}
+                className="h-4 w-4 shrink-0 text-primary"
+              />
+              {label}
+            </li>
+          ))}
+        </ul>
       </header>
 
       {/* --- what they have already asked ---------------------------------- */}
@@ -181,12 +200,28 @@ export default function Book() {
                   key={b.id}
                   className="rounded-card border border-border bg-card p-5 shadow-raised"
                 >
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <p className="font-semibold text-foreground">
-                      {when(b.starts_at)}
-                    </p>
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                    <div className="flex items-center gap-3">
+                      <Avatar
+                        id={b.specialist_id}
+                        name={who?.full_name ?? ''}
+                        size="sm"
+                      />
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {when(b.starts_at)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          with {who?.full_name ?? 'a specialist'}
+                        </p>
+                      </div>
+                    </div>
+                    {/* A PILL WITH A DOT, not coloured text — docs/14 §"Small
+                        things that add up". The dot carries the state at a
+                        glance and the word carries it for anybody who cannot
+                        tell the colours apart. */}
                     <span
-                      className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1 text-xs font-semibold ${
                         b.status === 'accepted'
                           ? 'bg-success-subtle text-success-foreground'
                           : b.status === 'declined'
@@ -194,6 +229,16 @@ export default function Book() {
                             : 'bg-warning-subtle text-warning-foreground'
                       }`}
                     >
+                      <span
+                        aria-hidden
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          b.status === 'accepted'
+                            ? 'bg-success-foreground'
+                            : b.status === 'declined'
+                              ? 'bg-danger-foreground'
+                              : 'bg-warning-foreground'
+                        }`}
+                      />
                       {b.status === 'requested'
                         ? 'Waiting for an answer'
                         : b.status === 'accepted'
@@ -201,10 +246,11 @@ export default function Book() {
                           : 'Declined'}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    with {who?.full_name ?? 'a specialist'}
-                    {b.purpose ? ` — ${b.purpose}` : ''}
-                  </p>
+                  {b.purpose && (
+                    <p className="mt-3 max-w-prose border-l-2 border-border pl-3 text-sm text-muted-foreground">
+                      {b.purpose}
+                    </p>
+                  )}
                   {/* A REFUSAL WITH NO REASON IS THE THING PEOPLE REMEMBER. */}
                   {b.outcome_note && (
                     <p className="mt-2 max-w-prose border-l-2 border-border pl-3 text-sm text-foreground">
@@ -258,11 +304,25 @@ export default function Book() {
                       : 'border-border bg-card'
                   }`}
                 >
-                  <span className="block font-semibold text-foreground">
-                    {s.full_name ?? 'A specialist'}
-                  </span>
-                  <span className="mt-1 block text-sm text-muted-foreground">
-                    Verified by Special Miles
+                  <span className="flex items-center gap-3">
+                    <Avatar id={s.id} name={s.full_name ?? ''} />
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">
+                        {s.full_name ?? 'A specialist'}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-sm text-success-foreground">
+                        <Icon name="verification" className="h-4 w-4 shrink-0" />
+                        Verified by Special Miles
+                      </span>
+                      {/* THEIR ACTUAL HOURS, not a generic line. It is the one
+                          fact that decides whether asking them is worth it,
+                          and the view already carries the count. */}
+                      <span className="mt-1 block text-sm text-muted-foreground">
+                        {s.availability_bands === 1
+                          ? 'Available one part of the week'
+                          : `Available ${s.availability_bands} parts of the week`}
+                      </span>
+                    </span>
                   </span>
                 </button>
               </li>

@@ -11,6 +11,7 @@ import {
 import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
+import DictatedTextarea from '../../components/DictatedTextarea'
 
 /**
  * Asking the AI about your own situation — db/094.
@@ -53,6 +54,9 @@ export default function Suggestions() {
     queryFn: fetchAiHealth,
     retry: false,
     staleTime: 30_000,
+    // Re-checked when the tab is focused, so starting the server in another
+    // window fixes the banner without anybody pressing anything.
+    refetchOnWindowFocus: true,
   })
   const aiDown =
     health.isSuccess && (!health.data.reachable || !health.data.aiConfigured)
@@ -151,29 +155,35 @@ export default function Suggestions() {
 
       {/* --- the box ------------------------------------------------------- */}
       <div className="rounded-card border border-border bg-card p-5 shadow-raised">
-        <label
-          htmlFor="situation"
-          className="block font-semibold text-foreground"
-        >
-          What is going on?
-        </label>
-        <p className="mt-1 text-sm text-muted-foreground">
-          A sentence or two about the situation. What happens, when, and what
-          you have already tried.
-        </p>
-        <textarea
+        {/* DICTATION, BECAUSE THIS IS THE HARDEST BOX IN THE PRODUCT TO TYPE
+            INTO. Everywhere else somebody records a fact; here they describe
+            something they are finding hard, which is more words and worse
+            timing — and the people this account is for are the ones most
+            likely to lose the thread halfway through a paragraph.
+
+            DictatedTextarea already existed for behaviour logging and does
+            exactly this, including falling back to a plain box where the
+            browser has no speech recognition. Reused rather than rebuilt. */}
+        <DictatedTextarea
           id="situation"
+          label="What is going on?"
+          hint="A sentence or two about the situation. What happens, when, and what you have already tried."
           rows={5}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          disabled={ask.isPending}
-          className="mt-3 w-full rounded-btn border border-border bg-background p-3 text-foreground disabled:opacity-60"
-          placeholder="I lose the whole morning to getting started on anything, even things I want to do."
+          onChange={setText}
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            disabled={ask.isPending || tooShort || tooLong || aiDown}
+            /*
+             * NOT DISABLED BY THE HEALTH CHECK, and that was a real bug I put
+             * here. A page loaded before the server was up latched `aiDown`,
+             * and the button then stayed dead even after the server came up —
+             * somebody typed a paragraph into a button that would never light.
+             * The banner informs; it does not gate. Pressing it when the
+             * server is genuinely down gives the honest error it always did.
+             */
+            disabled={ask.isPending || tooShort || tooLong}
             onClick={() => ask.mutate(text.trim())}
             className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
