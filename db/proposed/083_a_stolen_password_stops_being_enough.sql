@@ -123,6 +123,11 @@ grant execute on function public.mfa_satisfied() to authenticated;
 -- and its guardian branch stays open, which is correct.
 -- ---------------------------------------------------------------------------
 
+-- CARRIES db/090'S BRANCH. That file added 'individual' to the list of roles
+-- whose belonging is not a membership, because an individual has no school to
+-- be a member of and my_role() was returning null for them — which emptied the
+-- Academy for the only role that has nothing else. Rewriting my_role() here
+-- without that branch would silently undo it.
 create or replace function public.my_role()
 returns public.user_role
 language sql
@@ -130,10 +135,20 @@ stable
 security definer
 set search_path = public
 as $$
-  select role
-  from public.profiles
-  where id = auth.uid()
-    and public.mfa_satisfied();
+  select p.role
+  from public.profiles p
+  where p.id = auth.uid()
+    and public.mfa_satisfied()
+    and (
+      p.role in ('parent', 'platform_admin', 'student', 'individual')
+      or exists (
+        select 1 from public.memberships m
+        where m.profile_id = p.id
+          and m.organisation_id = p.school_id
+          and m.role = p.role
+          and m.ended_at is null
+      )
+    );
 $$;
 
 

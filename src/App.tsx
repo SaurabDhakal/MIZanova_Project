@@ -88,6 +88,8 @@ const ParentDashboard = lazy(() => import('./pages/parent/Dashboard'))
 const HomeObservations = lazy(() => import('./pages/parent/HomeObservations'))
 const ParentAppointments = lazy(() => import('./pages/parent/Appointments'))
 const AboutChild = lazy(() => import('./pages/parent/AboutChild'))
+// --- db/088: somebody who belongs to no school ---
+const IndividualHome = lazy(() => import('./pages/individual/Dashboard'))
 const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
 const ParentMessages = lazy(() => import('./pages/parent/Messages'))
 const ParentProgress = lazy(() => import('./pages/parent/Progress'))
@@ -241,6 +243,13 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'specialist:schedule': <SpecialistSchedule />,
   'specialist:resources': <Resources />,
   'parent:resources': <Resources />,
+
+  // --- db/088: the individual. Three screens, and the two shared ones are
+  // the SAME components every other role uses — the Academy and Library have
+  // always been audience-driven, so a new role needed no new page. ---
+  'individual:': <IndividualHome />,
+  'individual:academy': <Academy />,
+  'individual:library': <Library />,
 }
 
 /**

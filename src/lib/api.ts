@@ -7627,7 +7627,12 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
              * The bell counts work waiting for YOU. A student has one screen
              * and nothing on it to action, so the honest count is none.
              */
-            : role === 'student'
+            : role === 'individual'
+              ? /* Nothing is waiting for somebody with no school: no threads,
+                   no invoices, no child. An empty queue is the truthful answer
+                   and costs two requests less than borrowing the parent's. */
+                []
+              : role === 'student'
               ? []
               : [
                   ['unreadThreads', countUnreadThreads()],

@@ -26,6 +26,9 @@ export const ROLES = [
   // db/074. Last, because it is the newest and because order here decides the
   // order things are listed in wherever roles are enumerated.
   'student',
+  // db/088. Somebody who belongs to no school at all — the brief's "Families
+  // and individuals" segment, which until now had nowhere to exist.
+  'individual',
 ] as const
 
 /** A union type: 'educator' | 'parent' | … TypeScript will now reject typos. */
@@ -55,7 +58,7 @@ export type Role = (typeof ROLES)[number]
  * `handle_new_user` in db/044, because the role arrives in metadata written by
  * the browser and a shorter list here changes nothing about what can be sent.
  */
-export const SELF_SIGNUP_ROLES = ['parent'] as const
+export const SELF_SIGNUP_ROLES = ['parent', 'individual'] as const
 export type SelfSignupRole = (typeof SELF_SIGNUP_ROLES)[number]
 
 /**
@@ -299,6 +302,29 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // db/075. Executive functioning and self-advocacy courses are written
       // for this audience by name in the brief, so this is content FOR them
       // rather than another window onto records ABOUT them.
+      { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
+    ],
+  },
+
+  /*
+   * db/088. Somebody who came to the website themselves.
+   *
+   * NOT A SMALLER PARENT. A parent's screens are about a child at a school —
+   * their day, their goals, the staff who can see their record. An individual
+   * has none of that and wants the opposite: material addressed to them.
+   *
+   * Three screens, because three are all that currently exist for somebody
+   * with no school. Bookings and paying Special Miles directly both run
+   * through a student record today, so neither is here yet, and a nav item
+   * leading to an empty page would promise otherwise.
+   */
+  individual: {
+    label: 'Individual',
+    summary: 'Somebody working on this for themselves, with no school involved.',
+    basePath: '/individual',
+    nav: [
+      { path: '', label: 'Home', icon: 'home', milestone: 'M15' },
       { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
       { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
     ],
