@@ -7982,6 +7982,107 @@ export async function fetchCourseCatalogue(): Promise<CatalogueCourse[]> {
   return (data ?? []) as unknown as CatalogueCourse[]
 }
 
+// ---------------------------------------------------------------------------
+// Something to work on — db/101
+// ---------------------------------------------------------------------------
+// No server route anywhere here, and that is the point. Nothing on these
+// tables comes from a model, so there is nothing to forge: they are the
+// person's own words about their own life, RLS scopes every row to them, and
+// a route in the middle would only be a second opinion about who owns what.
+
+export type GoalCheckin = {
+  id: string
+  how_it_went: 'good' | 'mixed' | 'hard'
+  note: string | null
+  created_at: string
+}
+
+export type IndividualGoal = {
+  id: string
+  title: string
+  why: string | null
+  status: 'active' | 'done' | 'parked'
+  target_date: string | null
+  created_at: string
+  done_at: string | null
+  individual_goal_checkins: GoalCheckin[]
+}
+
+export async function fetchMyGoalsPersonal(): Promise<IndividualGoal[]> {
+  const { data, error } = await supabase
+    .from('individual_goals')
+    .select(
+      'id, title, why, status, target_date, created_at, done_at, individual_goal_checkins (id, how_it_went, note, created_at)',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IndividualGoal[]
+}
+
+export async function addMyGoal(input: {
+  title: string
+  why: string
+  targetDate: string | null
+}): Promise<void> {
+  const { data } = await supabase.auth.getUser()
+  const id = data.user?.id
+  if (!id) throw new Error('You are not signed in.')
+
+  const { error } = await supabase.from('individual_goals').insert({
+    profile_id: id,
+    title: input.title.trim(),
+    // Empty string would store a "why" that is not one. Null means they did
+    // not write a reason, which is a different fact from writing nothing.
+    why: input.why.trim() || null,
+    target_date: input.targetDate || null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function checkInOnGoal(input: {
+  goalId: string
+  howItWent: GoalCheckin['how_it_went']
+  note: string
+}): Promise<void> {
+  const { error } = await supabase.from('individual_goal_checkins').insert({
+    goal_id: input.goalId,
+    how_it_went: input.howItWent,
+    note: input.note.trim() || null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Finish a goal, park it, or bring it back.
+ *
+ * `done_at` moves with the status because db/101 constrains them to agree —
+ * a goal marked done with no completion time is refused by the database, and
+ * sending them separately from here is how they would drift apart.
+ */
+export async function setMyGoalStatus(
+  goalId: string,
+  status: IndividualGoal['status'],
+): Promise<void> {
+  const { error } = await supabase
+    .from('individual_goals')
+    .update({
+      status,
+      done_at: status === 'done' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', goalId)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteMyGoal(goalId: string): Promise<void> {
+  const { error } = await supabase
+    .from('individual_goals')
+    .delete()
+    .eq('id', goalId)
+  if (error) throw new Error(error.message)
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -8070,6 +8171,7 @@ export const queryKeys = {
   myPurchases: ['my-purchases'] as const,
   mySelfRequests: ['my-self-requests'] as const,
   courseCatalogue: ['course-catalogue'] as const,
+  myPersonalGoals: ['my-personal-goals'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,
