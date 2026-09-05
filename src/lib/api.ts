@@ -3610,6 +3610,52 @@ export async function fetchCourses(): Promise<Course[]> {
 }
 
 /** My own enrolments. A platform admin gets everybody's — db/075. */
+/* ---------------------------------------------------------------------------
+ * Whether anybody is doing the courses — db/091
+ * ------------------------------------------------------------------------ */
+
+export type CourseEngagement = {
+  course_id: string
+  title: string
+  summary: string
+  is_published: boolean
+  audiences: Role[]
+  created_at: string
+  /** The CURRENT module count, which is the denominator completion is judged on. */
+  modules: number
+  enrolments: number
+  completed: number
+}
+
+/**
+ * Per-course counts, and deliberately no names.
+ *
+ * The view is aggregate by design — db/091 argues it at length. In short: most
+ * of the people in `course_enrolments` are teachers doing professional
+ * development, and Special Miles needs to know whether a course lands, not who
+ * is behind on one.
+ *
+ * No pagination and no cap. There are five courses. If that ever becomes five
+ * hundred this needs a range and an exact count, the way the audit timeline
+ * does — but writing paging for five rows would be inventing a problem.
+ */
+export async function fetchCourseEngagement(): Promise<CourseEngagement[]> {
+  const { data, error } = await supabase
+    .from('course_engagement')
+    .select(
+      'course_id, title, summary, is_published, audiences, created_at, ' +
+        'modules, enrolments, completed',
+    )
+    .order('enrolments', { ascending: false })
+    .order('title')
+
+  if (error) throw new Error(error.message)
+  /* `as unknown as`, like fetchMyGoals and fetchPendingStrategies: the
+     generated Supabase types do not carry views added after they were last
+     produced, so PostgREST infers an error shape for one it has never seen. */
+  return (data ?? []) as unknown as CourseEngagement[]
+}
+
 export async function fetchMyEnrolments(): Promise<Enrolment[]> {
   const { data, error } = await supabase
     .from('course_enrolments')
@@ -7733,6 +7779,7 @@ export const queryKeys = {
   courses: ['courses'] as const,
   myEnrolments: ['my-enrolments'] as const,
   myCompletions: ['my-completions'] as const,
+  courseEngagement: ['course-engagement'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,

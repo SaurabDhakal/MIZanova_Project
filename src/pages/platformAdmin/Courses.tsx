@@ -5,10 +5,12 @@ import {
   createCourse,
   deleteCourseModule,
   updateCourseModule,
+  fetchCourseEngagement,
   fetchCourses,
   queryKeys,
   setCoursePublished,
   type Course,
+  type CourseEngagement,
 } from '../../lib/api'
 import { ROLE_CONFIG, ROLES, type Role } from '../../lib/roles'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
@@ -400,6 +402,154 @@ function ModuleEditor({ course }: { course: Course }) {
   )
 }
 
+/**
+ * Who is doing them — db/091, the brief's requirement 5.
+ *
+ * ---------------------------------------------------------------------------
+ * ON THIS SCREEN RATHER THAN ITS OWN
+ * ---------------------------------------------------------------------------
+ * The question "is anybody doing this?" is only useful next to the thing that
+ * answers it — the course, and the buttons that publish or change it. A
+ * separate Analytics page is one more screen somebody has to remember to open,
+ * and the decision it informs (write more of this, retire that) is made here.
+ *
+ * ---------------------------------------------------------------------------
+ * NO NAMES, DELIBERATELY
+ * ---------------------------------------------------------------------------
+ * The view could name people — a platform admin may already read every
+ * enrolment row. It does not, because most of the people counted here are
+ * teachers doing professional development, and a company they do not work for
+ * does not need to know which of them is behind. The reasoning is in db/091.
+ */
+function Engagement() {
+  const rows = useQuery({
+    queryKey: queryKeys.courseEngagement,
+    queryFn: fetchCourseEngagement,
+  })
+
+  function exportCsv(data: CourseEngagement[]) {
+    const esc = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`
+    const csv = [
+      ['Course', 'State', 'Audiences', 'Modules', 'Enrolled', 'Finished', 'Finished %'].join(','),
+      ...data.map((r) =>
+        [
+          r.title,
+          r.is_published ? 'Published' : 'Draft',
+          r.audiences.map((a) => ROLE_CONFIG[a].label).join(' / '),
+          r.modules,
+          r.enrolments,
+          r.completed,
+          r.enrolments === 0 ? '' : Math.round((r.completed / r.enrolments) * 100),
+        ]
+          .map(esc)
+          .join(','),
+      ),
+    ].join('\n')
+
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+    )
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mizanova-course-engagement-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    /* Every course, every time — there is no filter and no cap on this screen,
+       so unlike the audit export there is nothing to warn about. */
+    showToast(`Exported all ${data.length} courses.`)
+  }
+
+  /* A FAILED COUNT IS NOT A ZERO. "Nobody has started this" and "we could not
+     ask" look identical as a 0, and only one of them is a reason to rewrite a
+     course. */
+  if (rows.isError) {
+    return (
+      <div className="mb-6">
+        <ErrorState
+          message="The engagement figures could not be loaded, so they are unknown rather than zero. Nothing about the courses themselves has changed."
+          onRetry={() => void rows.refetch()}
+        />
+      </div>
+    )
+  }
+
+  if (rows.isPending || rows.data.length === 0) return null
+
+  const anyEnrolments = rows.data.some((r) => r.enrolments > 0)
+  const busiest = Math.max(...rows.data.map((r) => r.enrolments), 1)
+  const totalEnrolled = rows.data.reduce((n, r) => n + r.enrolments, 0)
+  const totalFinished = rows.data.reduce((n, r) => n + r.completed, 0)
+
+  return (
+    <section className="mb-7 rounded-card border border-border bg-card p-5 shadow-raised">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+        <h2 className="font-semibold text-foreground">Who is doing them</h2>
+        <p className="text-sm text-muted-foreground">
+          {totalEnrolled} {totalEnrolled === 1 ? 'enrolment' : 'enrolments'} in
+          total, {totalFinished} finished.
+        </p>
+        <button
+          type="button"
+          onClick={() => exportCsv(rows.data)}
+          className="ml-auto rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
+        >
+          Export as CSV
+        </button>
+      </div>
+
+      {!anyEnrolments ? (
+        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+          Nobody has started any course yet. That is a real answer rather than a
+          missing one &mdash; the counting works, and there is nothing to count.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {rows.data.map((r) => {
+            const percent =
+              r.enrolments === 0
+                ? null
+                : Math.round((r.completed / r.enrolments) * 100)
+            return (
+              <li key={r.course_id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                  {r.title}
+                </span>
+
+                {/* Width against the busiest course, so the bars compare with
+                    each other rather than against a number nobody chose. */}
+                <span
+                  aria-hidden="true"
+                  className="hidden h-2 w-40 overflow-hidden rounded-full bg-background sm:block"
+                >
+                  <span
+                    className="block h-full rounded-full bg-primary"
+                    style={{ width: `${(r.enrolments / busiest) * 100}%` }}
+                  />
+                </span>
+
+                <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+                  {r.enrolments} enrolled
+                  {r.enrolments > 0 && ` · ${r.completed} finished`}
+                  {percent !== null && ` · ${percent}%`}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      <p className="mt-4 max-w-prose text-xs text-muted-foreground">
+        Counts only, never names. Most of the people here are staff doing
+        professional development, and whether a course lands is a different
+        question from who is behind on one. Note that &ldquo;finished&rdquo; is
+        measured against a course&rsquo;s CURRENT modules &mdash; adding one to
+        a published course makes finished enrolments unfinished again, so this
+        number can fall without anybody dropping out.
+      </p>
+    </section>
+  )
+}
+
 export default function Courses() {
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
@@ -441,6 +591,8 @@ export default function Courses() {
       />
 
       {creating && <NewCourseForm onDone={() => setCreating(false)} />}
+
+      <Engagement />
 
       {courses.data.length === 0 ? (
         <EmptyState
