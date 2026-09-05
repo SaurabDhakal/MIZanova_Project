@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  addMyGoal,
   deleteSelfRequest,
   fetchAiHealth,
   fetchMySelfRequests,
@@ -12,6 +13,7 @@ import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import DictatedTextarea from '../../components/DictatedTextarea'
+import { Link } from 'react-router-dom'
 
 /**
  * Asking the AI about your own situation — db/094.
@@ -84,6 +86,29 @@ export default function Suggestions() {
 
   const tooShort = text.trim().length < 20
   const tooLong = text.trim().length > 2000
+
+  /*
+   * ---------------------------------------------------------------------
+   * SOMEWHERE TO START, BECAUSE AN EMPTY BOX IS THE HARDEST THING TO ANSWER
+   * ---------------------------------------------------------------------
+   * This is the feature the product is sold on, and it opened with a blank
+   * textarea and a placeholder. Somebody who came here because they are
+   * struggling to start things is exactly the person who will not start here
+   * either — and the ones who do tend to write three words, which produces a
+   * thin answer and confirms their suspicion that it was not worth it.
+   *
+   * docs/14 names this pattern by name: "Suggestion chips along the bottom of
+   * a screen — context-specific starting points". These are openings rather
+   * than questions, because the box asks what is going on and a chip that asks
+   * a question would be answering it.
+   */
+  const openings = [
+    'I lose the whole morning before I start anything',
+    'I keep putting off the same task every week',
+    'Meetings leave me wiped out for the rest of the day',
+    'I cannot switch off at night',
+    'I forget things people have told me',
+  ]
 
   return (
     <div>
@@ -175,7 +200,27 @@ export default function Suggestions() {
           value={text}
           onChange={setText}
         />
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        {!text.trim() && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Or start with one of these and change it
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {openings.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => setText(o + ' ')}
+                  className="rounded-btn border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:border-primary"
+                >
+                  {o}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
             /*
@@ -201,6 +246,32 @@ export default function Suggestions() {
           </span>
         </div>
       </div>
+
+      {/* THIRTEEN SECONDS IS A LONG TIME TO LOOK AT A DISABLED BUTTON.
+          That is what a real generation takes, and the only sign of life was
+          the word "Thinking…" on a control somebody had just pressed. On the
+          feature this product is sold on, that reads as nothing happening.
+
+          It says what is actually going on, in the order it happens, because
+          the first step is the one people care about and nobody would guess it
+          otherwise: the details are stripped before anything is sent. */}
+      {ask.isPending && (
+        <section
+          aria-live="polite"
+          className="mt-6 rounded-card border border-border bg-primary-subtle p-5"
+        >
+          <p className="font-semibold text-foreground">Working on it</p>
+          <ol className="mt-2 space-y-1 text-sm text-muted-foreground">
+            <li>Your name and contact details stripped out</li>
+            <li>Sent, read, and a few things worth trying written back</li>
+            <li>Anything too vague to be worth your time held back</li>
+          </ol>
+          <p className="mt-3 text-sm text-muted-foreground">
+            It takes about fifteen seconds. You can leave this page and come
+            back &mdash; the answer is saved to your account either way.
+          </p>
+        </section>
+      )}
 
       {/* --- what came back ------------------------------------------------ */}
       {history.isPending && <div className="mt-8"><LoadingCards count={1} /></div>}
@@ -246,6 +317,68 @@ export default function Suggestions() {
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * Turning a suggestion into something that survives the page.
+ *
+ * ---------------------------------------------------------------------------
+ * THE GAP THIS CLOSES
+ * ---------------------------------------------------------------------------
+ * Somebody described what they were finding hard, waited, read three practical
+ * things to try — and then nothing happened to any of them. The suggestions
+ * sat in a history and were never seen again. The one part of this product
+ * that carries a thread from one week to the next is a goal, and there was no
+ * way to get from here to there except retyping.
+ *
+ * So a suggestion becomes a goal with its own words as the title and the
+ * person's own reason attached: they got this on a day they were struggling,
+ * and that is exactly the "why" they will have forgotten in six weeks. db/101
+ * built the goal to hold precisely that.
+ *
+ * NOT AUTOMATIC, AND NOT ON EVERY SUGGESTION AT ONCE. Three goals from one
+ * question is a to-do list, and this product says in as many words that one
+ * thing at a time is plenty.
+ */
+function TryThis({ title }: { title: string }) {
+  const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
+
+  if (state === 'saved') {
+    return (
+      <p className="mt-3 text-sm text-success-foreground">
+        Added to what you are working on.{' '}
+        <Link
+          to="/individual/goals"
+          className="font-semibold text-primary hover:underline"
+        >
+          See it
+        </Link>
+      </p>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={state === 'saving'}
+      onClick={() => {
+        setState('saving')
+        addMyGoal({
+          title,
+          why: 'From a suggestion, on a day I was finding this hard.',
+          targetDate: null,
+        })
+          .then(() => setState('saved'))
+          .catch((e: Error) => {
+            setState('idle')
+            showToast(e.message, 'error')
+          })
+      }}
+      className="mt-3 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
+    >
+      {state === 'saving' ? 'Adding…' : 'I want to try this'}
+    </button>
   )
 }
 
@@ -353,15 +486,26 @@ function RequestCard({
 
       {open && request.individual_ai_suggestions.length > 0 && (
         <ul className="mt-4 space-y-3">
-          {request.individual_ai_suggestions.map((s) => (
+          {request.individual_ai_suggestions.map((s, i) => (
             <li
               key={s.id}
               className="rounded-card border border-border bg-background p-4"
             >
-              <p className="font-bold text-foreground">{s.title}</p>
+              {/* NUMBERED, because three suggestions are a set of options
+                  somebody is choosing between and an unnumbered stack of three
+                  identical cards makes that a reading task rather than a
+                  choice. */}
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground tabular-nums">
+                  {i + 1}
+                </span>
+                <p className="font-bold text-foreground">{s.title}</p>
+              </div>
               <p className="mt-2 border-l-4 border-accent pl-3 text-foreground">
                 {s.body}
               </p>
+              <TryThis title={s.title} />
+
               {s.rationale.length > 0 && (
                 <>
                   <p className="mt-3 text-sm font-semibold text-foreground">
