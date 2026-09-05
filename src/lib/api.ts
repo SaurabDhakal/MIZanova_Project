@@ -3856,7 +3856,26 @@ export async function fetchStudentAccounts(): Promise<StudentAccount[]> {
 export type StudentGoal = {
   id: string
   title: string
-  description: string
+  /*
+   * NO `description`, AND ITS ABSENCE IS THE POINT.
+   *
+   * `goals.description` is free text a staff member writes, and it is written
+   * for adults: the family's screen frames it as an explanation to them, and
+   * the seeded ones read "Reviewed with the family each fortnight." One in the
+   * live database reads "Will do something, sometimes, under supervised
+   * conditions." That is ordinary IEP register, and it is a description of a
+   * child in language nobody chose for the child to read.
+   *
+   * There is one description field and no child-facing equivalent, so rendering
+   * it here was showing somebody text written about them for somebody else.
+   * This screen already withholds the percentage for the same reason — a young
+   * person should not read "0%" about themselves — so keeping the prose was
+   * inconsistent with the care the rest of it takes.
+   *
+   * Dropped from the QUERY rather than hidden in the component, so the sentence
+   * never reaches the device. A field that is not fetched cannot be revealed by
+   * a later edit that adds it back to the markup without knowing why it went.
+   */
   category: GoalCategory
   status: 'not_started' | 'on_track' | 'needs_review' | 'achieved' | 'discontinued'
   goal_milestones: { id: string; title: string; is_done: boolean }[] | null
@@ -3876,7 +3895,7 @@ export async function fetchMyGoals(): Promise<StudentGoal[]> {
   const { data, error } = await supabase
     .from('goals')
     .select(
-      'id, title, description, category, status, ' +
+      'id, title, category, status, ' +
         'goal_milestones ( id, title, is_done )',
     )
     .order('created_at', { ascending: false })
