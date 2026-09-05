@@ -14,6 +14,7 @@ import AppointmentCalendar from '../../components/AppointmentCalendar'
 import BookAppointmentForm from '../../components/BookAppointmentForm'
 import AppointmentPanel from '../../components/AppointmentPanel'
 import NotBuiltYet from '../../components/NotBuiltYet'
+import WorkingHoursSection from '../../components/WorkingHoursSection'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -358,12 +359,21 @@ export default function Schedule() {
         </ul>
       )}
 
+      {profile && (
+        <WorkingHoursSection specialistId={profile.id} canEdit />
+      )}
+
       <NotBuiltYet>
         <p>
-          An empty slot in the grid means nothing is booked in it, not that you
-          are free — working hours are recorded nowhere in MiZanova, so
-          availability is a claim this calendar cannot make, however much a time
-          grid looks like a diary. Nobody is told about an appointment either:
+          {/* THE FIRST HALF OF THIS PARAGRAPH IS NO LONGER TRUE. db/102 records
+              working hours and the section above sets them, so an empty slot
+              now means something. Rewritten rather than deleted, because the
+              second half — that nothing here sends any mail — still stands, and
+              a note about what is missing has to be maintained as carefully as
+              the features or it becomes the most confident wrong sentence on
+              the page. */}
+          Setting your hours above says when you are available; it does not tell
+          anybody. Nobody is told about an appointment either:
           {/* This said "there is no email in this product", which stopped
               being true when the server started sending invitations,
               enquiries, application decisions and access codes. What is

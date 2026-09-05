@@ -8175,6 +8175,78 @@ export async function exportMyData(): Promise<Record<string, unknown>> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Working hours — db/102
+// ---------------------------------------------------------------------------
+
+export type AvailabilityBand = {
+  id: string
+  specialist_id: string
+  weekday: number
+  starts_at: string
+  ends_at: string
+  note: string | null
+}
+
+/** 0 = Sunday, matching Postgres `extract(dow ...)`. */
+export const WEEKDAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const
+
+export async function fetchAvailability(
+  specialistId: string,
+): Promise<AvailabilityBand[]> {
+  const { data, error } = await supabase
+    .from('specialist_availability')
+    .select('id, specialist_id, weekday, starts_at, ends_at, note')
+    .eq('specialist_id', specialistId)
+    .order('weekday')
+    .order('starts_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as AvailabilityBand[]
+}
+
+export async function addAvailability(input: {
+  specialistId: string
+  weekday: number
+  startsAt: string
+  endsAt: string
+}): Promise<void> {
+  const { error } = await supabase.from('specialist_availability').insert({
+    specialist_id: input.specialistId,
+    weekday: input.weekday,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+  })
+  /*
+   * The overlap is refused by an exclusion constraint, not by this function,
+   * and Postgres says so in a way nobody should read on a screen. Translated
+   * here rather than in the component so every caller gets the same sentence.
+   */
+  if (error) {
+    throw new Error(
+      error.message.includes('specialist_availability_no_overlap')
+        ? 'That overlaps hours you have already set for this day.'
+        : error.message,
+    )
+  }
+}
+
+export async function removeAvailability(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('specialist_availability')
+    .delete()
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -8264,6 +8336,7 @@ export const queryKeys = {
   mySelfRequests: ['my-self-requests'] as const,
   courseCatalogue: ['course-catalogue'] as const,
   myPersonalGoals: ['my-personal-goals'] as const,
+  availability: (id: string) => ['availability', id] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,
