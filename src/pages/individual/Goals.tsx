@@ -55,6 +55,7 @@ export default function Goals() {
   const [title, setTitle] = useState('')
   const [why, setWhy] = useState('')
   const [targetDate, setTargetDate] = useState('')
+  const [adding, setAdding] = useState(false)
 
   const goals = useQuery({
     queryKey: queryKeys.myPersonalGoals,
@@ -70,6 +71,7 @@ export default function Goals() {
       setTitle('')
       setWhy('')
       setTargetDate('')
+      setAdding(false)
       await refresh()
     },
     onError: (e: Error) => showToast(e.message, 'error'),
@@ -102,6 +104,10 @@ export default function Goals() {
   }
 
   const active = goals.data.filter((g) => g.status === 'active')
+  // Open when asked for, and open anyway when there is nothing else on the
+  // screen — an empty page with a button that reveals a form is a step nobody
+  // needs.
+  const showForm = adding || goals.data.length === 0
   const finished = goals.data.filter((g) => g.status !== 'active')
 
   return (
@@ -114,7 +120,28 @@ export default function Goals() {
         </p>
       </header>
 
-      {/* --- add one ------------------------------------------------------- */}
+      {/* ---------------------------------------------------------------
+          THE FORM GETS OUT OF THE WAY ONCE THERE IS SOMETHING TO SEE.
+
+          It was open at the top on every visit, so the first thing somebody
+          met when coming back to check on their goal was a blank form asking
+          for another one. That is backwards: this screen is opened far more
+          often to look than to add.
+
+          Open by default only when there is nothing yet — then the form IS the
+          screen and hiding it behind a button would be a step for no reason.
+          --------------------------------------------------------------- */}
+      {!showForm && (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground shadow-raised"
+        >
+          Set something new
+        </button>
+      )}
+
+      {showForm && (
       <section className="rounded-card border border-border bg-card p-5 shadow-raised">
         <h2 className="font-semibold text-foreground">Set something</h2>
         <label htmlFor="goal-title" className="mt-3 block text-sm font-medium text-foreground">
@@ -165,7 +192,17 @@ export default function Goals() {
         >
           {add.isPending ? 'Saving…' : 'Add it'}
         </button>
+        {goals.data.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setAdding(false)}
+            className="mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
+          >
+            Never mind
+          </button>
+        )}
       </section>
+      )}
 
       {/* --- the live ones ------------------------------------------------- */}
       {active.length === 0 && (

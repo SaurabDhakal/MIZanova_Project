@@ -144,178 +144,6 @@ export default function IndividualHome() {
         </p>
       </header>
 
-      {/* --- what they have started ---------------------------------------- */}
-      <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
-        What you have started
-      </h2>
-
-      {!enrolmentsKnown && (
-        <ErrorState
-          message="Your courses could not be loaded, so this is unknown rather than empty. Nothing has been lost — this is a problem reaching the server."
-          onRetry={() => void enrolments.refetch()}
-        />
-      )}
-
-      {enrolmentsKnown && started.length === 0 && (
-        <div className="rounded-card border border-border bg-card p-6 shadow-raised">
-          <p className="max-w-prose text-muted-foreground">
-            Nothing yet. The Academy has short courses you can work through at
-            your own pace — nothing is timed, nothing is scored, and you can
-            stop and come back.
-          </p>
-          <Link
-            to="/individual/academy"
-            className="mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
-          >
-            Look at the courses
-          </Link>
-        </div>
-      )}
-
-      {/* --- what they are working on ------------------------------------- */}
-      {activeGoals.length > 0 && (
-        <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-            What you are working on
-          </h2>
-          <ul className="space-y-3">
-            {activeGoals.slice(0, 2).map((goal) => {
-              const last = [...goal.individual_goal_checkins].sort(
-                (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
-              )[0]
-              return (
-                <li
-                  key={goal.id}
-                  className="rounded-card border border-border bg-card p-5 shadow-raised"
-                >
-                  <h3 className="font-semibold text-foreground">{goal.title}</h3>
-                  {goal.why && (
-                    <p className="mt-1 max-w-prose border-l-2 border-brand-green pl-3 text-sm text-muted-foreground italic">
-                      {goal.why}
-                    </p>
-                  )}
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {/* THE LAST CHECK-IN, NOT A COUNT. "3 check-ins" says
-                        nothing; when they last came back and how it went is
-                        the thing that tells them where they are. */}
-                    {last
-                      ? `Last check-in ${new Date(last.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })} — ${
-                          last.how_it_went === 'good'
-                            ? 'went well'
-                            : last.how_it_went === 'mixed'
-                              ? 'mixed'
-                              : 'hard going'
-                        }`
-                      : 'No check-ins yet.'}
-                  </p>
-                  <Link
-                    to="/individual/goals"
-                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                  >
-                    Check in &rarr;
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </>
-      )}
-
-      {enrolmentsKnown && started.length > 0 && (
-        <ul className="space-y-3">
-          {started.map(({ enrolment, course, total, done }) => {
-            const finished = enrolment.completed_at !== null
-            const percent = total === 0 ? 0 : Math.round((done / total) * 100)
-            return (
-              <li
-                key={enrolment.id}
-                className="rounded-card border border-border bg-card p-5 shadow-raised"
-              >
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h3 className="font-semibold text-foreground">
-                    {course.title}
-                  </h3>
-                  {finished && (
-                    <span className="rounded-btn bg-success-subtle px-2 py-0.5 text-xs font-semibold text-success-foreground">
-                      Finished
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-                  {course.summary}
-                </p>
-
-                <div className="mt-3 flex items-center gap-3">
-                  <div
-                    role="img"
-                    aria-label={`${done} of ${total} parts done`}
-                    className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-background"
-                  >
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {done} of {total} {total === 1 ? 'part' : 'parts'}
-                  </span>
-                </div>
-
-                <Link
-                  to="/individual/academy"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                >
-                  {finished ? 'Read it again →' : 'Carry on →'}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      {/* --- what else there is -------------------------------------------- */}
-      {available.length > 0 && (
-        <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-            Also for you
-          </h2>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {available.map((course) => (
-              <li
-                key={course.id}
-                className="rounded-card border border-border bg-card p-5 shadow-raised"
-              >
-                <h3 className="font-semibold text-foreground">{course.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {course.summary}
-                </p>
-                <Link
-                  to="/individual/academy"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                >
-                  Start it →
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {articles.isSuccess && articles.data.length > 0 && (
-        <p className="mt-8 max-w-prose text-sm text-muted-foreground">
-          There {articles.data.length === 1 ? 'is' : 'are'}{' '}
-          {articles.data.length} short{' '}
-          {articles.data.length === 1 ? 'read' : 'reads'} in the{' '}
-          <Link
-            to="/individual/library"
-            className="font-medium text-primary hover:underline"
-          >
-            Library
-          </Link>{' '}
-          as well.
-        </p>
-      )}
-
       {brandNew && (
         <section className="mt-8 rounded-card border border-border bg-primary-subtle p-6">
           <h2 className="font-semibold text-foreground">
@@ -345,81 +173,271 @@ export default function IndividualHome() {
           </ol>
         </section>
       )}
+      {/* ---------------------------------------------------------------
+          TWO COLUMNS, AND WHAT IS ALIVE COMES FIRST.
 
-      {/* A NEW SCREEN WITH ONLY A NAV ICON IS A SCREEN NOBODY OPENS, which is
-          the same fault as the missing public page db/088 shipped without. */}
-      <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
-        <h2 className="font-semibold text-foreground">Stuck on something?</h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          Describe it and get a few practical things to try. It will not tell
-          you what you have and it gives no medical advice &mdash; and nobody
-          else can read what you write there.
-        </p>
-        <Link
-          to="/individual/suggestions"
-          className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-        >
-          Ask for suggestions &rarr;
-        </Link>
-      </section>
+          This was five sections of identical weight in one narrow column, so
+          the eye had nowhere to land and half a 1280px screen was empty. Worse,
+          the top slot went to "What you have started" — which for most people
+          most of the time is a card explaining that they have not started
+          anything. An absence had the most prominent position on the page.
 
-      {/* --- what they have paid for -------------------------------------- */}
-      {paid.length > 0 && (
-        <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-            What you have paid for
-          </h2>
-          <ul className="divide-y divide-border rounded-card border border-border bg-card shadow-raised">
-            {paid.map((purchase) => {
-              /* The course is always readable here even if Special Miles has
-                 since unpublished it — that is what db/093 is for. The
-                 fallback covers a course that was removed some other way, so
-                 the amount is never orphaned. */
-              const course = courses.data.find((c) => c.id === purchase.course_id)
+          Now the left column carries what is actually going on, in the order
+          somebody would ask it: what am I working on, what have I started, what
+          else is there. The right column takes the things you glance at rather
+          than act on.
+
+          It collapses to one column below lg, in this same order, so a phone
+          still gets the live things first.
+          --------------------------------------------------------------- */}
+      <div className="grid gap-x-8 gap-y-10 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+        {/* --- what they are working on ------------------------------------- */}
+        {activeGoals.length > 0 && (
+          <>
+            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+              What you are working on
+            </h2>
+            <ul className="space-y-3">
+              {activeGoals.slice(0, 2).map((goal) => {
+                const last = [...goal.individual_goal_checkins].sort(
+                  (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
+                )[0]
+                return (
+                  <li
+                    key={goal.id}
+                    className="rounded-card border border-border bg-card p-5 shadow-raised"
+                  >
+                    <h3 className="font-semibold text-foreground">{goal.title}</h3>
+                    {goal.why && (
+                      <p className="mt-1 max-w-prose border-l-2 border-brand-green pl-3 text-sm text-muted-foreground italic">
+                        {goal.why}
+                      </p>
+                    )}
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {/* THE LAST CHECK-IN, NOT A COUNT. "3 check-ins" says
+                          nothing; when they last came back and how it went is
+                          the thing that tells them where they are. */}
+                      {last
+                        ? `Last check-in ${new Date(last.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })} — ${
+                            last.how_it_went === 'good'
+                              ? 'went well'
+                              : last.how_it_went === 'mixed'
+                                ? 'mixed'
+                                : 'hard going'
+                          }`
+                        : 'No check-ins yet.'}
+                    </p>
+                    <Link
+                      to="/individual/goals"
+                      className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                    >
+                      Check in &rarr;
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
+
+        {enrolmentsKnown && started.length > 0 && (
+          <ul className="space-y-3">
+            {started.map(({ enrolment, course, total, done }) => {
+              const finished = enrolment.completed_at !== null
+              const percent = total === 0 ? 0 : Math.round((done / total) * 100)
               return (
                 <li
-                  key={purchase.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+                  key={enrolment.id}
+                  className="rounded-card border border-border bg-card p-5 shadow-raised"
                 >
-                  <span className="font-medium text-foreground">
-                    {course?.title ?? 'A course that is no longer listed'}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatMoney(purchase.amount_cents, purchase.currency)}
-                    {purchase.paid_at &&
-                      ` · ${new Date(purchase.paid_at).toLocaleDateString('en-AU', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}`}
-                  </span>
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h3 className="font-semibold text-foreground">
+                      {course.title}
+                    </h3>
+                    {finished && (
+                      <span className="rounded-btn bg-success-subtle px-2 py-0.5 text-xs font-semibold text-success-foreground">
+                        Finished
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+                    {course.summary}
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-3">
+                    <div
+                      role="img"
+                      aria-label={`${done} of ${total} parts done`}
+                      className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-background"
+                    >
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {done} of {total} {total === 1 ? 'part' : 'parts'}
+                    </span>
+                  </div>
+
+                  <Link
+                    to="/individual/academy"
+                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  >
+                    {finished ? 'Read it again →' : 'Carry on →'}
+                  </Link>
                 </li>
               )
             })}
           </ul>
-          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-            Yours to keep. A course you have paid for stays open to you even if
-            it stops being offered to anybody else.
-          </p>
-        </>
-      )}
+        )}
+        {/* --- what they have started ---------------------------------------- */}
+        <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+          What you have started
+        </h2>
 
-      {/* THIS PANEL HAS NOW OUTLIVED BOTH THINGS IT WAS WRITTEN ABOUT.
-          Paying went first (db/092), and booking went with db/102-104. What is
-          left is narrower and true: you can ask for a session, and nothing
-          sends anybody an email about it. Kept and narrowed rather than
-          deleted, because a note about what is missing has to be maintained as
-          carefully as the features or it becomes the most confident wrong
-          sentence on the page. */}
-      <section className="mt-10 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Worth knowing</h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          You can ask a specialist for a session, and they answer here &mdash;
-          but nothing emails either of you about it yet, so check this account
-          for their reply rather than waiting for a message. There is no price
-          for a session either, so nobody will ask you for a card.
-        </p>
-      </section>
+        {!enrolmentsKnown && (
+          <ErrorState
+            message="Your courses could not be loaded, so this is unknown rather than empty. Nothing has been lost — this is a problem reaching the server."
+            onRetry={() => void enrolments.refetch()}
+          />
+        )}
+
+        {enrolmentsKnown && started.length === 0 && (
+          <div className="rounded-card border border-border bg-card p-6 shadow-raised">
+            <p className="max-w-prose text-muted-foreground">
+              Nothing yet. The Academy has short courses you can work through at
+              your own pace — nothing is timed, nothing is scored, and you can
+              stop and come back.
+            </p>
+            <Link
+              to="/individual/academy"
+              className="mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            >
+              Look at the courses
+            </Link>
+          </div>
+        )}
+        {/* --- what else there is -------------------------------------------- */}
+        {available.length > 0 && (
+          <>
+            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+              Also for you
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {available.map((course) => (
+                <li
+                  key={course.id}
+                  className="rounded-card border border-border bg-card p-5 shadow-raised"
+                >
+                  <h3 className="font-semibold text-foreground">{course.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {course.summary}
+                  </p>
+                  <Link
+                    to="/individual/academy"
+                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  >
+                    Start it →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {articles.isSuccess && articles.data.length > 0 && (
+          <p className="mt-8 max-w-prose text-sm text-muted-foreground">
+            There {articles.data.length === 1 ? 'is' : 'are'}{' '}
+            {articles.data.length} short{' '}
+            {articles.data.length === 1 ? 'read' : 'reads'} in the{' '}
+            <Link
+              to="/individual/library"
+              className="font-medium text-primary hover:underline"
+            >
+              Library
+            </Link>{' '}
+            as well.
+          </p>
+        )}
+        </div>
+
+        <aside className="lg:col-span-1">
+        {/* A NEW SCREEN WITH ONLY A NAV ICON IS A SCREEN NOBODY OPENS, which is
+            the same fault as the missing public page db/088 shipped without. */}
+        <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
+          <h2 className="font-semibold text-foreground">Stuck on something?</h2>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            Describe it and get a few practical things to try. It will not tell
+            you what you have and it gives no medical advice &mdash; and nobody
+            else can read what you write there.
+          </p>
+          <Link
+            to="/individual/suggestions"
+            className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+          >
+            Ask for suggestions &rarr;
+          </Link>
+        </section>
+        {/* --- what they have paid for -------------------------------------- */}
+        {paid.length > 0 && (
+          <>
+            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+              What you have paid for
+            </h2>
+            <ul className="divide-y divide-border rounded-card border border-border bg-card shadow-raised">
+              {paid.map((purchase) => {
+                /* The course is always readable here even if Special Miles has
+                   since unpublished it — that is what db/093 is for. The
+                   fallback covers a course that was removed some other way, so
+                   the amount is never orphaned. */
+                const course = courses.data.find((c) => c.id === purchase.course_id)
+                return (
+                  <li
+                    key={purchase.id}
+                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+                  >
+                    <span className="font-medium text-foreground">
+                      {course?.title ?? 'A course that is no longer listed'}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatMoney(purchase.amount_cents, purchase.currency)}
+                      {purchase.paid_at &&
+                        ` · ${new Date(purchase.paid_at).toLocaleDateString('en-AU', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}`}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+              Yours to keep. A course you have paid for stays open to you even if
+              it stops being offered to anybody else.
+            </p>
+          </>
+        )}
+        {/* THIS PANEL HAS NOW OUTLIVED BOTH THINGS IT WAS WRITTEN ABOUT.
+            Paying went first (db/092), and booking went with db/102-104. What is
+            left is narrower and true: you can ask for a session, and nothing
+            sends anybody an email about it. Kept and narrowed rather than
+            deleted, because a note about what is missing has to be maintained as
+            carefully as the features or it becomes the most confident wrong
+            sentence on the page. */}
+        <section className="mt-10 rounded-card border border-border bg-background p-6">
+          <h2 className="font-semibold text-foreground">Worth knowing</h2>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            You can ask a specialist for a session, and they answer here &mdash;
+            but nothing emails either of you about it yet, so check this account
+            for their reply rather than waiting for a message. There is no price
+            for a session either, so nobody will ask you for a card.
+          </p>
+        </section>
+        </aside>
+      </div>
     </div>
   )
 }

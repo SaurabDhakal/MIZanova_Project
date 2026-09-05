@@ -88,32 +88,41 @@ export default function Suggestions() {
         </p>
       </header>
 
-      {/* WHAT IT WILL NOT DO, BEFORE THEY TYPE IT. Putting this after the
-          result would mean somebody writes something personal expecting a
-          diagnosis and finds out afterwards that it was never going to give
-          one. */}
-      <section className="mb-6 rounded-card border border-border bg-background p-5">
-        <h2 className="font-semibold text-foreground">Before you start</h2>
-        <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-          <li>
-            It will not tell you whether you have anything. It is not allowed
-            to name a condition, rule one out, or hint at one &mdash; not even
-            if you ask it directly.
-          </li>
-          <li>
-            It gives no medical advice and nothing about medication or therapy.
-            That is a conversation for a GP.
-          </li>
-          <li>
-            Your name is removed before anything is sent, along with any email
-            address, phone number or date you happen to type.
-          </li>
-          <li>
-            What you write is stored against your account so you can read it
-            again. Nobody else can open it &mdash; not a school, not Special
-            Miles &mdash; and you can delete it below whenever you like.
-          </li>
-        </ul>
+      {/* WHAT IT WILL NOT DO, BEFORE THEY TYPE IT — and still before, not
+          behind a disclosure. Putting it after the result would mean somebody
+          writes something personal expecting a diagnosis and finds out
+          afterwards that it was never going to give one.
+
+          COMPRESSED, NOT HIDDEN. This was four bullets that pushed the actual
+          box below the fold on every visit, and it is read once. Every fact
+          survives — no diagnosis, no medical advice, what is stripped, what is
+          stored, who can read it — in two lines instead of ten, laid out as a
+          pair of facts rather than a wall of caveats. Collapsing it behind a
+          toggle was the other option and it was worse: these are the two
+          questions somebody has before writing something personal, and the
+          answers should not need a click. */}
+      <section className="mb-6 grid gap-x-8 gap-y-3 rounded-card border border-border bg-background p-5 sm:grid-cols-2">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">
+            What it will not do
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            It never names a condition, rules one out or hints at one &mdash;
+            not even if you ask it directly &mdash; and it gives no medical
+            advice. That is a conversation for a GP.
+          </p>
+        </div>
+        <div>
+          <h2 className="text-sm font-bold text-foreground">
+            What happens to what you write
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your name, email, phone number and any dates are stripped before it
+            is sent. What you write is kept so you can read it again &mdash;
+            nobody else can open it, not a school and not Special Miles &mdash;
+            and you can delete it below.
+          </p>
+        </div>
       </section>
 
       {aiDown && (
