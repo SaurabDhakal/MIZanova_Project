@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   avatarUrl,
   closeMyAccount,
+  exportMyData,
   fetchMyEnrolments,
   fetchMyPurchases,
   fetchMySelfRequests,
@@ -14,6 +15,7 @@ import {
 } from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
+import { showToast } from '../../lib/toast'
 import { useAuth, type Profile as ProfileRow } from '../../lib/auth'
 import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
@@ -98,6 +100,69 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
  * the receipts list already run. Somebody about to delete two years of reading
  * should be told it is two years, not warned that this "cannot be undone".
  */
+/**
+ * Taking your record away — pairs with closing the account, deliberately.
+ *
+ * It sits immediately above the red box because that is the order somebody
+ * actually needs these in: a person about to delete two years of their own
+ * writing should be offered a copy of it in the same breath, not left to
+ * discover afterwards that it is gone. Offering the export only on some other
+ * screen would be technically complete and practically useless.
+ */
+function ExportSection() {
+  const [busy, setBusy] = useState(false)
+
+  const download = async () => {
+    setBusy(true)
+    try {
+      const data = await exportMyData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `mizanova-my-data-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      // Revoked, or the blob stays in memory for the life of the tab.
+      URL.revokeObjectURL(url)
+      showToast('Downloaded.')
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Could not build the file.',
+        'error',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="mt-10 rounded-card border border-border bg-card p-6 shadow-raised">
+      <h2 className="text-lg font-bold text-foreground">Take your data</h2>
+      <p className="mt-2 max-w-prose text-muted-foreground">
+        Everything on this account in one file: what you have read, what you
+        have paid, what you asked the AI and what it said, and every goal with
+        its check-ins.
+      </p>
+      <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+        It is built in your browser from what your own account can see, so it
+        contains exactly that and nothing else. The questions you asked appear
+        as they were stored &mdash; with your name and contact details already
+        removed, which is how they were sent.
+      </p>
+      <button
+        type="button"
+        onClick={() => void download()}
+        disabled={busy}
+        className="mt-4 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground disabled:opacity-50"
+      >
+        {busy ? 'Gathering…' : 'Download everything'}
+      </button>
+    </section>
+  )
+}
+
 function CloseAccountSection() {
   const [password, setPassword] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -643,7 +708,12 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
         {/* LAST ON THE PAGE, AND ONLY FOR THE ROLE THAT CAN USE IT. Every
             other role is refused by the server, so showing them a red box
             they cannot act on would be a dead control. */}
-        {profile?.role === 'individual' && <CloseAccountSection />}
+        {profile?.role === 'individual' && (
+          <>
+            <ExportSection />
+            <CloseAccountSection />
+          </>
+        )}
       </div>
     </div>
   )

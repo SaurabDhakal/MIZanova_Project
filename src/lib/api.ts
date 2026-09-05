@@ -8083,6 +8083,98 @@ export async function deleteMyGoal(goalId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Everything this account holds about somebody, in one file.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS NOT A REPORT
+ * ---------------------------------------------------------------------------
+ * Joe's brief asks for "exportable reports (PDF/CSV)" and that is the right
+ * shape for a school exporting a roster. It is the wrong shape for a person
+ * taking their own record away: a PDF is a picture of data and a CSV cannot
+ * hold a goal with its check-ins nested underneath it without either
+ * flattening the relationship or shipping six files.
+ *
+ * So this is JSON — complete, nested, and machine-readable, which is what
+ * portability actually means. Somebody who wants it in a spreadsheet can get
+ * there from here; nobody can get back from a PDF.
+ *
+ * ---------------------------------------------------------------------------
+ * READ AS THEM, DELIBERATELY
+ * ---------------------------------------------------------------------------
+ * Every call below is an ordinary client read, so Row-Level Security decides
+ * what lands in the file. There is no service role and no server route: an
+ * export built with elevated rights could quietly include something the person
+ * was never entitled to see, and the only way to be sure it cannot is to build
+ * it from exactly the same reads the screens use.
+ */
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  const { data: auth } = await supabase.auth.getUser()
+  const user = auth.user
+  if (!user) throw new Error('You are not signed in.')
+
+  const [courses, enrolments, completions, purchases, suggestions, goals] =
+    await Promise.all([
+      fetchCourses(),
+      fetchMyEnrolments(),
+      fetchMyCompletions(),
+      fetchMyPurchases(),
+      fetchMySelfRequests(),
+      fetchMyGoalsPersonal(),
+    ])
+
+  const titleOf = (id: string) =>
+    courses.find((c) => c.id === id)?.title ?? null
+
+  return {
+    exported_at: new Date().toISOString(),
+    what_this_is:
+      'Everything MiZanova holds on this account. Written by the account itself, so it contains exactly what the account can see and nothing else.',
+    account: {
+      email: user.email,
+      created_at: user.created_at,
+    },
+    courses_started: enrolments.map((e) => ({
+      course: titleOf(e.course_id),
+      started_at: e.enrolled_at,
+      completed_at: e.completed_at,
+      parts_done: completions.filter((c) => c.enrolment_id === e.id).length,
+    })),
+    payments: purchases.map((p) => ({
+      receipt_number: p.receipt_number,
+      course: titleOf(p.course_id),
+      amount: p.amount_cents / 100,
+      currency: p.currency,
+      status: p.status,
+      paid_at: p.paid_at,
+    })),
+    // The redacted text, which is what was stored — never the original.
+    suggestions_asked_for: suggestions.map((r) => ({
+      asked: r.asked,
+      asked_at: r.created_at,
+      details_removed_before_sending: r.redaction_count,
+      suggestions: r.individual_ai_suggestions.map((s) => ({
+        title: s.title,
+        body: s.body,
+        why_this_might_help: s.rationale,
+      })),
+      suggestions_withheld: r.withheld_count,
+    })),
+    goals: goals.map((g) => ({
+      title: g.title,
+      why_it_matters: g.why,
+      status: g.status,
+      target_date: g.target_date,
+      set_at: g.created_at,
+      check_ins: g.individual_goal_checkins.map((c) => ({
+        how_it_went: c.how_it_went,
+        note: c.note,
+        at: c.created_at,
+      })),
+    })),
+  }
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
