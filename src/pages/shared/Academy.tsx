@@ -17,6 +17,7 @@ import {
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import Icon from '../../components/Icon'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -217,9 +218,19 @@ export default function Academy() {
                 className="rounded-card border border-border bg-card shadow-raised p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
+                  {/* AN ICON TILE, BECAUSE A COURSE IS NOT A LIST ROW.
+                      Two courses rendered as two thin lines of text with a
+                      button on the right, which is what a settings list looks
+                      like — and for somebody with no school the Academy IS the
+                      product. The tile costs nothing, marks each card as a
+                      thing rather than an entry, and matches the treatment the
+                      landing page already gives its three steps. */}
+                  <span className="hidden shrink-0 rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy sm:inline-flex">
+                    <Icon name="resources" className="h-6 w-6" />
+                  </span>
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-semibold text-foreground">
+                      <h2 className="text-lg font-bold text-foreground">
                         {course.title}
                       </h2>
                       {enrolment?.completed_at && (
@@ -237,7 +248,11 @@ export default function Academy() {
                         has — and "1 module" undersells a course somebody is
                         being asked to pay for. Say what is readable instead of
                         counting what happens to have come back. */}
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-btn bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      <Icon
+                        name={needsPaying && !enrolment ? 'invoices' : 'resources'}
+                        className="h-3.5 w-3.5 shrink-0"
+                      />
                       {needsPaying && !enrolment
                         ? 'Read the first part free, then buy it to carry on'
                         : total === 0
