@@ -415,9 +415,17 @@ export default function IndividualHome() {
               })}
             </ul>
             <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Yours to keep. A course you have paid for stays open to you even if
-              it stops being offered to anybody else.
+              Yours to keep, even if a course stops being offered to anybody
+              else.
             </p>
+            {/* The way through, now that receipts live in the account menu
+                rather than the main nav. */}
+            <Link
+              to="/individual/receipts"
+              className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+            >
+              Receipts &rarr;
+            </Link>
           </>
         )}
         {/* THIS PANEL HAS NOW OUTLIVED BOTH THINGS IT WAS WRITTEN ABOUT.
