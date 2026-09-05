@@ -37,6 +37,9 @@ import DictatedTextarea from '../../components/DictatedTextarea'
 export default function Suggestions() {
   const queryClient = useQueryClient()
   const [text, setText] = useState('')
+  /* Null means "the most recent", worked out at render rather than stored, so
+     a fresh answer opens itself without anything having to remember it. */
+  const [openAsk, setOpenAsk] = useState<string | null>(null)
 
   const history = useQuery({
     queryKey: queryKeys.mySelfRequests,
@@ -229,6 +232,14 @@ export default function Suggestions() {
                 request={request}
                 onDelete={() => remove.mutate(request.id)}
                 deleting={remove.isPending && remove.variables === request.id}
+                open={(openAsk ?? history.data[0]?.id) === request.id}
+                onToggle={() =>
+                  setOpenAsk(
+                    (openAsk ?? history.data[0]?.id) === request.id
+                      ? ''
+                      : request.id,
+                  )
+                }
               />
             ))}
           </ul>
@@ -242,21 +253,56 @@ function RequestCard({
   request,
   onDelete,
   deleting,
+  open,
+  onToggle,
 }: {
   request: SelfRequest
   onDelete: () => void
   deleting: boolean
+  open: boolean
+  onToggle: () => void
 }) {
-  const asked = new Date(request.created_at).toLocaleDateString('en-AU', {
+  /* The TIME as well as the date. Somebody who asked four things on a Tuesday
+     had four collapsed rows reading "Asked 6 September 2026", which
+     distinguishes nothing — and this is a screen people use in bursts on the
+     same day. */
+  const asked = new Date(request.created_at).toLocaleString('en-AU', {
     day: 'numeric',
     month: 'long',
-    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   })
 
   return (
     <li className="rounded-card border border-border bg-card p-5 shadow-raised">
+      {/* ---------------------------------------------------------------
+          THE LATEST ONE IS OPEN, THE REST ARE A LINE EACH.
+          ---------------------------------------------------------------
+          Every past ask rendered its question and all three suggestions in
+          full, so somebody who had used this five times met a page that never
+          ended — and the thing they came back for, the answer they just got,
+          was at the top of an unbounded scroll rather than the page.
+
+          Collapsed, an ask is still completely legible: the date and their own
+          question, which is how anybody would recognise one. The answers are
+          one press away, and the most recent is already open because that is
+          the one somebody almost always wants.
+          --------------------------------------------------------------- */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="text-sm text-muted-foreground">Asked {asked}</p>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Asked {asked}
+          {!open && request.individual_ai_suggestions.length > 0 && (
+            <span className="ml-2 font-normal text-muted-foreground">
+              — {request.individual_ai_suggestions.length} suggestion
+              {request.individual_ai_suggestions.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={onDelete}
@@ -270,7 +316,7 @@ function RequestCard({
       <p className="mt-2 max-w-prose whitespace-pre-wrap text-foreground">
         {request.asked}
       </p>
-      {request.redaction_count > 0 && (
+      {open && request.redaction_count > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">
           {request.redaction_count}{' '}
           {request.redaction_count === 1 ? 'detail was' : 'details were'}{' '}
@@ -282,7 +328,7 @@ function RequestCard({
           safeguarding lead because the subject is a child. Here the subject is
           an adult who was promised nobody is watching, so the response is to
           put help in front of them. */}
-      {request.risk_flagged && (
+      {open && request.risk_flagged && (
         <section className="mt-4 rounded-card border border-warning bg-warning-subtle p-4">
           <h3 className="font-semibold text-foreground">
             If you want to talk to a person
@@ -305,7 +351,7 @@ function RequestCard({
         </section>
       )}
 
-      {request.individual_ai_suggestions.length > 0 && (
+      {open && request.individual_ai_suggestions.length > 0 && (
         <ul className="mt-4 space-y-3">
           {request.individual_ai_suggestions.map((s) => (
             <li
@@ -341,7 +387,7 @@ function RequestCard({
 
       {/* NOT "held for review". There is no reviewer, and saying there is
           would leave somebody waiting on nobody. */}
-      {request.withheld_count > 0 && (
+      {open && request.withheld_count > 0 && (
         <p className="mt-4 max-w-prose rounded-card border border-border bg-background p-4 text-sm text-muted-foreground">
           {request.withheld_count === 1
             ? 'One suggestion was not shown. '
