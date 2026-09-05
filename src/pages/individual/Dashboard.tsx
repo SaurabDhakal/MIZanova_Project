@@ -132,16 +132,139 @@ export default function IndividualHome() {
 
   const firstName = profile?.first_name?.trim()
 
+  /*
+   * ---------------------------------------------------------------------
+   * ONE THING TO PICK UP, CHOSEN FROM WHAT IS ACTUALLY THERE
+   * ---------------------------------------------------------------------
+   * The page opened with a greeting and then six sections of equal weight,
+   * which is a filing cabinet rather than a home screen — nothing said where
+   * somebody was up to or what to do next, so every visit started with
+   * reading.
+   *
+   * The order is not arbitrary. A goal is the thing with a thread running
+   * through it and the thing somebody came back for; a half-finished course is
+   * the next most alive; and only when neither exists is "start something" the
+   * honest suggestion. Nothing here is invented — each branch points at
+   * something that exists and says its real name.
+   */
+  const unfinished = started.find((s) => s.enrolment.completed_at === null)
+  const nextThing = activeGoals[0]
+    ? {
+        eyebrow: 'Pick up where you left off',
+        title: activeGoals[0].title,
+        to: '/individual/goals',
+        cta: 'Check in',
+      }
+    : unfinished
+      ? {
+          eyebrow: 'Carry on',
+          title: unfinished.course.title,
+          to: '/individual/academy',
+          cta: `Part ${Math.min(unfinished.done + 1, unfinished.total)} of ${unfinished.total}`,
+        }
+      : available[0]
+        ? {
+            eyebrow: 'Somewhere to start',
+            title: available[0].title,
+            to: '/individual/academy',
+            cta: 'Open it',
+          }
+        : null
+
+  /*
+   * COUNTED, NEVER ESTIMATED, and shown only where the number means something.
+   * `docs/14` and the charting guidance both say to lead with big figures only
+   * when the figures are the point of the page — on a personal home screen
+   * they are, because progress is the only thing this account accumulates.
+   *
+   * Parts finished is the one worth having: it is the number that goes up when
+   * somebody does the thing, and it is the only one here that can.
+   */
+  const partsDone = started.reduce((n, s) => n + s.done, 0)
+  const stats = [
+    { n: activeGoals.length, label: activeGoals.length === 1 ? 'goal on the go' : 'goals on the go' },
+    { n: started.length, label: started.length === 1 ? 'course started' : 'courses started' },
+    { n: partsDone, label: partsDone === 1 ? 'part finished' : 'parts finished' },
+  ]
+
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          {firstName ? `Hello, ${firstName}` : 'Hello'}
-        </h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Everything here is yours. No school holds any of it, and nothing you
-          do on these pages is reported to anybody.
-        </p>
+      {/* ---------------------------------------------------------------
+          A BAND, NOT A HEADING. The page used to open with black text on the
+          same background as everything under it, so there was nothing to land
+          on and no sense of arriving anywhere. This carries the greeting, the
+          one promise this account makes, the thing to pick up, and three
+          counted figures — all of it real, none of it decoration.
+          --------------------------------------------------------------- */}
+      <header className="mb-8 rounded-card border border-border bg-primary-subtle p-6 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-xs font-bold tracking-wider text-primary uppercase">
+              {new Date().toLocaleDateString('en-AU', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              })}
+            </p>
+            <h1 className="mt-2 text-3xl font-bold text-balance text-foreground md:text-4xl">
+              {firstName ? `Hello, ${firstName}` : 'Hello'}
+            </h1>
+            <p className="mt-2 max-w-prose text-foreground">
+              Everything here is yours. No school holds any of it, and nothing
+              you do on these pages is reported to anybody.
+            </p>
+          </div>
+
+          {/* Counted from what is already loaded — no extra request, and no
+              figure that cannot go up. */}
+          <dl className="flex gap-6">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <dt className="sr-only">{s.label}</dt>
+                <dd>
+                  {/* A ZERO IS STILL SHOWN AND STILL TRUE — it says what this
+                      account counts, and it fills in as somebody uses it. It
+                      just stops shouting as loudly as the figure that is
+                      actually there, so the eye lands on the one that means
+                      something. Hiding it would make the row jump about as
+                      numbers crossed one. */}
+                  <span
+                    className={`block text-3xl font-bold tabular-nums ${
+                      s.n === 0 ? 'text-muted-foreground/50' : 'text-foreground'
+                    }`}
+                  >
+                    {s.n}
+                  </span>
+                  <span className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
+                    {s.label}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        {nextThing && (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-card p-4">
+            <div className="min-w-0">
+              <p className="text-xs font-bold tracking-wider text-brand-green uppercase">
+                {nextThing.eyebrow}
+              </p>
+              {/* Two lines rather than one truncated. Somebody's own words for
+                  their own goal are the last thing that should be cut off
+                  mid-word on the narrow screen most people open this on. */}
+              <p className="mt-1 line-clamp-2 text-lg font-semibold text-foreground">
+                {nextThing.title}
+              </p>
+            </div>
+            <Link
+              to={nextThing.to}
+              className="shrink-0 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+            >
+              {nextThing.cta}
+            </Link>
+          </div>
+        )}
       </header>
 
       {brandNew && (
