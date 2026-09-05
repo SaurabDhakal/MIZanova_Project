@@ -5,6 +5,8 @@ import {
   fetchCourses,
   fetchMyCompletions,
   fetchMyEnrolments,
+  fetchMyPurchases,
+  formatMoney,
   queryKeys,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -29,10 +31,14 @@ import { ErrorState, LoadingCards } from '../../components/QueryState'
  * ---------------------------------------------------------------------------
  * WHAT IT DOES NOT DO, AND WHY THERE IS NO TILE FOR IT
  * ---------------------------------------------------------------------------
- * No bookings and no payments. Both run through a student record today, and a
- * student needs a school — see the note in db/089. A "Book a session" tile that
- * led nowhere would be the exact fault this codebase keeps finding in itself:
- * a promise printed with nothing behind it. When those exist, they belong here.
+ * No bookings. Booking runs through a student record, and a student needs a
+ * school — see the note in db/089. A "Book a session" tile that led nowhere
+ * would be the exact fault this codebase keeps finding in itself: a promise
+ * printed with nothing behind it. When it exists, it belongs here.
+ *
+ * Paying DOES work now — db/092 — so the receipts below are here for the
+ * reason the rest of this file exists: money changed hands and the person who
+ * paid it should be able to see that somewhere other than their bank.
  */
 export default function IndividualHome() {
   const { profile } = useAuth()
@@ -49,6 +55,10 @@ export default function IndividualHome() {
   const articles = useQuery({
     queryKey: queryKeys.articles,
     queryFn: fetchArticles,
+  })
+  const purchases = useQuery({
+    queryKey: queryKeys.myPurchases,
+    queryFn: fetchMyPurchases,
   })
 
   if (courses.isPending) return <LoadingCards count={2} />
@@ -90,6 +100,15 @@ export default function IndividualHome() {
 
   const startedIds = new Set(started.map((s) => s.course.id))
   const available = courses.data.filter((c) => !startedIds.has(c.id))
+
+  /*
+   * Paid only. A `pending` row is somebody who reached Stripe and did not come
+   * back, and listing it under "what you have paid for" would tell them they
+   * bought something they do not own. Refunded is left out for the same
+   * reason in reverse — if it comes back, that conversation happens with a
+   * person, not with a line on a dashboard.
+   */
+  const paid = (purchases.data ?? []).filter((p) => p.status === 'paid')
 
   const firstName = profile?.first_name?.trim()
 
@@ -228,18 +247,61 @@ export default function IndividualHome() {
         </p>
       )}
 
-      {/* NOT BUILT, SAID PLAINLY. The brief lists bookable sessions and
-          individual subscriptions as real products. Both run through a student
-          record, which needs a school, so neither exists for somebody here —
-          and a tile offering them would be a promise with nothing behind it. */}
+      {/* --- what they have paid for -------------------------------------- */}
+      {paid.length > 0 && (
+        <>
+          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+            What you have paid for
+          </h2>
+          <ul className="divide-y divide-border rounded-card border border-border bg-card shadow-raised">
+            {paid.map((purchase) => {
+              /* The course is always readable here even if Special Miles has
+                 since unpublished it — that is what db/093 is for. The
+                 fallback covers a course that was removed some other way, so
+                 the amount is never orphaned. */
+              const course = courses.data.find((c) => c.id === purchase.course_id)
+              return (
+                <li
+                  key={purchase.id}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+                >
+                  <span className="font-medium text-foreground">
+                    {course?.title ?? 'A course that is no longer listed'}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatMoney(purchase.amount_cents, purchase.currency)}
+                    {purchase.paid_at &&
+                      ` · ${new Date(purchase.paid_at).toLocaleDateString('en-AU', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}`}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            Yours to keep. A course you have paid for stays open to you even if
+            it stops being offered to anybody else.
+          </p>
+        </>
+      )}
+
+      {/* NOT BUILT, SAID PLAINLY. The brief lists bookable sessions as a real
+          product, and booking runs through a student record, which needs a
+          school — so it does not exist for somebody here, and a tile offering
+          it would be a promise with nothing behind it.
+
+          Paying is no longer on this list. db/092 built it, so claiming it was
+          missing would be the same fault pointing the other way. */}
       <section className="mt-10 rounded-card border border-border bg-background p-6">
         <h2 className="font-semibold text-foreground">Not built yet</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          Booking a session with a specialist, and paying Special Miles
-          directly, are both part of the plan and neither works yet. Everything
-          in the product that takes a payment or books a time currently does it
-          through a school, and you do not have one. Until that changes, this
-          account is the Academy and the Library.
+          Booking a session with a specialist does not work from this account.
+          Booking a time runs through a school and a student record, and you
+          have neither. It is part of the plan; it is not here yet, and nothing
+          on these pages will pretend otherwise.
         </p>
       </section>
     </div>

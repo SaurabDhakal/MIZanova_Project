@@ -76,15 +76,21 @@ export default function ForIndividuals() {
 
       <Section title="What it costs">
         <p>
-          Nothing, today. There is no way to pay for anything on this account
-          because that has not been built &mdash; not a free trial with a date
-          on it, just a part of the product that has no till.
+          Every course is free at the moment. Some may not stay that way: a
+          course that costs something says so on its own card, with the price
+          on the button, before you have entered anything. Nothing is charged
+          for by surprise and nothing here is a trial that quietly ends.
         </p>
         <p>
-          Special Miles intends to sell programs and one-to-one sessions to
-          individuals, and the pricing for that is still being worked out. When
-          it exists it will be on the pricing page like everything else. Nothing
-          you do now starts a subscription, and there is no card to enter.
+          There is no subscription. You pay once for a course or you do not,
+          and a course you have paid for stays yours &mdash; it keeps working
+          even if it is later withdrawn from everybody else.
+        </p>
+        <p>
+          Special Miles also intends to sell one-to-one sessions to
+          individuals. That does not exist yet and the pricing for it is still
+          being worked out; when it exists it will be on the pricing page like
+          everything else.
         </p>
       </Section>
 
@@ -100,8 +106,8 @@ export default function ForIndividuals() {
         </p>
         <p>
           You cannot book a session with a specialist from this account yet.
-          Everything in MiZanova that books a time or takes a payment currently
-          does it through a school, and you do not have one.
+          Booking a time runs through a school and a student record, and you
+          have neither.
         </p>
         <p>
           If you are a parent of a child at a school that uses MiZanova, this is

@@ -8,6 +8,7 @@ import {
   fetchCourseEngagement,
   fetchCourses,
   queryKeys,
+  setCoursePrice,
   setCoursePublished,
   type Course,
   type CourseEngagement,
@@ -403,6 +404,109 @@ function ModuleEditor({ course }: { course: Course }) {
 }
 
 /**
+ * What a course costs — db/092.
+ *
+ * ---------------------------------------------------------------------------
+ * THE FIGURE IS SPECIAL MILES', NOT THIS SOFTWARE'S
+ * ---------------------------------------------------------------------------
+ * No migration sets a price and this control suggests none. src/lib/plans.ts
+ * says the published figures come from the client's own designs and that
+ * "nothing here is estimated or rounded", and the brief says willingness to pay
+ * is still being researched with Practera. So the field starts empty and stays
+ * empty until somebody decides.
+ *
+ * Free is the absence of a price rather than a price of zero, which is why
+ * clearing the box is a real action with its own button. A course priced at $0
+ * and a free course would behave identically and read differently, and the
+ * database would then hold two ways to say the same thing.
+ */
+function PriceControl({ course }: { course: Course }) {
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [dollars, setDollars] = useState(
+    course.price_cents === null ? '' : String(course.price_cents / 100),
+  )
+
+  const save = useMutation({
+    mutationFn: (cents: number | null) => setCoursePrice(course.id, cents),
+    onSuccess: async (_d, cents) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courses })
+      setEditing(false)
+      showToast(
+        cents === null
+          ? 'Free. Anybody in its audience can start it.'
+          : 'Price set. Nobody can enrol without paying — the database refuses it, not just the button.',
+      )
+    },
+    onError: (e) => showToast(e.message, 'error'),
+  })
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="mt-1 text-xs font-semibold text-primary hover:underline"
+      >
+        {course.price_cents === null ? 'Set a price' : 'Change the price'}
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <label className="text-xs text-muted-foreground">
+        Price in dollars
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={dollars}
+          onChange={(e) => setDollars(e.target.value)}
+          className="ml-2 w-28 rounded-btn border border-border bg-card px-2 py-1.5 text-sm text-foreground"
+        />
+      </label>
+
+      <button
+        type="button"
+        disabled={save.isPending || dollars.trim() === ''}
+        onClick={() => {
+          /* Rounded here, once, on the way in. Cents are the only unit that
+             travels — a price that becomes a float between the form and the
+             till is how somebody gets charged $49.000000001. */
+          const cents = Math.round(Number(dollars) * 100)
+          if (!Number.isFinite(cents) || cents <= 0) {
+            showToast('Enter an amount above zero, or make it free.', 'error')
+            return
+          }
+          save.mutate(cents)
+        }}
+        className="rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+      >
+        Save
+      </button>
+
+      <button
+        type="button"
+        disabled={save.isPending}
+        onClick={() => save.mutate(null)}
+        className="rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+      >
+        Make it free
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setEditing(false)}
+        className="text-xs font-semibold text-muted-foreground hover:underline"
+      >
+        Cancel
+      </button>
+    </div>
+  )
+}
+
+/**
  * Who is doing them — db/091, the brief's requirement 5.
  *
  * ---------------------------------------------------------------------------
@@ -629,8 +733,13 @@ export default function Courses() {
                       .map((r) => ROLE_CONFIG[r]?.label ?? r)
                       .join(', ')}{' '}
                     · {(course.course_modules ?? []).length} module
-                    {(course.course_modules ?? []).length === 1 ? '' : 's'}
+                    {(course.course_modules ?? []).length === 1 ? '' : 's'} ·{' '}
+                    {course.price_cents === null
+                      ? 'Free'
+                      : `$${(course.price_cents / 100).toFixed(2)}`}
                   </p>
+
+                  <PriceControl course={course} />
                 </div>
 
                 <div className="flex flex-wrap gap-2">

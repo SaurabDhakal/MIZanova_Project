@@ -3576,6 +3576,9 @@ export type Course = {
   is_published: boolean
   published_at: string | null
   created_at: string
+  /** What an individual pays, in cents. NULL means free — db/092. */
+  price_cents: number | null
+  currency: string
   course_modules: CourseModule[] | null
 }
 
@@ -3592,6 +3595,7 @@ export async function fetchCourses(): Promise<Course[]> {
     .from('courses')
     .select(
       'id, title, summary, audiences, is_published, published_at, created_at, ' +
+        'price_cents, currency, ' +
         'course_modules ( id, title, body, video_url, sort_order )',
     )
     .order('created_at', { ascending: false })
@@ -3663,6 +3667,80 @@ export async function fetchMyEnrolments(): Promise<Enrolment[]> {
 
   if (error) throw new Error(error.message)
   return (data ?? []) as Enrolment[]
+}
+
+export type CoursePurchase = {
+  id: string
+  course_id: string
+  amount_cents: number
+  currency: string
+  status: 'pending' | 'paid' | 'refunded'
+  paid_at: string | null
+}
+
+/** What I have bought — db/092. RLS returns only my own rows. */
+export async function fetchMyPurchases(): Promise<CoursePurchase[]> {
+  const { data, error } = await supabase
+    .from('course_purchases')
+    .select('id, course_id, amount_cents, currency, status, paid_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as CoursePurchase[]
+}
+
+/**
+ * Start paying for a course. Returns the Stripe page to send them to.
+ *
+ * Only the id travels, exactly as `startCheckout` does for an invoice: the
+ * price is read from the database on the server, so it cannot be edited on the
+ * way out.
+ */
+export async function buyCourse(courseId: string): Promise<string> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/course-checkout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ courseId }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body.url as string
+}
+
+/**
+ * Ask the server whether a returning payment actually went through.
+ *
+ * The fast path. The webhook is the reliable one and does not care what the
+ * browser did — this exists so somebody who has just paid sees it immediately.
+ */
+export async function confirmCoursePurchase(sessionId: string): Promise<boolean> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/course-confirm`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sessionId }),
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body.paid === true
 }
 
 export async function fetchMyCompletions(): Promise<
@@ -3738,6 +3816,36 @@ export async function createCourse(input: CourseInput): Promise<string> {
  * tying them together — a course cannot be published without a date, and
  * cannot carry a date while unpublished.
  */
+/**
+ * What a course costs, or nothing — db/092.
+ *
+ * `null` means free, and that is the state every course starts in. No
+ * migration sets a price and neither does this file's caller by default:
+ * src/lib/plans.ts is explicit that published figures come from the client, and
+ * Joe's brief says willingness to pay is still being researched.
+ *
+ * Cents, not dollars, all the way to the database. A price that becomes a
+ * float somewhere between the form and the till is the classic way to charge
+ * somebody $49.000000001.
+ */
+export async function setCoursePrice(
+  id: string,
+  priceCents: number | null,
+): Promise<void> {
+  if (priceCents !== null && (!Number.isInteger(priceCents) || priceCents <= 0)) {
+    throw new Error('A price has to be a whole number of cents above zero.')
+  }
+
+  const { data, error } = await supabase
+    .from('courses')
+    .update({ price_cents: priceCents })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The price')
+}
+
 export async function setCoursePublished(
   id: string,
   published: boolean,
@@ -7780,6 +7888,7 @@ export const queryKeys = {
   myEnrolments: ['my-enrolments'] as const,
   myCompletions: ['my-completions'] as const,
   courseEngagement: ['course-engagement'] as const,
+  myPurchases: ['my-purchases'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,

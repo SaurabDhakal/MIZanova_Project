@@ -292,6 +292,43 @@ app.post(
       return res.json({ received: true, unpaid: true })
     }
 
+    /* ------------------------------------------------------------------
+     * A COURSE PURCHASE TAKES A DIFFERENT TABLE — db/092.
+     *
+     * Same event, same signature check, same idempotent shape. The metadata
+     * says which kind of thing was paid for, because a settled Stripe session
+     * cannot be asked what it was for without guessing.
+     * ------------------------------------------------------------------ */
+    if (session.metadata?.kind === 'course') {
+      const { data: recorded, error: courseError } = await admin.rpc(
+        'mark_course_purchase_paid',
+        {
+          p_session_id: session.id,
+          p_payment_intent_id:
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : null,
+        },
+      )
+
+      if (courseError) {
+        recordEvent(
+          'critical',
+          'billing',
+          'payment_unrecorded',
+          `Course purchase ${session.id} paid at Stripe but not recorded: ${courseError.message}`,
+        )
+        return res.status(500).send('Could not record payment.')
+      }
+
+      console.log(
+        recorded
+          ? `Course purchase recorded from webhook for ${session.id}`
+          : `Webhook for course purchase ${session.id} was already recorded`,
+      )
+      return res.json({ received: true, recorded })
+    }
+
     const invoiceId = session.metadata?.invoiceId
     if (!invoiceId) {
       // Acknowledged deliberately: retrying will not add metadata that was
@@ -1169,6 +1206,191 @@ app.post('/api/billing/checkout', async (req, res) => {
  * and the second is a no-op. That is the point of `mark_invoice_paid`
  * returning false rather than erroring on an already-paid invoice.
  */
+/**
+ * POST /api/billing/course-checkout  { courseId }
+ *
+ * Buying a course as an individual — db/092. Joe's brief lists individual
+ * program enrolments as a revenue stream, and until this existed the only
+ * money in MiZanova moved between a school and somebody else.
+ *
+ * THE PRICE COMES FROM THE DATABASE, for the same reason db/020 gives about
+ * invoices: if it travelled from the browser, a $49 course could be bought for
+ * a dollar by editing one number, and the payment would be genuine so nothing
+ * downstream would notice.
+ *
+ * THE PENDING ROW IS WRITTEN BEFORE STRIPE IS CALLED, with the service role,
+ * because `course_purchases` has no insert policy at all — a browser that could
+ * write one could enrol itself in anything. It carries the session id so the
+ * webhook can find it again with nothing but what Stripe sends back.
+ */
+app.post('/api/billing/course-checkout', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { courseId } = req.body ?? {}
+  if (!courseId) return res.status(400).json({ error: 'courseId is required.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) {
+      return res.status(503).json({
+        error:
+          'Payments are not configured on this server. STRIPE_SECRET_KEY is missing from .env.local.',
+      })
+    }
+
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    /* RLS decides whether this person may even see the course: published, and
+       their role among its audiences. A course they cannot read cannot be
+       bought, which is one fewer thing for this route to check itself. */
+    const { data: course, error: courseError } = await userClient
+      .from('courses')
+      .select('id, title, price_cents, currency, is_published')
+      .eq('id', courseId)
+      .maybeSingle()
+
+    if (courseError) return res.status(500).json({ error: courseError.message })
+    if (!course) return res.status(404).json({ error: 'Course not found.' })
+    if (course.price_cents === null) {
+      return res
+        .status(409)
+        .json({ error: 'This course is free — just start it.' })
+    }
+
+    const { data: already } = await userClient
+      .from('course_purchases')
+      .select('id')
+      .eq('course_id', course.id)
+      .eq('status', 'paid')
+      .maybeSingle()
+
+    if (already) {
+      return res.status(409).json({ error: 'You have already bought this one.' })
+    }
+
+    const { data: purchase, error: purchaseError } = await admin
+      .from('course_purchases')
+      .insert({
+        course_id: course.id,
+        profile_id: user.id,
+        amount_cents: course.price_cents,
+        currency: course.currency,
+        status: 'pending',
+      })
+      .select('id')
+      .single()
+
+    if (purchaseError) {
+      return res.status(500).json({ error: purchaseError.message })
+    }
+
+    /* Where to send them back to. Read from their profile rather than from the
+       request: the return path is not a security boundary, but a browser that
+       chose it could land somebody on a screen their role cannot open, which
+       looks exactly like a failed payment. */
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    const base = profile?.role === 'individual' ? '/individual/academy' : '/parent/academy'
+
+    const origin = returnOrigin(req)
+
+    /* THE ROW IS WRITTEN BEFORE STRIPE AND REMOVED IF STRIPE REFUSES.
+     *
+     * This order is deliberate: creating the session first and the row second
+     * means a failure between them leaves somebody able to pay for a purchase
+     * that was never recorded, which is the expensive mistake. This way the
+     * failure leaves an unpaid row with no session id — inert, since only
+     * 'paid' grants anything — and the catch below removes even that. */
+    let session
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: course.currency,
+              unit_amount: course.price_cents,
+              product_data: { name: course.title },
+            },
+          },
+        ],
+        metadata: { kind: 'course', purchaseId: purchase.id },
+        success_url: `${origin}${base}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}${base}?cancelled=1`,
+      })
+    } catch (stripeError) {
+      await admin.from('course_purchases').delete().eq('id', purchase.id)
+      throw stripeError
+    }
+
+    await admin
+      .from('course_purchases')
+      .update({ stripe_session_id: session.id })
+      .eq('id', purchase.id)
+
+    return res.json({ url: session.url })
+  } catch (err) {
+    console.error('Course checkout failed:', err)
+    return res.status(500).json({ error: 'Could not start the payment.' })
+  }
+})
+
+/**
+ * POST /api/billing/course-confirm  { sessionId }
+ *
+ * The fast path, exactly as `/api/billing/confirm` is for invoices: the webhook
+ * is the reliable one and does not care what the browser did, but somebody who
+ * has just paid should see it immediately rather than whenever Stripe's
+ * notification lands. Both call the same idempotent function.
+ *
+ * The browser is not believed about payment at any point — it hands over a
+ * session id and this server asks Stripe what happened to it.
+ */
+app.post('/api/billing/course-confirm', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { sessionId } = req.body ?? {}
+  if (!sessionId) return res.status(400).json({ error: 'sessionId is required.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) return res.status(503).json({ error: 'Payments are not configured.' })
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.metadata?.kind !== 'course') {
+      return res.status(400).json({ error: 'That is not a course payment.' })
+    }
+    if (session.payment_status !== 'paid') {
+      return res.json({ paid: false })
+    }
+
+    const { error } = await admin.rpc('mark_course_purchase_paid', {
+      p_session_id: session.id,
+      p_payment_intent_id:
+        typeof session.payment_intent === 'string' ? session.payment_intent : null,
+    })
+    if (error) return res.status(500).json({ error: 'Could not record payment.' })
+
+    return res.json({ paid: true })
+  } catch (err) {
+    console.error('Course confirm failed:', err)
+    return res.status(500).json({ error: 'Could not confirm the payment.' })
+  }
+})
+
 app.post('/api/billing/confirm', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
