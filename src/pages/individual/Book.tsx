@@ -49,7 +49,9 @@ export default function Book() {
      somebody is choosing a time, and a hook after an early return is not a
      hook at all. */
   const [now] = useState(() => Date.now())
-  const [showAllDays, setShowAllDays] = useState(false)
+  /* Which day's times are showing. Null means the first one with
+     anything free, so the screen opens on a real choice. */
+  const [activeDay, setActiveDay] = useState<string | null>(null)
 
   const specialists = useQuery({
     queryKey: queryKeys.bookableSpecialists,
@@ -448,18 +450,65 @@ export default function Book() {
             </p>
           )}
 
-          {/* THREE DAYS, THEN THE REST ON ASK. Three weeks of a specialist's
-              week is twenty-four buttons in nine groups, which is a wall
-              somebody scrolls past rather than a choice they make. The nearest
-              days are the ones most people want anyway, and the rest are one
-              press away. */}
-          {[...byDay.entries()]
-            .slice(0, showAllDays ? undefined : 3)
-            .map(([day, times]) => (
-            <div key={day} className="mt-4">
-              <p className="text-sm font-semibold text-foreground">{day}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {times.map((t) => {
+          {/* ---------------------------------------------------------------
+              PICK A DAY, THEN A TIME — rather than every day at once.
+              ---------------------------------------------------------------
+              This was a vertical run of day labels with times floating under
+              each, capped at three days with a button to unroll the rest. Two
+              problems: nine groups of buttons is a wall people scroll past
+              rather than a choice they make, and hiding two thirds of somebody
+              else's availability behind "show more" makes a diary look emptier
+              than it is.
+
+              A day is a small decision and a time is a small decision. Taken
+              one at a time both fit on a phone, every day the specialist works
+              is visible at once, and nothing is hidden.
+              --------------------------------------------------------------- */}
+          {byDay.size > 0 && (
+            <>
+              <div className="flex gap-2 overflow-x-auto pb-2" role="tablist">
+                {[...byDay.entries()].map(([day, times]) => {
+                  const isDay = (activeDay ?? [...byDay.keys()][0]) === day
+                  const [weekday, ...rest] = day.split(' ')
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      role="tab"
+                      aria-selected={isDay}
+                      onClick={() => {
+                        setActiveDay(day)
+                        setSlot(null)
+                      }}
+                      className={`shrink-0 rounded-card border px-4 py-3 text-left ${
+                        isDay
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-card text-foreground'
+                      }`}
+                    >
+                      <span className="block text-xs font-semibold uppercase">
+                        {weekday.slice(0, 3)}
+                      </span>
+                      <span className="mt-0.5 block font-bold tabular-nums">
+                        {rest.join(' ')}
+                      </span>
+                      <span
+                        className={`mt-0.5 block text-xs ${
+                          isDay ? 'opacity-80' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {times.length} time{times.length === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* The times for the chosen day, in a grid rather than a wrapping
+                  row — equal columns line the numbers up, which is what makes a
+                  list of times scannable at all. */}
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                {(byDay.get(activeDay ?? [...byDay.keys()][0]) ?? []).map((t) => {
                   const asked = alreadyAsked.has(new Date(t).getTime())
                   return (
                     <button
@@ -468,12 +517,12 @@ export default function Book() {
                       disabled={asked}
                       onClick={() => setSlot(t)}
                       aria-pressed={slot === t}
-                      className={`rounded-btn border px-4 py-2 font-medium tabular-nums ${
+                      className={`rounded-btn border px-3 py-2.5 text-center font-medium tabular-nums ${
                         asked
                           ? 'border-border bg-background text-muted-foreground'
                           : slot === t
                             ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-card text-foreground'
+                            : 'border-border bg-card text-foreground hover:border-primary'
                       }`}
                     >
                       {new Date(t).toLocaleTimeString('en-AU', {
@@ -481,24 +530,13 @@ export default function Book() {
                         minute: '2-digit',
                       })}
                       {asked && (
-                        <span className="ml-2 text-xs">already asked</span>
+                        <span className="block text-xs">already asked</span>
                       )}
                     </button>
                   )
                 })}
               </div>
-            </div>
-          ))}
-
-          {byDay.size > 3 && !showAllDays && (
-            <button
-              type="button"
-              onClick={() => setShowAllDays(true)}
-              className="mt-4 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
-            >
-              Show the other {byDay.size - 3} day
-              {byDay.size - 3 === 1 ? '' : 's'}
-            </button>
+            </>
           )}
         </>
       )}
