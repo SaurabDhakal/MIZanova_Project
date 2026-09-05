@@ -109,6 +109,10 @@ export const PATHS = {
   // --- acting on an AI suggestion -----------------------------------------
   flag: 'M5 21V4h12l-2.5 4L17 12H5',
   cross: 'M6.5 6.5l11 11m0-11-11 11',
+  // The pair to `cross`, on the public header's mobile menu button. It was
+  // using `dashboard` — a four-pane grid, which is a glyph that means
+  // "dashboard" on every other screen in this product.
+  menu: 'M4 7h16M4 12h16M4 17h16',
 } as const
 
 export type IconName = keyof typeof PATHS

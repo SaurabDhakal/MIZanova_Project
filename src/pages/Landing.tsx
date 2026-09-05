@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import Logo from '../components/Logo'
+import PublicHeader from '../components/PublicHeader'
 import SiteFooter from '../components/SiteFooter'
 import Icon from '../components/Icon'
 import HeroDiagram from '../components/HeroDiagram'
@@ -33,12 +33,10 @@ import HeroDiagram from '../components/HeroDiagram'
  * ---------------------------------------------------------------------------
  * WHAT THIS PAGE WAS MISSING, AND WHY IT WAS EASY TO MISS
  * ---------------------------------------------------------------------------
- * This file carries its OWN nav rather than using PublicLayout's, because the
- * homepage has a different header treatment. That is a fair choice with one
- * consequence nobody noticed: a link added to PublicLayout does not appear
- * here. "For individuals" shipped with db/088, went into PublicLayout and the
- * footer, and was absent from the homepage — the one page most people see —
- * for its entire life so far.
+ * This file used to carry its OWN header, near-identical to PublicLayout's,
+ * and the two drifted: "For individuals" was added to one and not the other,
+ * so a whole audience could not be reached from the front door. Both now use
+ * <PublicHeader />, which explains itself at length.
  *
  * Montessori was missing for a different reason. `OrganisationKind` has
  * admitted 'montessori' since the tenancy work and AddSchoolSection has offered
@@ -118,73 +116,7 @@ export default function Landing() {
         Skip to content
       </a>
 
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-4">
-          <Logo />
-
-          {/* STAYS AT lg, WITH A TIGHTER GAP FOR THE SEVENTH ITEM.
-              Raising this to xl to stop the wrap would have taken the nav away
-              from everything between 1024 and 1280px instead — and there is no
-              mobile menu anywhere on this site, so a hidden nav is not hidden
-              behind anything. The header already wraps, which is a far better
-              outcome than disappearing.
-
-              The real gap is that below lg the only navigation is the footer.
-              That is a menu component, not a class name, and it is worth doing
-              properly rather than papering over here. */}
-          <nav aria-label="Main" className="hidden gap-4 lg:flex">
-            <Link to="/for-schools" className="text-foreground hover:underline">
-              For schools
-            </Link>
-            <Link to="/for-parents" className="text-foreground hover:underline">
-              For families
-            </Link>
-            <Link
-              to="/for-specialists"
-              className="text-foreground hover:underline"
-            >
-              For specialists
-            </Link>
-            <Link
-              to="/for-individuals"
-              className="text-foreground hover:underline"
-            >
-              For individuals
-            </Link>
-            <Link to="/pricing" className="text-foreground hover:underline">
-              Pricing
-            </Link>
-            <Link to="/features" className="text-foreground hover:underline">
-              Features
-            </Link>
-            <Link to="/about" className="text-foreground hover:underline">
-              About
-            </Link>
-          </nav>
-
-          <div className="ml-auto flex items-center gap-3">
-            {/* Padded to match the button beside it. As a bare link this was a
-                24px tap target — the bare minimum WCAG 2.2 allows, and small
-                for a thumb next to a 44px button it is meant to pair with. */}
-            <Link
-              to="/login"
-              className="rounded-btn px-3 py-2.5 font-semibold text-primary hover:underline"
-            >
-              Log in
-            </Link>
-            {/* NOT "Get started". /signup creates no account any more — it is
-                a signpost — so the old label promised something the next page
-                immediately takes away. Three identical buttons all saying it
-                was also the most templated thing on the page. */}
-            <Link
-              to="/enquiry"
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
-            >
-              Talk to us
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main id="main" tabIndex={-1} className="flex-1">
         {/* --- Hero ---------------------------------------------------------- */}
