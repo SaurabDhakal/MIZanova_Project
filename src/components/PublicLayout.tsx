@@ -52,6 +52,9 @@ export default function PublicLayout({
             <NavLink to="/for-parents" className={linkClass}>
               For families
             </NavLink>
+            <NavLink to="/for-individuals" className={linkClass}>
+              For individuals
+            </NavLink>
             <NavLink to="/for-specialists" className={linkClass}>
               For specialists
             </NavLink>

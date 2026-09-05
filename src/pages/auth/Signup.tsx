@@ -58,6 +58,23 @@ export default function Signup() {
    */
   const guardianCode = params.get("code");
 
+  /**
+   * db/088. Somebody who came to the website for themselves.
+   *
+   * The card at the bottom of the chooser used to say "ask your child's school
+   * office for a code" to everybody who had neither an invitation nor a code —
+   * which is the right answer for a parent and a dead end for an adult who is
+   * themselves neurodivergent. Joe's brief names them as a customer segment and
+   * they had nowhere to go.
+   *
+   * It is a query parameter rather than a picker on the form for the reason
+   * db/044 gives: the role travels in metadata the browser writes, so the
+   * database decides what may be claimed. `handle_new_user` accepts exactly
+   * two self-selected roles and turns everything else into `parent`. This flag
+   * changes which of those two is asked for, and can claim nothing else.
+   */
+  const asIndividual = params.get("as") === "individual";
+
   const invitation = useQuery({
     queryKey: ["invitation", inviteToken],
     queryFn: () => peekInvitation(inviteToken!),
@@ -172,7 +189,7 @@ export default function Signup() {
    * WHEN THE ACADEMY OPENS, buying a program becomes the fourth door and this
    * gains a fourth option. It does not go back to being an open form.
    */
-  if (!inviteToken && !guardianCode) {
+  if (!inviteToken && !guardianCode && !asIndividual) {
     return (
       <AuthLayout title="Join MiZanova">
         <p className="text-sm text-muted-foreground">
@@ -233,11 +250,36 @@ export default function Signup() {
           </Link>
         </div>
 
+        {/* THIS CARD USED TO BE THE DEAD END. It said "ask your child's
+            school office", which assumes a child and a school — and the person
+            reading it may have neither. An adult working on this for
+            themselves is a customer segment in the brief, and the product had
+            no door for them. */}
         <div className="mt-4 rounded-btn border border-border bg-background p-4">
-          <p className="font-semibold text-foreground">I have none of these</p>
+          <p className="font-semibold text-foreground">
+            I am here for myself
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ask your child&rsquo;s school office for a code, or ask them to
-            invite you if you work there. Only a school can do either, which is
+            No school, no code, nobody else involved. You get the Academy and
+            the Library &mdash; short courses and reading you work through at
+            your own pace. Nothing you do is reported to a school, because there
+            is no school.
+          </p>
+          <Link
+            to="/signup?as=individual"
+            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+          >
+            Create my account
+          </Link>
+        </div>
+
+        <div className="mt-4 rounded-btn border border-border bg-background p-4">
+          <p className="font-semibold text-foreground">
+            I have none of these and none of them fit
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            If you are a parent of a child at a school that uses MiZanova, ask
+            the office for a code &mdash; only they can issue one, and that is
             what keeps a child&rsquo;s record reachable by the right people.
           </p>
         </div>
@@ -310,9 +352,10 @@ export default function Signup() {
         {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          // Always 'parent'. db/044 ignores anything else, and for an
-          // invitation or a code the real role is set on redemption.
-          role: "parent",
+          /* One of the two roles db/089 will accept. Anything else it turns
+             into 'parent', and for an invitation or a code the real role is
+             set on redemption regardless of what is sent here. */
+          role: asIndividual ? "individual" : "parent",
         },
       );
 

@@ -16,7 +16,7 @@ import { existsSync } from 'node:fs'
 import express from 'express'
 import cors from 'cors'
 import { createClient } from '@supabase/supabase-js'
-import { buildAnonymousPayload } from './anonymise.js'
+import { buildAnonymousPayload, redact } from './anonymise.js'
 import { pushConfigured, sendToProfile, vapidPublicKey } from './push.js'
 import {
   ENQUIRIES_TO,
@@ -36,6 +36,8 @@ import {
   AnonymisationError,
   RefusalError,
   generateStrategies,
+  generateSelfStrategies,
+  SELF_PROMPT_VERSION,
 } from './claude.js'
 
 // 8887, not the conventional 8787 — see the note in vite.config.ts.
@@ -290,6 +292,43 @@ app.post(
       // A completed session that has not been paid: a delayed method still
       // clearing, or a failure. Not our business until it succeeds.
       return res.json({ received: true, unpaid: true })
+    }
+
+    /* ------------------------------------------------------------------
+     * A COURSE PURCHASE TAKES A DIFFERENT TABLE — db/092.
+     *
+     * Same event, same signature check, same idempotent shape. The metadata
+     * says which kind of thing was paid for, because a settled Stripe session
+     * cannot be asked what it was for without guessing.
+     * ------------------------------------------------------------------ */
+    if (session.metadata?.kind === 'course') {
+      const { data: recorded, error: courseError } = await admin.rpc(
+        'mark_course_purchase_paid',
+        {
+          p_session_id: session.id,
+          p_payment_intent_id:
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : null,
+        },
+      )
+
+      if (courseError) {
+        recordEvent(
+          'critical',
+          'billing',
+          'payment_unrecorded',
+          `Course purchase ${session.id} paid at Stripe but not recorded: ${courseError.message}`,
+        )
+        return res.status(500).send('Could not record payment.')
+      }
+
+      console.log(
+        recorded
+          ? `Course purchase recorded from webhook for ${session.id}`
+          : `Webhook for course purchase ${session.id} was already recorded`,
+      )
+      return res.json({ received: true, recorded })
     }
 
     const invoiceId = session.metadata?.invoiceId
@@ -689,6 +728,228 @@ app.post('/api/strategies', async (req, res) => {
     }
     console.error('Strategy generation failed:', err)
     return res.status(500).json({ error: 'Could not generate strategies.' })
+  }
+})
+
+/**
+ * POST /api/self-strategies  { text }
+ *
+ * Somebody asking about their own life — db/094.
+ *
+ * ---------------------------------------------------------------------------
+ * INDIVIDUALS ONLY, AND THIS IS A SECURITY CHECK RATHER THAN A TIDY ONE
+ * ---------------------------------------------------------------------------
+ * /api/strategies puts a child's behaviour through guardian consent, quota,
+ * anonymisation against the whole roster, and a specialist's review queue.
+ * This route has no consent to check and no specialist to route to, because
+ * the person writing is the person it is about.
+ *
+ * That makes it a bypass for anybody else. A teacher who typed "my student
+ * kicked a chair" here would get unreviewed suggestions about a child with no
+ * guardian consulted — the exact thing FR25 exists to prevent. So the role is
+ * checked, and it is checked from the PROFILE rather than the token's metadata,
+ * which a client controls at sign-up.
+ *
+ * Students are excluded for the same reason in reverse: a student has a school,
+ * and their school's safeguarding people are entitled to be in the loop.
+ */
+app.post('/api/self-strategies', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const text = String(req.body?.text ?? '').trim()
+  if (text.length < 20) {
+    return res.status(400).json({
+      error:
+        'Tell it a bit more about the situation — a sentence or two gives it something to work with.',
+    })
+  }
+  if (text.length > 2000) {
+    return res
+      .status(400)
+      .json({ error: 'That is longer than this can take. Try the essentials in a paragraph or two.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: me } = await admin
+      .from('profiles')
+      .select('id, role, first_name, last_name')
+      .eq('id', user.id)
+      .single()
+
+    if (me?.role !== 'individual') {
+      return res.status(403).json({
+        error:
+          'This is only for accounts that belong to no school. If you are asking about a student, use the behaviour log so consent and specialist review apply.',
+      })
+    }
+
+    // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
+    const { data: controls } = await admin
+      .from('ai_controls')
+      .select('ai_enabled, confidence_threshold')
+      .eq('id', true)
+      .single()
+
+    if (!controls?.ai_enabled) {
+      return res.status(503).json({
+        error: 'AI suggestions are switched off at the moment. The courses and reading still work.',
+      })
+    }
+
+    // --- Quota (db/026) ----------------------------------------------------
+    // A null school makes the per-school half of this vacuous, which is right:
+    // there is no school to share a budget with. The per-user limit still
+    // counts by `requested_by` and is the one that applies here.
+    const { data: quota } = await admin
+      .rpc('ai_quota_status', { p_school_id: null, p_actor_id: user.id })
+      .single()
+
+    if (quota && quota.user_used >= quota.user_limit) {
+      return res.status(429).json({
+        error: `You have used all ${quota.user_limit} suggestions available in the last 24 hours. Nothing else on your account is affected.`,
+      })
+    }
+
+    // --- Anonymise ---------------------------------------------------------
+    // Their own name, and the pattern rules that take emails, phone numbers
+    // and dates with them. Somebody writing "I'm Ada and I can't get started"
+    // has no reason to have sent us their name, so it does not travel.
+    const namesToRemove = [me.first_name, me.last_name].filter(Boolean)
+    const { text: redacted, redactions } = redact(text, namesToRemove, '[ME]')
+    const payload = { text: redacted, redactions }
+
+    // --- Generate ----------------------------------------------------------
+    const result = await generateSelfStrategies(payload, namesToRemove)
+
+    // --- Shown, or withheld for good ---------------------------------------
+    // No third option. db/094 explains why there is no review state: a
+    // `pending_review` row here waits on a specialist who does not exist.
+    const threshold = Number(controls.confidence_threshold ?? 0.7)
+    const shown = []
+    let withheldSafety = 0
+    let withheldConfidence = 0
+
+    for (const s of result.strategies) {
+      if (s.safetyConcern) withheldSafety++
+      else if (s.confidence < threshold) withheldConfidence++
+      else shown.push(s)
+    }
+
+    const withheldCount = withheldSafety + withheldConfidence
+    const withheldReason =
+      withheldCount === 0
+        ? null
+        : withheldSafety > 0 && withheldConfidence > 0
+          ? 'One needed somebody qualified involved to be safe, and another was too much of a guess to be worth your time.'
+          : withheldSafety > 0
+            ? 'It needed somebody qualified involved to be safe, and there is nobody attached to this account to check it.'
+            : 'It was too much of a guess to be worth your time.'
+
+    // Written with the service key: neither table has an insert policy, so a
+    // browser cannot invent a suggestion and read it back as the model's.
+    const { data: request, error: requestError } = await admin
+      .from('individual_ai_requests')
+      .insert({
+        profile_id: user.id,
+        asked: redacted,
+        redaction_count: redactions,
+        risk_flagged: result.riskFlag,
+        withheld_count: withheldCount,
+        withheld_reason: withheldReason,
+        model: result.model,
+        prompt_version: SELF_PROMPT_VERSION,
+      })
+      .select('id, created_at, risk_flagged, withheld_count, withheld_reason, asked')
+      .single()
+
+    if (requestError) return res.status(500).json({ error: requestError.message })
+
+    let inserted = []
+    if (shown.length > 0) {
+      const { data, error: insertError } = await admin
+        .from('individual_ai_suggestions')
+        .insert(
+          shown.map((s) => ({
+            request_id: request.id,
+            title: s.title,
+            body: s.body,
+            rationale: s.rationale,
+            confidence: s.confidence,
+          })),
+        )
+        .select('id, title, body, rationale, confidence')
+
+      if (insertError) return res.status(500).json({ error: insertError.message })
+      inserted = data ?? []
+    }
+
+    /*
+     * Record the request — db/026, and the same reasoning as /api/strategies:
+     * after the model answered, because this counts what cost money, and never
+     * allowed to fail the response. school_id is null and behaviour_log_id is
+     * null; both columns are nullable and this is the case they are nullable
+     * for.
+     */
+    void admin
+      .from('ai_generation_events')
+      .insert({
+        school_id: null,
+        requested_by: user.id,
+        behaviour_log_id: null,
+        strategies_returned: inserted.length,
+        model: result.model,
+      })
+      .then(({ error: usageError }) => {
+        if (usageError) console.error('Usage not recorded:', usageError.message)
+      })
+
+    /*
+     * NOBODY IS NOTIFIED ON A RISK FLAG, and db/094 argues that at length.
+     * The school flow tells the safeguarding leads because the subject is a
+     * child. Here the subject is an adult who was promised that nothing they
+     * do on these pages is reported to anybody, and the screen answers a flag
+     * by showing them where to find human help rather than by filing a report
+     * about them.
+     */
+
+    return res.json({
+      requestId: request.id,
+      suggestions: inserted,
+      withheldCount,
+      withheldReason,
+      riskFlagged: result.riskFlag,
+      redactions,
+    })
+  } catch (err) {
+    if (err instanceof AnonymisationError) {
+      recordEvent('critical', 'ai', 'anonymisation_blocked', err.message)
+      return res.status(500).json({
+        error:
+          'Blocked: the check that strips personal details found something it could not remove, so nothing was sent.',
+      })
+    }
+    if (err instanceof RefusalError) {
+      return res.status(422).json({ error: err.message })
+    }
+    if (err?.status === 429) {
+      return res.status(429).json({ error: 'The AI is busy right now. Try again shortly.' })
+    }
+    if (err?.status === 401) {
+      console.error('Anthropic rejected the API key.')
+      return res.status(500).json({ error: 'The AI service is not configured correctly.' })
+    }
+    console.error('Self-strategy generation failed:', err)
+    return res.status(500).json({ error: 'Could not generate suggestions.' })
   }
 })
 
@@ -1169,6 +1430,191 @@ app.post('/api/billing/checkout', async (req, res) => {
  * and the second is a no-op. That is the point of `mark_invoice_paid`
  * returning false rather than erroring on an already-paid invoice.
  */
+/**
+ * POST /api/billing/course-checkout  { courseId }
+ *
+ * Buying a course as an individual — db/092. Joe's brief lists individual
+ * program enrolments as a revenue stream, and until this existed the only
+ * money in MiZanova moved between a school and somebody else.
+ *
+ * THE PRICE COMES FROM THE DATABASE, for the same reason db/020 gives about
+ * invoices: if it travelled from the browser, a $49 course could be bought for
+ * a dollar by editing one number, and the payment would be genuine so nothing
+ * downstream would notice.
+ *
+ * THE PENDING ROW IS WRITTEN BEFORE STRIPE IS CALLED, with the service role,
+ * because `course_purchases` has no insert policy at all — a browser that could
+ * write one could enrol itself in anything. It carries the session id so the
+ * webhook can find it again with nothing but what Stripe sends back.
+ */
+app.post('/api/billing/course-checkout', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { courseId } = req.body ?? {}
+  if (!courseId) return res.status(400).json({ error: 'courseId is required.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) {
+      return res.status(503).json({
+        error:
+          'Payments are not configured on this server. STRIPE_SECRET_KEY is missing from .env.local.',
+      })
+    }
+
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    /* RLS decides whether this person may even see the course: published, and
+       their role among its audiences. A course they cannot read cannot be
+       bought, which is one fewer thing for this route to check itself. */
+    const { data: course, error: courseError } = await userClient
+      .from('courses')
+      .select('id, title, price_cents, currency, is_published')
+      .eq('id', courseId)
+      .maybeSingle()
+
+    if (courseError) return res.status(500).json({ error: courseError.message })
+    if (!course) return res.status(404).json({ error: 'Course not found.' })
+    if (course.price_cents === null) {
+      return res
+        .status(409)
+        .json({ error: 'This course is free — just start it.' })
+    }
+
+    const { data: already } = await userClient
+      .from('course_purchases')
+      .select('id')
+      .eq('course_id', course.id)
+      .eq('status', 'paid')
+      .maybeSingle()
+
+    if (already) {
+      return res.status(409).json({ error: 'You have already bought this one.' })
+    }
+
+    const { data: purchase, error: purchaseError } = await admin
+      .from('course_purchases')
+      .insert({
+        course_id: course.id,
+        profile_id: user.id,
+        amount_cents: course.price_cents,
+        currency: course.currency,
+        status: 'pending',
+      })
+      .select('id')
+      .single()
+
+    if (purchaseError) {
+      return res.status(500).json({ error: purchaseError.message })
+    }
+
+    /* Where to send them back to. Read from their profile rather than from the
+       request: the return path is not a security boundary, but a browser that
+       chose it could land somebody on a screen their role cannot open, which
+       looks exactly like a failed payment. */
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    const base = profile?.role === 'individual' ? '/individual/academy' : '/parent/academy'
+
+    const origin = returnOrigin(req)
+
+    /* THE ROW IS WRITTEN BEFORE STRIPE AND REMOVED IF STRIPE REFUSES.
+     *
+     * This order is deliberate: creating the session first and the row second
+     * means a failure between them leaves somebody able to pay for a purchase
+     * that was never recorded, which is the expensive mistake. This way the
+     * failure leaves an unpaid row with no session id — inert, since only
+     * 'paid' grants anything — and the catch below removes even that. */
+    let session
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: course.currency,
+              unit_amount: course.price_cents,
+              product_data: { name: course.title },
+            },
+          },
+        ],
+        metadata: { kind: 'course', purchaseId: purchase.id },
+        success_url: `${origin}${base}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}${base}?cancelled=1`,
+      })
+    } catch (stripeError) {
+      await admin.from('course_purchases').delete().eq('id', purchase.id)
+      throw stripeError
+    }
+
+    await admin
+      .from('course_purchases')
+      .update({ stripe_session_id: session.id })
+      .eq('id', purchase.id)
+
+    return res.json({ url: session.url })
+  } catch (err) {
+    console.error('Course checkout failed:', err)
+    return res.status(500).json({ error: 'Could not start the payment.' })
+  }
+})
+
+/**
+ * POST /api/billing/course-confirm  { sessionId }
+ *
+ * The fast path, exactly as `/api/billing/confirm` is for invoices: the webhook
+ * is the reliable one and does not care what the browser did, but somebody who
+ * has just paid should see it immediately rather than whenever Stripe's
+ * notification lands. Both call the same idempotent function.
+ *
+ * The browser is not believed about payment at any point — it hands over a
+ * session id and this server asks Stripe what happened to it.
+ */
+app.post('/api/billing/course-confirm', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { sessionId } = req.body ?? {}
+  if (!sessionId) return res.status(400).json({ error: 'sessionId is required.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) return res.status(503).json({ error: 'Payments are not configured.' })
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.metadata?.kind !== 'course') {
+      return res.status(400).json({ error: 'That is not a course payment.' })
+    }
+    if (session.payment_status !== 'paid') {
+      return res.json({ paid: false })
+    }
+
+    const { error } = await admin.rpc('mark_course_purchase_paid', {
+      p_session_id: session.id,
+      p_payment_intent_id:
+        typeof session.payment_intent === 'string' ? session.payment_intent : null,
+    })
+    if (error) return res.status(500).json({ error: 'Could not record payment.' })
+
+    return res.json({ paid: true })
+  } catch (err) {
+    console.error('Course confirm failed:', err)
+    return res.status(500).json({ error: 'Could not confirm the payment.' })
+  }
+})
+
 app.post('/api/billing/confirm', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })

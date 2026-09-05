@@ -50,6 +50,7 @@ const COLUMNS: { heading: string; links: { label: string; to: string }[] }[] = [
     links: [
       { label: 'For schools', to: '/for-schools' },
       { label: 'For families', to: '/for-parents' },
+      { label: 'For individuals', to: '/for-individuals' },
       { label: 'For specialists', to: '/for-specialists' },
     ],
   },

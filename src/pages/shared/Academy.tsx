@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   completeModule,
   enrolInCourse,
   fetchCourses,
+  buyCourse,
+  confirmCoursePurchase,
+  fetchMyPurchases,
+  formatMoney,
   fetchMyCompletions,
   fetchMyEnrolments,
   queryKeys,
@@ -64,6 +69,65 @@ export default function Academy() {
   const completions = useQuery({
     queryKey: queryKeys.myCompletions,
     queryFn: fetchMyCompletions,
+  })
+  const purchases = useQuery({
+    queryKey: queryKeys.myPurchases,
+    queryFn: fetchMyPurchases,
+  })
+
+  /*
+   * COMING BACK FROM STRIPE — db/092.
+   *
+   * The webhook is what actually settles a purchase and it does not care what
+   * this browser does. This asks anyway, because somebody who has just paid
+   * should see it now rather than whenever Stripe's notification lands, and
+   * both paths call the same idempotent function so whichever arrives first
+   * wins.
+   *
+   * The parameter is cleared either way, so a refresh does not re-run it and a
+   * bookmarked URL does not confuse anybody a week later.
+   */
+  const [params, setParams] = useSearchParams()
+  const returnedSession = params.get('session_id')
+
+  useEffect(() => {
+    if (!returnedSession) return
+    let active = true
+    void (async () => {
+      try {
+        const paid = await confirmCoursePurchase(returnedSession)
+        if (!active) return
+        if (paid) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.myPurchases })
+          showToast('Paid. It is yours — start it whenever suits.')
+        } else {
+          showToast('That payment has not come through yet.', 'error')
+        }
+      } catch (err) {
+        if (active) {
+          showToast(err instanceof Error ? err.message : 'Could not check that payment.', 'error')
+        }
+      } finally {
+        if (active) {
+          const next = new URLSearchParams(params)
+          next.delete('session_id')
+          setParams(next, { replace: true })
+        }
+      }
+    })()
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnedSession])
+
+  const buy = useMutation({
+    mutationFn: buyCourse,
+    onSuccess: (url) => {
+      /* Stripe's own page. Nothing about a card ever touches MiZanova. */
+      window.location.href = url
+    },
+    onError: (e) => showToast(e.message, 'error'),
   })
 
   const enrol = useMutation({
@@ -137,6 +201,15 @@ export default function Academy() {
               done,
             )
             const isOpen = open === course.id
+            /* A priced course you have not bought. `purchases` failing is
+               treated as "not paid": the worst case is offering the till to
+               somebody who already paid, and the enrolment policy refuses the
+               alternative anyway — so this cannot let anybody in for free. */
+            const needsPaying =
+              course.price_cents !== null &&
+              !(purchases.data ?? []).some(
+                (b) => b.course_id === course.id && b.status === 'paid',
+              )
 
             return (
               <li
@@ -182,6 +255,22 @@ export default function Academy() {
                         className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
                       >
                         Try again
+                      </button>
+                    ) : !enrolment && needsPaying ? (
+                      /* PRICED, AND NOT PAID FOR — db/092. The enrolment policy
+                         refuses this without a paid purchase, so the button is
+                         not the paywall; it is the way to reach the till. */
+                      <button
+                        type="button"
+                        disabled={buy.isPending || total === 0}
+                        onClick={() => buy.mutate(course.id)}
+                        className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                      >
+                        {total === 0
+                          ? 'Not ready yet'
+                          : buy.isPending
+                            ? 'Taking you to pay…'
+                            : `Buy for ${formatMoney(course.price_cents ?? 0, course.currency)}`}
                       </button>
                     ) : !enrolment ? (
                       <button

@@ -14,6 +14,7 @@ import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 import { ErrorState } from '../../components/QueryState'
 import Spinner from '../../components/Spinner'
 import FormField from '../../components/FormField'
+import NotBuiltYet from '../../components/NotBuiltYet'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -35,7 +36,7 @@ import { showToast } from '../../lib/toast'
  * The note at the bottom says what is missing rather than pretending.
  */
 export default function Security() {
-  const { profile, changePassword: changePasswordFn } = useAuth()
+  const { session, profile, changePassword: changePasswordFn } = useAuth()
   const queryClient = useQueryClient()
 
   const [enrolment, setEnrolment] = useState<EnrolmentStart | null>(null)
@@ -47,12 +48,16 @@ export default function Security() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
+  /* Both keyed on the person. They share the key shape with AuthProvider, so
+     enrolling here still lifts the requirement there without either component
+     knowing about the other — invalidateQueries matches by prefix, so the
+     calls below need no change. */
   const factors = useQuery({
-    queryKey: ['mfa-factors'],
+    queryKey: ['mfa-factors', session?.user.id ?? null],
     queryFn: listTotpFactors,
   })
   const remaining = useQuery({
-    queryKey: ['recovery-codes-remaining'],
+    queryKey: ['recovery-codes-remaining', session?.user.id ?? null],
     queryFn: recoveryCodesRemaining,
   })
 
@@ -452,9 +457,8 @@ export default function Security() {
       </section>
 
       {/* --- What this page does not do ------------------------------------- */}
-      <section className="mt-6 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Not built yet</h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+      <NotBuiltYet>
+        <p>
           The design for this screen also shows SMS codes, a 20-minute
           auto-lock, re-verification before sensitive actions, alerts on
           sign-in from a new device, a list of active sessions, and a sign-in
@@ -463,7 +467,7 @@ export default function Security() {
           worse than an admission on a page about whether your account is
           protected.
         </p>
-      </section>
+      </NotBuiltYet>
     </div>
   )
 }

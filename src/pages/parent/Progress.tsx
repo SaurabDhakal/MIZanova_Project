@@ -14,15 +14,26 @@ import { observationCategoryStyle } from '../../lib/observationCategories'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SessionsSection from '../../components/SessionsSection'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Progress Highlights - docs/Figma Pages Design/Parent Progress Highlights.png.
  *
  * The design shows skill percentages against IEP goals, and a list of recent
  * breakthroughs. Both are built here from data that already exists: skill
- * progress is the goals grouped by category with the percentage the database
- * computes from ticked milestones, and highlights are milestones that were
- * actually completed plus what the family themselves wrote.
+ * progress is the goals grouped by category with `progress_percent`, and
+ * highlights are milestones that were actually completed plus what the family
+ * themselves wrote.
+ *
+ * THAT PERCENTAGE HAS TWO DIFFERENT MEANINGS, and this screen used to state
+ * only one of them. db/008 maintains it by trigger when a goal has milestones
+ * — done over total — and leaves it to be typed by hand when it has none. The
+ * schema says so in as many words. This page told families it came "from the
+ * steps your child's teachers have ticked off" either way, and at the time of
+ * writing 56 of the 57 goals in the product had no milestones at all. So on the
+ * screen a parent uses to judge how their child is going, a teacher's estimate
+ * was being presented as a count. The copy now follows the branch it already
+ * had to make.
  *
  * TWO THINGS FROM THE DESIGN ARE DELIBERATELY ABSENT.
  *
@@ -164,7 +175,7 @@ export default function ParentProgress() {
         <p className="text-sm font-semibold tracking-wide uppercase">
           MiZanova — progress report
         </p>
-        <h1 className="mt-1 text-2xl font-bold">{child.display_name}</h1>
+        <h1 className="mt-1 text-2xl font-bold">{fullName(child)}</h1>
         <p className="mt-1 text-sm">
           Printed {new Date().toLocaleDateString('en-AU', {
             day: 'numeric',
@@ -180,7 +191,7 @@ export default function ParentProgress() {
             Progress highlights
           </h1>
           <p className="mt-1 text-muted-foreground">
-            How {child.display_name} is tracking against the goals the school has
+            How {fullName(child)} is tracking against the goals the school has
             set, and what has gone well recently.
           </p>
         </div>
@@ -263,7 +274,7 @@ export default function ParentProgress() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {goal.goal_milestones.length > 0
                           ? `${done} of ${goal.goal_milestones.length} steps complete`
-                          : 'No steps recorded yet'}
+                          : 'Set by the teacher · no steps recorded yet'}
                         {goal.target_date &&
                           ` · target ${new Date(goal.target_date).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`}
                       </p>
@@ -277,8 +288,10 @@ export default function ParentProgress() {
       )}
 
       <p className="mt-3 text-sm text-muted-foreground">
-        Percentages come from the steps your child&rsquo;s teachers have ticked
-        off — the same figures they see.{' '}
+        Where a goal has steps, the percentage is how many have been ticked
+        off — the same figure the teacher sees. Where it has none, it is the
+        teacher&rsquo;s own assessment of how it is going, not a count of
+        anything.{' '}
         <Link
           to="/parent/goals"
           className="font-medium text-primary hover:underline"

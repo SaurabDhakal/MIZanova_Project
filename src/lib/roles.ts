@@ -26,6 +26,9 @@ export const ROLES = [
   // db/074. Last, because it is the newest and because order here decides the
   // order things are listed in wherever roles are enumerated.
   'student',
+  // db/088. Somebody who belongs to no school at all — the brief's "Families
+  // and individuals" segment, which until now had nowhere to exist.
+  'individual',
 ] as const
 
 /** A union type: 'educator' | 'parent' | … TypeScript will now reject typos. */
@@ -55,7 +58,7 @@ export type Role = (typeof ROLES)[number]
  * `handle_new_user` in db/044, because the role arrives in metadata written by
  * the browser and a shorter list here changes nothing about what can be sent.
  */
-export const SELF_SIGNUP_ROLES = ['parent'] as const
+export const SELF_SIGNUP_ROLES = ['parent', 'individual'] as const
 export type SelfSignupRole = (typeof SELF_SIGNUP_ROLES)[number]
 
 /**
@@ -73,6 +76,22 @@ export const MFA_REQUIRED_ROLES: Role[] = [
   'school_admin',
   'platform_admin',
 ]
+
+/**
+ * "a" or "an", for a role label read aloud.
+ *
+ * The first screen an invited person ever sees said "You have been invited to
+ * join Parramatta West Primary School as a Educator." Educator is the only
+ * label here that begins with a vowel, which is exactly why it survived: five
+ * of the six roles read correctly and the sixth was never the one anybody
+ * tested with.
+ *
+ * On the letter, not a dictionary. Every label this is used with is an
+ * ordinary word, and no role is ever going to be a "unicorn" or an "hour".
+ */
+export function article(label: string): string {
+  return /^[aeiou]/i.test(label) ? 'an' : 'a'
+}
 
 /** Where someone with this role lands after signing in. */
 export function pathForRole(role: Role): string {
@@ -170,6 +189,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     basePath: '/parent',
     nav: [
       { path: '', label: 'Home', icon: 'home', milestone: 'M7' },
+      // First in the group on purpose: it answers who your child IS and who can
+      // see them, which is the frame for everything under it.
+      { path: 'about', label: 'About your child', icon: 'students', group: 'Your child', milestone: 'M7' },
       { path: 'progress', label: 'Progress Highlights', icon: 'progress', group: 'Your child', milestone: 'M7' },
       { path: 'goals', label: 'Goals & IEP', icon: 'goals', group: 'Your child', milestone: 'M8' },
       { path: 'observations', label: 'Home Observations', icon: 'observations', group: 'Your child', milestone: 'M7' },
@@ -282,6 +304,30 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // rather than another window onto records ABOUT them.
       { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
       { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
+    ],
+  },
+
+  /*
+   * db/088. Somebody who came to the website themselves.
+   *
+   * NOT A SMALLER PARENT. A parent's screens are about a child at a school —
+   * their day, their goals, the staff who can see their record. An individual
+   * has none of that and wants the opposite: material addressed to them.
+   *
+   * Three screens, because three are all that currently exist for somebody
+   * with no school. Bookings and paying Special Miles directly both run
+   * through a student record today, so neither is here yet, and a nav item
+   * leading to an empty page would promise otherwise.
+   */
+  individual: {
+    label: 'Individual',
+    summary: 'Somebody working on this for themselves, with no school involved.',
+    basePath: '/individual',
+    nav: [
+      { path: '', label: 'Home', icon: 'home', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
+      { path: 'suggestions', label: 'Suggestions', icon: 'ai', milestone: 'M15' },
     ],
   },
 }

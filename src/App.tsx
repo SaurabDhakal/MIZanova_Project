@@ -47,6 +47,7 @@ const Enquiry = lazy(() => import('./pages/Enquiry'))
 const ApplyAsSpecialist = lazy(() => import('./pages/ApplyAsSpecialist'))
 const ForSchools = lazy(() => import('./pages/public/ForSchools'))
 const ForParents = lazy(() => import('./pages/public/ForParents'))
+const ForIndividuals = lazy(() => import('./pages/public/ForIndividuals'))
 const About = lazy(() => import('./pages/public/About'))
 const Features = lazy(() => import('./pages/public/Features'))
 const PublicSecurity = lazy(() => import('./pages/public/Security'))
@@ -87,6 +88,12 @@ const AccountSchool = lazy(() => import('./pages/account/School'))
 const ParentDashboard = lazy(() => import('./pages/parent/Dashboard'))
 const HomeObservations = lazy(() => import('./pages/parent/HomeObservations'))
 const ParentAppointments = lazy(() => import('./pages/parent/Appointments'))
+const AboutChild = lazy(() => import('./pages/parent/AboutChild'))
+// --- db/088: somebody who belongs to no school ---
+const IndividualHome = lazy(() => import('./pages/individual/Dashboard'))
+const IndividualSuggestions = lazy(
+  () => import('./pages/individual/Suggestions'),
+)
 const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
 const ParentMessages = lazy(() => import('./pages/parent/Messages'))
 const ParentProgress = lazy(() => import('./pages/parent/Progress'))
@@ -165,6 +172,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
 
   // --- Saurab: parent: and platform_admin: ---
   'parent:': <ParentDashboard />,
+  'parent:about': <AboutChild />,
   'parent:observations': <HomeObservations />,
   'parent:appointments': <ParentAppointments />,
   'parent:goals': <GoalsAndIep />,
@@ -239,6 +247,16 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'specialist:schedule': <SpecialistSchedule />,
   'specialist:resources': <Resources />,
   'parent:resources': <Resources />,
+
+  // --- db/088: the individual. The Academy and Library are the SAME
+  // components every other role uses — both have always been audience-driven,
+  // so the role needed no new page for either. Suggestions is its own screen
+  // because the school version routes through consent and a specialist queue
+  // that do not exist here — db/094. ---
+  'individual:': <IndividualHome />,
+  'individual:academy': <Academy />,
+  'individual:library': <Library />,
+  'individual:suggestions': <IndividualSuggestions />,
 }
 
 /**
@@ -346,6 +364,14 @@ export default function App() {
           element={
             <Suspense fallback={<Spinner label="Loading" />}>
               <ForParents />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/for-individuals"
+          element={
+            <Suspense fallback={<Spinner label="Loading" />}>
+              <ForIndividuals />
             </Suspense>
           }
         />

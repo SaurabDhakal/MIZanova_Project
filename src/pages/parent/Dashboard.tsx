@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchAppointmentsForChild,
@@ -12,6 +13,7 @@ import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
 
 /**
@@ -20,12 +22,21 @@ import NoChildYet from '../../components/NoChildYet'
  * Mobile-first (NFR3): a parent reads this on a phone, often standing up.
  * Single column by default, widening on larger screens.
  *
- * The child is referred to by `display_name` throughout. For a parent's OWN
- * child that is a design choice rather than a protection — they obviously know
- * their child's surname. The protection is Row-Level Security, which means a
- * parent never receives a row about anyone else's child in the first place.
- * Using the short form here keeps the two consistent and means a screenshot of
- * this page, shared in a group chat, carries no surname.
+ * The child is named in full here, which REVERSES what this comment used to
+ * describe. It said the short form "Ethan M." was a design choice rather than a
+ * protection — the protection being Row-Level Security, which never sends a
+ * parent a row about anyone else's child — and that was right. Saurab's call on
+ * 4 September 2026 was that a parent should read their own child's name.
+ *
+ * ONE THING WAS TRADED AWAY AND IS WORTH REMEMBERING. The old comment gave a
+ * second reason for the short form: a screenshot of this page, shared in a group
+ * chat, carried no surname. That is now false. It is a real cost, it was a
+ * deliberate choice to accept it, and it is recorded here rather than lost —
+ * because the next person to find a surname in a shared screenshot should find
+ * this paragraph rather than a bug report.
+ *
+ * `fullName()` is used only on parent screens. Staff screens keep display_name:
+ * a roster is many families at once, which is the case it exists for.
  */
 
 const TYPE_LABEL: Record<BehaviourType, string> = {
@@ -48,10 +59,19 @@ function relativeDay(iso: string): string {
   return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
 }
 
+/* Updates drawn before "See more". Enough to be a week of school, few enough
+   that a phone screen still reaches what is under them. */
+const SHARED_SHOWN = 5
+
 export default function ParentDashboard() {
   const { profile } = useAuth()
   const { children, child, selectChild, isPending, isError, error } =
     useSelectedChild()
+
+  /* Declared with the other hooks, above the early returns below — a hook after
+     a conditional return runs in a different order on the render where the
+     return fires. */
+  const [showAllShared, setShowAllShared] = useState(false)
 
   const logs = useQuery({
     queryKey: queryKeys.sharedLogs(child?.id ?? ''),
@@ -95,6 +115,21 @@ export default function ParentDashboard() {
   const shared = logs.data ?? []
 
   /*
+   * A RECENT WINDOW, BECAUSE THIS IS A PHONE SCREEN.
+   *
+   * `fetchSharedLogs` has no limit and this list had no slice, so a family a
+   * year into the product opened their home screen to every update a teacher
+   * had ever shared — on the one screen whose own note says "a parent reads
+   * this on a phone, often standing up".
+   *
+   * There is nowhere else to send them: no parent screen lists shared updates
+   * in full, so the rest expand here rather than living behind a link that
+   * does not exist.
+   */
+  const visibleShared = showAllShared ? shared : shared.slice(0, SHARED_SHOWN)
+  const hiddenShared = shared.length - visibleShared.length
+
+  /*
    * "Now" comes from the fetch rather than from render — `Date.now()` here is
    * impure, and a value frozen at mount leaves a page open overnight still
    * calling yesterday's session upcoming.
@@ -115,7 +150,7 @@ export default function ParentDashboard() {
           Welcome back{profile?.first_name ? `, ${profile.first_name}` : ''} 👋
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Here is the latest on {child.display_name}.
+          Here is the latest on {withFullStop(fullName(child))}
         </p>
       </header>
 
@@ -331,7 +366,7 @@ export default function ParentDashboard() {
 
       {shared.length > 0 && (
         <ul className="space-y-3">
-          {shared.map((log) => (
+          {visibleShared.map((log) => (
             <li
               key={log.id}
               className="rounded-card border border-border bg-card shadow-raised p-4"
@@ -353,6 +388,26 @@ export default function ParentDashboard() {
             </li>
           ))}
         </ul>
+      )}
+
+      {hiddenShared > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAllShared(true)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+        >
+          See {hiddenShared} earlier update{hiddenShared === 1 ? '' : 's'}
+        </button>
+      )}
+
+      {showAllShared && shared.length > SHARED_SHOWN && (
+        <button
+          type="button"
+          onClick={() => setShowAllShared(false)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+        >
+          Show fewer
+        </button>
       )}
     </div>
   )

@@ -14,6 +14,7 @@ import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
+import { fullName } from '../../lib/displayName'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-AU', {
@@ -122,7 +123,7 @@ export default function Privacy() {
           Privacy &amp; Consent
         </h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
-          What you have agreed to for {child.display_name}, and how to change
+          What you have agreed to for {fullName(child)}, and how to change
           it. You can withdraw any of these at any time.
         </p>
       </header>

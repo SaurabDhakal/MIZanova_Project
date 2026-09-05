@@ -141,14 +141,37 @@ describe('and no more than that', () => {
     expect([...actual].sort()).toEqual([...expected].sort())
   })
 
-  test('one parent still cannot see another', async () => {
+  /*
+   * REWRITTEN FOR db/085, AND IT ASSERTS MORE THAN IT USED TO.
+   *
+   * This read "one parent still cannot see another" and expected a family to
+   * see nobody but themselves, which was true when no policy said otherwise.
+   * db/085 added one: a guardian may read the profile of another guardian OF
+   * THE SAME CHILD, so that "About your child" can name everybody who can open
+   * the record instead of counting them.
+   *
+   * `unattached` is a second guardian of ChildA, so guardianOfA must now see
+   * them — that is the feature. guardianOfB is a guardian of ChildB and must
+   * still be invisible, which is the part worth testing: the difference
+   * between "a parent may see co-guardians" and "a parent may see parents" is
+   * the whole of the rule, and only the second half is a leak.
+   */
+  test('a parent sees co-guardians of their own child, and no other parent', async () => {
     const { data } = await world.guardianOfA.db
       .from('profiles')
       .select('id')
       .eq('role', 'parent')
 
-    // Only themselves, through profiles_select_own.
-    expect((data ?? []).map((p) => p.id)).toEqual([world.guardianOfA.id])
+    const visible = new Set((data ?? []).map((p) => p.id))
+
+    // Themselves, through profiles_select_own.
+    expect(visible.has(world.guardianOfA.id)).toBe(true)
+    // The other guardian of ChildA, through db/085.
+    expect(visible.has(unattached.id)).toBe(true)
+    // A guardian of a different child. Nothing links them, and nothing should.
+    expect(visible.has(world.guardianOfB.id)).toBe(false)
+    // And nobody else at all.
+    expect(visible.size).toBe(2)
   })
 })
 

@@ -151,8 +151,6 @@ function GoalCard({ goal }: { goal: StudentGoal }) {
         </span>
       </div>
 
-      <p className="mt-1 text-sm text-muted-foreground">{goal.description}</p>
-
       {steps.length > 0 && (
         <div className="mt-3">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">

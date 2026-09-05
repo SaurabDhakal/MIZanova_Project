@@ -408,6 +408,32 @@ select:not([aria-invalid='true']) {
   text-decoration: line-through;
 }
 
+/* GOAL TARGET DATES — the educator's schedule, which draws dates rather than
+   bookings. The same three-tier reading as the list underneath it, so a colour
+   means one thing on the page: red is late, amber is close, blue is ahead.
+   Measured the same way the appointment fills above were, against a white cell
+   and against the today column, because a goal that vanishes on the day it
+   falls due is the one that most needed to be seen. */
+.mizanova-calendar .fc-appointment--overdue {
+  background-color: var(--color-danger-strong);
+  border-color: var(--color-danger-strong);
+  color: var(--color-primary-foreground);
+}
+
+/* -foreground, not -warning: white on #f59e0b is 2.15:1 and unreadable. This
+   darker amber carries white at 7.16:1 and sits on a cell at 7.16:1. */
+.mizanova-calendar .fc-appointment--soon {
+  background-color: var(--color-warning-foreground);
+  border-color: var(--color-warning-foreground);
+  color: var(--color-primary-foreground);
+}
+
+.mizanova-calendar .fc-appointment--later {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
 /* Somebody else's booking. Dashed rather than faded — a colleague's
    appointment is not less real, it is differently owned, and reducing opacity
    would say "less important" while also hurting contrast. */

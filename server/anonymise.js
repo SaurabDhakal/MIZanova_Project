@@ -56,9 +56,13 @@ const patterns = () => ({
  * @param {string} text  the teacher's observation notes
  * @param {string[]} names  every name that must not survive: the student's own
  *   first and last name, all other students at the school, staff names
+ * @param {string} placeholder  what a matched name becomes. Defaults to the
+ *   school wording; db/094 passes [ME], because an adult writing about their
+ *   own life reading "so [STUDENT] can settle" is being told the product has
+ *   mistaken them for a child.
  * @returns {{ text: string, redactions: number }}
  */
-export function redact(text, names = []) {
+export function redact(text, names = [], placeholder = '[STUDENT]') {
   if (!text) return { text: '', redactions: 0 }
 
   let out = text
@@ -90,7 +94,7 @@ export function redact(text, names = []) {
     .sort((a, b) => b.length - a.length)
 
   for (const name of sorted) {
-    countReplace(nameMatcher(name), '[STUDENT]')
+    countReplace(nameMatcher(name), placeholder)
   }
 
   return { text: out, redactions }

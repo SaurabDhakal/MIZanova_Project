@@ -41,7 +41,12 @@ export default function EducatorMessages() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Messages</h1>
         <p className="mt-1 text-muted-foreground">
-          Conversations with families about the students you support.
+          {/* "and staff", because they are already in this list. A teacher's
+              inbox here carries threads with the school administrator, the
+              specialist on a child's caseload and other educators — the two
+              other roles with this screen both say so, and only this one
+              claimed it was families alone. */}
+          Conversations with families and staff about the students you support.
         </p>
         <EducatorSchoolContext />
       </header>

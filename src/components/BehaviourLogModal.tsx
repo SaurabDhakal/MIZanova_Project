@@ -8,6 +8,7 @@ import {
 } from '../lib/api'
 import { saveBehaviourLog } from '../lib/offlineQueue'
 import { showToast } from '../lib/toast'
+import { withFullStop } from '../lib/displayName'
 import { useAuth } from '../lib/auth'
 import Icon from './Icon'
 import { type IconName } from '../lib/icons'
@@ -186,7 +187,7 @@ export default function BehaviourLogModal({
       // The modal closes on success, so without this the whole interaction
       // ends in silence and the teacher has to go looking for the log to
       // believe it worked.
-      showToast(`Log saved for ${student.display_name}.`)
+      showToast(`Log saved for ${withFullStop(student.display_name)}`)
       close()
     },
   })

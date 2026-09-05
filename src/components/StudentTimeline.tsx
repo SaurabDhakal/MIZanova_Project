@@ -42,6 +42,11 @@ import EditBehaviourLogDialog from './EditBehaviourLogDialog'
  * never says "not flagged" about a parent's note.
  */
 
+/* How many entries are drawn before "See more". Small enough that whatever
+   sits below the timeline stays reachable, large enough to be a day or two of
+   activity rather than a teaser. */
+const INITIAL_ROWS = 5
+
 const KINDS: TimelineKind[] = [
   'behaviour',
   'home',
@@ -298,6 +303,7 @@ function Entry({
 export default function StudentTimeline({ studentId }: { studentId: string }) {
   const [kinds, setKinds] = useState<TimelineKind[]>([])
   const [page, setPage] = useState(0)
+  const [showAll, setShowAll] = useState(false)
   const queryClient = useQueryClient()
 
   const timeline = useQuery({
@@ -341,10 +347,25 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
   const rows = timeline.data?.rows ?? []
   const filtered = kinds.length > 0
 
+  /*
+   * A RECENT WINDOW, NOT THE WHOLE PAGE.
+   *
+   * The query already pages at 20, and 20 entries — several of them expandable
+   * into strategies — is still long enough to push everything below the
+   * timeline off the screen. On a child with a full page, "Working towards"
+   * started at 6,594px: nine and a half screens down.
+   *
+   * So the page is fetched as before and the first few are drawn, with the
+   * rest one press away. Newer/Older still move between pages; this only
+   * decides how much of the current one is on screen at once.
+   */
+  const visible = showAll ? rows : rows.slice(0, INITIAL_ROWS)
+  const hidden = rows.length - visible.length
+
   /* Group by day so the reader sees "Friday" once rather than on every row —
      the thing a stack of separate sections could never do. */
   const days: { label: string; rows: TimelineRow[] }[] = []
-  for (const row of rows) {
+  for (const row of visible) {
     const label = dayLabel(row.occurred_at)
     const last = days[days.length - 1]
     if (last && last.label === label) last.rows.push(row)
@@ -452,6 +473,28 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
           </ul>
         </div>
       ))}
+
+      {/* Says how many are hidden rather than just "more", because the useful
+          question at the bottom of a timeline is whether it is worth opening. */}
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+        >
+          See {hidden} more on this page
+        </button>
+      )}
+
+      {showAll && rows.length > INITIAL_ROWS && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+        >
+          Show fewer
+        </button>
+      )}
 
       {timeline.isSuccess && (timeline.data.hasMore || page > 0) && (
         <div className="mt-5 flex items-center gap-3">

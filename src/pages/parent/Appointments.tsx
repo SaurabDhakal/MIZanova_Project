@@ -9,7 +9,9 @@ import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import NoChildYet from '../../components/NoChildYet'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import AppointmentCalendar from '../../components/AppointmentCalendar'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import { fullName } from '../../lib/displayName'
 
 /**
  * When your child is being seen — db/073.
@@ -146,7 +148,37 @@ export default function Appointments() {
 
       {appointments.isSuccess && rows.length > 0 && (
         <>
-          <h2 className="mt-6 mb-3 text-lg font-semibold text-foreground">
+          {/*
+            THE SAME CALENDAR THE SPECIALIST USES, WITH NOTHING TO PRESS.
+            A family asking "when is my child being seen" is asking a calendar
+            question, and reading it off two stacked lists is work the shape of
+            the data should be doing.
+
+            Read-only is not a styling choice: db/073 gives a guardian SELECT
+            and nothing else, so `onSelect` and `onPickSlot` are left out
+            entirely rather than wired to something the database would refuse.
+            Without them the component drops its click affordances, so nothing
+            on it invites a press that cannot be honoured — which is the same
+            reason this screen has never had a "reschedule" button.
+
+            `currentUserId` is null because a parent is never told which
+            clinician is on the roster, so no booking is anybody else's.
+          */}
+          <div className="mt-6">
+            {/* THE MONTH, NOT THE WEEK. A clinician opens on a week because
+                their week is full; a family has a session a fortnight, so a
+                week grid opens on seven empty days and reads as "nothing is
+                booked" when the booking is nine days away. */}
+            <AppointmentCalendar
+              appointments={rows}
+              nameOf={() => (child ? fullName(child) : 'Your child')}
+              currentUserId={null}
+              selectedId={null}
+              initialView="dayGridMonth"
+            />
+          </div>
+
+          <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
             Coming up{' '}
             <span className="font-normal text-muted-foreground">
               ({upcoming.length})

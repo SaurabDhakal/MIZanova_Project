@@ -583,29 +583,37 @@ export default function Resources() {
         />
       )}
 
+      {/* NOT FOLDED, AND NO LONGER HEADED "Not built yet".
+          This was mislabelled. A list of absent features can go behind a fold;
+          this is a caution that changes what a person does next — a clinician
+          who believes the platform strips health information uploads a report
+          they would otherwise think twice about, and a parent who believes
+          they will be emailed stops checking. It reads as a warning because
+          that is what it is. */}
       <section className="mt-8 rounded-card border border-border bg-background p-6">
         <h2 className="font-semibold text-foreground">
-          {isParent ? 'Two things to know' : 'Not built yet'}
+          {isParent ? 'Two things to know' : 'Before you share anything'}
         </h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           {isParent ? (
             <>
-              <strong>Nobody will remind you.</strong> MiZanova does not send
-              email, so a new material will not reach your inbox — it appears
-              here and nowhere else. And confirming you have read something is
-              a note to your child’s specialist, not a signature or an
-              agreement to anything.
+              <strong>Nobody will remind you.</strong> MiZanova sends no email
+              about resources, so a new material will not reach your inbox — it
+              appears here and nowhere else. And confirming you have read
+              something is a note to your child’s specialist, not a signature
+              or an agreement to anything.
             </>
           ) : (
             <>
-              The design promises that shared materials are automatically
-              sanitised of restricted health information, and that reminders go
-              out every 72 hours to anyone who has not opened one. Neither
-              exists: nothing is scanned or redacted, and there is no email in
-              this product to send a reminder with. Both are stated here rather
-              than implied on screen, because a clinician who believes the
-              platform is handling it uploads something they would otherwise
-              think twice about.
+              <strong>Nothing is scanned or redacted.</strong> The design
+              promises that shared materials are automatically sanitised of
+              restricted health information, and that reminders go out every 72
+              hours to anyone who has not opened one. Neither exists: a file is
+              shared exactly as you uploaded it, and although the server does
+              send email elsewhere in MiZanova, nothing here raises a reminder.
+              Both are stated rather than implied, because a clinician who
+              believes the platform is handling it uploads something they would
+              otherwise think twice about.
             </>
           )}
         </p>

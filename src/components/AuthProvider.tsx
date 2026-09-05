@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
+import type { Role } from '../lib/roles'
 import { supabase } from '../lib/supabase'
 import { getAssuranceLevel, listTotpFactors } from '../lib/mfa'
 import { clearRosterCache } from '../lib/rosterCache'
@@ -112,6 +113,36 @@ export default function AuthProvider({
   // --- 2. Load the profile whenever the user changes ------------------------
   const userId = session?.user.id ?? null
 
+  /*
+   * THE QUERY CACHE BELONGS TO ONE PERSON, AND NOTHING WAS EMPTYING IT.
+   *
+   * signOut clears the cached profile and the roster — both were added because
+   * "these laptops are shared between classrooms" — and left React Query's
+   * cache untouched. It lives in memory, so it survives signing out and signing
+   * in as somebody else in the same tab; only a page refresh discarded it. The
+   * one existing `queryClient.clear()` is in ContextSwitcher, for changing
+   * school, not for changing person.
+   *
+   * That is how a freshly invited account walked past the two-factor gate: the
+   * enrolment answer cached against the PREVIOUS user was still being served,
+   * so the new account looked enrolled until a refresh threw the cache away.
+   * Every other query has the same shape of problem, and this is the one place
+   * that can see the identity change.
+   *
+   * Only on a genuine change of person. A token refresh keeps the same id and
+   * must not throw away a warm cache, and the very first run has nothing worth
+   * discarding.
+   */
+  const queryClient = useQueryClient()
+  const lastUserId = useRef<string | null>(null)
+
+  useEffect(() => {
+    const previous = lastUserId.current
+    lastUserId.current = userId
+    if (previous === null || previous === userId) return
+    queryClient.clear()
+  }, [userId, queryClient])
+
   const loadProfile = useCallback(
     async (id: string, stillWanted: () => boolean) => {
       const { data, error } = await supabase
@@ -200,6 +231,31 @@ export default function AuthProvider({
     return readCachedProfile(userId)
   }, [userId, profileRow])
 
+  /*
+   * A ROLE CHANGES UNDER A SIGNED-IN ACCOUNT, AND EVERY CACHED ANSWER WAS
+   * SCOPED TO THE OLD ONE.
+   *
+   * Accepting an invitation is the ordinary case: db/044 gives every self
+   * sign-up the role `parent`, the invitation then promotes the account to
+   * educator, specialist, school_admin or student, and the person is the same
+   * person throughout — so the effect above, which watches the user id, never
+   * fires. Everything React Query holds was fetched as a parent, by policies
+   * that answer differently now.
+   *
+   * Only a change BETWEEN two known roles. The first load goes from null to a
+   * role and must keep its warm cache; that is arrival, not promotion.
+   */
+  const lastRole = useRef<Role | null>(null)
+
+  useEffect(() => {
+    const previous = lastRole.current
+    const current = profile?.role ?? null
+    if (current === null) return
+    lastRole.current = current
+    if (previous === null || previous === current) return
+    queryClient.clear()
+  }, [profile?.role, queryClient])
+
   // --- 2b. Does this session still owe a second factor? ---------------------
   //
   // Asked of Supabase rather than tracked ourselves. It compares the session's
@@ -249,7 +305,14 @@ export default function AuthProvider({
   // Security page, so enrolling there lifts the requirement here without
   // either component knowing about the other.
   const factors = useQuery({
-    queryKey: ['mfa-factors'],
+    /*
+     * KEYED ON THE PERSON, like `aal` above and for the same reason its comment
+     * gives: a new session changes the key, so the answer re-runs rather than
+     * being served from whoever was signed in before. This query had a constant
+     * key and a 30-second staleTime, which is exactly long enough to carry one
+     * account's enrolment status into the next account's session.
+     */
+    queryKey: ['mfa-factors', userId],
     queryFn: listTotpFactors,
     enabled: Boolean(session),
     staleTime: 30_000,
