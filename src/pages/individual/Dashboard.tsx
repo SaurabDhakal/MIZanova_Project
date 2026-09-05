@@ -5,6 +5,7 @@ import {
   fetchCourses,
   fetchMyCompletions,
   fetchMyEnrolments,
+  fetchMyGoalsPersonal,
   fetchMyPurchases,
   formatMoney,
   queryKeys,
@@ -60,6 +61,10 @@ export default function IndividualHome() {
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
   })
+  const goals = useQuery({
+    queryKey: queryKeys.myPersonalGoals,
+    queryFn: fetchMyGoalsPersonal,
+  })
 
   if (courses.isPending) return <LoadingCards count={2} />
   if (courses.isError) {
@@ -110,6 +115,21 @@ export default function IndividualHome() {
    */
   const paid = (purchases.data ?? []).filter((p) => p.status === 'paid')
 
+  const activeGoals = (goals.data ?? []).filter((g) => g.status === 'active')
+
+  /*
+   * A BRAND-NEW ACCOUNT IS THE SCREEN MOST PEOPLE SEE FIRST AND THE ONE THIS
+   * PRODUCT HAS ALWAYS BEEN WORST AT. docs/14 calls empty states the single
+   * best thing in the whole Customer.io study, and every one here was a title
+   * and a sentence in a box.
+   *
+   * Somebody who has just signed up has nothing started, nothing asked and no
+   * goal, and the honest thing is not to apologise for that — it is to say
+   * what the three things are and let them pick one.
+   */
+  const brandNew =
+    enrolmentsKnown && started.length === 0 && activeGoals.length === 0
+
   const firstName = profile?.first_name?.trim()
 
   return (
@@ -150,6 +170,55 @@ export default function IndividualHome() {
             Look at the courses
           </Link>
         </div>
+      )}
+
+      {/* --- what they are working on ------------------------------------- */}
+      {activeGoals.length > 0 && (
+        <>
+          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+            What you are working on
+          </h2>
+          <ul className="space-y-3">
+            {activeGoals.slice(0, 2).map((goal) => {
+              const last = [...goal.individual_goal_checkins].sort(
+                (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
+              )[0]
+              return (
+                <li
+                  key={goal.id}
+                  className="rounded-card border border-border bg-card p-5 shadow-raised"
+                >
+                  <h3 className="font-semibold text-foreground">{goal.title}</h3>
+                  {goal.why && (
+                    <p className="mt-1 max-w-prose border-l-2 border-brand-green pl-3 text-sm text-muted-foreground italic">
+                      {goal.why}
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {/* THE LAST CHECK-IN, NOT A COUNT. "3 check-ins" says
+                        nothing; when they last came back and how it went is
+                        the thing that tells them where they are. */}
+                    {last
+                      ? `Last check-in ${new Date(last.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })} — ${
+                          last.how_it_went === 'good'
+                            ? 'went well'
+                            : last.how_it_went === 'mixed'
+                              ? 'mixed'
+                              : 'hard going'
+                        }`
+                      : 'No check-ins yet.'}
+                  </p>
+                  <Link
+                    to="/individual/goals"
+                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  >
+                    Check in &rarr;
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
 
       {enrolmentsKnown && started.length > 0 && (
@@ -245,6 +314,36 @@ export default function IndividualHome() {
           </Link>{' '}
           as well.
         </p>
+      )}
+
+      {brandNew && (
+        <section className="mt-8 rounded-card border border-border bg-primary-subtle p-6">
+          <h2 className="font-semibold text-foreground">
+            Three things worth doing first
+          </h2>
+          <ol className="mt-3 space-y-3 text-sm text-foreground">
+            <li>
+              <Link to="/individual/goals" className="font-semibold text-primary hover:underline">
+                Set one thing you want to be different
+              </Link>{' '}
+              &mdash; and write down why, because that is the part you will be
+              glad of in six weeks.
+            </li>
+            <li>
+              <Link to="/individual/suggestions" className="font-semibold text-primary hover:underline">
+                Describe something you are finding hard
+              </Link>{' '}
+              &mdash; you get a few practical things to try. It will not tell
+              you what you have, and nobody else can read it.
+            </li>
+            <li>
+              <Link to="/individual/academy" className="font-semibold text-primary hover:underline">
+                Start a course
+              </Link>{' '}
+              &mdash; short, untimed, unscored, and yours to leave half-finished.
+            </li>
+          </ol>
+        </section>
       )}
 
       {/* A NEW SCREEN WITH ONLY A NAV ICON IS A SCREEN NOBODY OPENS, which is
