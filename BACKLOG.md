@@ -50,9 +50,23 @@ bulk import as gaps, and both shipped since it was written.
       to anyone in the audience, one query away with the publishable key.
       db/097 moved it onto `course_modules_select` and made the first module a
       free sample, so a priced course can still be tried before it is bought.
-- [ ] **Booking a session.** Blocked, honestly, and not by this role: working
-      hours are recorded nowhere in MiZanova, so no availability exists for
-      anybody to book against. See §3.
+- [x] ~~**A paying customer had no receipt.**~~ db/100 — a numbered receipt on
+      its own screen, printable to PDF. Says plainly it is a receipt and not a
+      tax invoice, and why: a tax invoice needs the seller's ABN and Special
+      Miles has not supplied one.
+- [x] ~~**Nothing held a thread from one week to the next.**~~ db/101 — goals
+      in their own words with a "why" and three-option check-ins. No streak and
+      no percentage, deliberately.
+- [x] ~~**No way to take your own record away.**~~ Complete JSON export, built
+      in the browser from ordinary reads so RLS decides what is in it, sitting
+      directly above the close-account box.
+- [ ] **Booking a session — HALF BUILT.** db/102 records working hours and a
+      specialist can now set them, which was the blocker. What remains is the
+      booking itself, and it hits the same wall goals did:
+      `specialist_appointments.student_id` is NOT NULL, so an individual cannot
+      be the subject of one. Needs a person-scoped booking table beside the
+      student-scoped one, slots derived from availability minus what is booked,
+      and payment through the machinery db/092 already built.
 - [ ] **The catalogue is the real constraint on B2C revenue** — 2 courses, 6
       modules and 1 article for individuals. The till works; there is very
       little to sell. Not an engineering task.
@@ -69,11 +83,10 @@ bulk import as gaps, and both shipped since it was written.
 
 ## 3. Real product gaps
 
-- [ ] **Availability does not exist.** `specialist/Schedule.tsx` says it in as
-      many words: an empty slot means nothing is booked, not that anybody is
-      free. This blocks booking for every role, not just individuals, and it is
-      the single largest thing standing between MiZanova and the sessions Joe's
-      brief sells.
+- [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an
+      exclusion constraint against overlaps, readable by anyone signed in and
+      writable only by the specialist or a platform admin. The booking half is
+      in §2.
 - [ ] **The Compliance screen is missing most of its design** — overdue
       documents, upcoming deadlines, missing signatures, service minutes,
       therapy delivery percentages, and the buttons to draft reports and send
@@ -96,6 +109,15 @@ which was wrong: `AppShell` has a `md:hidden` button and an overlay drawer, and
 the claim was written from memory rather than from the code. It is the exact
 failure this file opens by warning about — an absence stated with confidence
 and never checked.
+
+---
+
+### The demo account
+
+`individual.demo@mizanova.test` / `Demo!Individual2026` — an individual with one
+settled $49 purchase behind receipt 1002 and one goal with a check-in, so every
+screen has something real on it. Delete it from the account page when it has
+served its purpose; closing it removes everything and detaches the purchase.
 
 ---
 
