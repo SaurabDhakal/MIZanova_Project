@@ -3676,13 +3676,15 @@ export type CoursePurchase = {
   currency: string
   status: 'pending' | 'paid' | 'refunded'
   paid_at: string | null
+  /** Null until the payment settles — db/100. */
+  receipt_number: number | null
 }
 
 /** What I have bought — db/092. RLS returns only my own rows. */
 export async function fetchMyPurchases(): Promise<CoursePurchase[]> {
   const { data, error } = await supabase
     .from('course_purchases')
-    .select('id, course_id, amount_cents, currency, status, paid_at')
+    .select('id, course_id, amount_cents, currency, status, paid_at, receipt_number')
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as CoursePurchase[]
