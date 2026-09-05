@@ -5709,6 +5709,7 @@ export const ENQUIRY_PLANS = {
   mid_school: 'Mid-size schools',
   large_school: 'Large schools',
   montessori: 'Montessori & early years',
+  individual: 'For myself',
   essential: 'Essential',
   premium: 'Premium',
 } as const
@@ -7947,6 +7948,38 @@ export async function closeMyAccount(
   return body as AccountClosure
 }
 
+/**
+ * The public price list — db/098.
+ *
+ * READ FROM THE SAME COLUMN THE CHECKOUT CHARGES FROM. An individual's prices
+ * are not a published list anywhere; they are whatever `courses.price_cents`
+ * says, set on the Courses screen. Copying them into plans.ts would recreate
+ * the exact drift plans.ts was written to end — a page advertising one figure
+ * while the till takes another.
+ *
+ * Readable signed out, because that is who reads a pricing page. The view
+ * carries no module content: db/097 keeps the material behind payment.
+ */
+export type CatalogueCourse = {
+  id: string
+  title: string
+  summary: string | null
+  audiences: string[]
+  price_cents: number | null
+  currency: string
+  modules: number
+}
+
+export async function fetchCourseCatalogue(): Promise<CatalogueCourse[]> {
+  const { data, error } = await supabase
+    .from('course_catalogue')
+    .select('id, title, summary, audiences, price_cents, currency, modules')
+    .order('title')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as CatalogueCourse[]
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -8034,6 +8067,7 @@ export const queryKeys = {
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
   mySelfRequests: ['my-self-requests'] as const,
+  courseCatalogue: ['course-catalogue'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,

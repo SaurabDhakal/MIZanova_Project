@@ -39,9 +39,29 @@ bulk import as gaps, and both shipped since it was written.
       was linked from nowhere once you signed in. It is now in the account
       menu, which every role sees — this was missing for all of them, not just
       individuals.
+- [x] ~~**An individual is a paying customer with no price anywhere.**~~ The
+      Pricing page now has a "For myself" tab, reading live from
+      `courses.price_cents` — the same column the checkout charges from —
+      rather than keeping a fourth hard-coded list. Verified: pricing a course
+      at $35 made it appear on the public page, signed out, with no code
+      change.
+- [x] ~~**The paywall did not cover the course.**~~ db/092 put the gate on
+      enrolment, which guards the progress row; module bodies stayed readable
+      to anyone in the audience, one query away with the publishable key.
+      db/097 moved it onto `course_modules_select` and made the first module a
+      free sample, so a priced course can still be tried before it is bought.
 - [ ] **Booking a session.** Blocked, honestly, and not by this role: working
       hours are recorded nowhere in MiZanova, so no availability exists for
       anybody to book against. See §3.
+- [ ] **The catalogue is the real constraint on B2C revenue** — 2 courses, 6
+      modules and 1 article for individuals. The till works; there is very
+      little to sell. Not an engineering task.
+- [ ] **The AI is the one thing with a real marginal cost and it is free and
+      uncapped.** At the Opus 5 rates in `claude.js` a generation is roughly
+      2.8c, and `daily_limit_per_user` is 40 — about $34 a month per fully
+      active individual, more than the $19.99 Premium family plan. `claude.js`
+      already notes Haiku 4.5 is five times cheaper for an identical request
+      shape, so tiering the MODEL as well as the price is the obvious lever.
 
 ---
 
