@@ -120,6 +120,12 @@ and never checked.
 
 ---
 
+- [x] ~~**The individual's notification bell was an empty box.**~~ db/105. The
+      bell's own file warned against showing "four roles a number and the fifth
+      an empty box", and the individual was the sixth. Now carries one line —
+      a session request answered — which clears when they open the screen it
+      points at, the test the bell requires of anything in it.
+
 ### The demo account
 
 `individual.demo@mizanova.test` / `Demo!Individual2026` — an individual with one

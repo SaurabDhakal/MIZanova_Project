@@ -7579,11 +7579,26 @@ export type WorkQueue = Partial<
        so is a school having been billed. Both were built and neither reached
        the one place this product puts "what needs you". */
     | 'platformInvoicesOverdue'
-    | 'platformInvoicesToPay',
+    | 'platformInvoicesToPay'
+    /* db/105. An individual's queue was empty and truthfully so — until a
+       specialist could answer them, and the answer had nowhere to be noticed
+       except the page itself. */
+    | 'sessionAnswers',
     /** A number, or null when the count could not be read. Never absent-as-zero. */
     number | null
   >
 >
+
+/** Answered and not yet seen — db/105. Clears when they open Sessions. */
+async function countSessionAnswers(): Promise<number> {
+  const { count, error } = await supabase
+    .from('individual_bookings')
+    .select('id', { count: 'exact', head: true })
+    .is('answer_seen_at', null)
+    .in('status', ['accepted', 'declined'])
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
 
 async function countNewEnquiries(): Promise<number> {
   const { count, error } = await supabase
@@ -7786,10 +7801,15 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
              * and nothing on it to action, so the honest count is none.
              */
             : role === 'individual'
-              ? /* Nothing is waiting for somebody with no school: no threads,
-                   no invoices, no child. An empty queue is the truthful answer
-                   and costs two requests less than borrowing the parent's. */
-                []
+              ? /* NO LONGER EMPTY, and the reason is worth keeping. This said
+                   nothing waits for somebody with no school — no threads, no
+                   invoices, no child — and that was true until db/103 let a
+                   specialist answer them. One line, and it clears when they
+                   open the screen it points at, which is the test the bell
+                   requires of anything appearing in it. */
+                ([
+                  ['sessionAnswers', countSessionAnswers()],
+                ] as [keyof WorkQueue, Promise<number>][])
               : role === 'student'
               ? []
               : [
@@ -8410,6 +8430,13 @@ export async function answerBooking(input: {
   note: string
 }): Promise<void> {
   await bookingCall('/api/bookings/answer', input)
+}
+
+/** Clears the bell — db/105. Idempotent: a second call marks nothing. */
+export async function markBookingAnswersSeen(): Promise<number> {
+  const { data, error } = await supabase.rpc('mark_booking_answers_seen')
+  if (error) throw new Error(error.message)
+  return (data as number) ?? 0
 }
 
 export const queryKeys = {

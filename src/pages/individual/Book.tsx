@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import {
   cancelMyBooking,
   fetchBookableSpecialists,
   fetchFreeSlots,
   fetchMyBookings,
+  markBookingAnswersSeen,
   queryKeys,
   requestBooking,
 } from '../../lib/api'
@@ -54,6 +56,27 @@ export default function Book() {
     queryKey: queryKeys.myBookings,
     queryFn: fetchMyBookings,
   })
+
+  /*
+   * CLEARS THE BELL — db/105.
+   *
+   * Runs once when this screen opens, because opening it IS having seen the
+   * answer: the requests are the first thing on the page. Not awaited and its
+   * failure is swallowed on purpose — somebody reading their answer should not
+   * meet an error about a notification badge.
+   */
+  useEffect(() => {
+    void markBookingAnswersSeen()
+      // The bell's own key, so its badge drops without waiting for its
+      // two-minute staleness to expire.
+      .then(() =>
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workQueue('individual'),
+        }),
+      )
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const ask = useMutation({
     mutationFn: requestBooking,
