@@ -8439,6 +8439,41 @@ export async function markBookingAnswersSeen(): Promise<number> {
   return (data as number) ?? 0
 }
 
+/**
+ * Can the AI actually be reached right now?
+ *
+ * ---------------------------------------------------------------------------
+ * ASKED BEFORE THEY TYPE, NOT AFTER THEY PRESS
+ * ---------------------------------------------------------------------------
+ * Every failure here used to arrive the same way: somebody writes a paragraph
+ * about what they are finding hard, presses the button, waits, and is told the
+ * server could not be reached. The message was accurate and the timing made it
+ * useless — the cost had already been paid, and what they wrote is the part
+ * that took something.
+ *
+ * The same reasoning the Pricing page uses for saying family plans are not
+ * open BEFORE the prices rather than after them.
+ *
+ * Never throws. A health check that can fail is a second thing to explain, and
+ * "unknown" is treated as working: refusing to let somebody ask because a
+ * status endpoint was slow would be the check causing the outage it exists to
+ * report.
+ */
+export type AiHealth = { reachable: boolean; aiConfigured: boolean }
+
+export async function fetchAiHealth(): Promise<AiHealth> {
+  try {
+    const res = await fetch(`${API_URL}/api/health`)
+    const body = await res.json().catch(() => ({}))
+    return {
+      reachable: true,
+      aiConfigured: body?.checks?.anthropic !== false,
+    }
+  } catch {
+    return { reachable: false, aiConfigured: false }
+  }
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -8526,6 +8561,7 @@ export const queryKeys = {
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
   mySelfRequests: ['my-self-requests'] as const,
+  aiHealth: ['ai-health'] as const,
   courseCatalogue: ['course-catalogue'] as const,
   myPersonalGoals: ['my-personal-goals'] as const,
   availability: (id: string) => ['availability', id] as const,

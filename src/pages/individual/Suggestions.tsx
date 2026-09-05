@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteSelfRequest,
+  fetchAiHealth,
   fetchMySelfRequests,
   queryKeys,
   requestSelfStrategies,
@@ -40,6 +41,21 @@ export default function Suggestions() {
     queryKey: queryKeys.mySelfRequests,
     queryFn: fetchMySelfRequests,
   })
+
+  /*
+   * Asked when the page opens, so somebody learns the AI is unreachable BEFORE
+   * writing a paragraph about what they are finding hard — not after pressing
+   * a button and waiting. Retries are off: this is a yes/no about right now,
+   * and a stale "it is down" is worse than asking again on the next visit.
+   */
+  const health = useQuery({
+    queryKey: queryKeys.aiHealth,
+    queryFn: fetchAiHealth,
+    retry: false,
+    staleTime: 30_000,
+  })
+  const aiDown =
+    health.isSuccess && (!health.data.reachable || !health.data.aiConfigured)
 
   const ask = useMutation({
     mutationFn: requestSelfStrategies,
@@ -100,6 +116,30 @@ export default function Suggestions() {
         </ul>
       </section>
 
+      {aiDown && (
+        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-5">
+          <h2 className="font-semibold text-foreground">
+            Suggestions are not working just now
+          </h2>
+          <p className="mt-1 max-w-prose text-sm text-foreground">
+            {health.data?.reachable
+              ? 'The server is running but has no AI key configured, so nothing can be generated. Everything else on your account works normally.'
+              : 'The part of MiZanova that generates suggestions cannot be reached. Everything else on your account works normally — the courses, the reading and your goals are all still there.'}
+          </p>
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            You are being told now rather than after you have written
+            something. Nothing you type would have been sent.
+          </p>
+          <button
+            type="button"
+            onClick={() => void health.refetch()}
+            className="mt-3 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {/* --- the box ------------------------------------------------------- */}
       <div className="rounded-card border border-border bg-card p-5 shadow-raised">
         <label
@@ -124,7 +164,7 @@ export default function Suggestions() {
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            disabled={ask.isPending || tooShort || tooLong}
+            disabled={ask.isPending || tooShort || tooLong || aiDown}
             onClick={() => ask.mutate(text.trim())}
             className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
