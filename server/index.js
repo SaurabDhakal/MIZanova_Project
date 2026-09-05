@@ -945,7 +945,9 @@ app.post('/api/self-strategies', async (req, res) => {
     // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
     const { data: controls } = await admin
       .from('ai_controls')
-      .select('ai_enabled, confidence_threshold')
+      .select(
+        'ai_enabled, confidence_threshold, free_model, paid_model, free_confidence_threshold, free_daily_limit_per_user',
+      )
       .eq('id', true)
       .single()
 
@@ -955,6 +957,14 @@ app.post('/api/self-strategies', async (req, res) => {
       })
     }
 
+    // --- Which tier, and therefore which model and which limits ----------
+    // db/099. The tier is asked of the database rather than worked out here,
+    // because "has this person paid us anything" will change the day a
+    // subscription exists and there must be one place that answers it.
+    const { data: tier } = await userClient.rpc('my_ai_tier')
+    const paidTier = tier === 'paid'
+    const firstModel = paidTier ? controls.paid_model : controls.free_model
+
     // --- Quota (db/026) ----------------------------------------------------
     // A null school makes the per-school half of this vacuous, which is right:
     // there is no school to share a budget with. The per-user limit still
@@ -963,9 +973,20 @@ app.post('/api/self-strategies', async (req, res) => {
       .rpc('ai_quota_status', { p_school_id: null, p_actor_id: user.id })
       .single()
 
-    if (quota && quota.user_used >= quota.user_limit) {
+    /*
+     * THE FREE LIMIT IS THE LOWER OF THE TWO, never higher than the paid one —
+     * db/099 constrains that in the schema so this cannot drift into giving
+     * somebody more for paying less.
+     */
+    const userLimit = paidTier
+      ? (quota?.user_limit ?? 40)
+      : Number(controls.free_daily_limit_per_user ?? 10)
+
+    if (quota && quota.user_used >= userLimit) {
       return res.status(429).json({
-        error: `You have used all ${quota.user_limit} suggestions available in the last 24 hours. Nothing else on your account is affected.`,
+        error: paidTier
+          ? `You have used all ${userLimit} suggestions available in the last 24 hours. Nothing else on your account is affected.`
+          : `You have used all ${userLimit} free suggestions for today. They reset in 24 hours, and buying a course lifts the limit. Nothing else on your account is affected.`,
       })
     }
 
@@ -977,13 +998,89 @@ app.post('/api/self-strategies', async (req, res) => {
     const { text: redacted, redactions } = redact(text, namesToRemove, '[ME]')
     const payload = { text: redacted, redactions }
 
-    // --- Generate ----------------------------------------------------------
-    const result = await generateSelfStrategies(payload, namesToRemove)
+    /* --- Generate, cheaply, and escalate when it matters -----------------
+     *
+     * db/099 has the measurements. The short version: the cheap model spots
+     * distress as reliably as the expensive one — four agreements out of four,
+     * including the understated case — and then returns NO STRATEGIES AT ALL
+     * on exactly those cases, where the expensive one returns three.
+     *
+     * So somebody having the worst day of their year would have asked for help
+     * and got an empty screen, and only if they had never paid. That is the
+     * fault db/094 was written around, pointed at somebody in trouble.
+     *
+     * Hence: cheap by default, run again on the capable model if the answer
+     * comes back risk-flagged or empty. It is rare, so it costs almost
+     * nothing, and it means the model somebody gets in a crisis does not
+     * depend on whether they have ever paid us.
+     *
+     * The escalation is NOT conditional on the free tier. A paid request that
+     * somehow returns nothing gets the same second chance; there is no reason
+     * to make that path worse just because it is already the good model, and
+     * `firstModel === controls.paid_model` makes the retry a no-op decision
+     * rather than a special case.
+     */
+    /*
+     * The threshold has to be known before the escalation decision, because
+     * "came back with nothing" includes coming back with three suggestions
+     * that all fall under the bar. A free tier that answers "1 shown, 2 held
+     * back" is a poor answer; one that shows nothing at all is the empty
+     * screen again, arrived at the long way round.
+     */
+    const barFor = (model) =>
+      model === controls.paid_model
+        ? Number(controls.confidence_threshold ?? 0.7)
+        : Number(controls.free_confidence_threshold ?? 0.8)
+
+    const wouldShow = (r, model) =>
+      r.strategies.filter(
+        (s) => !s.safetyConcern && s.confidence >= barFor(model),
+      ).length
+
+    let result = await generateSelfStrategies(payload, namesToRemove, firstModel)
+    let escalated = false
+
+    const needsBetterModel =
+      firstModel !== controls.paid_model &&
+      (result.riskFlag || wouldShow(result, firstModel) === 0)
+
+    if (needsBetterModel) {
+      try {
+        result = await generateSelfStrategies(
+          payload,
+          namesToRemove,
+          controls.paid_model,
+        )
+        escalated = true
+      } catch (escalationError) {
+        /*
+         * KEEP THE CHEAP ANSWER RATHER THAN FAILING. If the second call is
+         * refused or rate-limited, the first result still holds a risk flag,
+         * and the screen's support panel depends on that flag reaching them.
+         * Losing it to an error would remove the one part of the answer that
+         * matters most.
+         */
+        console.error('Escalation failed, keeping the first answer:', escalationError)
+        recordEvent(
+          'warning',
+          'ai',
+          'escalation_failed',
+          'A risk-flagged answer could not be re-run on the capable model. The first answer was kept.',
+        )
+      }
+    }
 
     // --- Shown, or withheld for good ---------------------------------------
     // No third option. db/094 explains why there is no review state: a
     // `pending_review` row here waits on a specialist who does not exist.
-    const threshold = Number(controls.confidence_threshold ?? 0.7)
+    //
+    // THE THRESHOLD FOLLOWS THE MODEL THAT ACTUALLY ANSWERED. db/099 measured
+    // the cheap model scoring itself consistently higher for the same quality
+    // of answer — 0.77 and 0.85 against 0.69 and 0.76 — so one number applied
+    // to both would let more weak output through from the weaker model, which
+    // is precisely backwards.
+    const answeredBy = escalated ? controls.paid_model : firstModel
+    const threshold = barFor(answeredBy)
     const shown = []
     let withheldSafety = 0
     let withheldConfidence = 0
@@ -1057,6 +1154,7 @@ app.post('/api/self-strategies', async (req, res) => {
         behaviour_log_id: null,
         strategies_returned: inserted.length,
         model: result.model,
+        escalated,
       })
       .then(({ error: usageError }) => {
         if (usageError) console.error('Usage not recorded:', usageError.message)

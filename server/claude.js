@@ -118,6 +118,42 @@ TWO SEPARATE JUDGEMENTS — do not confuse them
 
 A serious incident with three sound, ordinary classroom strategies should be: risk_flag true, safety_concern false on all three.`
 
+/**
+ * The request shape differs by model, and getting it wrong is a 400 rather
+ * than a degraded answer.
+ *
+ * TWO PARAMETERS ARE NOT UNIVERSAL, and both were found by calling the live
+ * API rather than by reading anything:
+ *
+ *   400 — This model does not support the effort parameter
+ *   400 — 'claude-haiku-4-5-...' does not support the `fallbacks` parameter
+ *
+ * The second one hid behind the first. A standalone probe that set `effort`
+ * and not `fallbacks` passed, which is exactly the sort of test that proves
+ * the wrong thing — the shipped path sets both, so pointing the free tier at
+ * the cheap model would have failed every request, not degraded them.
+ *
+ * `json_schema` is accepted by both, so only the extras branch. Kept as one
+ * function so the next model that refuses something has one place to say so.
+ */
+const OPUS_ONLY_EXTRAS = (model) => !model.includes('haiku')
+
+export function outputConfigFor(model, schema) {
+  const format = { type: 'json_schema', schema }
+  return OPUS_ONLY_EXTRAS(model) ? { effort: 'medium', format } : { format }
+}
+
+/** The beta fallback wrapper, where the model accepts it. */
+export async function createMessage(client, request) {
+  return OPUS_ONLY_EXTRAS(request.model) && USE_SERVER_FALLBACK
+    ? client.beta.messages.create({
+        ...request,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+      })
+    : client.messages.create(request)
+}
+
 export class AiDisabledError extends Error {}
 export class AnonymisationError extends Error {}
 export class RefusalError extends Error {}
@@ -313,7 +349,7 @@ TWO SEPARATE JUDGEMENTS — do not confuse them
  * @param {{ text: string, redactions: number }} payload  already redacted
  * @param {string[]} namesToRemove  same list, for the final leak assertion
  */
-export async function generateSelfStrategies(payload, namesToRemove) {
+export async function generateSelfStrategies(payload, namesToRemove, model = MODEL) {
   // Same last check as generateStrategies, and for the same reason. The name
   // being removed here is their own rather than a child's, which makes it no
   // less theirs.
@@ -323,13 +359,10 @@ export async function generateSelfStrategies(payload, namesToRemove) {
   }
 
   const request = {
-    model: MODEL,
+    model,
     max_tokens: 16000,
     system: SELF_SYSTEM_PROMPT,
-    output_config: {
-      effort: 'medium',
-      format: { type: 'json_schema', schema: SELF_STRATEGY_SCHEMA },
-    },
+    output_config: outputConfigFor(model, SELF_STRATEGY_SCHEMA),
     messages: [
       {
         role: 'user',
@@ -342,13 +375,7 @@ Suggest up to three things they could try.`,
     ],
   }
 
-  const response = USE_SERVER_FALLBACK
-    ? await client.beta.messages.create({
-        ...request,
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
-      })
-    : await client.messages.create(request)
+  const response = await createMessage(client, request)
 
   if (response.stop_reason === 'refusal') {
     // Deliberately not the school wording. Telling somebody with no specialist

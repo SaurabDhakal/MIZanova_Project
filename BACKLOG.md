@@ -56,8 +56,15 @@ bulk import as gaps, and both shipped since it was written.
 - [ ] **The catalogue is the real constraint on B2C revenue** — 2 courses, 6
       modules and 1 article for individuals. The till works; there is very
       little to sell. Not an engineering task.
-- [ ] **The AI is the one thing with a real marginal cost and it is free and
-      uncapped.** At the Opus 5 rates in `claude.js` a generation is roughly
+- [x] ~~**The AI is the one thing with a real marginal cost and it is free and
+      uncapped.**~~ db/099 — cheap model by default, escalating to the capable
+      one whenever the answer is risk-flagged or would show nothing. Two
+      calibration notes for real usage, both configurable columns: the free
+      threshold (0.80) is a first guess, and on a single sample the PAID tier
+      showed fewer suggestions than the free one, because Opus scores itself
+      honestly near its 0.70 bar while the cheap model inflates. Worth watching
+      the escalation rate and the withheld counts before tuning either.
+- [ ] ~~superseded~~ **The AI cost, as originally written:** At the Opus 5 rates in `claude.js` a generation is roughly
       2.8c, and `daily_limit_per_user` is 40 — about $34 a month per fully
       active individual, more than the $19.99 Premium family plan. `claude.js`
       already notes Haiku 4.5 is five times cheaper for an identical request
