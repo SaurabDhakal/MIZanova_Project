@@ -64,11 +64,6 @@ bulk import as gaps, and both shipped since it was written.
       showed fewer suggestions than the free one, because Opus scores itself
       honestly near its 0.70 bar while the cheap model inflates. Worth watching
       the escalation rate and the withheld counts before tuning either.
-- [ ] ~~superseded~~ **The AI cost, as originally written:** At the Opus 5 rates in `claude.js` a generation is roughly
-      2.8c, and `daily_limit_per_user` is 40 — about $34 a month per fully
-      active individual, more than the $19.99 Premium family plan. `claude.js`
-      already notes Haiku 4.5 is five times cheaper for an identical request
-      shape, so tiering the MODEL as well as the price is the obvious lever.
 
 ---
 
