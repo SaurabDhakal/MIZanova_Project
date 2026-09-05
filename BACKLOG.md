@@ -60,13 +60,20 @@ bulk import as gaps, and both shipped since it was written.
 - [x] ~~**No way to take your own record away.**~~ Complete JSON export, built
       in the browser from ordinary reads so RLS decides what is in it, sitting
       directly above the close-account box.
-- [ ] **Booking a session — HALF BUILT.** db/102 records working hours and a
-      specialist can now set them, which was the blocker. What remains is the
-      booking itself, and it hits the same wall goals did:
-      `specialist_appointments.student_id` is NOT NULL, so an individual cannot
-      be the subject of one. Needs a person-scoped booking table beside the
-      student-scoped one, slots derived from availability minus what is booked,
-      and payment through the machinery db/092 already built.
+- [x] ~~**Booking a session.**~~ Built across db/102-104: working hours, free
+      slots derived from both diaries, asking, answering, and a directory of
+      verified specialists who have hours. It is a REQUEST rather than a
+      purchase — `fee_cents` is ready and null, because nobody has set a price
+      for a session and a specialist's afternoon is not bought off a shelf.
+- [ ] **Nothing emails anybody about a booking.** The request and the answer
+      both live in the account. The server can send mail — invitations,
+      enquiries, access codes all use it — but no booking raises any, so both
+      people have to come back and look. This is the next thing worth doing on
+      the individual side.
+- [ ] **A session has no price.** Deliberate, not missing: `plans.ts` says
+      figures come from the client and the brief says willingness to pay is
+      still being researched. When Special Miles sets one, the accept step
+      gains a payment through the machinery db/092 already built.
 - [ ] **The catalogue is the real constraint on B2C revenue** — 2 courses, 6
       modules and 1 article for individuals. The till works; there is very
       little to sell. Not an engineering task.

@@ -511,11 +511,12 @@ export default function Pricing() {
             One-to-one sessions
           </h3>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Special Miles intends to sell these and they do not exist yet
-            &mdash; not as a waiting list with a date on it, but as a part of
-            the product with nothing behind it. Booking a time runs through a
-            school and a student record, and an individual has neither. There
-            is no price because there is nothing to price.
+            You can ask a verified specialist for forty-five minutes, and they
+            accept or decline. What does not exist is a price: Special Miles
+            has not set one, so nothing is charged and nobody will ask you for
+            a card. When there is a figure it will be here, and asking will
+            still be asking &mdash; a specialist&rsquo;s afternoon is not
+            something you buy off a shelf.
           </p>
           <Link
             to="/enquiry?plan=individual"
