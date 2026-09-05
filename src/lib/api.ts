@@ -7803,6 +7803,106 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
   return queue
 }
 
+// ---------------------------------------------------------------------------
+// Asking the AI about yourself — db/094
+// ---------------------------------------------------------------------------
+
+export type SelfSuggestion = {
+  id: string
+  title: string
+  body: string
+  rationale: string[]
+  confidence: number
+}
+
+export type SelfRequest = {
+  id: string
+  asked: string
+  redaction_count: number
+  risk_flagged: boolean
+  withheld_count: number
+  withheld_reason: string | null
+  created_at: string
+  individual_ai_suggestions: SelfSuggestion[]
+}
+
+/**
+ * Everything you have asked, newest first.
+ *
+ * Read straight from the database rather than through the API server, because
+ * RLS already answers "whose is this" — db/094 gives these tables a select
+ * policy of `profile_id = auth.uid()` and nothing else, not even a platform
+ * admin.
+ */
+export async function fetchMySelfRequests(): Promise<SelfRequest[]> {
+  const { data, error } = await supabase
+    .from('individual_ai_requests')
+    .select(
+      'id, asked, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions (id, title, body, rationale, confidence)',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as SelfRequest[]
+}
+
+/**
+ * Throw one away.
+ *
+ * db/094 gives the browser a delete policy on purpose: somebody who wrote
+ * something personal and wants it gone should not have to ask us. The
+ * suggestions go with it, by cascade.
+ */
+export async function deleteSelfRequest(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('individual_ai_requests')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+}
+
+export type SelfStrategyResponse = {
+  requestId: string
+  suggestions: SelfSuggestion[]
+  withheldCount: number
+  withheldReason: string | null
+  riskFlagged: boolean
+  redactions: number
+}
+
+/**
+ * Ask for suggestions about your own situation.
+ *
+ * Unlike `requestStrategies`, the browser sends the actual words — there is no
+ * stored record to point at. The server redacts them before anything leaves
+ * the building, and stores only the redacted version.
+ */
+export async function requestSelfStrategies(
+  text: string,
+): Promise<SelfStrategyResponse> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/self-strategies`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ text }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as SelfStrategyResponse
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -7889,6 +7989,7 @@ export const queryKeys = {
   myCompletions: ['my-completions'] as const,
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
+  mySelfRequests: ['my-self-requests'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,

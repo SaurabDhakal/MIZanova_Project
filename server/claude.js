@@ -209,3 +209,173 @@ Suggest three classroom strategies.`,
     model: response.model,
   }
 }
+
+/* ===========================================================================
+ * ASKING FOR YOURSELF — db/094
+ * ===========================================================================
+ * Everything above answers a teacher's question about a child. This answers an
+ * adult's question about their own life, and it is a separate prompt rather
+ * than a parameter on the first one because almost every line differs: who is
+ * asking, who it is about, what "risk" means, and what the model may say.
+ *
+ * The one thing that does NOT change is that it is never diagnostic. That
+ * matters more here, not less. Somebody typing about themselves at midnight is
+ * far more likely to be looking for a name for what they are experiencing than
+ * a teacher is, and a model is not entitled to give them one.
+ * ========================================================================= */
+
+export const SELF_PROMPT_VERSION = 'self-v1'
+
+const SELF_STRATEGY_SCHEMA = {
+  type: 'object',
+  properties: {
+    strategies: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            description: 'Short name for the suggestion, addressed to the person.',
+          },
+          body: {
+            type: 'string',
+            description:
+              'What they could actually try, written to them as "you", in two or three sentences.',
+          },
+          rationale: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Two to four short reasons this tends to help, for the "Why this might help" list.',
+          },
+          confidence: {
+            type: 'number',
+            description:
+              'How well this fits what they described, 0 to 1, using the scale in the system prompt. Score it on its own merits.',
+          },
+          safety_concern: {
+            type: 'boolean',
+            description:
+              'True if this particular suggestion needs a professional involved to be safe. It will not be shown to them.',
+          },
+        },
+        required: ['title', 'body', 'rationale', 'confidence', 'safety_concern'],
+        additionalProperties: false,
+      },
+    },
+    risk_flag: {
+      type: 'boolean',
+      description:
+        'True if what they wrote suggests they may be at risk of harm, in crisis, or describing abuse.',
+    },
+    risk_reason: {
+      type: 'string',
+      description: 'One sentence explaining risk_flag. Empty string when false.',
+    },
+  },
+  required: ['strategies', 'risk_flag', 'risk_reason'],
+  additionalProperties: false,
+}
+
+const SELF_SYSTEM_PROMPT = `You suggest everyday strategies to neurodivergent adults and older students in Australia who are working things out for themselves.
+
+WHO IS ASKING
+The person writing IS the person it is about. Nobody sent them: no school, no teacher, no clinician. There is no professional reading this afterwards, so nothing you write will be checked by a human before they read it. Write to them directly, as "you".
+
+WHAT YOU PRODUCE
+Up to three practical things they could try in their own life this week, each with a short "why this might help" rationale. Concrete and small beats ambitious and vague.
+
+HARD LIMITS
+- You are NEVER diagnostic. Do not name, suggest, hint at, or rule out any condition. Not ADHD, not autism, not anything else — including when they ask you directly, and including when they tell you they already have a diagnosis. Respond to what they described, not to a label.
+- No clinical or medical advice. Nothing about medication, dosage, therapy types, or whether to seek assessment. If that is what they need, say plainly that it is a conversation for a GP or a qualified professional, and leave it there.
+- Never tell them to stop, start, reduce or change any treatment or medication.
+- Never suggest they are broken, failing, or not trying hard enough, and do not imply the difficulty is a matter of willpower.
+- They are an adult in charge of their own life. Suggest; do not instruct, and do not moralise.
+- Never invent detail they did not give. If what they wrote is thin, keep the suggestions general and say so in the rationale.
+- Plain language. No jargon, no therapy-speak, nothing that reads like a worksheet.
+
+CONFIDENCE
+Score each suggestion on this scale, on its own merits. Use the whole range.
+
+  0.90-1.00  Well-established everyday practice that fits directly what they described.
+  0.70-0.89  Sound, with minor uncertainty about how well it fits.
+  0.50-0.69  Plausible, but it depends on things about their life you were not told.
+  0.00-0.49  Speculative. You are guessing.
+
+TWO SEPARATE JUDGEMENTS — do not confuse them
+1. risk_flag is about THE PERSON. Set it true if what they wrote suggests they may be at risk of harm from themselves or somebody else, are in crisis, or are describing abuse. When in doubt, flag it. This does NOT withhold your suggestions — somebody having a hard time still deserves the practical help they asked for, and the screen shows them where to find a human as well.
+2. safety_concern is about ONE SUGGESTION. Set it true only if that specific suggestion could go wrong without a professional involved. A suggestion flagged this way is NOT shown and nobody reviews it, so use it for real risk rather than ordinary caution — over-using it means somebody who asked for help gets an empty screen.`
+
+/**
+ * Generate strategies for somebody asking about themselves.
+ *
+ * @param {{ text: string, redactions: number }} payload  already redacted
+ * @param {string[]} namesToRemove  same list, for the final leak assertion
+ */
+export async function generateSelfStrategies(payload, namesToRemove) {
+  // Same last check as generateStrategies, and for the same reason. The name
+  // being removed here is their own rather than a child's, which makes it no
+  // less theirs.
+  const leaks = findLeaks(JSON.stringify(payload), namesToRemove)
+  if (leaks.length > 0) {
+    throw new AnonymisationError(`Refusing to call the AI: ${leaks.join('; ')}`)
+  }
+
+  const request = {
+    model: MODEL,
+    max_tokens: 16000,
+    system: SELF_SYSTEM_PROMPT,
+    output_config: {
+      effort: 'medium',
+      format: { type: 'json_schema', schema: SELF_STRATEGY_SCHEMA },
+    },
+    messages: [
+      {
+        role: 'user',
+        content: `Somebody has written this about their own situation:
+
+${payload.text}
+
+Suggest up to three things they could try.`,
+      },
+    ],
+  }
+
+  const response = USE_SERVER_FALLBACK
+    ? await client.beta.messages.create({
+        ...request,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+      })
+    : await client.messages.create(request)
+
+  if (response.stop_reason === 'refusal') {
+    // Deliberately not the school wording. Telling somebody with no specialist
+    // that "a specialist should review this" sends them to a person who does
+    // not exist.
+    throw new RefusalError(
+      'The AI would not answer this one. That is not a judgement about you — if it is something you need to talk through, the support details on this page can help.',
+    )
+  }
+
+  const text = response.content.find((block) => block.type === 'text')?.text
+  if (!text) {
+    throw new Error('The AI returned no text content.')
+  }
+
+  const parsed = JSON.parse(text)
+
+  return {
+    strategies: (parsed.strategies ?? []).slice(0, 3).map((s) => ({
+      title: String(s.title ?? '').slice(0, 200),
+      body: String(s.body ?? ''),
+      rationale: Array.isArray(s.rationale) ? s.rationale.map(String) : [],
+      confidence: Math.min(1, Math.max(0, Number(s.confidence) || 0)),
+      safetyConcern: Boolean(s.safety_concern),
+    })),
+    riskFlag: Boolean(parsed.risk_flag),
+    riskReason: String(parsed.risk_reason ?? ''),
+    model: response.model,
+  }
+}

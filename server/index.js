@@ -16,7 +16,7 @@ import { existsSync } from 'node:fs'
 import express from 'express'
 import cors from 'cors'
 import { createClient } from '@supabase/supabase-js'
-import { buildAnonymousPayload } from './anonymise.js'
+import { buildAnonymousPayload, redact } from './anonymise.js'
 import { pushConfigured, sendToProfile, vapidPublicKey } from './push.js'
 import {
   ENQUIRIES_TO,
@@ -36,6 +36,8 @@ import {
   AnonymisationError,
   RefusalError,
   generateStrategies,
+  generateSelfStrategies,
+  SELF_PROMPT_VERSION,
 } from './claude.js'
 
 // 8887, not the conventional 8787 — see the note in vite.config.ts.
@@ -726,6 +728,228 @@ app.post('/api/strategies', async (req, res) => {
     }
     console.error('Strategy generation failed:', err)
     return res.status(500).json({ error: 'Could not generate strategies.' })
+  }
+})
+
+/**
+ * POST /api/self-strategies  { text }
+ *
+ * Somebody asking about their own life — db/094.
+ *
+ * ---------------------------------------------------------------------------
+ * INDIVIDUALS ONLY, AND THIS IS A SECURITY CHECK RATHER THAN A TIDY ONE
+ * ---------------------------------------------------------------------------
+ * /api/strategies puts a child's behaviour through guardian consent, quota,
+ * anonymisation against the whole roster, and a specialist's review queue.
+ * This route has no consent to check and no specialist to route to, because
+ * the person writing is the person it is about.
+ *
+ * That makes it a bypass for anybody else. A teacher who typed "my student
+ * kicked a chair" here would get unreviewed suggestions about a child with no
+ * guardian consulted — the exact thing FR25 exists to prevent. So the role is
+ * checked, and it is checked from the PROFILE rather than the token's metadata,
+ * which a client controls at sign-up.
+ *
+ * Students are excluded for the same reason in reverse: a student has a school,
+ * and their school's safeguarding people are entitled to be in the loop.
+ */
+app.post('/api/self-strategies', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const text = String(req.body?.text ?? '').trim()
+  if (text.length < 20) {
+    return res.status(400).json({
+      error:
+        'Tell it a bit more about the situation — a sentence or two gives it something to work with.',
+    })
+  }
+  if (text.length > 2000) {
+    return res
+      .status(400)
+      .json({ error: 'That is longer than this can take. Try the essentials in a paragraph or two.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: me } = await admin
+      .from('profiles')
+      .select('id, role, first_name, last_name')
+      .eq('id', user.id)
+      .single()
+
+    if (me?.role !== 'individual') {
+      return res.status(403).json({
+        error:
+          'This is only for accounts that belong to no school. If you are asking about a student, use the behaviour log so consent and specialist review apply.',
+      })
+    }
+
+    // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
+    const { data: controls } = await admin
+      .from('ai_controls')
+      .select('ai_enabled, confidence_threshold')
+      .eq('id', true)
+      .single()
+
+    if (!controls?.ai_enabled) {
+      return res.status(503).json({
+        error: 'AI suggestions are switched off at the moment. The courses and reading still work.',
+      })
+    }
+
+    // --- Quota (db/026) ----------------------------------------------------
+    // A null school makes the per-school half of this vacuous, which is right:
+    // there is no school to share a budget with. The per-user limit still
+    // counts by `requested_by` and is the one that applies here.
+    const { data: quota } = await admin
+      .rpc('ai_quota_status', { p_school_id: null, p_actor_id: user.id })
+      .single()
+
+    if (quota && quota.user_used >= quota.user_limit) {
+      return res.status(429).json({
+        error: `You have used all ${quota.user_limit} suggestions available in the last 24 hours. Nothing else on your account is affected.`,
+      })
+    }
+
+    // --- Anonymise ---------------------------------------------------------
+    // Their own name, and the pattern rules that take emails, phone numbers
+    // and dates with them. Somebody writing "I'm Ada and I can't get started"
+    // has no reason to have sent us their name, so it does not travel.
+    const namesToRemove = [me.first_name, me.last_name].filter(Boolean)
+    const { text: redacted, redactions } = redact(text, namesToRemove, '[ME]')
+    const payload = { text: redacted, redactions }
+
+    // --- Generate ----------------------------------------------------------
+    const result = await generateSelfStrategies(payload, namesToRemove)
+
+    // --- Shown, or withheld for good ---------------------------------------
+    // No third option. db/094 explains why there is no review state: a
+    // `pending_review` row here waits on a specialist who does not exist.
+    const threshold = Number(controls.confidence_threshold ?? 0.7)
+    const shown = []
+    let withheldSafety = 0
+    let withheldConfidence = 0
+
+    for (const s of result.strategies) {
+      if (s.safetyConcern) withheldSafety++
+      else if (s.confidence < threshold) withheldConfidence++
+      else shown.push(s)
+    }
+
+    const withheldCount = withheldSafety + withheldConfidence
+    const withheldReason =
+      withheldCount === 0
+        ? null
+        : withheldSafety > 0 && withheldConfidence > 0
+          ? 'One needed somebody qualified involved to be safe, and another was too much of a guess to be worth your time.'
+          : withheldSafety > 0
+            ? 'It needed somebody qualified involved to be safe, and there is nobody attached to this account to check it.'
+            : 'It was too much of a guess to be worth your time.'
+
+    // Written with the service key: neither table has an insert policy, so a
+    // browser cannot invent a suggestion and read it back as the model's.
+    const { data: request, error: requestError } = await admin
+      .from('individual_ai_requests')
+      .insert({
+        profile_id: user.id,
+        asked: redacted,
+        redaction_count: redactions,
+        risk_flagged: result.riskFlag,
+        withheld_count: withheldCount,
+        withheld_reason: withheldReason,
+        model: result.model,
+        prompt_version: SELF_PROMPT_VERSION,
+      })
+      .select('id, created_at, risk_flagged, withheld_count, withheld_reason, asked')
+      .single()
+
+    if (requestError) return res.status(500).json({ error: requestError.message })
+
+    let inserted = []
+    if (shown.length > 0) {
+      const { data, error: insertError } = await admin
+        .from('individual_ai_suggestions')
+        .insert(
+          shown.map((s) => ({
+            request_id: request.id,
+            title: s.title,
+            body: s.body,
+            rationale: s.rationale,
+            confidence: s.confidence,
+          })),
+        )
+        .select('id, title, body, rationale, confidence')
+
+      if (insertError) return res.status(500).json({ error: insertError.message })
+      inserted = data ?? []
+    }
+
+    /*
+     * Record the request — db/026, and the same reasoning as /api/strategies:
+     * after the model answered, because this counts what cost money, and never
+     * allowed to fail the response. school_id is null and behaviour_log_id is
+     * null; both columns are nullable and this is the case they are nullable
+     * for.
+     */
+    void admin
+      .from('ai_generation_events')
+      .insert({
+        school_id: null,
+        requested_by: user.id,
+        behaviour_log_id: null,
+        strategies_returned: inserted.length,
+        model: result.model,
+      })
+      .then(({ error: usageError }) => {
+        if (usageError) console.error('Usage not recorded:', usageError.message)
+      })
+
+    /*
+     * NOBODY IS NOTIFIED ON A RISK FLAG, and db/094 argues that at length.
+     * The school flow tells the safeguarding leads because the subject is a
+     * child. Here the subject is an adult who was promised that nothing they
+     * do on these pages is reported to anybody, and the screen answers a flag
+     * by showing them where to find human help rather than by filing a report
+     * about them.
+     */
+
+    return res.json({
+      requestId: request.id,
+      suggestions: inserted,
+      withheldCount,
+      withheldReason,
+      riskFlagged: result.riskFlag,
+      redactions,
+    })
+  } catch (err) {
+    if (err instanceof AnonymisationError) {
+      recordEvent('critical', 'ai', 'anonymisation_blocked', err.message)
+      return res.status(500).json({
+        error:
+          'Blocked: the check that strips personal details found something it could not remove, so nothing was sent.',
+      })
+    }
+    if (err instanceof RefusalError) {
+      return res.status(422).json({ error: err.message })
+    }
+    if (err?.status === 429) {
+      return res.status(429).json({ error: 'The AI is busy right now. Try again shortly.' })
+    }
+    if (err?.status === 401) {
+      console.error('Anthropic rejected the API key.')
+      return res.status(500).json({ error: 'The AI service is not configured correctly.' })
+    }
+    console.error('Self-strategy generation failed:', err)
+    return res.status(500).json({ error: 'Could not generate suggestions.' })
   }
 })
 

@@ -247,6 +247,23 @@ export default function IndividualHome() {
         </p>
       )}
 
+      {/* A NEW SCREEN WITH ONLY A NAV ICON IS A SCREEN NOBODY OPENS, which is
+          the same fault as the missing public page db/088 shipped without. */}
+      <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
+        <h2 className="font-semibold text-foreground">Stuck on something?</h2>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          Describe it and get a few practical things to try. It will not tell
+          you what you have and it gives no medical advice &mdash; and nobody
+          else can read what you write there.
+        </p>
+        <Link
+          to="/individual/suggestions"
+          className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+        >
+          Ask for suggestions &rarr;
+        </Link>
+      </section>
+
       {/* --- what they have paid for -------------------------------------- */}
       {paid.length > 0 && (
         <>
