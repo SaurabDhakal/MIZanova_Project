@@ -39,11 +39,18 @@ const KIND_COPY: Record<
   { title: string; subtitle: string; organisationLabel: string; countLabel: string }
 > = {
   school: {
-    title: 'Talk to us about your school',
+    /*
+     * "SCHOOL OR CENTRE", because this form already asked for a "School or
+     * centre name" underneath a heading that only said school. db/095 made a
+     * Montessori enquiry possible and the pricing page now sends people here
+     * from a panel about centres — arriving at a heading that talks about
+     * schools is the product forgetting who it just spoke to.
+     */
+    title: 'Talk to us about your school or centre',
     subtitle:
       'Tell us where you are and what you need. Someone from Special Miles will read this and reply to you personally.',
     organisationLabel: 'School or centre name',
-    countLabel: 'Roughly how many students?',
+    countLabel: 'Roughly how many children?',
   },
   family: {
     title: 'Register your interest',

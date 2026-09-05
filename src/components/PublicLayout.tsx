@@ -73,11 +73,18 @@ export default function PublicLayout({
             <Link to="/login" className="font-semibold text-primary hover:underline">
               Log in
             </Link>
+            {/* MATCHES THE HOMEPAGE, WHICH FIXED THIS AND LEFT EVERY OTHER
+                PUBLIC PAGE BEHIND. Landing.tsx dropped "Get started" because
+                bare /signup creates no account — it is a signpost that sends
+                you to an invitation, a guardian code, or the individual form.
+                A button promising to start something, landing on a page that
+                explains you cannot, is the same broken promise on eleven
+                pages instead of one. */}
             <Link
-              to="/signup"
+              to="/enquiry"
               className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
             >
-              Get started
+              Talk to us
             </Link>
           </div>
         </div>
