@@ -44,6 +44,12 @@ export default function Book() {
   const [chosen, setChosen] = useState<string | null>(null)
   const [slot, setSlot] = useState<string | null>(null)
   const [purpose, setPurpose] = useState('')
+  /* Read once when the screen mounts, and up here with the other hooks rather
+     than beside the code that uses it — "in 3 days" must not change while
+     somebody is choosing a time, and a hook after an early return is not a
+     hook at all. */
+  const [now] = useState(() => Date.now())
+  const [showAllDays, setShowAllDays] = useState(false)
 
   const specialists = useQuery({
     queryKey: queryKeys.bookableSpecialists,
@@ -137,6 +143,33 @@ export default function Book() {
   const live = (bookings.data ?? []).filter((b) => b.status !== 'cancelled')
 
   /*
+   * ---------------------------------------------------------------------
+   * A CONFIRMED SESSION IS NOT A REQUEST, AND WAS FILED AS ONE
+   * ---------------------------------------------------------------------
+   * Everything sat in one list called "Your requests" at equal weight. But an
+   * accepted session is an appointment — a thing somebody has to be somewhere
+   * for — and a pending one is a question waiting on an answer. Reading them
+   * as the same kind of object is how you miss the Tuesday you agreed to.
+   *
+   * Past ones drop out of "coming up" on their own, because an appointment
+   * that has happened is not something to remember.
+   */
+  const comingUp = live
+    .filter((b) => b.status === 'accepted' && +new Date(b.starts_at) > now)
+    .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at))
+  const waiting = live.filter((b) => b.status === 'requested')
+  const answeredNo = live.filter((b) => b.status === 'declined')
+
+  /** "in 3 days", "tomorrow" — the thing somebody actually wants to know. */
+  const howSoon = (iso: string) => {
+    const days = Math.round((+new Date(iso) - now) / 86400000)
+    if (days <= 0) return 'today'
+    if (days === 1) return 'tomorrow'
+    if (days < 14) return `in ${days} days`
+    return `in ${Math.round(days / 7)} weeks`
+  }
+
+  /*
    * SLOTS THIS PERSON HAS ALREADY ASKED FOR.
    *
    * `free_slots` deliberately only subtracts ACCEPTED bookings — two people
@@ -186,14 +219,75 @@ export default function Book() {
         </ul>
       </header>
 
-      {/* --- what they have already asked ---------------------------------- */}
-      {live.length > 0 && (
+      {/* ---------------------------------------------------------------
+          COMING UP — an appointment, given the weight of one.
+          --------------------------------------------------------------- */}
+      {comingUp.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 text-lg font-semibold text-foreground">
+            Coming up
+          </h2>
+          <ul className="space-y-3">
+            {comingUp.map((b) => {
+              const who = specialists.data.find((s) => s.id === b.specialist_id)
+              return (
+                <li
+                  key={b.id}
+                  className="rounded-card border border-success bg-success-subtle p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold tracking-wider text-success-foreground uppercase">
+                        Confirmed &middot; {howSoon(b.starts_at)}
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-foreground">
+                        {when(b.starts_at)}
+                      </p>
+                      <p className="mt-1 flex items-center gap-2 text-sm text-foreground">
+                        <Avatar
+                          id={b.specialist_id}
+                          name={who?.full_name ?? ''}
+                          size="sm"
+                        />
+                        with {who?.full_name ?? 'a specialist'}
+                      </p>
+                      {b.purpose && (
+                        <p className="mt-3 max-w-prose border-l-2 border-success pl-3 text-sm text-foreground">
+                          {b.purpose}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => cancel.mutate(b.id)}
+                      className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                    >
+                      Withdraw this
+                    </button>
+                  </div>
+                  {/* NOTHING EMAILS EITHER OF YOU — said on the card that
+                      matters, not only in a note at the bottom of the home
+                      screen. Somebody who thinks a reminder is coming will
+                      miss this. */}
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    No reminder will be sent for this. It is worth putting in
+                    your own calendar.
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* --- still waiting, and answered no --------------------------------- */}
+      {[...waiting, ...answeredNo].length > 0 && (
         <>
           <h2 className="mb-3 text-lg font-semibold text-foreground">
-            Your requests
+            {waiting.length > 0 ? 'Waiting for an answer' : 'Answered'}
           </h2>
           <ul className="mb-10 space-y-3">
-            {live.map((b) => {
+            {[...waiting, ...answeredNo].map((b) => {
               const who = specialists.data.find((s) => s.id === b.specialist_id)
               return (
                 <li
@@ -354,7 +448,14 @@ export default function Book() {
             </p>
           )}
 
-          {[...byDay.entries()].map(([day, times]) => (
+          {/* THREE DAYS, THEN THE REST ON ASK. Three weeks of a specialist's
+              week is twenty-four buttons in nine groups, which is a wall
+              somebody scrolls past rather than a choice they make. The nearest
+              days are the ones most people want anyway, and the rest are one
+              press away. */}
+          {[...byDay.entries()]
+            .slice(0, showAllDays ? undefined : 3)
+            .map(([day, times]) => (
             <div key={day} className="mt-4">
               <p className="text-sm font-semibold text-foreground">{day}</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -388,6 +489,17 @@ export default function Book() {
               </div>
             </div>
           ))}
+
+          {byDay.size > 3 && !showAllDays && (
+            <button
+              type="button"
+              onClick={() => setShowAllDays(true)}
+              className="mt-4 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
+            >
+              Show the other {byDay.size - 3} day
+              {byDay.size - 3 === 1 ? '' : 's'}
+            </button>
+          )}
         </>
       )}
 
