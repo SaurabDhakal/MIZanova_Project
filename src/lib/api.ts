@@ -7904,6 +7904,49 @@ export async function requestSelfStrategies(
   return body as SelfStrategyResponse
 }
 
+/**
+ * Close your own account, for good — db/096.
+ *
+ * The password travels because the server re-proves it before deleting
+ * anything: this is irreversible, and an unattended signed-in laptop must not
+ * be one click from destroying somebody's account.
+ *
+ * Only an individual account can be closed this way. Every other role has
+ * people attached to it — a child, a roster, a caseload — and what happens to
+ * them is not a question a delete button gets to answer.
+ */
+export type AccountClosure = {
+  closed: true
+  enrolmentsDeleted: number
+  suggestionsDeleted: number
+  purchasesKept: number
+}
+
+export async function closeMyAccount(
+  password: string,
+): Promise<AccountClosure> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/account/close`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ password }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as AccountClosure
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>

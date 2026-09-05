@@ -732,6 +732,155 @@ app.post('/api/strategies', async (req, res) => {
 })
 
 /**
+ * POST /api/account/close  { password }
+ *
+ * Closing your own account — db/096.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PAGE PROMISED THIS BEFORE IT EXISTED
+ * ---------------------------------------------------------------------------
+ * ForIndividuals.tsx says "an account you can close, with an email address you
+ * can change". Changing the email has always worked. Closing had no route, no
+ * screen and no database machinery, so half of that sentence was untrue for
+ * the life of the page.
+ *
+ * ---------------------------------------------------------------------------
+ * INDIVIDUALS ONLY, AND NOT BECAUSE IT IS EASIER
+ * ---------------------------------------------------------------------------
+ * An individual is the only role whose departure harms nobody else. A parent
+ * is somebody's guardian, an educator is on a roster, a specialist holds a
+ * caseload — deleting any of them raises a question about the people attached
+ * to them that a delete button must not answer on its own.
+ *
+ * So this refuses every other role rather than doing something surprising, and
+ * says who to ask instead.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PASSWORD IS PROVED FIRST
+ * ---------------------------------------------------------------------------
+ * Same reasoning api.ts gives for changing an email, and more so: this is
+ * irreversible. An unattended signed-in laptop must not be one click away from
+ * destroying somebody's account, so the current password is re-checked against
+ * a throwaway client that cannot touch this session.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT DELETING THE AUTH USER ACTUALLY DOES
+ * ---------------------------------------------------------------------------
+ * `profiles.id` references `auth.users` ON DELETE CASCADE, and the forty-odd
+ * keys pointing at `profiles` are already split correctly: CASCADE for what IS
+ * the person, SET NULL for records of what they DID. One call therefore erases
+ * their enrolments, their push subscriptions and their private AI requests,
+ * while leaving audit events and AI spend counted and detached.
+ *
+ * db/096 moved `course_purchases` from the first group to the second, so a
+ * closure no longer deletes the record that money was received.
+ */
+app.post('/api/account/close', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const password = String(req.body?.password ?? '')
+  if (!password) {
+    return res.status(400).json({ error: 'Enter your password to confirm.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: me } = await admin
+      .from('profiles')
+      .select('id, role, email')
+      .eq('id', user.id)
+      .single()
+
+    if (me?.role !== 'individual') {
+      return res.status(403).json({
+        error:
+          'Only an account with no school attached can be closed from here. Ask your school administrator, or Special Miles, to close this one.',
+      })
+    }
+
+    // Prove the password against a client that holds no session of its own, so
+    // a wrong answer cannot disturb the one making the request.
+    const checker = createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { error: wrongPassword } = await checker.auth.signInWithPassword({
+      email: me.email ?? user.email,
+      password,
+    })
+    if (wrongPassword) {
+      return res.status(403).json({ error: 'That password is not right.' })
+    }
+
+    /*
+     * COUNTED BEFORE THE DELETE, because afterwards there is nothing to count.
+     * The response tells them what actually happened rather than a generic
+     * "done", and it is the last thing this account will ever be told.
+     */
+    const [{ count: enrolments }, { count: suggestions }, { count: purchases }] =
+      await Promise.all([
+        admin
+          .from('course_enrolments')
+          .select('id', { count: 'exact', head: true })
+          .eq('profile_id', user.id),
+        admin
+          .from('individual_ai_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('profile_id', user.id),
+        admin
+          .from('course_purchases')
+          .select('id', { count: 'exact', head: true })
+          .eq('profile_id', user.id)
+          .eq('status', 'paid'),
+      ])
+
+    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id)
+    if (deleteError) {
+      console.error('Account closure failed:', deleteError)
+      return res.status(500).json({
+        error:
+          'Your account could not be closed. Nothing has been changed — please try again, or write to us.',
+      })
+    }
+
+    /*
+     * RECORDED AFTER THE FACT, WITH NO NAME. Special Miles is entitled to know
+     * that an account closed — it is the only signal that the product lost
+     * somebody — and is not entitled to a parting record of who. recordEvent
+     * writes to the table db/027 built for things a person should see.
+     */
+    recordEvent(
+      'info',
+      'account',
+      'account_closed',
+      `An individual account was closed. ${enrolments ?? 0} enrolment(s) and ${
+        suggestions ?? 0
+      } saved suggestion(s) were deleted; ${
+        purchases ?? 0
+      } purchase record(s) were kept and detached.`,
+    )
+
+    return res.json({
+      closed: true,
+      enrolmentsDeleted: enrolments ?? 0,
+      suggestionsDeleted: suggestions ?? 0,
+      purchasesKept: purchases ?? 0,
+    })
+  } catch (err) {
+    console.error('Account closure failed:', err)
+    return res.status(500).json({ error: 'Could not close the account.' })
+  }
+})
+
+/**
  * POST /api/self-strategies  { text }
  *
  * Somebody asking about their own life — db/094.

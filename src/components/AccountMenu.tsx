@@ -168,6 +168,23 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
               Password and sign-in
             </NavLink>
 
+            {/* THE ONLY WAY TO REACH ANYBODY FROM INSIDE THE APP.
+                /help has existed since the public site was built and was
+                linked from nowhere once you signed in — not the nav, not the
+                shell, not here. An individual who has just paid $49 for a
+                course that did not appear had no route to a human at all, and
+                neither did a teacher with a question. It is one line, and it
+                was missing from every role rather than one. */}
+            <NavLink
+              to="/help"
+              role="menuitem"
+              onClick={close}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
+            >
+              <Icon name="hand" className="h-4 w-4 text-muted-foreground" />
+              Help and contact
+            </NavLink>
+
             <div className="border-t border-border p-1.5">
               <button
                 type="button"
