@@ -47,6 +47,11 @@ export default function Suggestions() {
   /* Null means "the most recent", worked out at render rather than stored, so
      a fresh answer opens itself without anything having to remember it. */
   const [openAsk, setOpenAsk] = useState<string | null>(null)
+  const [openFact, setOpenFact] = useState<'limits' | 'privacy' | null>(null)
+  /* Three, then the rest on ask. Somebody who has used this for a month has
+     thirty, and a page that never ends is the same fault as the one collapsing
+     the old answers fixed. */
+  const [showAllAsks, setShowAllAsks] = useState(false)
 
   const history = useQuery({
     queryKey: queryKeys.mySelfRequests,
@@ -146,41 +151,57 @@ export default function Suggestions() {
         </p>
       </header>
 
-      {/* WHAT IT WILL NOT DO, BEFORE THEY TYPE IT — and still before, not
-          behind a disclosure. Putting it after the result would mean somebody
-          writes something personal expecting a diagnosis and finds out
-          afterwards that it was never going to give one.
+      {/* ---------------------------------------------------------------
+          THE QUESTIONS STAY VISIBLE; THE ANSWERS FOLD.
+          ---------------------------------------------------------------
+          These were two paragraphs open on every visit. Both are read once and
+          both were pushing the box down the page, which is the complaint.
 
-          COMPRESSED, NOT HIDDEN. This was four bullets that pushed the actual
-          box below the fold on every visit, and it is read once. Every fact
-          survives — no diagnosis, no medical advice, what is stripped, what is
-          stored, who can read it — in two lines instead of ten, laid out as a
-          pair of facts rather than a wall of caveats. Collapsing it behind a
-          toggle was the other option and it was worse: these are the two
-          questions somebody has before writing something personal, and the
-          answers should not need a click. */}
-      <section className="mb-6 grid gap-x-8 gap-y-3 rounded-card border border-border bg-background p-5 sm:grid-cols-2">
-        <div>
-          <h2 className="text-sm font-bold text-foreground">
-            What it will not do
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            A starting point, not an answer. It never names a condition or
-            hints at one, even if you ask directly, and gives no medical
-            advice &mdash; that is a conversation for a GP.
-          </p>
-        </div>
-        <div>
-          <h2 className="text-sm font-bold text-foreground">
-            What happens to what you write
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your name, email, phone number and dates are stripped before it is
-            sent. What you write is kept so you can read it again, nobody else
-            can open it, and you can delete it below.
-          </p>
-        </div>
-      </section>
+          What is NOT done here is hiding them behind a single "learn more".
+          The headings are the two questions somebody has before typing
+          something personal — will it tell me what is wrong with me, and who
+          reads this — and leaving them on the page means the answers are
+          visibly available rather than something you would have to suspect
+          exists. It is the move NotBuiltYet and PageNote already made in this
+          codebase: fold, never delete.
+          --------------------------------------------------------------- */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {[
+          {
+            key: 'limits' as const,
+            icon: 'hand' as const,
+            label: 'What it will not do',
+            body: 'A starting point, not an answer. It never names a condition or hints at one, even if you ask directly, and gives no medical advice — that is a conversation for a GP.',
+          },
+          {
+            key: 'privacy' as const,
+            icon: 'privacy' as const,
+            label: 'What happens to what you write',
+            body: 'Your name, email, phone number and dates are stripped before it is sent. What you write is kept so you can read it again, nobody else can open it, and you can delete it below.',
+          },
+        ].map((f) => (
+          <div key={f.key} className="w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setOpenFact(openFact === f.key ? null : f.key)}
+              aria-expanded={openFact === f.key}
+              className={`flex w-full items-center gap-2 rounded-btn border px-3 py-2 text-sm font-semibold ${
+                openFact === f.key
+                  ? 'border-primary bg-primary-subtle text-foreground'
+                  : 'border-border bg-card text-foreground'
+              }`}
+            >
+              <Icon name={f.icon} className="h-4 w-4 shrink-0 text-primary" />
+              {f.label}
+            </button>
+            {openFact === f.key && (
+              <p className="mt-2 max-w-prose rounded-card border border-border bg-background p-3 text-sm text-muted-foreground">
+                {f.body}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
 
       {aiDown && (
         <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-5">
@@ -372,11 +393,17 @@ export default function Suggestions() {
 
       {history.isSuccess && history.data.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mt-10 mb-3 flex items-center gap-2 text-lg font-semibold text-foreground">
+            <Icon name="ai" className="h-5 w-5 shrink-0 text-primary" />
             What you have asked
+            <span className="text-sm font-normal text-muted-foreground">
+              {history.data.length}
+            </span>
           </h2>
           <ul className="space-y-5">
-            {history.data.map((request) => (
+            {history.data
+              .slice(0, showAllAsks ? undefined : 3)
+              .map((request) => (
               <RequestCard
                 key={request.id}
                 request={request}
@@ -402,6 +429,16 @@ export default function Suggestions() {
               />
             ))}
           </ul>
+
+          {history.data.length > 3 && !showAllAsks && (
+            <button
+              type="button"
+              onClick={() => setShowAllAsks(true)}
+              className="mt-5 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:border-primary"
+            >
+              See the other {history.data.length - 3}
+            </button>
+          )}
         </>
       )}
     </div>
@@ -481,12 +518,16 @@ function SuggestionActions({
     return (
       <p className="mt-3 flex flex-wrap items-center gap-3 text-sm">
         <span
-          className={
+          className={`inline-flex items-center gap-1.5 font-semibold ${
             suggestion.outcome === 'helped'
-              ? 'font-semibold text-success-foreground'
-              : 'font-semibold text-muted-foreground'
-          }
+              ? 'text-success-foreground'
+              : 'text-muted-foreground'
+          }`}
         >
+          <Icon
+            name={suggestion.outcome === 'helped' ? 'tick' : 'cross'}
+            className="h-4 w-4 shrink-0"
+          />
           {suggestion.outcome === 'helped'
             ? 'You said this helped'
             : 'You said this was not for you'}
@@ -531,8 +572,11 @@ function SuggestionActions({
                 showToast(e.message, 'error')
               })
           }}
-          className="rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
         >
+          {/* The icon says where it goes — this button makes a goal, and the
+              goals screen wears the same one in the sidebar. */}
+          <Icon name="goals" className="h-4 w-4 shrink-0" />
           {state === 'saving' ? 'Adding…' : 'I want to try this'}
         </button>
       )}
@@ -555,8 +599,12 @@ function SuggestionActions({
         type="button"
         onClick={() => setFollowUp(followUp === null ? '' : null)}
         aria-expanded={followUp !== null}
-        className="rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary"
+        className="inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary"
       >
+        <Icon
+          name={followUp === null ? 'messages' : 'cross'}
+          className="h-4 w-4 shrink-0"
+        />
         {followUp === null ? 'Ask about this' : 'Never mind'}
       </button>
 
@@ -626,16 +674,18 @@ function SuggestionActions({
             type="button"
             disabled={outcome.isPending}
             onClick={() => outcome.mutate('helped')}
-            className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
           >
+            <Icon name="tick" className="h-4 w-4 shrink-0" />
             Yes
           </button>
           <button
             type="button"
             disabled={outcome.isPending}
             onClick={() => outcome.mutate('didnt_help')}
-            className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
           >
+            <Icon name="cross" className="h-4 w-4 shrink-0" />
             Not for me
           </button>
         </span>
