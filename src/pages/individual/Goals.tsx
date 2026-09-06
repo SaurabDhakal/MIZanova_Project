@@ -17,6 +17,7 @@ import {
 import { Link } from 'react-router-dom'
 import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import WhatWorksLink from '../../components/WhatWorksLink'
 
 /**
  * What somebody is working on — db/101.
@@ -326,6 +327,8 @@ export default function Goals() {
           </ul>
         </>
       )}
+
+      <WhatWorksLink from="goals" />
     </div>
   )
 }

@@ -19,6 +19,7 @@ import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import DictatedTextarea from '../../components/DictatedTextarea'
 import { Link } from 'react-router-dom'
+import WhatWorksLink from '../../components/WhatWorksLink'
 
 /**
  * Asking the AI about your own situation — db/094.
@@ -441,6 +442,8 @@ export default function Suggestions() {
           )}
         </>
       )}
+
+      <WhatWorksLink from="suggestions" />
     </div>
   )
 }

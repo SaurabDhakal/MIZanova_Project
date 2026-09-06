@@ -22,6 +22,7 @@ import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
 import PushNotificationsSection from '../../components/PushNotificationsSection'
 import SubscriptionSection from '../../components/SubscriptionSection'
+import WhatWorksLink from '../../components/WhatWorksLink'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 
@@ -716,6 +717,10 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
                 while you are still here, and putting billing after the door
                 marked "delete everything" reads as an afterthought. */}
             <SubscriptionSection />
+            {/* Beside the export rather than after it: both answer "something
+                I can take away", and this is the one most people actually
+                want — the export is a data-rights file, this is a document. */}
+            <WhatWorksLink from="account" />
             <ExportSection />
             <CloseAccountSection />
           </>
