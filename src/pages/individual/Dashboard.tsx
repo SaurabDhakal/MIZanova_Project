@@ -241,7 +241,15 @@ export default function IndividualHome() {
                 is for. `flex-col-reverse` puts the number on top visually while
                 the DOM keeps dt before dd, so it reads correctly and once. */}
             {stats.map((s) => (
-              <div key={s.label} className="flex flex-col-reverse">
+              <div
+                key={s.label}
+                /* `justify-end` because in column-reverse the main axis starts
+                   at the BOTTOM, so the default packs content downwards and a
+                   one-line label ("part finished") sat its number lower than a
+                   two-line one ("goals on the go"). Packing to main-end is what
+                   puts every figure on the same line. */
+                className="flex flex-col-reverse justify-end"
+              >
                 <dt className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
                   {s.label}
                 </dt>
