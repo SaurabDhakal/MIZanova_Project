@@ -11,6 +11,7 @@ import {
   fetchMyPurchases,
   fetchIndividualPlan,
   fetchMyAiTier,
+  fetchMySubscription,
   formatMoney,
   queryKeys,
 } from '../../lib/api'
@@ -69,6 +70,16 @@ export default function IndividualHome() {
     queryFn: fetchIndividualPlan,
   })
   const tier = useQuery({ queryKey: queryKeys.myAiTier, queryFn: fetchMyAiTier })
+  /* Which of the two reasons they are on the paid tier. Asked rather than
+     inferred from the purchase list, because a subscription is the answer that
+     changes what the card offers to do next. */
+  const subscription = useQuery({
+    queryKey: queryKeys.mySubscription,
+    queryFn: fetchMySubscription,
+  })
+  const hasLiveSubscription = ['trialing', 'active', 'past_due'].includes(
+    subscription.data?.status ?? '',
+  )
   const purchases = useQuery({
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
@@ -555,45 +566,88 @@ export default function IndividualHome() {
             WHAT IT COSTS, ON THE SCREEN PEOPLE ACTUALLY OPEN.
             ------------------------------------------------------------------
             The price lived on the public pricing page and on the Payments tab
-            in Settings, which are the two places somebody who already has an
-            account never goes. So a signed-in person could use MiZanova for
-            months without knowing a subscription existed.
+            in Settings — the first is for people deciding whether to make an
+            account, the second is where you go to change something you already
+            have. So a signed-in person could use MiZanova for months without
+            knowing a subscription existed.
 
-            SHOWN ONLY TO SOMEBODY IT WOULD ACTUALLY CHANGE. `my_ai_tier()`
-            answers paid for a live subscription OR a course already bought, so
-            a person who never subscribed can already be on the capable model.
-            Offering them "the more capable model" would be selling them what
-            they have. Directly under the suggestions panel, because that is
-            the only thing this buys.
+            THREE STATES, BECAUSE "PAID" HAS TWO CAUSES.
+            `my_ai_tier()` answers paid for a live subscription OR a course
+            already bought (db/099, db/111). The first version of this card
+            simply hid itself from anybody on the paid tier, which meant the
+            one account with test receipts on it — the demo — never saw the
+            price at all, and neither would a real customer who had bought a
+            single course.
+
+            Hiding it also hid something worth knowing: one course purchase
+            grants the capable model permanently, so it overlaps a subscription
+            almost entirely. Saying that out loud is more honest than quietly
+            withholding an offer, and it is the sort of thing Special Miles
+            should see rather than discover from a support email.
             ------------------------------------------------------------------ */}
-        {plan.data?.is_offered &&
-          plan.data.price_cents !== null &&
-          tier.data === 'free' && (
-            <section className="mt-4 rounded-card border border-primary bg-primary-subtle p-5">
-              <p className="text-xs font-bold tracking-wider text-primary uppercase">
-                If you want more of them
-              </p>
-              <p className="mt-1 text-lg font-bold text-foreground">
-                {formatMoney(plan.data.price_cents, plan.data.currency)}{' '}
-                <span className="text-sm font-normal text-muted-foreground">
-                  a {plan.data.bill_every}
-                </span>
-              </p>
-              <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-                {plan.data.trial_days
-                  ? `Free for the first ${plan.data.trial_days} days. `
-                  : ''}
-                More suggestions a day, answered by the model that does not give
-                up on the hard ones. Everything else here stays free either way.
-              </p>
-              <Link
-                to="/account/payments"
-                className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-              >
-                What you get &rarr;
-              </Link>
-            </section>
-          )}
+        {/* `tier.data` is in the condition, not just the ternary below. A
+            ternary on `=== 'free'` sends undefined down the ELSE branch, so
+            while the tier query is in flight — or if it fails — a free account
+            would be told "you already have this", which is both wrong and the
+            one thing that would stop them subscribing. No answer means no
+            card. */}
+        {plan.data?.is_offered && plan.data.price_cents !== null && tier.data && (
+          <section className="mt-4 rounded-card border border-primary bg-primary-subtle p-5">
+            {tier.data === 'free' ? (
+              <>
+                <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                  If you want more of them
+                </p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {formatMoney(plan.data.price_cents, plan.data.currency)}{' '}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    a {plan.data.bill_every}
+                  </span>
+                </p>
+                <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+                  {plan.data.trial_days
+                    ? `Free for the first ${plan.data.trial_days} days. `
+                    : ''}
+                  More suggestions a day, answered by the model that does not
+                  give up on the hard ones. Everything else here stays free
+                  either way.
+                </p>
+                <Link
+                  to="/account/payments"
+                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                >
+                  What you get &rarr;
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                  You already have this
+                </p>
+                <p className="mt-1 max-w-prose text-sm text-foreground">
+                  {hasLiveSubscription
+                    ? 'You subscribe, so your suggestions are answered by the more capable model and you can ask more times a day.'
+                    : 'Because you have bought a course, your suggestions are answered by the more capable model and you can ask more times a day.'}
+                </p>
+                {/* THE PRICE IS STILL SHOWN. Somebody on the paid tier through
+                    a course has not been told what the subscription costs, and
+                    withholding it because they happen not to need it today
+                    makes the figure feel like something being kept from them. */}
+                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                  {hasLiveSubscription
+                    ? `${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every}.`
+                    : `The subscription is ${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every} and would give you the same thing, so there is nothing to pay for now.`}
+                </p>
+                <Link
+                  to="/account/payments"
+                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                >
+                  {hasLiveSubscription ? 'Manage it' : 'See the details'} &rarr;
+                </Link>
+              </>
+            )}
+          </section>
+        )}
 
         {/* --- what they have paid for -------------------------------------- */}
         {paid.length > 0 && (
