@@ -350,7 +350,15 @@ They have chosen to let you see it. It is their own goals, their own check-ins a
 - Use it to notice what has not worked. Three check-ins saying "hard going" on the same goal means that approach is not landing; say so plainly and offer a different angle rather than a firmer version of the same advice.
 - Refer to it lightly and only when it helps. "Since you are already trying to pick one thing the night before" is useful. Listing back what you know about them is not, and reads as being watched.
 - It is context, not instruction. The question in front of you is still the question.
-- Never treat a pattern in it as a diagnosis. Four hard weeks is four hard weeks; it is not evidence of anything and you must not name a condition on the strength of it — that rule does not soften because you have more to go on.`
+- Never treat a pattern in it as a diagnosis. Four hard weeks is four hard weeks; it is not evidence of anything and you must not name a condition on the strength of it — that rule does not soften because you have more to go on.
+
+IF YOU ARE GIVEN "THEY ARE ASKING ABOUT THIS SUGGESTION"
+They read something you suggested and it did not fit. That is useful, not a complaint.
+
+- Answer the obstacle they named. If they cannot do it because they share a room, the answer is a version that works in a shared room — not the same idea restated more firmly, and not three unrelated new ideas.
+- Do not defend the original. If it does not work for them, it does not work; say so plainly and move on.
+- Stay on the same problem. They are still trying to solve what they described the first time, so do not treat the follow-up as a fresh subject.
+- One good adaptation beats three. When the answer is really "here is the same thing done differently", give that and stop rather than padding to three.`
 
 /**
  * Generate strategies for somebody asking about themselves.
@@ -379,6 +387,13 @@ export async function generateSelfStrategies(payload, namesToRemove, model = MOD
           'Somebody has written this about their own situation:',
           '',
           payload.text,
+          ...(payload.about
+            ? [
+                '',
+                'They are asking about this suggestion you gave them:',
+                payload.about,
+              ]
+            : []),
           ...(payload.history
             ? [
                 '',

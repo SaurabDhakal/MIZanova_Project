@@ -7884,6 +7884,8 @@ export async function setSuggestionOutcome(
 export type SelfRequest = {
   id: string
   asked: string
+  /** db/110. Set when this was a question about a particular suggestion. */
+  about_suggestion_id: string | null
   redaction_count: number
   risk_flagged: boolean
   withheld_count: number
@@ -7900,11 +7902,23 @@ export type SelfRequest = {
  * policy of `profile_id = auth.uid()` and nothing else, not even a platform
  * admin.
  */
+/*
+ * THE EMBED IS NAMED, AND HAS TO BE. db/110 added a second foreign key between
+ * these two tables — suggestions point at their request, and a follow-up
+ * request points at the suggestion it is about — so PostgREST can no longer
+ * guess which relationship a bare embed means and refuses the whole query:
+ *
+ *   Could not embed because more than one relationship was found for
+ *   'individual_ai_requests' and 'individual_ai_suggestions'
+ *
+ * Naming the constraint says "the suggestions belonging to this request",
+ * which is what was always meant.
+ */
 export async function fetchMySelfRequests(): Promise<SelfRequest[]> {
   const { data, error } = await supabase
     .from('individual_ai_requests')
     .select(
-      'id, asked, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions (id, title, body, rationale, confidence, outcome)',
+      'id, asked, about_suggestion_id, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions!individual_ai_suggestions_request_id_fkey (id, title, body, rationale, confidence, outcome)',
     )
     .order('created_at', { ascending: false })
 
@@ -7946,6 +7960,8 @@ export type SelfStrategyResponse = {
  */
 export async function requestSelfStrategies(
   text: string,
+  /** db/110. The suggestion this is a follow-up to, if it is one. */
+  aboutSuggestionId?: string,
 ): Promise<SelfStrategyResponse> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -7957,7 +7973,7 @@ export async function requestSelfStrategies(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, aboutSuggestionId: aboutSuggestionId ?? null }),
   }).catch(() => {
     throw new Error(
       'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',

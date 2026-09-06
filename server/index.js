@@ -1141,7 +1141,8 @@ async function historyFor(userId, names) {
       .limit(3),
     admin
       .from('individual_ai_requests')
-      .select('asked, created_at, individual_ai_suggestions (title, outcome)')
+      // Named for the same reason as in api.ts — db/110 made this ambiguous.
+      .select('asked, created_at, individual_ai_suggestions!individual_ai_suggestions_request_id_fkey (title, outcome)')
       .eq('profile_id', userId)
       .order('created_at', { ascending: false })
       .limit(3),
@@ -1183,7 +1184,9 @@ async function historyFor(userId, names) {
      * in March and abandoned in April — and the person will conclude it is not
      * listening, which it was not.
      */
-    for (const s of a.individual_ai_suggestions ?? []) {
+    for (const s of a[
+      'individual_ai_suggestions'
+    ] ?? []) {
       if (s.outcome === 'helped') {
         lines.push(`    you suggested "${clean(s.title)}" and it HELPED`)
       } else if (s.outcome === 'didnt_help') {
@@ -1224,10 +1227,23 @@ app.post('/api/self-strategies', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
 
   const text = String(req.body?.text ?? '').trim()
-  if (text.length < 20) {
+  const aboutSuggestionId = req.body?.aboutSuggestionId ?? null
+
+  /*
+   * A FOLLOW-UP MAY BE SHORT, and a fresh question may not.
+   *
+   * Twenty characters is right for a cold start: three words about a whole
+   * situation produces a thin answer. A follow-up arrives with the original
+   * question and the suggestion attached, so "I share a room" is fourteen
+   * characters and completely sufficient — and rejecting it would be the
+   * product refusing the most natural thing somebody could type.
+   */
+  const minimum = aboutSuggestionId ? 5 : 20
+  if (text.length < minimum) {
     return res.status(400).json({
-      error:
-        'Tell it a bit more about the situation — a sentence or two gives it something to work with.',
+      error: aboutSuggestionId
+        ? 'A few words about what is in the way is enough.'
+        : 'Tell it a bit more about the situation — a sentence or two gives it something to work with.',
     })
   }
   if (text.length > 2000) {
@@ -1314,6 +1330,24 @@ app.post('/api/self-strategies', async (req, res) => {
     const namesToRemove = [me.first_name, me.last_name].filter(Boolean)
     const { text: redacted, redactions } = redact(text, namesToRemove, '[ME]')
 
+    /*
+     * db/110. WHICH SUGGESTION THEY ARE ASKING ABOUT, READ AS THEM.
+     *
+     * The browser sends an id and nothing else, and this reads the suggestion
+     * with the CALLER'S token — so RLS answers whether it is theirs. A forged
+     * id belonging to somebody else returns nothing and the follow-up is
+     * simply treated as a fresh question, which is the safe way to fail.
+     */
+    let about = null
+    if (aboutSuggestionId) {
+      const { data } = await userClient
+        .from('individual_ai_suggestions')
+        .select('id, title, body')
+        .eq('id', aboutSuggestionId)
+        .maybeSingle()
+      about = data ?? null
+    }
+
     /* db/107. Only when they have said so, and counted into the same
        redaction total — the number on the screen has to describe everything
        that left, not just the part they typed today. */
@@ -1321,10 +1355,19 @@ app.post('/api/self-strategies', async (req, res) => {
       ? await historyFor(user.id, namesToRemove)
       : { text: '', redactions: 0, used: false }
 
+    /* The suggestion goes through the same redaction as everything else. It
+       is the model's own words, so nothing should be found in it — and that
+       is exactly why it is cheap to check rather than assume. */
+    const aboutClean = about
+      ? redact(`${about.title}
+${about.body}`, namesToRemove, '[ME]')
+      : { text: '', redactions: 0 }
+
     const payload = {
       text: redacted,
-      redactions: redactions + history.redactions,
+      redactions: redactions + history.redactions + aboutClean.redactions,
       history: history.used ? history.text : null,
+      about: about ? aboutClean.text : null,
     }
 
     /* --- Generate, cheaply, and escalate when it matters -----------------
@@ -1437,6 +1480,7 @@ app.post('/api/self-strategies', async (req, res) => {
       .insert({
         profile_id: user.id,
         asked: redacted,
+        about_suggestion_id: about?.id ?? null,
         redaction_count: payload.redactions,
         risk_flagged: result.riskFlag,
         withheld_count: withheldCount,

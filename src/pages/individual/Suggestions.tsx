@@ -89,9 +89,13 @@ export default function Suggestions() {
   })
 
   const ask = useMutation({
-    mutationFn: requestSelfStrategies,
+    mutationFn: ({ text, about }: { text: string; about?: string }) =>
+      requestSelfStrategies(text, about),
     onSuccess: async () => {
       setText('')
+      /* A follow-up's answer is the newest thing in the list, and the list
+         opens whichever is newest — so nothing has to be told to open it. */
+      setOpenAsk(null)
       await queryClient.invalidateQueries({ queryKey: queryKeys.mySelfRequests })
     },
     onError: (err: Error) => showToast(err.message, 'error'),
@@ -306,7 +310,7 @@ export default function Suggestions() {
              * server is genuinely down gives the honest error it always did.
              */
             disabled={ask.isPending || tooShort || tooLong}
-            onClick={() => ask.mutate(text.trim())}
+            onClick={() => ask.mutate({ text: text.trim() })}
             className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {ask.isPending ? 'Thinking…' : 'Ask for suggestions'}
@@ -377,6 +381,10 @@ export default function Suggestions() {
                 request={request}
                 onDelete={() => remove.mutate(request.id)}
                 deleting={remove.isPending && remove.variables === request.id}
+                onAskAbout={(id, question) =>
+                  ask.mutate({ text: question, about: id })
+                }
+                asking={ask.isPending}
                 onChanged={() =>
                   void queryClient.invalidateQueries({
                     queryKey: queryKeys.mySelfRequests,
@@ -423,11 +431,16 @@ export default function Suggestions() {
 function SuggestionActions({
   suggestion,
   onChanged,
+  onAskAbout,
+  asking,
 }: {
   suggestion: SelfSuggestion
   onChanged: () => void
+  onAskAbout: (suggestionId: string, question: string) => void
+  asking: boolean
 }) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [followUp, setFollowUp] = useState<string | null>(null)
 
   const outcome = useMutation({
     mutationFn: (o: 'helped' | 'didnt_help' | null) =>
@@ -500,6 +513,74 @@ function SuggestionActions({
       )}
 
       {/* ---------------------------------------------------------------
+          ASKING ABOUT THIS ONE — db/110.
+          ---------------------------------------------------------------
+          The obvious next thought on reading a suggestion is a question about
+          it: "I cannot do that because I share a room", "which part do I do
+          first". The only way to ask was to start again in the box at the top
+          and describe the whole situation from scratch, hoping the model
+          landed on the same idea so it could be pushed on — so most people
+          would not, and a suggestion somebody cannot act on is worth nothing
+          however good it was.
+
+          The openings are the obstacles people actually hit, because "ask a
+          follow-up" in an empty box has the same problem the main box had.
+          --------------------------------------------------------------- */}
+      <button
+        type="button"
+        onClick={() => setFollowUp(followUp === null ? '' : null)}
+        aria-expanded={followUp !== null}
+        className="rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary"
+      >
+        {followUp === null ? 'Ask about this' : 'Never mind'}
+      </button>
+
+      {followUp !== null && (
+        <div className="mt-2 w-full rounded-card border border-border bg-card p-4">
+          <label
+            htmlFor={`fu-${suggestion.id}`}
+            className="block text-sm font-semibold text-foreground"
+          >
+            What is in the way?
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              'I cannot do that because',
+              'I have tried this before and',
+              'Which part do I start with?',
+            ].map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setFollowUp(o.endsWith('?') ? o : o + ' ')}
+                className="rounded-btn border border-border bg-background px-3 py-1 text-sm text-foreground hover:border-primary"
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+          <textarea
+            id={`fu-${suggestion.id}`}
+            rows={2}
+            value={followUp}
+            onChange={(e) => setFollowUp(e.target.value)}
+            className="mt-2 w-full rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+          />
+          <button
+            type="button"
+            disabled={asking || followUp.trim().length < 5}
+            onClick={() => {
+              onAskAbout(suggestion.id, followUp.trim())
+              setFollowUp(null)
+            }}
+            className="mt-2 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {asking ? 'Asking…' : 'Ask'}
+          </button>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------
           DID IT HELP — the step this product never had.
           ---------------------------------------------------------------
           Two answers, because "did this help" is answerable in the
@@ -543,6 +624,8 @@ function RequestCard({
   open,
   onToggle,
   onChanged,
+  onAskAbout,
+  asking,
 }: {
   request: SelfRequest
   onDelete: () => void
@@ -550,6 +633,8 @@ function RequestCard({
   open: boolean
   onToggle: () => void
   onChanged: () => void
+  onAskAbout: (suggestionId: string, question: string) => void
+  asking: boolean
 }) {
   /* The TIME as well as the date. Somebody who asked four things on a Tuesday
      had four collapsed rows reading "Asked 6 September 2026", which
@@ -602,6 +687,14 @@ function RequestCard({
         </button>
       </div>
 
+      {/* SAYS WHAT IT IS. Without this a follow-up reads as somebody asking a
+          strange half-question out of nowhere, because the thing it was about
+          is further down the page. */}
+      {request.about_suggestion_id && (
+        <p className="mt-2 text-xs font-bold tracking-wider text-brand-blue uppercase">
+          Following up on a suggestion
+        </p>
+      )}
       <p className="mt-2 max-w-prose whitespace-pre-wrap text-foreground">
         {request.asked}
       </p>
@@ -660,7 +753,12 @@ function RequestCard({
               <p className="mt-2 border-l-4 border-accent pl-3 text-foreground">
                 {s.body}
               </p>
-              <SuggestionActions suggestion={s} onChanged={onChanged} />
+              <SuggestionActions
+                suggestion={s}
+                onChanged={onChanged}
+                onAskAbout={onAskAbout}
+                asking={asking}
+              />
 
               {s.rationale.length > 0 && (
                 <>

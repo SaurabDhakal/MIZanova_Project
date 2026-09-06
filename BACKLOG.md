@@ -139,6 +139,10 @@ and never checked.
       mentioned before that nights run away with you until around two" —
       connecting two conversations a fortnight apart.
 
+- [x] ~~**A suggestion was a dead end.**~~ db/108 records whether one helped and
+      feeds that back to the model; db/110 lets somebody ask about a particular
+      suggestion without starting over. db/109 closed a hole db/108 opened.
+
 ### The demo account
 
 `individual.demo@mizanova.test` / `Demo!Individual2026` — an individual with one
