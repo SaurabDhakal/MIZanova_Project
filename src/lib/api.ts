@@ -3832,7 +3832,20 @@ export async function updateIndividualPlan(input: {
     .eq('id', 1)
     .select('id')
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    /* db/111's constraint refuses `is_offered` without both a price and a
+       Stripe price id, which is the right rule and the wrong sentence to show
+       somebody: it arrived on screen as `new row for relation
+       "individual_plan" violates check constraint
+       "individual_plan_offered_needs_a_price"`. A platform admin does not need
+       the constraint's name, they need to know which box to fill in. */
+    if (error.message.includes('individual_plan_offered_needs_a_price')) {
+      throw new Error(
+        'A plan cannot go on sale without both a price and a Stripe price id. Fill both in, or leave it switched off.',
+      )
+    }
+    throw new Error(error.message)
+  }
   assertChanged(data, 'The plan change')
 }
 
