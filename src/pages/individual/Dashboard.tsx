@@ -9,6 +9,8 @@ import {
   goalNeedsAsking,
   sinceLastLook,
   fetchMyPurchases,
+  fetchIndividualPlan,
+  fetchMyAiTier,
   formatMoney,
   queryKeys,
 } from '../../lib/api'
@@ -59,6 +61,14 @@ export default function IndividualHome() {
     queryKey: queryKeys.articles,
     queryFn: fetchArticles,
   })
+
+  /* Both only decide whether the price card renders, so a failure on either is
+     a card that does not appear rather than a screen that breaks. */
+  const plan = useQuery({
+    queryKey: queryKeys.individualPlan,
+    queryFn: fetchIndividualPlan,
+  })
+  const tier = useQuery({ queryKey: queryKeys.myAiTier, queryFn: fetchMyAiTier })
   const purchases = useQuery({
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
@@ -541,6 +551,50 @@ export default function IndividualHome() {
             Ask for suggestions &rarr;
           </Link>
         </section>
+        {/* ------------------------------------------------------------------
+            WHAT IT COSTS, ON THE SCREEN PEOPLE ACTUALLY OPEN.
+            ------------------------------------------------------------------
+            The price lived on the public pricing page and on the Payments tab
+            in Settings, which are the two places somebody who already has an
+            account never goes. So a signed-in person could use MiZanova for
+            months without knowing a subscription existed.
+
+            SHOWN ONLY TO SOMEBODY IT WOULD ACTUALLY CHANGE. `my_ai_tier()`
+            answers paid for a live subscription OR a course already bought, so
+            a person who never subscribed can already be on the capable model.
+            Offering them "the more capable model" would be selling them what
+            they have. Directly under the suggestions panel, because that is
+            the only thing this buys.
+            ------------------------------------------------------------------ */}
+        {plan.data?.is_offered &&
+          plan.data.price_cents !== null &&
+          tier.data === 'free' && (
+            <section className="mt-4 rounded-card border border-primary bg-primary-subtle p-5">
+              <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                If you want more of them
+              </p>
+              <p className="mt-1 text-lg font-bold text-foreground">
+                {formatMoney(plan.data.price_cents, plan.data.currency)}{' '}
+                <span className="text-sm font-normal text-muted-foreground">
+                  a {plan.data.bill_every}
+                </span>
+              </p>
+              <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+                {plan.data.trial_days
+                  ? `Free for the first ${plan.data.trial_days} days. `
+                  : ''}
+                More suggestions a day, answered by the model that does not give
+                up on the hard ones. Everything else here stays free either way.
+              </p>
+              <Link
+                to="/account/payments"
+                className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+              >
+                What you get &rarr;
+              </Link>
+            </section>
+          )}
+
         {/* --- what they have paid for -------------------------------------- */}
         {paid.length > 0 && (
           <>

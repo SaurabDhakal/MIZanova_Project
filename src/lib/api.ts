@@ -3782,6 +3782,25 @@ export async function fetchIndividualPlan(): Promise<IndividualPlan | null> {
 }
 
 /**
+ * Which AI tier this person is actually on — db/099, db/111.
+ *
+ * ASKED BECAUSE "HAS A SUBSCRIPTION" IS NOT THE SAME QUESTION. `my_ai_tier()`
+ * answers paid for a live subscription OR a course somebody bought, so a
+ * person who has never subscribed can already be on the capable model. Offering
+ * them the subscription "for the more capable model" would be selling
+ * something they have — the promise-with-nothing-behind-it fault, pointed the
+ * other way.
+ *
+ * The function is the one place that decides this, which is why db/099 put it
+ * in the database rather than spreading it through the server.
+ */
+export async function fetchMyAiTier(): Promise<'free' | 'paid'> {
+  const { data, error } = await supabase.rpc('my_ai_tier')
+  if (error) throw new Error(error.message)
+  return data === 'paid' ? 'paid' : 'free'
+}
+
+/**
  * The plan as Special Miles sees it — including the Stripe price id, which the
  * public view deliberately withholds.
  *
@@ -8969,6 +8988,7 @@ export const queryKeys = {
   myPurchases: ['my-purchases'] as const,
   individualPlan: ['individual-plan'] as const,
   individualPlanAdmin: ['individual-plan-admin'] as const,
+  myAiTier: ['my-ai-tier'] as const,
   mySubscription: ['my-subscription'] as const,
   mySelfRequests: ['my-self-requests'] as const,
   aiHealth: ['ai-health'] as const,
