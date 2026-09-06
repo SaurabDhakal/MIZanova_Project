@@ -56,8 +56,12 @@ const PUBLIC_TITLES: Record<string, string> = {
  * different screens is the practical cost.
  */
 const OFF_NAV_TITLES: Record<string, string> = {
-  '/individual/receipts': 'Receipts — Individual',
-  '/individual/what-works': 'What works for me — Individual',
+  /* No " — Individual" suffix, matching the nav pages above. These were
+     written with it baked in a day before `selfLabel` existed, so they were
+     the only two individual screens still announcing a category the person
+     never chose. */
+  '/individual/receipts': 'Receipts',
+  '/individual/what-works': 'What works for me',
 }
 
 export function titleFor(pathname: string): string {
@@ -112,12 +116,19 @@ export function titleFor(pathname: string): string {
         : pathname === full
 
       if (matches) {
-        return `${item.label} — ${config.label}`
+        /* "Home — Individual" names a category the person never picked, in the
+           browser tab, the history entry and what a screen reader announces on
+           arrival. `selfLabel` is empty exactly where that suffix is noise, so
+           an individual gets "Home" and staff keep the section they are in —
+           which for them is genuinely useful, because they can hold more than
+           one. */
+        const suffix = config.selfLabel ?? config.label
+        return suffix ? `${item.label} — ${suffix}` : item.label
       }
     }
 
     // A detail page under the section, e.g. /educator/students/<id>.
-    return config.label
+    return config.selfLabel || config.label
   }
 
   return 'Page not found'

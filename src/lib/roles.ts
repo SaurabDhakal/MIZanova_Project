@@ -162,6 +162,23 @@ export type RoleConfig = {
    */
   basePath: string
   nav: NavItem[]
+  /**
+   * What this person is called TO THEMSELVES, when it differs from what they
+   * are called about somebody else.
+   *
+   * `label` is a classification: it tells a school admin inviting staff, or a
+   * teacher reading a message, which kind of person they are looking at, and
+   * it is right for all of that. It is also shown back to the person in their
+   * own account menu, where a member of staff genuinely benefits — they can
+   * hold more than one role and there is a switcher for it, so "Educator" says
+   * which hat is on.
+   *
+   * An individual holds one role, has no switcher, and did not choose the
+   * word. "Individual" is how this system classifies them RELATIVE TO SCHOOLS,
+   * which is the one thing their account has nothing to do with. An empty
+   * string means: show them their name, not a category.
+   */
+  selfLabel?: string
 }
 
 export const ROLE_CONFIG: Record<Role, RoleConfig> = {
@@ -321,6 +338,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
    */
   individual: {
     label: 'Individual',
+    // Shown to a platform admin as 'Individual'; shown to them as nothing.
+    selfLabel: '',
     summary: 'Somebody working on this for themselves, with no school involved.',
     basePath: '/individual',
     nav: [

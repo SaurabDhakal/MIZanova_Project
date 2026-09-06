@@ -66,7 +66,13 @@ const TABS: { to: string; label: string; roles?: Role[] }[] = [
 export default function AccountLayout() {
   const { profile } = useAuth()
   const { pathname } = useLocation()
-  const roleLabel = profile ? ROLE_CONFIG[profile.role].label : ''
+  /* The self-facing label, so this reads "Your account" rather than
+     "Individual account" for somebody who never chose that word. The ternary
+     below already handled an empty one — it was only ever empty while the
+     profile loaded. */
+  const roleLabel = profile
+    ? (ROLE_CONFIG[profile.role].selfLabel ?? ROLE_CONFIG[profile.role].label)
+    : ''
 
   /* ------------------------------------------------------------------
      THE TABS WERE FILTERED AND THE ROUTES WERE NOT.
