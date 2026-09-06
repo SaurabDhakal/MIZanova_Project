@@ -48,12 +48,43 @@ export default function IndividualPlanSection() {
     queryFn: fetchIndividualPlanAdmin,
   })
 
+  /* ------------------------------------------------------------------
+     "$12" BECAME NULL AND THE SCREEN BLAMED THE USER.
+     ------------------------------------------------------------------
+     This read `Math.round(Number(price) * 100)` with no check. `Number('$12')`
+     is NaN, `Math.round(NaN * 100)` is NaN, and JSON.stringify turns NaN into
+     null on the way to PostgREST — so a price that had been typed arrived as
+     no price at all, the check constraint refused the row, and the error said
+     a price was required. Somebody who had just entered one was told to enter
+     one.
+
+     A dollar sign and stray spaces are what people actually type, so those are
+     accepted. A comma is NOT guessed at: "12,00" means twelve in half of
+     Europe and twelve hundred elsewhere, and inventing an answer about money
+     is worse than asking.
+     ------------------------------------------------------------------ */
+  const parsedPrice = (): number | null | 'bad' => {
+    const raw = price.trim().replace(/^\$/, '').trim()
+    if (raw === '') return null
+    if (!/^\d+(\.\d{1,2})?$/.test(raw)) return 'bad'
+    const cents = Math.round(Number(raw) * 100)
+    return cents > 0 ? cents : 'bad'
+  }
+
+  const parsedTrial = (): number | null | 'bad' => {
+    const raw = trial.trim()
+    if (raw === '') return null
+    if (!/^\d{1,2}$/.test(raw)) return 'bad'
+    const days = Number(raw)
+    return days >= 1 && days <= 90 ? days : 'bad'
+  }
+
   const save = useMutation({
     mutationFn: () =>
       updateIndividualPlan({
-        priceCents: price.trim() === '' ? null : Math.round(Number(price) * 100),
+        priceCents: parsedPrice() as number | null,
         billEvery: every,
-        trialDays: trial.trim() === '' ? null : Number(trial),
+        trialDays: parsedTrial() as number | null,
         stripePriceId: priceId.trim() === '' ? null : priceId.trim(),
         isOffered: offered,
       }),
@@ -151,6 +182,29 @@ export default function IndividualPlanSection() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
+              /* Checked here rather than left to the database, because the
+                 database's complaint is about a null it was handed and cannot
+                 say the price was unreadable. */
+              if (parsedPrice() === 'bad') {
+                return setError(
+                  'That is not a price. Enter it in dollars, like 12 or 12.50. A dollar sign is fine; a comma is not.',
+                )
+              }
+              if (parsedTrial() === 'bad') {
+                return setError(
+                  'A trial is a whole number of days, from 1 to 90. Leave it empty for no trial.',
+                )
+              }
+              if (offered && parsedPrice() === null) {
+                return setError(
+                  'A plan cannot go on sale with no price. Enter one, or leave it switched off.',
+                )
+              }
+              if (offered && priceId.trim() === '') {
+                return setError(
+                  'A plan cannot go on sale without a Stripe price id, because there would be nothing to charge against.',
+                )
+              }
               setError(null)
               save.mutate()
             }}
