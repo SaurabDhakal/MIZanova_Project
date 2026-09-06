@@ -131,11 +131,13 @@ and never checked.
       pulled when somebody opens the product, never pushed by a clock, because
       server/index.js already decided there is no scheduler here and its first
       act must not be mailing people. "Not now" snoozes rather than dismisses.
-- [ ] **The AI never sees what happened before.** Every question starts cold —
-      it does not know they asked about mornings three weeks ago, or that "hard
-      going" has appeared four times in their check-ins. That is the difference
-      between a good answer generator and something that knows them, and it is
-      a real build rather than polish.
+- [x] ~~**The AI never sees what happened before.**~~ db/107. Opt-in, off by
+      default, because Goals.tsx promised nobody else can see any of it and an
+      AI is somebody else. Three goals, their check-ins and the last three
+      questions, all through the same redaction. Measured on the same question:
+      without it, generic advice it had already given; with it, "You've
+      mentioned before that nights run away with you until around two" —
+      connecting two conversations a fortnight apart.
 
 ### The demo account
 

@@ -7,12 +7,14 @@ import {
   snoozeGoalNudge,
   checkInOnGoal,
   deleteMyGoal,
+  fetchAiMemory,
   fetchMyGoalsPersonal,
   queryKeys,
   setMyGoalStatus,
   type GoalCheckin,
   type IndividualGoal,
 } from '../../lib/api'
+import { Link } from 'react-router-dom'
 import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 
@@ -64,6 +66,10 @@ export default function Goals() {
     queryKey: queryKeys.myPersonalGoals,
     queryFn: fetchMyGoalsPersonal,
   })
+  /* db/107. This screen promises nobody else can see any of this, and that
+     stops being true the moment somebody lets the AI read it. The promise has
+     to know. */
+  const memory = useQuery({ queryKey: queryKeys.aiMemory, queryFn: fetchAiMemory })
 
   /*
    * THE BELL COUNTS THE SAME GOALS THIS SCREEN SHOWS, so it has to be told
@@ -129,9 +135,29 @@ export default function Goals() {
     <div>
       <header className="mb-6">
         <h1 className="text-title text-foreground">What you are working on</h1>
+        {/* THE PROMISE CHANGES WITH THE SWITCH, because otherwise it is a
+            lie the moment somebody turns memory on — and it would be a lie on
+            the screen where they typed the thing. db/107 made that switch
+            opt-in; this is the other half of keeping it honest. */}
         <p className="mt-1 max-w-prose text-muted-foreground">
-          One thing at a time, in your own words. Nobody else can see any of
-          this &mdash; there is no score and nothing is reported anywhere.
+          One thing at a time, in your own words. There is no score and nothing
+          is reported anywhere.{' '}
+          {memory.data ? (
+            <>
+              No person can see any of this. You have chosen to let the AI read
+              it when you ask it something, so it can build on what you are
+              already doing &mdash; you can turn that off on the{' '}
+              <Link
+                to="/individual/suggestions"
+                className="font-medium text-primary hover:underline"
+              >
+                suggestions page
+              </Link>
+              .
+            </>
+          ) : (
+            'Nobody else can see any of this, and it is not sent to the AI unless you ask for that.'
+          )}
         </p>
       </header>
 

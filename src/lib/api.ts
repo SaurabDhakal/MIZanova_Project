@@ -8567,6 +8567,38 @@ export async function fetchAiHealth(): Promise<AiHealth> {
   }
 }
 
+/**
+ * Whether the AI may be told what somebody is working on — db/107.
+ *
+ * Its own tiny reader rather than a field on the profile the app already
+ * holds, because this has to be right at the moment somebody presses the
+ * button: a stale "off" would send nothing they expected to send, and a stale
+ * "on" would send something they had just switched off.
+ */
+export async function fetchAiMemory(): Promise<boolean> {
+  const { data: auth } = await supabase.auth.getUser()
+  const id = auth.user?.id
+  if (!id) return false
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('ai_may_use_my_history')
+    .eq('id', id)
+    .single()
+  if (error) throw new Error(error.message)
+  return Boolean(data?.ai_may_use_my_history)
+}
+
+export async function setAiMemory(on: boolean): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser()
+  const id = auth.user?.id
+  if (!id) throw new Error('You are not signed in.')
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ai_may_use_my_history: on })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
@@ -8655,6 +8687,7 @@ export const queryKeys = {
   myPurchases: ['my-purchases'] as const,
   mySelfRequests: ['my-self-requests'] as const,
   aiHealth: ['ai-health'] as const,
+  aiMemory: ['ai-memory'] as const,
   courseCatalogue: ['course-catalogue'] as const,
   myPersonalGoals: ['my-personal-goals'] as const,
   availability: (id: string) => ['availability', id] as const,

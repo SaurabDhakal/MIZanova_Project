@@ -1105,6 +1105,83 @@ app.post('/api/account/close', async (req, res) => {
 })
 
 /**
+ * What the AI is told about somebody, when they have said it may be — db/107.
+ *
+ * ---------------------------------------------------------------------------
+ * TWO KINDS OF THING, AND ONLY ONE OF THEM NEEDED PERMISSION
+ * ---------------------------------------------------------------------------
+ * Previous QUESTIONS were written to be sent to the AI, were sent to it, and
+ * are stored already redacted. Including them again discloses nothing new.
+ *
+ * Goals and check-in notes were written under a promise — "nobody else can see
+ * any of this" — on the screen where they were typed. An AI is somebody else.
+ * That is what the switch is for, and why nothing here runs without it.
+ *
+ * ---------------------------------------------------------------------------
+ * SMALL ON PURPOSE
+ * ---------------------------------------------------------------------------
+ * Three goals, four check-ins, three questions. Not because of tokens, but
+ * because a model given six months of somebody's worst weeks writes about the
+ * six months instead of about the question in front of it. Recent is what
+ * makes an answer feel informed; everything is what makes it feel like being
+ * profiled.
+ *
+ * REDACTED LIKE EVERYTHING ELSE. Consent is about who reads it, never about
+ * whether somebody's name goes with it, so this runs through the same `redact`
+ * the question does and its redactions are counted into the same total.
+ */
+async function historyFor(userId, names) {
+  const [goals, asks] = await Promise.all([
+    admin
+      .from('individual_goals')
+      .select('title, why, status, individual_goal_checkins (how_it_went, note, created_at)')
+      .eq('profile_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(3),
+    admin
+      .from('individual_ai_requests')
+      .select('asked, created_at')
+      .eq('profile_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(3),
+  ])
+
+  const lines = []
+  let redactions = 0
+
+  const clean = (text) => {
+    const out = redact(text ?? '', names, '[ME]')
+    redactions += out.redactions
+    return out.text
+  }
+
+  for (const g of goals.data ?? []) {
+    const checkins = [...(g.individual_goal_checkins ?? [])]
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      .slice(0, 4)
+    lines.push(
+      `- Working on: ${clean(g.title)}${
+        g.why ? ` (their reason: ${clean(g.why)})` : ''
+      }`,
+    )
+    for (const c of checkins) {
+      lines.push(
+        `    check-in: ${c.how_it_went}${c.note ? ` — ${clean(c.note)}` : ''}`,
+      )
+    }
+  }
+
+  /* The current question is not in this list — it has not been saved yet —
+     so there is no risk of the model being shown its own prompt twice. */
+  for (const a of asks.data ?? []) {
+    lines.push(`- Asked before: ${clean(a.asked)}`)
+  }
+
+  return { text: lines.join('\n'), redactions, used: lines.length > 0 }
+}
+
+/**
  * POST /api/self-strategies  { text }
  *
  * Somebody asking about their own life — db/094.
@@ -1155,7 +1232,7 @@ app.post('/api/self-strategies', async (req, res) => {
 
     const { data: me } = await admin
       .from('profiles')
-      .select('id, role, first_name, last_name')
+      .select('id, role, first_name, last_name, ai_may_use_my_history')
       .eq('id', user.id)
       .single()
 
@@ -1220,7 +1297,19 @@ app.post('/api/self-strategies', async (req, res) => {
     // has no reason to have sent us their name, so it does not travel.
     const namesToRemove = [me.first_name, me.last_name].filter(Boolean)
     const { text: redacted, redactions } = redact(text, namesToRemove, '[ME]')
-    const payload = { text: redacted, redactions }
+
+    /* db/107. Only when they have said so, and counted into the same
+       redaction total — the number on the screen has to describe everything
+       that left, not just the part they typed today. */
+    const history = me.ai_may_use_my_history
+      ? await historyFor(user.id, namesToRemove)
+      : { text: '', redactions: 0, used: false }
+
+    const payload = {
+      text: redacted,
+      redactions: redactions + history.redactions,
+      history: history.used ? history.text : null,
+    }
 
     /* --- Generate, cheaply, and escalate when it matters -----------------
      *
@@ -1332,7 +1421,7 @@ app.post('/api/self-strategies', async (req, res) => {
       .insert({
         profile_id: user.id,
         asked: redacted,
-        redaction_count: redactions,
+        redaction_count: payload.redactions,
         risk_flagged: result.riskFlag,
         withheld_count: withheldCount,
         withheld_reason: withheldReason,
@@ -1399,7 +1488,12 @@ app.post('/api/self-strategies', async (req, res) => {
       withheldCount,
       withheldReason,
       riskFlagged: result.riskFlag,
-      redactions,
+      // payload.redactions, NOT the bare count from the question. db/107 added
+      // the history to what gets sent, and it goes through the same redaction —
+      // but this line kept reporting only what was stripped from what they
+      // typed today. The screen says "N details were removed before this was
+      // sent", and N was quietly wrong the moment memory was switched on.
+      redactions: payload.redactions,
     })
   } catch (err) {
     if (err instanceof AnonymisationError) {

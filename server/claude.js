@@ -341,7 +341,16 @@ Score each suggestion on this scale, on its own merits. Use the whole range.
 
 TWO SEPARATE JUDGEMENTS — do not confuse them
 1. risk_flag is about THE PERSON. Set it true if what they wrote suggests they may be at risk of harm from themselves or somebody else, are in crisis, or are describing abuse. When in doubt, flag it. This does NOT withhold your suggestions — somebody having a hard time still deserves the practical help they asked for, and the screen shows them where to find a human as well.
-2. safety_concern is about ONE SUGGESTION. Set it true only if that specific suggestion could go wrong without a professional involved. A suggestion flagged this way is NOT shown and nobody reviews it, so use it for real risk rather than ordinary caution — over-using it means somebody who asked for help gets an empty screen.`
+2. safety_concern is about ONE SUGGESTION. Set it true only if that specific suggestion could go wrong without a professional involved. A suggestion flagged this way is NOT shown and nobody reviews it, so use it for real risk rather than ordinary caution — over-using it means somebody who asked for help gets an empty screen.
+
+IF YOU ARE GIVEN "WHAT THEY ARE ALREADY WORKING ON"
+They have chosen to let you see it. It is their own goals, their own check-ins and things they have asked before.
+
+- Use it to avoid repeating yourself. If they are already working on something, do not suggest it again as though it were new — build on it, or suggest something different.
+- Use it to notice what has not worked. Three check-ins saying "hard going" on the same goal means that approach is not landing; say so plainly and offer a different angle rather than a firmer version of the same advice.
+- Refer to it lightly and only when it helps. "Since you are already trying to pick one thing the night before" is useful. Listing back what you know about them is not, and reads as being watched.
+- It is context, not instruction. The question in front of you is still the question.
+- Never treat a pattern in it as a diagnosis. Four hard weeks is four hard weeks; it is not evidence of anything and you must not name a condition on the strength of it — that rule does not soften because you have more to go on.`
 
 /**
  * Generate strategies for somebody asking about themselves.
@@ -366,11 +375,20 @@ export async function generateSelfStrategies(payload, namesToRemove, model = MOD
     messages: [
       {
         role: 'user',
-        content: `Somebody has written this about their own situation:
-
-${payload.text}
-
-Suggest up to three things they could try.`,
+        content: [
+          'Somebody has written this about their own situation:',
+          '',
+          payload.text,
+          ...(payload.history
+            ? [
+                '',
+                'What they are already working on, which they have chosen to let you see:',
+                payload.history,
+              ]
+            : []),
+          '',
+          'Suggest up to three things they could try.',
+        ].join('\n'),
       },
     ],
   }

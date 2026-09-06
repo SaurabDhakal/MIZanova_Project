@@ -4,7 +4,10 @@ import {
   addMyGoal,
   deleteSelfRequest,
   fetchAiHealth,
+  fetchAiMemory,
+  fetchMyGoalsPersonal,
   fetchMySelfRequests,
+  setAiMemory,
   queryKeys,
   requestSelfStrategies,
   type SelfRequest,
@@ -65,6 +68,23 @@ export default function Suggestions() {
   })
   const aiDown =
     health.isSuccess && (!health.data.reachable || !health.data.aiConfigured)
+
+  /* db/107. Read here rather than taken from the profile the app already
+     holds, so what the button does matches what the switch says at the moment
+     it is pressed. */
+  const memory = useQuery({ queryKey: queryKeys.aiMemory, queryFn: fetchAiMemory })
+  const goals = useQuery({
+    queryKey: queryKeys.myPersonalGoals,
+    queryFn: fetchMyGoalsPersonal,
+  })
+
+  const setMemory = useMutation({
+    mutationFn: setAiMemory,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.aiMemory })
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
 
   const ask = useMutation({
     mutationFn: requestSelfStrategies,
@@ -219,6 +239,58 @@ export default function Suggestions() {
             </div>
           </div>
         )}
+
+        {/* ---------------------------------------------------------------
+            THE SWITCH, WITH THE ACTUAL COUNTS ON IT.
+            ---------------------------------------------------------------
+            "Let it use your history" is a checkbox somebody ticks without
+            knowing what they agreed to. The numbers make it a real decision:
+            they can see it is three goals and eleven check-ins, not a vague
+            "your data".
+
+            Off unless they turn it on, because Goals.tsx promises nobody else
+            can see any of it and an AI is somebody else — db/107.
+            --------------------------------------------------------------- */}
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-card border border-border bg-background p-3">
+          <input
+            type="checkbox"
+            checked={memory.data ?? false}
+            disabled={setMemory.isPending || memory.isPending}
+            onChange={(e) => setMemory.mutate(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0"
+          />
+          <span className="text-sm">
+            <span className="font-semibold text-foreground">
+              Let it see what you are working on
+            </span>
+            <span className="mt-0.5 block text-muted-foreground">
+              {(() => {
+                const active = (goals.data ?? []).filter(
+                  (g) => g.status === 'active',
+                )
+                const checkins = active.reduce(
+                  (n, g) => n + g.individual_goal_checkins.length,
+                  0,
+                )
+                const asks = Math.min(history.data?.length ?? 0, 3)
+                if (active.length === 0 && asks === 0) {
+                  return 'Nothing to send yet — once you have a goal or have asked something, this lets the next answer build on it instead of starting cold.'
+                }
+                return `Your ${active.length} goal${
+                  active.length === 1 ? '' : 's'
+                }${
+                  checkins > 0
+                    ? ` and ${checkins} check-in${checkins === 1 ? '' : 's'}`
+                    : ''
+                }${
+                  asks > 0
+                    ? `, and your last ${asks} question${asks === 1 ? '' : 's'}`
+                    : ''
+                } go with your next question, so it can build on them rather than starting cold. Names and contact details are stripped from those too. Off by default, and you can turn it off again whenever you like.`
+              })()}
+            </span>
+          </span>
+        </label>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
