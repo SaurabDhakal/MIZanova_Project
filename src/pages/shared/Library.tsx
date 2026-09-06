@@ -7,6 +7,7 @@ import {
   queryKeys,
   type Article,
 } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 
@@ -46,6 +47,7 @@ const KIND_STYLE: Record<Article['kind'], string> = {
 }
 
 export default function Library() {
+  const { profile } = useAuth()
   const [open, setOpen] = useState<string | null>(null)
   const articles = useQuery({
     queryKey: queryKeys.articles,
@@ -76,7 +78,14 @@ export default function Library() {
     <div>
       <PageHeader
         title="Library"
-        lead="Short reads from Special Miles — practical guidance, and work with real schools."
+        lead={
+          /* "work with real schools" is the wrong promise for an individual,
+             and not merely off-key: they arrived from a page saying there is no
+             school attached to this account and nothing is reported to one. */
+          profile?.role === 'individual'
+            ? 'Short reads from Special Miles — practical guidance you can use on your own.'
+            : 'Short reads from Special Miles — practical guidance, and work with real schools.'
+        }
       />
 
       {visible.length === 0 ? (

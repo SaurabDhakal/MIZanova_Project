@@ -15,6 +15,7 @@ import {
   type Course,
   type Enrolment,
 } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import Icon from '../../components/Icon'
@@ -59,6 +60,7 @@ function moduleProgress(
 }
 
 export default function Academy() {
+  const { profile } = useAuth()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState<string | null>(null)
   /*
@@ -218,9 +220,21 @@ export default function Academy() {
 
   return (
     <div>
+      {/* ONE PAGE, SIX ROLES, AND ONE OF THEM DOES NOT DO "WORK".
+          This lead was written for staff and shown to everybody, including an
+          individual — somebody with no school, no job attached to this account
+          and nobody assigning them anything. "For the work you actually do" is
+          a stranger's sentence to them, on the page they were sent to from a
+          public site promising the opposite. The rest of the screen is genuinely
+          audience-driven through `audiences`; only the sentence at the top was
+          not. */}
       <PageHeader
         title="Academy"
-        lead="Short courses from Special Miles, for the work you actually do."
+        lead={
+          profile?.role === 'individual'
+            ? 'Short courses from Special Miles, at your own pace. Nothing is timed and nothing is scored.'
+            : 'Short courses from Special Miles, for the work you actually do.'
+        }
       />
 
       {visible.length === 0 ? (

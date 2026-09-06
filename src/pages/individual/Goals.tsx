@@ -369,6 +369,10 @@ function GoalCard({
   const checkins = [...goal.individual_goal_checkins].sort(
     (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
   )
+  /* The ones with something actually written in them. `note` is optional —
+     checking in is three buttons and typing is extra — so this is usually a
+     much shorter list than `checkins`, and on many goals it is empty. */
+  const written = checkins.filter((c) => c.note?.trim())
 
   return (
     <li className="rounded-card border border-border bg-card p-5 shadow-raised">
@@ -572,33 +576,44 @@ function GoalCard({
 
           {/* Three, not five. The strip above already carries the shape; this
               is here for the words somebody wrote, and a long list of them
-              buries the goal underneath it. */}
-          <p className="mt-4 text-sm font-semibold text-foreground">
-            What you wrote
-          </p>
-          <ul className="mt-2 space-y-2">
-            {checkins.slice(0, 3).map((c) => (
-              <li key={c.id} className="text-sm">
-                <span className="text-muted-foreground">
-                  {new Date(c.created_at).toLocaleDateString('en-AU', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-                <span
-                  className={`ml-3 font-medium ${
-                    HOW.find((h) => h.value === c.how_it_went)?.tone ??
-                    'text-foreground'
-                  }`}
-                >
-                  {HOW.find((h) => h.value === c.how_it_went)?.label}
-                </span>
-                {c.note && (
-                  <span className="ml-3 text-muted-foreground">{c.note}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+              buries the goal underneath it.
+
+              ONLY CHECK-INS THAT HAVE WORDS IN THEM. This took the most recent
+              three regardless, and printed the note only if there was one — so
+              a check-in made with the three buttons and nothing typed, which is
+              the ordinary case, produced a row under "What you wrote" carrying
+              a date and a label and nothing written at all. Both of those are
+              already in the strip above, so the section repeated it and broke
+              its own heading. On this demo goal, two of the three rows were
+              empty. */}
+          {written.length > 0 && (
+            <>
+              <p className="mt-4 text-sm font-semibold text-foreground">
+                What you wrote
+              </p>
+              <ul className="mt-2 space-y-2">
+                {written.slice(0, 3).map((c) => (
+                  <li key={c.id} className="text-sm">
+                    <span className="text-muted-foreground">
+                      {new Date(c.created_at).toLocaleDateString('en-AU', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </span>
+                    <span
+                      className={`ml-3 font-medium ${
+                        HOW.find((h) => h.value === c.how_it_went)?.tone ??
+                        'text-foreground'
+                      }`}
+                    >
+                      {HOW.find((h) => h.value === c.how_it_went)?.label}
+                    </span>
+                    <span className="ml-3 text-muted-foreground">{c.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
     </li>

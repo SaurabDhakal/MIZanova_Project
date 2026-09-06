@@ -231,26 +231,32 @@ export default function IndividualHome() {
           {/* Counted from what is already loaded — no extra request, and no
               figure that cannot go up. */}
           <dl className="flex gap-6">
+            {/* THE LABEL WAS IN HERE TWICE. An `sr-only` <dt> carried it for
+                screen readers and a visible <span> carried it for everybody
+                else, inside the <dd> — so a screen reader read "goals on the
+                go, 2, goals on the go" on every tile. Two copies of one label
+                is also two things to keep in step.
+
+                The visible label IS the term, which is what a description list
+                is for. `flex-col-reverse` puts the number on top visually while
+                the DOM keeps dt before dd, so it reads correctly and once. */}
             {stats.map((s) => (
-              <div key={s.label}>
-                <dt className="sr-only">{s.label}</dt>
-                <dd>
-                  {/* A ZERO IS STILL SHOWN AND STILL TRUE — it says what this
-                      account counts, and it fills in as somebody uses it. It
-                      just stops shouting as loudly as the figure that is
-                      actually there, so the eye lands on the one that means
-                      something. Hiding it would make the row jump about as
-                      numbers crossed one. */}
-                  <span
-                    className={`block text-3xl font-bold tabular-nums ${
-                      s.n === 0 ? 'text-muted-foreground/50' : 'text-foreground'
-                    }`}
-                  >
-                    {s.n}
-                  </span>
-                  <span className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
-                    {s.label}
-                  </span>
+              <div key={s.label} className="flex flex-col-reverse">
+                <dt className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
+                  {s.label}
+                </dt>
+                {/* A ZERO IS STILL SHOWN AND STILL TRUE — it says what this
+                    account counts, and it fills in as somebody uses it. It just
+                    stops shouting as loudly as the figure that is actually
+                    there, so the eye lands on the one that means something.
+                    Hiding it would make the row jump about as numbers crossed
+                    one. */}
+                <dd
+                  className={`block text-3xl font-bold tabular-nums ${
+                    s.n === 0 ? 'text-muted-foreground/50' : 'text-foreground'
+                  }`}
+                >
+                  {s.n}
                 </dd>
               </div>
             ))}
@@ -377,6 +383,18 @@ export default function IndividualHome() {
           </>
         )}
 
+        {/* --- what they have started ----------------------------------------
+            THE HEADING WAS BELOW ITS OWN LIST. It sat after the closing tag of
+            the <ul>, so whenever somebody actually had a course on the go the
+            card rendered under "What you are working on" — reading as a goal —
+            and "What you have started" then introduced "Also for you", which
+            is the opposite thing. It only labelled the right content in the two
+            states where the list does not render at all: the error and the
+            empty one. A screen reader got the same wrong grouping, worse. */}
+        <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+          What you have started
+        </h2>
+
         {enrolmentsKnown && started.length > 0 && (
           <ul className="space-y-3">
             {started.map(({ enrolment, course, total, done }) => {
@@ -428,11 +446,6 @@ export default function IndividualHome() {
             })}
           </ul>
         )}
-        {/* --- what they have started ---------------------------------------- */}
-        <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
-          What you have started
-        </h2>
-
         {!enrolmentsKnown && (
           <ErrorState
             message="Your courses could not be loaded, so this is unknown rather than empty. Nothing has been lost — this is a problem reaching the server."
