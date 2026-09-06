@@ -36,7 +36,43 @@ let world: World
 let subscriber: Actor
 let bystander: Actor
 
+/* ------------------------------------------------------------------------
+   THE PLAN IS A SINGLETON AND IT IS SPECIAL MILES' LIVE CONFIGURATION.
+   ------------------------------------------------------------------------
+   This suite has to put a price on it to test the write path, and the first
+   version then "cleaned up" by setting everything back to null — the values it
+   shipped with. That is not cleanup, it is deletion: Saurab had set $12 with a
+   7-day trial and a Stripe id through the admin screen, and running the tests
+   silently took it away. It did not even leave a trace, because the reset did
+   not touch `updated_at`, so the row still carried the timestamp of HIS change.
+
+   There is one database and these tests run against it — §2.4 of the
+   architecture review, and the reason the CI job is serialised. A test that
+   destroys real configuration is worse than a test that fails.
+
+   So the row is read before anything touches it and put back exactly as found.
+   ------------------------------------------------------------------------ */
+type PlanRow = {
+  price_cents: number | null
+  currency: string
+  bill_every: string
+  trial_days: number | null
+  stripe_price_id: string | null
+  is_offered: boolean
+  updated_at: string
+}
+let planBefore: PlanRow | null = null
+
 beforeAll(async () => {
+  const { data: existing } = await admin
+    .from('individual_plan')
+    .select(
+      'price_cents, currency, bill_every, trial_days, stripe_price_id, is_offered, updated_at',
+    )
+    .eq('id', 1)
+    .single()
+  planBefore = (existing ?? null) as PlanRow | null
+
   world = await buildWorld()
   subscriber = await makeActor(
     'parent',
@@ -61,18 +97,14 @@ afterAll(async () => {
   for (const id of [subscriber?.id, bystander?.id].filter(Boolean)) {
     await admin.from('individual_subscriptions').delete().eq('profile_id', id)
   }
-  // Put the plan back exactly as it ships, so a suite that ran before this one
-  // does not inherit a priced plan from it.
-  await admin
-    .from('individual_plan')
-    .update({
-      price_cents: null,
-      stripe_price_id: null,
-      trial_days: null,
-      bill_every: 'month',
-      is_offered: false,
-    })
-    .eq('id', 1)
+  /* Back to whatever it was, not back to empty. `is_offered` goes false first
+     because the check constraint refuses a row that is on sale without both a
+     price and a Stripe id — restoring in one statement can trip over its own
+     intermediate state. */
+  if (planBefore) {
+    await admin.from('individual_plan').update({ is_offered: false }).eq('id', 1)
+    await admin.from('individual_plan').update(planBefore).eq('id', 1)
+  }
   await destroyWorld(world)
 }, 90_000)
 
@@ -167,13 +199,22 @@ describe('the price is Special Miles’ to set', () => {
     if (error) expect(error).not.toBeNull()
     else expect(count).toBe(0)
 
-    // What actually matters: the price is still unset.
+    /* UNCHANGED, not null. This asserted `toBeNull()`, which held only while
+       nobody had set a price — so the first time Special Miles configured the
+       plan through the admin screen, this test began failing with "expected
+       1200 to be null" under the heading "an individual cannot price the
+       plan". A red tick that reads like a security breach and is nothing of
+       the kind sends somebody hunting through their own diff for a fault that
+       is not there, which is the exact failure mode the CI file warns about.
+
+       What the test is actually for is that the write did not land. So compare
+       against what the row held before it was attempted. */
     const { data: plan } = await admin
       .from('individual_plan')
       .select('price_cents')
       .eq('id', 1)
       .single()
-    expect(plan!.price_cents).toBeNull()
+    expect(plan!.price_cents).toBe(planBefore?.price_cents ?? null)
   })
 
   test('a platform admin can, which is the half that has to work too', async () => {
@@ -206,17 +247,14 @@ describe('the price is Special Miles’ to set', () => {
     expect(after!.is_offered).toBe(true)
     expect(after!.trial_days).toBe(7)
 
-    // Back to not-for-sale; is_offered must go false first or the constraint
-    // refuses the row.
-    await admin
-      .from('individual_plan')
-      .update({
-        is_offered: false,
-        price_cents: null,
-        stripe_price_id: null,
-        trial_days: null,
-      })
-      .eq('id', 1)
+    // Back to what it was, via not-for-sale so the constraint cannot refuse an
+    // intermediate state. afterAll restores it again; this keeps the rows sane
+    // for the tests that run between here and there.
+    await admin.from('individual_plan').update({ is_offered: false }).eq('id', 1)
+    if (planBefore) {
+      await admin.from('individual_plan').update(planBefore).eq('id', 1)
+      await admin.from('individual_plan').update({ is_offered: false }).eq('id', 1)
+    }
   })
 
   test('a plan cannot go on sale without a price and a Stripe id', async () => {
