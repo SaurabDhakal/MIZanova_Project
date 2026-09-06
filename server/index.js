@@ -19,6 +19,8 @@ import { createClient } from '@supabase/supabase-js'
 import { buildAnonymousPayload, redact } from './anonymise.js'
 import { pushConfigured, sendToProfile, vapidPublicKey } from './push.js'
 import {
+  bookingAnsweredEmail,
+  bookingRequestedEmail,
   ENQUIRIES_TO,
   usingTestSender,
   applicationDecisionEmail,
@@ -732,6 +734,473 @@ app.post('/api/strategies', async (req, res) => {
 })
 
 /**
+ * The time, as the person will read it — db/103.
+ *
+ * Australia/Sydney explicitly rather than the server's clock. Render runs in
+ * Singapore, and an email telling an Australian their session is at 7am when
+ * it is at 9am is worse than no email.
+ */
+function whenInSydney(date) {
+  return date.toLocaleString('en-AU', {
+    timeZone: 'Australia/Sydney',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * Tell the other person, by whatever means they have.
+ *
+ * Email and push both, because they answer different questions: push reaches
+ * somebody who is holding their phone, email reaches somebody who is not. A
+ * booking matters enough to be worth both, and neither is guaranteed to be
+ * configured — a missing VAPID key or SMTP host makes each a no-op rather than
+ * an error.
+ *
+ * NEVER AWAITED BY A ROUTE. Somebody whose booking went through must not be
+ * told it failed because a mail server was slow.
+ */
+async function notifyAboutBooking(profileId, kind, { whenText, note }) {
+  try {
+    const { data: person } = await admin
+      .from('profiles')
+      .select('email')
+      .eq('id', profileId)
+      .single()
+
+    const letter =
+      kind === 'requested'
+        ? bookingRequestedEmail({ whenText })
+        : bookingAnsweredEmail({
+            accepted: kind === 'accepted',
+            whenText,
+            note,
+          })
+
+    if (person?.email) {
+      const sent = await sendMail({ to: person.email, ...letter })
+      if (!sent?.ok && sent?.error) {
+        recordEvent('warning', 'booking', 'mail_failed', sent.error)
+      }
+    }
+
+    await sendToProfile(admin, profileId, {
+      count: 1,
+      where: null,
+      url: kind === 'requested' ? '/specialist/schedule' : '/individual/book',
+    })
+  } catch (err) {
+    // Recorded rather than raised, for the reason above.
+    recordEvent(
+      'warning',
+      'booking',
+      'notify_failed',
+      err?.message ?? String(err),
+    )
+  }
+}
+
+/**
+ * Booking, through the server so somebody is actually told — db/103.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THESE EXIST WHEN THE BROWSER COULD WRITE THE ROW ITSELF
+ * ---------------------------------------------------------------------------
+ * It could, and it did. Row-Level Security already decides who may ask and who
+ * may answer, so the write needed no server at all — which is exactly why the
+ * first version of this feature shipped with a hole in it: an individual asked
+ * for an hour and nothing on earth told the specialist, and the specialist
+ * answered and nothing told the individual. Both had to keep coming back to
+ * look.
+ *
+ * So the write still happens AS THE USER, with their own token, and RLS is
+ * still the authority on whether it is allowed. The server's only addition is
+ * the part a browser cannot do: reading the other person's email address and
+ * sending them something.
+ *
+ * ---------------------------------------------------------------------------
+ * THE MAIL IS NEVER ALLOWED TO FAIL THE REQUEST
+ * ---------------------------------------------------------------------------
+ * Same rule as the AI usage meter: somebody whose booking went through should
+ * not be told it failed because a mail server was slow. The send is not
+ * awaited and its failure is recorded rather than raised.
+ */
+app.post('/api/bookings/request', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { specialistId, startsAt, purpose } = req.body ?? {}
+  if (!specialistId || !startsAt) {
+    return res.status(400).json({ error: 'A specialist and a time are required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const starts = new Date(startsAt)
+    const ends = new Date(starts.getTime() + 45 * 60000)
+
+    // AS THE USER. `individual_bookings_ask` refuses a row for anybody else,
+    // and refuses any status but 'requested'.
+    const { data: booking, error: insertError } = await userClient
+      .from('individual_bookings')
+      .insert({
+        profile_id: user.id,
+        specialist_id: specialistId,
+        starts_at: starts.toISOString(),
+        duration_minutes: 45,
+        ends_at: ends.toISOString(),
+        purpose: (purpose ?? '').trim() || null,
+        status: 'requested',
+      })
+      .select('id, starts_at')
+      .single()
+
+    if (insertError) return res.status(400).json({ error: insertError.message })
+
+    void notifyAboutBooking(specialistId, 'requested', {
+      whenText: whenInSydney(starts),
+    })
+
+    return res.json({ id: booking.id })
+  } catch (err) {
+    console.error('Booking request failed:', err)
+    return res.status(500).json({ error: 'Could not ask for that time.' })
+  }
+})
+
+app.post('/api/bookings/answer', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { id, status, note } = req.body ?? {}
+  if (!id || (status !== 'accepted' && status !== 'declined')) {
+    return res.status(400).json({ error: 'An answer of accepted or declined is required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    /*
+     * AS THE USER AGAIN. `individual_bookings_answer` lets the specialist set
+     * any status and the person who asked set only 'cancelled', so a person
+     * accepting their own request is refused by the database rather than by a
+     * check here that could drift away from it.
+     */
+    const { data: rows, error: updateError } = await userClient
+      .from('individual_bookings')
+      .update({
+        status,
+        outcome_note: (note ?? '').trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('id, profile_id, starts_at')
+
+    if (updateError) {
+      /*
+       * Three different refusals, and a person should be told which. The RLS
+       * one is what somebody hits by answering a booking that is not theirs —
+       * `individual_bookings_answer` lets the person who asked set only
+       * 'cancelled' — and "new row violates row-level security policy" is not
+       * a sentence anybody should read on a screen.
+       */
+      const raw = updateError.message
+      return res.status(400).json({
+        error: raw.includes('individual_bookings_no_clash')
+          ? 'Something else was accepted for that time while this was open. Refresh and take another look.'
+          : raw.includes('row-level security')
+            ? 'Only the specialist can accept or decline this. You can withdraw it instead.'
+            : raw,
+      })
+    }
+
+    /*
+     * ZERO ROWS IS A REFUSAL, NOT A SUCCESS. An update RLS declines returns
+     * success with an empty array and no error — the trap `assertChanged`
+     * exists for elsewhere in this codebase. Without this, somebody answering
+     * a booking that is not theirs would be told it worked.
+     */
+    const booking = rows?.[0]
+    if (!booking) {
+      return res.status(403).json({ error: 'That is not yours to answer.' })
+    }
+
+    void notifyAboutBooking(booking.profile_id, status, {
+      whenText: whenInSydney(new Date(booking.starts_at)),
+      note: (note ?? '').trim(),
+    })
+
+    return res.json({ ok: true })
+  } catch (err) {
+    console.error('Booking answer failed:', err)
+    return res.status(500).json({ error: 'Could not send that answer.' })
+  }
+})
+
+/**
+ * POST /api/account/close  { password }
+ *
+ * Closing your own account — db/096.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PAGE PROMISED THIS BEFORE IT EXISTED
+ * ---------------------------------------------------------------------------
+ * ForIndividuals.tsx says "an account you can close, with an email address you
+ * can change". Changing the email has always worked. Closing had no route, no
+ * screen and no database machinery, so half of that sentence was untrue for
+ * the life of the page.
+ *
+ * ---------------------------------------------------------------------------
+ * INDIVIDUALS ONLY, AND NOT BECAUSE IT IS EASIER
+ * ---------------------------------------------------------------------------
+ * An individual is the only role whose departure harms nobody else. A parent
+ * is somebody's guardian, an educator is on a roster, a specialist holds a
+ * caseload — deleting any of them raises a question about the people attached
+ * to them that a delete button must not answer on its own.
+ *
+ * So this refuses every other role rather than doing something surprising, and
+ * says who to ask instead.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PASSWORD IS PROVED FIRST
+ * ---------------------------------------------------------------------------
+ * Same reasoning api.ts gives for changing an email, and more so: this is
+ * irreversible. An unattended signed-in laptop must not be one click away from
+ * destroying somebody's account, so the current password is re-checked against
+ * a throwaway client that cannot touch this session.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT DELETING THE AUTH USER ACTUALLY DOES
+ * ---------------------------------------------------------------------------
+ * `profiles.id` references `auth.users` ON DELETE CASCADE, and the forty-odd
+ * keys pointing at `profiles` are already split correctly: CASCADE for what IS
+ * the person, SET NULL for records of what they DID. One call therefore erases
+ * their enrolments, their push subscriptions and their private AI requests,
+ * while leaving audit events and AI spend counted and detached.
+ *
+ * db/096 moved `course_purchases` from the first group to the second, so a
+ * closure no longer deletes the record that money was received.
+ */
+app.post('/api/account/close', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const password = String(req.body?.password ?? '')
+  if (!password) {
+    return res.status(400).json({ error: 'Enter your password to confirm.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: me } = await admin
+      .from('profiles')
+      .select('id, role, email')
+      .eq('id', user.id)
+      .single()
+
+    if (me?.role !== 'individual') {
+      return res.status(403).json({
+        error:
+          'Only an account with no school attached can be closed from here. Ask your school administrator, or Special Miles, to close this one.',
+      })
+    }
+
+    // Prove the password against a client that holds no session of its own, so
+    // a wrong answer cannot disturb the one making the request.
+    const checker = createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { error: wrongPassword } = await checker.auth.signInWithPassword({
+      email: me.email ?? user.email,
+      password,
+    })
+    if (wrongPassword) {
+      return res.status(403).json({ error: 'That password is not right.' })
+    }
+
+    /*
+     * COUNTED BEFORE THE DELETE, because afterwards there is nothing to count.
+     * The response tells them what actually happened rather than a generic
+     * "done", and it is the last thing this account will ever be told.
+     */
+    const [{ count: enrolments }, { count: suggestions }, { count: purchases }] =
+      await Promise.all([
+        admin
+          .from('course_enrolments')
+          .select('id', { count: 'exact', head: true })
+          .eq('profile_id', user.id),
+        admin
+          .from('individual_ai_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('profile_id', user.id),
+        admin
+          .from('course_purchases')
+          .select('id', { count: 'exact', head: true })
+          .eq('profile_id', user.id)
+          .eq('status', 'paid'),
+      ])
+
+    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id)
+    if (deleteError) {
+      console.error('Account closure failed:', deleteError)
+      return res.status(500).json({
+        error:
+          'Your account could not be closed. Nothing has been changed — please try again, or write to us.',
+      })
+    }
+
+    /*
+     * RECORDED AFTER THE FACT, WITH NO NAME. Special Miles is entitled to know
+     * that an account closed — it is the only signal that the product lost
+     * somebody — and is not entitled to a parting record of who. recordEvent
+     * writes to the table db/027 built for things a person should see.
+     */
+    recordEvent(
+      'info',
+      'account',
+      'account_closed',
+      `An individual account was closed. ${enrolments ?? 0} enrolment(s) and ${
+        suggestions ?? 0
+      } saved suggestion(s) were deleted; ${
+        purchases ?? 0
+      } purchase record(s) were kept and detached.`,
+    )
+
+    return res.json({
+      closed: true,
+      enrolmentsDeleted: enrolments ?? 0,
+      suggestionsDeleted: suggestions ?? 0,
+      purchasesKept: purchases ?? 0,
+    })
+  } catch (err) {
+    console.error('Account closure failed:', err)
+    return res.status(500).json({ error: 'Could not close the account.' })
+  }
+})
+
+/**
+ * What the AI is told about somebody, when they have said it may be — db/107.
+ *
+ * ---------------------------------------------------------------------------
+ * TWO KINDS OF THING, AND ONLY ONE OF THEM NEEDED PERMISSION
+ * ---------------------------------------------------------------------------
+ * Previous QUESTIONS were written to be sent to the AI, were sent to it, and
+ * are stored already redacted. Including them again discloses nothing new.
+ *
+ * Goals and check-in notes were written under a promise — "nobody else can see
+ * any of this" — on the screen where they were typed. An AI is somebody else.
+ * That is what the switch is for, and why nothing here runs without it.
+ *
+ * ---------------------------------------------------------------------------
+ * SMALL ON PURPOSE
+ * ---------------------------------------------------------------------------
+ * Three goals, four check-ins, three questions. Not because of tokens, but
+ * because a model given six months of somebody's worst weeks writes about the
+ * six months instead of about the question in front of it. Recent is what
+ * makes an answer feel informed; everything is what makes it feel like being
+ * profiled.
+ *
+ * REDACTED LIKE EVERYTHING ELSE. Consent is about who reads it, never about
+ * whether somebody's name goes with it, so this runs through the same `redact`
+ * the question does and its redactions are counted into the same total.
+ */
+async function historyFor(userId, names) {
+  const [goals, asks] = await Promise.all([
+    admin
+      .from('individual_goals')
+      .select('title, why, status, individual_goal_checkins (how_it_went, note, created_at)')
+      .eq('profile_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(3),
+    admin
+      .from('individual_ai_requests')
+      // Named for the same reason as in api.ts — db/110 made this ambiguous.
+      .select('asked, created_at, individual_ai_suggestions!individual_ai_suggestions_request_id_fkey (title, outcome)')
+      .eq('profile_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(3),
+  ])
+
+  const lines = []
+  let redactions = 0
+
+  const clean = (text) => {
+    const out = redact(text ?? '', names, '[ME]')
+    redactions += out.redactions
+    return out.text
+  }
+
+  for (const g of goals.data ?? []) {
+    const checkins = [...(g.individual_goal_checkins ?? [])]
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      .slice(0, 4)
+    lines.push(
+      `- Working on: ${clean(g.title)}${
+        g.why ? ` (their reason: ${clean(g.why)})` : ''
+      }`,
+    )
+    for (const c of checkins) {
+      lines.push(
+        `    check-in: ${c.how_it_went}${c.note ? ` — ${clean(c.note)}` : ''}`,
+      )
+    }
+  }
+
+  /* The current question is not in this list — it has not been saved yet —
+     so there is no risk of the model being shown its own prompt twice. */
+  for (const a of asks.data ?? []) {
+    lines.push(`- Asked before: ${clean(a.asked)}`)
+    /*
+     * db/108. THE MOST USEFUL THING IN HERE. Everything else tells the model
+     * what somebody is doing; this tells it what it got wrong. Without it the
+     * model will cheerfully suggest again, in September, the thing they tried
+     * in March and abandoned in April — and the person will conclude it is not
+     * listening, which it was not.
+     */
+    for (const s of a[
+      'individual_ai_suggestions'
+    ] ?? []) {
+      if (s.outcome === 'helped') {
+        lines.push(`    you suggested "${clean(s.title)}" and it HELPED`)
+      } else if (s.outcome === 'didnt_help') {
+        lines.push(
+          `    you suggested "${clean(s.title)}" and it did NOT help — do not suggest it again`,
+        )
+      }
+    }
+  }
+
+  return { text: lines.join('\n'), redactions, used: lines.length > 0 }
+}
+
+/**
  * POST /api/self-strategies  { text }
  *
  * Somebody asking about their own life — db/094.
@@ -758,10 +1227,23 @@ app.post('/api/self-strategies', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
 
   const text = String(req.body?.text ?? '').trim()
-  if (text.length < 20) {
+  const aboutSuggestionId = req.body?.aboutSuggestionId ?? null
+
+  /*
+   * A FOLLOW-UP MAY BE SHORT, and a fresh question may not.
+   *
+   * Twenty characters is right for a cold start: three words about a whole
+   * situation produces a thin answer. A follow-up arrives with the original
+   * question and the suggestion attached, so "I share a room" is fourteen
+   * characters and completely sufficient — and rejecting it would be the
+   * product refusing the most natural thing somebody could type.
+   */
+  const minimum = aboutSuggestionId ? 5 : 20
+  if (text.length < minimum) {
     return res.status(400).json({
-      error:
-        'Tell it a bit more about the situation — a sentence or two gives it something to work with.',
+      error: aboutSuggestionId
+        ? 'A few words about what is in the way is enough.'
+        : 'Tell it a bit more about the situation — a sentence or two gives it something to work with.',
     })
   }
   if (text.length > 2000) {
@@ -782,7 +1264,7 @@ app.post('/api/self-strategies', async (req, res) => {
 
     const { data: me } = await admin
       .from('profiles')
-      .select('id, role, first_name, last_name')
+      .select('id, role, first_name, last_name, ai_may_use_my_history')
       .eq('id', user.id)
       .single()
 
@@ -796,7 +1278,9 @@ app.post('/api/self-strategies', async (req, res) => {
     // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
     const { data: controls } = await admin
       .from('ai_controls')
-      .select('ai_enabled, confidence_threshold')
+      .select(
+        'ai_enabled, confidence_threshold, free_model, paid_model, free_confidence_threshold, free_daily_limit_per_user',
+      )
       .eq('id', true)
       .single()
 
@@ -806,6 +1290,14 @@ app.post('/api/self-strategies', async (req, res) => {
       })
     }
 
+    // --- Which tier, and therefore which model and which limits ----------
+    // db/099. The tier is asked of the database rather than worked out here,
+    // because "has this person paid us anything" will change the day a
+    // subscription exists and there must be one place that answers it.
+    const { data: tier } = await userClient.rpc('my_ai_tier')
+    const paidTier = tier === 'paid'
+    const firstModel = paidTier ? controls.paid_model : controls.free_model
+
     // --- Quota (db/026) ----------------------------------------------------
     // A null school makes the per-school half of this vacuous, which is right:
     // there is no school to share a budget with. The per-user limit still
@@ -814,9 +1306,20 @@ app.post('/api/self-strategies', async (req, res) => {
       .rpc('ai_quota_status', { p_school_id: null, p_actor_id: user.id })
       .single()
 
-    if (quota && quota.user_used >= quota.user_limit) {
+    /*
+     * THE FREE LIMIT IS THE LOWER OF THE TWO, never higher than the paid one —
+     * db/099 constrains that in the schema so this cannot drift into giving
+     * somebody more for paying less.
+     */
+    const userLimit = paidTier
+      ? (quota?.user_limit ?? 40)
+      : Number(controls.free_daily_limit_per_user ?? 10)
+
+    if (quota && quota.user_used >= userLimit) {
       return res.status(429).json({
-        error: `You have used all ${quota.user_limit} suggestions available in the last 24 hours. Nothing else on your account is affected.`,
+        error: paidTier
+          ? `You have used all ${userLimit} suggestions available in the last 24 hours. Nothing else on your account is affected.`
+          : `You have used all ${userLimit} free suggestions for today. They reset in 24 hours, and buying a course lifts the limit. Nothing else on your account is affected.`,
       })
     }
 
@@ -826,15 +1329,130 @@ app.post('/api/self-strategies', async (req, res) => {
     // has no reason to have sent us their name, so it does not travel.
     const namesToRemove = [me.first_name, me.last_name].filter(Boolean)
     const { text: redacted, redactions } = redact(text, namesToRemove, '[ME]')
-    const payload = { text: redacted, redactions }
 
-    // --- Generate ----------------------------------------------------------
-    const result = await generateSelfStrategies(payload, namesToRemove)
+    /*
+     * db/110. WHICH SUGGESTION THEY ARE ASKING ABOUT, READ AS THEM.
+     *
+     * The browser sends an id and nothing else, and this reads the suggestion
+     * with the CALLER'S token — so RLS answers whether it is theirs. A forged
+     * id belonging to somebody else returns nothing and the follow-up is
+     * simply treated as a fresh question, which is the safe way to fail.
+     */
+    let about = null
+    if (aboutSuggestionId) {
+      const { data } = await userClient
+        .from('individual_ai_suggestions')
+        .select('id, title, body')
+        .eq('id', aboutSuggestionId)
+        .maybeSingle()
+      about = data ?? null
+    }
+
+    /* db/107. Only when they have said so, and counted into the same
+       redaction total — the number on the screen has to describe everything
+       that left, not just the part they typed today. */
+    const history = me.ai_may_use_my_history
+      ? await historyFor(user.id, namesToRemove)
+      : { text: '', redactions: 0, used: false }
+
+    /* The suggestion goes through the same redaction as everything else. It
+       is the model's own words, so nothing should be found in it — and that
+       is exactly why it is cheap to check rather than assume. */
+    const aboutClean = about
+      ? redact(`${about.title}
+${about.body}`, namesToRemove, '[ME]')
+      : { text: '', redactions: 0 }
+
+    const payload = {
+      text: redacted,
+      redactions: redactions + history.redactions + aboutClean.redactions,
+      history: history.used ? history.text : null,
+      about: about ? aboutClean.text : null,
+    }
+
+    /* --- Generate, cheaply, and escalate when it matters -----------------
+     *
+     * db/099 has the measurements. The short version: the cheap model spots
+     * distress as reliably as the expensive one — four agreements out of four,
+     * including the understated case — and then returns NO STRATEGIES AT ALL
+     * on exactly those cases, where the expensive one returns three.
+     *
+     * So somebody having the worst day of their year would have asked for help
+     * and got an empty screen, and only if they had never paid. That is the
+     * fault db/094 was written around, pointed at somebody in trouble.
+     *
+     * Hence: cheap by default, run again on the capable model if the answer
+     * comes back risk-flagged or empty. It is rare, so it costs almost
+     * nothing, and it means the model somebody gets in a crisis does not
+     * depend on whether they have ever paid us.
+     *
+     * The escalation is NOT conditional on the free tier. A paid request that
+     * somehow returns nothing gets the same second chance; there is no reason
+     * to make that path worse just because it is already the good model, and
+     * `firstModel === controls.paid_model` makes the retry a no-op decision
+     * rather than a special case.
+     */
+    /*
+     * The threshold has to be known before the escalation decision, because
+     * "came back with nothing" includes coming back with three suggestions
+     * that all fall under the bar. A free tier that answers "1 shown, 2 held
+     * back" is a poor answer; one that shows nothing at all is the empty
+     * screen again, arrived at the long way round.
+     */
+    const barFor = (model) =>
+      model === controls.paid_model
+        ? Number(controls.confidence_threshold ?? 0.7)
+        : Number(controls.free_confidence_threshold ?? 0.8)
+
+    const wouldShow = (r, model) =>
+      r.strategies.filter(
+        (s) => !s.safetyConcern && s.confidence >= barFor(model),
+      ).length
+
+    let result = await generateSelfStrategies(payload, namesToRemove, firstModel)
+    let escalated = false
+
+    const needsBetterModel =
+      firstModel !== controls.paid_model &&
+      (result.riskFlag || wouldShow(result, firstModel) === 0)
+
+    if (needsBetterModel) {
+      try {
+        result = await generateSelfStrategies(
+          payload,
+          namesToRemove,
+          controls.paid_model,
+        )
+        escalated = true
+      } catch (escalationError) {
+        /*
+         * KEEP THE CHEAP ANSWER RATHER THAN FAILING. If the second call is
+         * refused or rate-limited, the first result still holds a risk flag,
+         * and the screen's support panel depends on that flag reaching them.
+         * Losing it to an error would remove the one part of the answer that
+         * matters most.
+         */
+        console.error('Escalation failed, keeping the first answer:', escalationError)
+        recordEvent(
+          'warning',
+          'ai',
+          'escalation_failed',
+          'A risk-flagged answer could not be re-run on the capable model. The first answer was kept.',
+        )
+      }
+    }
 
     // --- Shown, or withheld for good ---------------------------------------
     // No third option. db/094 explains why there is no review state: a
     // `pending_review` row here waits on a specialist who does not exist.
-    const threshold = Number(controls.confidence_threshold ?? 0.7)
+    //
+    // THE THRESHOLD FOLLOWS THE MODEL THAT ACTUALLY ANSWERED. db/099 measured
+    // the cheap model scoring itself consistently higher for the same quality
+    // of answer — 0.77 and 0.85 against 0.69 and 0.76 — so one number applied
+    // to both would let more weak output through from the weaker model, which
+    // is precisely backwards.
+    const answeredBy = escalated ? controls.paid_model : firstModel
+    const threshold = barFor(answeredBy)
     const shown = []
     let withheldSafety = 0
     let withheldConfidence = 0
@@ -862,7 +1480,8 @@ app.post('/api/self-strategies', async (req, res) => {
       .insert({
         profile_id: user.id,
         asked: redacted,
-        redaction_count: redactions,
+        about_suggestion_id: about?.id ?? null,
+        redaction_count: payload.redactions,
         risk_flagged: result.riskFlag,
         withheld_count: withheldCount,
         withheld_reason: withheldReason,
@@ -908,6 +1527,7 @@ app.post('/api/self-strategies', async (req, res) => {
         behaviour_log_id: null,
         strategies_returned: inserted.length,
         model: result.model,
+        escalated,
       })
       .then(({ error: usageError }) => {
         if (usageError) console.error('Usage not recorded:', usageError.message)
@@ -928,7 +1548,12 @@ app.post('/api/self-strategies', async (req, res) => {
       withheldCount,
       withheldReason,
       riskFlagged: result.riskFlag,
-      redactions,
+      // payload.redactions, NOT the bare count from the question. db/107 added
+      // the history to what gets sent, and it goes through the same redaction —
+      // but this line kept reporting only what was stripped from what they
+      // typed today. The screen says "N details were removed before this was
+      // sent", and N was quietly wrong the moment memory was switched on.
+      redactions: payload.redactions,
     })
   } catch (err) {
     if (err instanceof AnonymisationError) {

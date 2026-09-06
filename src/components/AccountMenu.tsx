@@ -168,6 +168,41 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
               Password and sign-in
             </NavLink>
 
+            {/* THE ONLY WAY TO REACH ANYBODY FROM INSIDE THE APP.
+                /help has existed since the public site was built and was
+                linked from nowhere once you signed in — not the nav, not the
+                shell, not here. An individual who has just paid $49 for a
+                course that did not appear had no route to a human at all, and
+                neither did a teacher with a question. It is one line, and it
+                was missing from every role rather than one. */}
+            {/* RECEIPTS LIVE IN THE ACCOUNT, NOT THE MAIN NAV.
+                They had a nav slot beside the courses, which put "what have I
+                paid" at the same level as "what am I learning" — and for
+                everybody who has paid nothing, that is a permanent link to an
+                empty page. Billing belongs where somebody goes looking for it.
+                Individuals only: no other role has a receipt to read. */}
+            {profile.role === 'individual' && (
+              <NavLink
+                to="/individual/receipts"
+                role="menuitem"
+                onClick={close}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
+              >
+                <Icon name="invoices" className="h-4 w-4 text-muted-foreground" />
+                Payments and receipts
+              </NavLink>
+            )}
+
+            <NavLink
+              to="/help"
+              role="menuitem"
+              onClick={close}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
+            >
+              <Icon name="hand" className="h-4 w-4 text-muted-foreground" />
+              Help and contact
+            </NavLink>
+
             <div className="border-t border-border p-1.5">
               <button
                 type="button"

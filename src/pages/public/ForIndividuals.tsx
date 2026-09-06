@@ -105,9 +105,10 @@ export default function ForIndividuals() {
           tested on it.
         </p>
         <p>
-          You cannot book a session with a specialist from this account yet.
-          Booking a time runs through a school and a student record, and you
-          have neither.
+          You can ask a verified specialist for a session, and they answer in
+          your account. It is a request rather than a booking &mdash; they
+          decide &mdash; and nothing emails either of you about it yet, so the
+          answer arrives where you asked rather than in your inbox.
         </p>
         <p>
           If you are a parent of a child at a school that uses MiZanova, this is

@@ -3676,13 +3676,15 @@ export type CoursePurchase = {
   currency: string
   status: 'pending' | 'paid' | 'refunded'
   paid_at: string | null
+  /** Null until the payment settles — db/100. */
+  receipt_number: number | null
 }
 
 /** What I have bought — db/092. RLS returns only my own rows. */
 export async function fetchMyPurchases(): Promise<CoursePurchase[]> {
   const { data, error } = await supabase
     .from('course_purchases')
-    .select('id, course_id, amount_cents, currency, status, paid_at')
+    .select('id, course_id, amount_cents, currency, status, paid_at, receipt_number')
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as CoursePurchase[]
@@ -5709,6 +5711,7 @@ export const ENQUIRY_PLANS = {
   mid_school: 'Mid-size schools',
   large_school: 'Large schools',
   montessori: 'Montessori & early years',
+  individual: 'For myself',
   essential: 'Essential',
   premium: 'Premium',
 } as const
@@ -7576,11 +7579,41 @@ export type WorkQueue = Partial<
        so is a school having been billed. Both were built and neither reached
        the one place this product puts "what needs you". */
     | 'platformInvoicesOverdue'
-    | 'platformInvoicesToPay',
+    | 'platformInvoicesToPay'
+    /* db/105. An individual's queue was empty and truthfully so — until a
+       specialist could answer them, and the answer had nowhere to be noticed
+       except the page itself. */
+    | 'sessionAnswers'
+    /* db/106. Not "overdue" — nothing here is owed to anybody. It is a goal
+       nobody has asked about in a while. */
+    | 'goalsToLookAt',
     /** A number, or null when the count could not be read. Never absent-as-zero. */
     number | null
   >
 >
+
+/**
+ * Goals nobody has asked about in a while — db/106.
+ *
+ * Counted through the same `goalNeedsAsking` the screens use, rather than a
+ * second query with the rule written out again: a bell that counts one thing
+ * while the screen it points at shows another is worse than no bell.
+ */
+async function countGoalsToLookAt(): Promise<number> {
+  const goals = await fetchMyGoalsPersonal()
+  return goals.filter((g) => goalNeedsAsking(g)).length
+}
+
+/** Answered and not yet seen — db/105. Clears when they open Sessions. */
+async function countSessionAnswers(): Promise<number> {
+  const { count, error } = await supabase
+    .from('individual_bookings')
+    .select('id', { count: 'exact', head: true })
+    .is('answer_seen_at', null)
+    .in('status', ['accepted', 'declined'])
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
 
 async function countNewEnquiries(): Promise<number> {
   const { count, error } = await supabase
@@ -7783,10 +7816,16 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
              * and nothing on it to action, so the honest count is none.
              */
             : role === 'individual'
-              ? /* Nothing is waiting for somebody with no school: no threads,
-                   no invoices, no child. An empty queue is the truthful answer
-                   and costs two requests less than borrowing the parent's. */
-                []
+              ? /* NO LONGER EMPTY, and the reason is worth keeping. This said
+                   nothing waits for somebody with no school — no threads, no
+                   invoices, no child — and that was true until db/103 let a
+                   specialist answer them. One line, and it clears when they
+                   open the screen it points at, which is the test the bell
+                   requires of anything appearing in it. */
+                ([
+                  ['sessionAnswers', countSessionAnswers()],
+                  ['goalsToLookAt', countGoalsToLookAt()],
+                ] as [keyof WorkQueue, Promise<number>][])
               : role === 'student'
               ? []
               : [
@@ -7814,11 +7853,39 @@ export type SelfSuggestion = {
   body: string
   rationale: string[]
   confidence: number
+  /** Null until they say — db/108. */
+  outcome: 'helped' | 'didnt_help' | null
+}
+
+/**
+ * Say whether a suggestion helped — db/108.
+ *
+ * The only thing about a suggestion a person may change. db/109 revoked the
+ * table-wide update Supabase grants by default and left exactly these two
+ * columns, so the model's words stay the model's words.
+ *
+ * Sending null clears it, because somebody who pressed the wrong one should be
+ * able to take it back rather than live with a record that is not true.
+ */
+export async function setSuggestionOutcome(
+  id: string,
+  outcome: 'helped' | 'didnt_help' | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('individual_ai_suggestions')
+    .update({
+      outcome,
+      outcome_at: outcome ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export type SelfRequest = {
   id: string
   asked: string
+  /** db/110. Set when this was a question about a particular suggestion. */
+  about_suggestion_id: string | null
   redaction_count: number
   risk_flagged: boolean
   withheld_count: number
@@ -7835,11 +7902,23 @@ export type SelfRequest = {
  * policy of `profile_id = auth.uid()` and nothing else, not even a platform
  * admin.
  */
+/*
+ * THE EMBED IS NAMED, AND HAS TO BE. db/110 added a second foreign key between
+ * these two tables — suggestions point at their request, and a follow-up
+ * request points at the suggestion it is about — so PostgREST can no longer
+ * guess which relationship a bare embed means and refuses the whole query:
+ *
+ *   Could not embed because more than one relationship was found for
+ *   'individual_ai_requests' and 'individual_ai_suggestions'
+ *
+ * Naming the constraint says "the suggestions belonging to this request",
+ * which is what was always meant.
+ */
 export async function fetchMySelfRequests(): Promise<SelfRequest[]> {
   const { data, error } = await supabase
     .from('individual_ai_requests')
     .select(
-      'id, asked, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions (id, title, body, rationale, confidence)',
+      'id, asked, about_suggestion_id, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions!individual_ai_suggestions_request_id_fkey (id, title, body, rationale, confidence, outcome)',
     )
     .order('created_at', { ascending: false })
 
@@ -7881,6 +7960,8 @@ export type SelfStrategyResponse = {
  */
 export async function requestSelfStrategies(
   text: string,
+  /** db/110. The suggestion this is a follow-up to, if it is one. */
+  aboutSuggestionId?: string,
 ): Promise<SelfStrategyResponse> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -7892,7 +7973,7 @@ export async function requestSelfStrategies(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, aboutSuggestionId: aboutSuggestionId ?? null }),
   }).catch(() => {
     throw new Error(
       'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
@@ -7902,6 +7983,662 @@ export async function requestSelfStrategies(
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
   return body as SelfStrategyResponse
+}
+
+/**
+ * Close your own account, for good — db/096.
+ *
+ * The password travels because the server re-proves it before deleting
+ * anything: this is irreversible, and an unattended signed-in laptop must not
+ * be one click from destroying somebody's account.
+ *
+ * Only an individual account can be closed this way. Every other role has
+ * people attached to it — a child, a roster, a caseload — and what happens to
+ * them is not a question a delete button gets to answer.
+ */
+export type AccountClosure = {
+  closed: true
+  enrolmentsDeleted: number
+  suggestionsDeleted: number
+  purchasesKept: number
+}
+
+export async function closeMyAccount(
+  password: string,
+): Promise<AccountClosure> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/account/close`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ password }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as AccountClosure
+}
+
+/**
+ * The public price list — db/098.
+ *
+ * READ FROM THE SAME COLUMN THE CHECKOUT CHARGES FROM. An individual's prices
+ * are not a published list anywhere; they are whatever `courses.price_cents`
+ * says, set on the Courses screen. Copying them into plans.ts would recreate
+ * the exact drift plans.ts was written to end — a page advertising one figure
+ * while the till takes another.
+ *
+ * Readable signed out, because that is who reads a pricing page. The view
+ * carries no module content: db/097 keeps the material behind payment.
+ */
+export type CatalogueCourse = {
+  id: string
+  title: string
+  summary: string | null
+  audiences: string[]
+  price_cents: number | null
+  currency: string
+  modules: number
+}
+
+export async function fetchCourseCatalogue(): Promise<CatalogueCourse[]> {
+  const { data, error } = await supabase
+    .from('course_catalogue')
+    .select('id, title, summary, audiences, price_cents, currency, modules')
+    .order('title')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as CatalogueCourse[]
+}
+
+// ---------------------------------------------------------------------------
+// Something to work on — db/101
+// ---------------------------------------------------------------------------
+// No server route anywhere here, and that is the point. Nothing on these
+// tables comes from a model, so there is nothing to forge: they are the
+// person's own words about their own life, RLS scopes every row to them, and
+// a route in the middle would only be a second opinion about who owns what.
+
+export type GoalCheckin = {
+  id: string
+  how_it_went: 'good' | 'mixed' | 'hard'
+  note: string | null
+  created_at: string
+}
+
+export type IndividualGoal = {
+  id: string
+  title: string
+  why: string | null
+  status: 'active' | 'done' | 'parked'
+  target_date: string | null
+  created_at: string
+  done_at: string | null
+  nudge_snoozed_until: string | null
+  individual_goal_checkins: GoalCheckin[]
+}
+
+/** Seven days. A goal is a weekly sort of thing, and sooner is nagging. */
+export const NUDGE_AFTER_DAYS = 7
+
+/**
+ * Is it fair to ask how this is going?
+ *
+ * ---------------------------------------------------------------------------
+ * ONE DEFINITION, BECAUSE THREE PLACES ASK
+ * ---------------------------------------------------------------------------
+ * The home screen, the goals screen and the notification bell all need this
+ * answer, and a bell that counts one thing while the screen it points at shows
+ * another is worse than no bell — that is the rule NotificationBell.tsx sets
+ * for anything appearing in it.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT COUNTS AS "LONG ENOUGH"
+ * ---------------------------------------------------------------------------
+ * Time since the last check-in, or since the goal was set if there has never
+ * been one. A goal set this morning is not overdue, and neither is one checked
+ * in on yesterday.
+ *
+ * A snooze wins over everything. Somebody who said not now meant it, and the
+ * date they chose is the date — nothing here second-guesses it.
+ */
+export function goalNeedsAsking(goal: IndividualGoal, now = Date.now()): boolean {
+  if (goal.status !== 'active') return false
+  if (
+    goal.nudge_snoozed_until &&
+    +new Date(goal.nudge_snoozed_until) > now
+  ) {
+    return false
+  }
+  const last = goal.individual_goal_checkins.reduce<number>(
+    (newest, c) => Math.max(newest, +new Date(c.created_at)),
+    +new Date(goal.created_at),
+  )
+  return now - last > NUDGE_AFTER_DAYS * 86400000
+}
+
+/** How long it has been, in words somebody thinks in. */
+export function sinceLastLook(goal: IndividualGoal, now = Date.now()): string {
+  const last = goal.individual_goal_checkins.reduce<number>(
+    (newest, c) => Math.max(newest, +new Date(c.created_at)),
+    +new Date(goal.created_at),
+  )
+  const days = Math.floor((now - last) / 86400000)
+  if (days < 14) return `${days} days`
+  if (days < 60) return `${Math.round(days / 7)} weeks`
+  return `${Math.round(days / 30)} months`
+}
+
+/**
+ * Not now — ask again later.
+ *
+ * The person chooses when, and db/106 explains why it is a snooze rather than
+ * a dismissal: without one, "not now" means the same prompt on the next page
+ * load; without it being temporary, "not now" means never, and somebody who
+ * put a goal down in a bad month is exactly who should be asked in a better
+ * one.
+ */
+export async function snoozeGoalNudge(
+  goalId: string,
+  days: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from('individual_goals')
+    .update({
+      nudge_snoozed_until: new Date(
+        Date.now() + days * 86400000,
+      ).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', goalId)
+  if (error) throw new Error(error.message)
+}
+
+export async function fetchMyGoalsPersonal(): Promise<IndividualGoal[]> {
+  const { data, error } = await supabase
+    .from('individual_goals')
+    .select(
+      'id, title, why, status, target_date, created_at, done_at, nudge_snoozed_until, individual_goal_checkins (id, how_it_went, note, created_at)',
+    )
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IndividualGoal[]
+}
+
+export async function addMyGoal(input: {
+  title: string
+  why: string
+  targetDate: string | null
+}): Promise<void> {
+  const { data } = await supabase.auth.getUser()
+  const id = data.user?.id
+  if (!id) throw new Error('You are not signed in.')
+
+  const { error } = await supabase.from('individual_goals').insert({
+    profile_id: id,
+    title: input.title.trim(),
+    // Empty string would store a "why" that is not one. Null means they did
+    // not write a reason, which is a different fact from writing nothing.
+    why: input.why.trim() || null,
+    target_date: input.targetDate || null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function checkInOnGoal(input: {
+  goalId: string
+  howItWent: GoalCheckin['how_it_went']
+  note: string
+}): Promise<void> {
+  const { error } = await supabase.from('individual_goal_checkins').insert({
+    goal_id: input.goalId,
+    how_it_went: input.howItWent,
+    note: input.note.trim() || null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Finish a goal, park it, or bring it back.
+ *
+ * `done_at` moves with the status because db/101 constrains them to agree —
+ * a goal marked done with no completion time is refused by the database, and
+ * sending them separately from here is how they would drift apart.
+ */
+export async function setMyGoalStatus(
+  goalId: string,
+  status: IndividualGoal['status'],
+): Promise<void> {
+  const { error } = await supabase
+    .from('individual_goals')
+    .update({
+      status,
+      done_at: status === 'done' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', goalId)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteMyGoal(goalId: string): Promise<void> {
+  const { error } = await supabase
+    .from('individual_goals')
+    .delete()
+    .eq('id', goalId)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Everything this account holds about somebody, in one file.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS NOT A REPORT
+ * ---------------------------------------------------------------------------
+ * Joe's brief asks for "exportable reports (PDF/CSV)" and that is the right
+ * shape for a school exporting a roster. It is the wrong shape for a person
+ * taking their own record away: a PDF is a picture of data and a CSV cannot
+ * hold a goal with its check-ins nested underneath it without either
+ * flattening the relationship or shipping six files.
+ *
+ * So this is JSON — complete, nested, and machine-readable, which is what
+ * portability actually means. Somebody who wants it in a spreadsheet can get
+ * there from here; nobody can get back from a PDF.
+ *
+ * ---------------------------------------------------------------------------
+ * READ AS THEM, DELIBERATELY
+ * ---------------------------------------------------------------------------
+ * Every call below is an ordinary client read, so Row-Level Security decides
+ * what lands in the file. There is no service role and no server route: an
+ * export built with elevated rights could quietly include something the person
+ * was never entitled to see, and the only way to be sure it cannot is to build
+ * it from exactly the same reads the screens use.
+ */
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  const { data: auth } = await supabase.auth.getUser()
+  const user = auth.user
+  if (!user) throw new Error('You are not signed in.')
+
+  const [courses, enrolments, completions, purchases, suggestions, goals] =
+    await Promise.all([
+      fetchCourses(),
+      fetchMyEnrolments(),
+      fetchMyCompletions(),
+      fetchMyPurchases(),
+      fetchMySelfRequests(),
+      fetchMyGoalsPersonal(),
+    ])
+
+  const titleOf = (id: string) =>
+    courses.find((c) => c.id === id)?.title ?? null
+
+  return {
+    exported_at: new Date().toISOString(),
+    what_this_is:
+      'Everything MiZanova holds on this account. Written by the account itself, so it contains exactly what the account can see and nothing else.',
+    account: {
+      email: user.email,
+      created_at: user.created_at,
+    },
+    courses_started: enrolments.map((e) => ({
+      course: titleOf(e.course_id),
+      started_at: e.enrolled_at,
+      completed_at: e.completed_at,
+      parts_done: completions.filter((c) => c.enrolment_id === e.id).length,
+    })),
+    payments: purchases.map((p) => ({
+      receipt_number: p.receipt_number,
+      course: titleOf(p.course_id),
+      amount: p.amount_cents / 100,
+      currency: p.currency,
+      status: p.status,
+      paid_at: p.paid_at,
+    })),
+    // The redacted text, which is what was stored — never the original.
+    suggestions_asked_for: suggestions.map((r) => ({
+      asked: r.asked,
+      asked_at: r.created_at,
+      details_removed_before_sending: r.redaction_count,
+      suggestions: r.individual_ai_suggestions.map((s) => ({
+        title: s.title,
+        body: s.body,
+        why_this_might_help: s.rationale,
+      })),
+      suggestions_withheld: r.withheld_count,
+    })),
+    goals: goals.map((g) => ({
+      title: g.title,
+      why_it_matters: g.why,
+      status: g.status,
+      target_date: g.target_date,
+      set_at: g.created_at,
+      check_ins: g.individual_goal_checkins.map((c) => ({
+        how_it_went: c.how_it_went,
+        note: c.note,
+        at: c.created_at,
+      })),
+    })),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Working hours — db/102
+// ---------------------------------------------------------------------------
+
+export type AvailabilityBand = {
+  id: string
+  specialist_id: string
+  weekday: number
+  starts_at: string
+  ends_at: string
+  note: string | null
+}
+
+/** 0 = Sunday, matching Postgres `extract(dow ...)`. */
+export const WEEKDAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const
+
+export async function fetchAvailability(
+  specialistId: string,
+): Promise<AvailabilityBand[]> {
+  const { data, error } = await supabase
+    .from('specialist_availability')
+    .select('id, specialist_id, weekday, starts_at, ends_at, note')
+    .eq('specialist_id', specialistId)
+    .order('weekday')
+    .order('starts_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as AvailabilityBand[]
+}
+
+export async function addAvailability(input: {
+  specialistId: string
+  weekday: number
+  startsAt: string
+  endsAt: string
+}): Promise<void> {
+  const { error } = await supabase.from('specialist_availability').insert({
+    specialist_id: input.specialistId,
+    weekday: input.weekday,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+  })
+  /*
+   * The overlap is refused by an exclusion constraint, not by this function,
+   * and Postgres says so in a way nobody should read on a screen. Translated
+   * here rather than in the component so every caller gets the same sentence.
+   */
+  if (error) {
+    throw new Error(
+      error.message.includes('specialist_availability_no_overlap')
+        ? 'That overlaps hours you have already set for this day.'
+        : error.message,
+    )
+  }
+}
+
+export async function removeAvailability(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('specialist_availability')
+    .delete()
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ---------------------------------------------------------------------------
+// Asking for a time — db/103, db/104
+// ---------------------------------------------------------------------------
+
+export type BookableSpecialist = {
+  id: string
+  full_name: string | null
+  avatar_path: string | null
+  availability_bands: number
+}
+
+export type IndividualBooking = {
+  id: string
+  specialist_id: string
+  starts_at: string
+  duration_minutes: number
+  ends_at: string
+  status: 'requested' | 'accepted' | 'declined' | 'cancelled'
+  purpose: string | null
+  outcome_note: string | null
+}
+
+export async function fetchBookableSpecialists(): Promise<BookableSpecialist[]> {
+  const { data, error } = await supabase
+    .from('bookable_specialists')
+    .select('id, full_name, avatar_path, availability_bands')
+    .order('full_name')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as BookableSpecialist[]
+}
+
+/**
+ * The hours actually free, worked out by the database.
+ *
+ * Derived rather than stored, and derived THERE rather than here: the function
+ * checks the specialist's school diary as well as this one, which the browser
+ * has no business reading. It gets back start times and nothing about who is
+ * in the slots it cannot have.
+ */
+export async function fetchFreeSlots(
+  specialistId: string,
+  days = 21,
+): Promise<string[]> {
+  const from = new Date()
+  const to = new Date(Date.now() + days * 86400000)
+  const { data, error } = await supabase.rpc('free_slots', {
+    p_specialist: specialistId,
+    p_from: from.toISOString().slice(0, 10),
+    p_to: to.toISOString().slice(0, 10),
+    p_minutes: 45,
+  })
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as { slot: string }[]).map((r) => r.slot)
+}
+
+export async function fetchMyBookings(): Promise<IndividualBooking[]> {
+  const { data, error } = await supabase
+    .from('individual_bookings')
+    .select(
+      'id, specialist_id, starts_at, duration_minutes, ends_at, status, purpose, outcome_note',
+    )
+    .order('starts_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IndividualBooking[]
+}
+
+/**
+ * THROUGH THE SERVER, THOUGH RLS STILL DECIDES.
+ *
+ * The browser could write this row itself — and did, and that version shipped
+ * with a hole: nothing on earth told the specialist somebody had asked. The
+ * server writes it with the caller's own token, so the same policies apply,
+ * and then does the one thing a browser cannot: reads the other person's email
+ * address and tells them.
+ */
+async function bookingCall(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const parsed = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(parsed.error ?? `Request failed (${res.status}).`)
+}
+
+export async function requestBooking(input: {
+  specialistId: string
+  startsAt: string
+  purpose: string
+}): Promise<void> {
+  await bookingCall('/api/bookings/request', {
+    specialistId: input.specialistId,
+    startsAt: input.startsAt,
+    purpose: input.purpose,
+  })
+}
+
+/** Withdrawing is all the person who asked is allowed to do — db/103. */
+export async function cancelMyBooking(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('individual_bookings')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * The requests waiting for a specialist to answer — db/103.
+ *
+ * The individual's name is joined in from `profiles`. A specialist may read it
+ * because `individual_bookings_read` admits both people in the booking, and
+ * knowing who is asking is the whole basis on which they decide.
+ */
+export type IncomingBooking = {
+  id: string
+  profile_id: string
+  starts_at: string
+  ends_at: string
+  status: 'requested' | 'accepted' | 'declined' | 'cancelled'
+  purpose: string | null
+  profiles: { full_name: string | null } | null
+}
+
+export async function fetchIncomingBookings(): Promise<IncomingBooking[]> {
+  const { data: auth } = await supabase.auth.getUser()
+  const me = auth.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  const { data, error } = await supabase
+    .from('individual_bookings')
+    .select(
+      'id, profile_id, starts_at, ends_at, status, purpose, profiles!individual_bookings_profile_id_fkey (full_name)',
+    )
+    .eq('specialist_id', me)
+    .order('starts_at')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as IncomingBooking[]
+}
+
+export async function answerBooking(input: {
+  id: string
+  status: 'accepted' | 'declined'
+  note: string
+}): Promise<void> {
+  await bookingCall('/api/bookings/answer', input)
+}
+
+/** Clears the bell — db/105. Idempotent: a second call marks nothing. */
+export async function markBookingAnswersSeen(): Promise<number> {
+  const { data, error } = await supabase.rpc('mark_booking_answers_seen')
+  if (error) throw new Error(error.message)
+  return (data as number) ?? 0
+}
+
+/**
+ * Can the AI actually be reached right now?
+ *
+ * ---------------------------------------------------------------------------
+ * ASKED BEFORE THEY TYPE, NOT AFTER THEY PRESS
+ * ---------------------------------------------------------------------------
+ * Every failure here used to arrive the same way: somebody writes a paragraph
+ * about what they are finding hard, presses the button, waits, and is told the
+ * server could not be reached. The message was accurate and the timing made it
+ * useless — the cost had already been paid, and what they wrote is the part
+ * that took something.
+ *
+ * The same reasoning the Pricing page uses for saying family plans are not
+ * open BEFORE the prices rather than after them.
+ *
+ * Never throws. A health check that can fail is a second thing to explain, and
+ * "unknown" is treated as working: refusing to let somebody ask because a
+ * status endpoint was slow would be the check causing the outage it exists to
+ * report.
+ */
+export type AiHealth = { reachable: boolean; aiConfigured: boolean }
+
+export async function fetchAiHealth(): Promise<AiHealth> {
+  try {
+    const res = await fetch(`${API_URL}/api/health`)
+    const body = await res.json().catch(() => ({}))
+    return {
+      reachable: true,
+      aiConfigured: body?.checks?.anthropic !== false,
+    }
+  } catch {
+    return { reachable: false, aiConfigured: false }
+  }
+}
+
+/**
+ * Whether the AI may be told what somebody is working on — db/107.
+ *
+ * Its own tiny reader rather than a field on the profile the app already
+ * holds, because this has to be right at the moment somebody presses the
+ * button: a stale "off" would send nothing they expected to send, and a stale
+ * "on" would send something they had just switched off.
+ */
+export async function fetchAiMemory(): Promise<boolean> {
+  const { data: auth } = await supabase.auth.getUser()
+  const id = auth.user?.id
+  if (!id) return false
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('ai_may_use_my_history')
+    .eq('id', id)
+    .single()
+  if (error) throw new Error(error.message)
+  return Boolean(data?.ai_may_use_my_history)
+}
+
+export async function setAiMemory(on: boolean): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser()
+  const id = auth.user?.id
+  if (!id) throw new Error('You are not signed in.')
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ai_may_use_my_history: on })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export const queryKeys = {
@@ -7991,6 +8728,15 @@ export const queryKeys = {
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
   mySelfRequests: ['my-self-requests'] as const,
+  aiHealth: ['ai-health'] as const,
+  aiMemory: ['ai-memory'] as const,
+  courseCatalogue: ['course-catalogue'] as const,
+  myPersonalGoals: ['my-personal-goals'] as const,
+  availability: (id: string) => ['availability', id] as const,
+  bookableSpecialists: ['bookable-specialists'] as const,
+  freeSlots: (id: string) => ['free-slots', id] as const,
+  myBookings: ['my-bookings'] as const,
+  incomingBookings: ['incoming-bookings'] as const,
   myGoals: ['my-goals'] as const,
   appointmentsForChild: (id: string) => ['appointments', id] as const,
   subscriptions: ['platform-subscriptions'] as const,

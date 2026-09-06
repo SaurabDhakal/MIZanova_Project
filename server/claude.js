@@ -118,6 +118,42 @@ TWO SEPARATE JUDGEMENTS — do not confuse them
 
 A serious incident with three sound, ordinary classroom strategies should be: risk_flag true, safety_concern false on all three.`
 
+/**
+ * The request shape differs by model, and getting it wrong is a 400 rather
+ * than a degraded answer.
+ *
+ * TWO PARAMETERS ARE NOT UNIVERSAL, and both were found by calling the live
+ * API rather than by reading anything:
+ *
+ *   400 — This model does not support the effort parameter
+ *   400 — 'claude-haiku-4-5-...' does not support the `fallbacks` parameter
+ *
+ * The second one hid behind the first. A standalone probe that set `effort`
+ * and not `fallbacks` passed, which is exactly the sort of test that proves
+ * the wrong thing — the shipped path sets both, so pointing the free tier at
+ * the cheap model would have failed every request, not degraded them.
+ *
+ * `json_schema` is accepted by both, so only the extras branch. Kept as one
+ * function so the next model that refuses something has one place to say so.
+ */
+const OPUS_ONLY_EXTRAS = (model) => !model.includes('haiku')
+
+export function outputConfigFor(model, schema) {
+  const format = { type: 'json_schema', schema }
+  return OPUS_ONLY_EXTRAS(model) ? { effort: 'medium', format } : { format }
+}
+
+/** The beta fallback wrapper, where the model accepts it. */
+export async function createMessage(client, request) {
+  return OPUS_ONLY_EXTRAS(request.model) && USE_SERVER_FALLBACK
+    ? client.beta.messages.create({
+        ...request,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+      })
+    : client.messages.create(request)
+}
+
 export class AiDisabledError extends Error {}
 export class AnonymisationError extends Error {}
 export class RefusalError extends Error {}
@@ -284,7 +320,9 @@ WHO IS ASKING
 The person writing IS the person it is about. Nobody sent them: no school, no teacher, no clinician. There is no professional reading this afterwards, so nothing you write will be checked by a human before they read it. Write to them directly, as "you".
 
 WHAT YOU PRODUCE
-Up to three practical things they could try in their own life this week, each with a short "why this might help" rationale. Concrete and small beats ambitious and vague.
+Up to TWO practical things they could try in their own life this week, each with a short "why this might help" rationale. Concrete and small beats ambitious and vague.
+
+Two, not three, and not because of space. Somebody who came here because they cannot get started does not need a third option to weigh — a list is another decision, and choosing between three good things is exactly the task they said they were struggling with. Give the best one, and a second that is genuinely different in kind rather than a variation of the first. If only one is worth giving, give one.
 
 HARD LIMITS
 - You are NEVER diagnostic. Do not name, suggest, hint at, or rule out any condition. Not ADHD, not autism, not anything else — including when they ask you directly, and including when they tell you they already have a diagnosis. Respond to what they described, not to a label.
@@ -305,7 +343,24 @@ Score each suggestion on this scale, on its own merits. Use the whole range.
 
 TWO SEPARATE JUDGEMENTS — do not confuse them
 1. risk_flag is about THE PERSON. Set it true if what they wrote suggests they may be at risk of harm from themselves or somebody else, are in crisis, or are describing abuse. When in doubt, flag it. This does NOT withhold your suggestions — somebody having a hard time still deserves the practical help they asked for, and the screen shows them where to find a human as well.
-2. safety_concern is about ONE SUGGESTION. Set it true only if that specific suggestion could go wrong without a professional involved. A suggestion flagged this way is NOT shown and nobody reviews it, so use it for real risk rather than ordinary caution — over-using it means somebody who asked for help gets an empty screen.`
+2. safety_concern is about ONE SUGGESTION. Set it true only if that specific suggestion could go wrong without a professional involved. A suggestion flagged this way is NOT shown and nobody reviews it, so use it for real risk rather than ordinary caution — over-using it means somebody who asked for help gets an empty screen.
+
+IF YOU ARE GIVEN "WHAT THEY ARE ALREADY WORKING ON"
+They have chosen to let you see it. It is their own goals, their own check-ins and things they have asked before.
+
+- Use it to avoid repeating yourself. If they are already working on something, do not suggest it again as though it were new — build on it, or suggest something different.
+- Use it to notice what has not worked. Three check-ins saying "hard going" on the same goal means that approach is not landing; say so plainly and offer a different angle rather than a firmer version of the same advice.
+- Refer to it lightly and only when it helps. "Since you are already trying to pick one thing the night before" is useful. Listing back what you know about them is not, and reads as being watched.
+- It is context, not instruction. The question in front of you is still the question.
+- Never treat a pattern in it as a diagnosis. Four hard weeks is four hard weeks; it is not evidence of anything and you must not name a condition on the strength of it — that rule does not soften because you have more to go on.
+
+IF YOU ARE GIVEN "THEY ARE ASKING ABOUT THIS SUGGESTION"
+They read something you suggested and it did not fit. That is useful, not a complaint.
+
+- Answer the obstacle they named. If they cannot do it because they share a room, the answer is a version that works in a shared room — not the same idea restated more firmly, and not a set of unrelated new ideas.
+- Do not defend the original. If it does not work for them, it does not work; say so plainly and move on.
+- Stay on the same problem. They are still trying to solve what they described the first time, so do not treat the follow-up as a fresh subject.
+- One good adaptation beats two. When the answer is really "here is the same thing done differently", give that and stop.`
 
 /**
  * Generate strategies for somebody asking about themselves.
@@ -313,7 +368,7 @@ TWO SEPARATE JUDGEMENTS — do not confuse them
  * @param {{ text: string, redactions: number }} payload  already redacted
  * @param {string[]} namesToRemove  same list, for the final leak assertion
  */
-export async function generateSelfStrategies(payload, namesToRemove) {
+export async function generateSelfStrategies(payload, namesToRemove, model = MODEL) {
   // Same last check as generateStrategies, and for the same reason. The name
   // being removed here is their own rather than a child's, which makes it no
   // less theirs.
@@ -323,32 +378,39 @@ export async function generateSelfStrategies(payload, namesToRemove) {
   }
 
   const request = {
-    model: MODEL,
+    model,
     max_tokens: 16000,
     system: SELF_SYSTEM_PROMPT,
-    output_config: {
-      effort: 'medium',
-      format: { type: 'json_schema', schema: SELF_STRATEGY_SCHEMA },
-    },
+    output_config: outputConfigFor(model, SELF_STRATEGY_SCHEMA),
     messages: [
       {
         role: 'user',
-        content: `Somebody has written this about their own situation:
-
-${payload.text}
-
-Suggest up to three things they could try.`,
+        content: [
+          'Somebody has written this about their own situation:',
+          '',
+          payload.text,
+          ...(payload.about
+            ? [
+                '',
+                'They are asking about this suggestion you gave them:',
+                payload.about,
+              ]
+            : []),
+          ...(payload.history
+            ? [
+                '',
+                'What they are already working on, which they have chosen to let you see:',
+                payload.history,
+              ]
+            : []),
+          '',
+          'Suggest up to two things they could try.',
+        ].join('\n'),
       },
     ],
   }
 
-  const response = USE_SERVER_FALLBACK
-    ? await client.beta.messages.create({
-        ...request,
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
-      })
-    : await client.messages.create(request)
+  const response = await createMessage(client, request)
 
   if (response.stop_reason === 'refusal') {
     // Deliberately not the school wording. Telling somebody with no specialist
@@ -367,7 +429,10 @@ Suggest up to three things they could try.`,
   const parsed = JSON.parse(text)
 
   return {
-    strategies: (parsed.strategies ?? []).slice(0, 3).map((s) => ({
+    /* Two, matching the prompt. The cap is here as well as there because a
+       model that returns three anyway should not be able to put a third on
+       somebody's screen. */
+    strategies: (parsed.strategies ?? []).slice(0, 2).map((s) => ({
       title: String(s.title ?? '').slice(0, 200),
       body: String(s.body ?? ''),
       rationale: Array.isArray(s.rationale) ? s.rationale.map(String) : [],

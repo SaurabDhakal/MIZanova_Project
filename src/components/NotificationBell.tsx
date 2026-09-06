@@ -145,6 +145,26 @@ function itemsFor(queue: WorkQueue, basePath: string) {
     urgent: true,
   }))
 
+  /* db/105. The only line an individual ever sees, and it clears when they
+     open the screen it points at — which is the test every line here has to
+     pass. */
+  add(queue.sessionAnswers, (n) => ({
+    key: 'session-answers',
+    label: `${plural(n, 'session request', 'session requests')} answered`,
+    detail: 'A specialist has replied',
+    to: `${basePath}/book`,
+  }))
+
+  /* db/106. "To look at", never "overdue" — nothing on this account is owed
+     to anybody, and a bell that implies otherwise would undo the care taken
+     over the wording on the screen it points at. */
+  add(queue.goalsToLookAt, (n) => ({
+    key: 'goals-to-look-at',
+    label: `${plural(n, 'goal', 'goals')} to look at`,
+    detail: 'Nobody has asked how these are going',
+    to: `${basePath}/goals`,
+  }))
+
   add(queue.unreadThreads, (n) => ({
     key: 'messages',
     label: `${plural(n, 'conversation', 'conversations')} unread`,

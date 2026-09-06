@@ -1,7 +1,13 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import PublicLayout from '../components/PublicLayout'
-import type { EnquiryPlan } from '../lib/api'
+import {
+  fetchCourseCatalogue,
+  formatMoney,
+  queryKeys,
+  type EnquiryPlan,
+} from '../lib/api'
 
 /**
  * Pricing — docs/Untitled (4)/P-005 Pricing.jpg and P-005 Pricing (Parents View).jpg.
@@ -219,16 +225,32 @@ function PlanCard({ plan }: { plan: Plan }) {
   )
 }
 
-type Audience = 'schools' | 'montessori' | 'families'
+type Audience = 'schools' | 'montessori' | 'families' | 'individual'
 
 const AUDIENCE_LABELS: Record<Audience, string> = {
   schools: 'For schools',
   montessori: 'Montessori & early years',
   families: 'For families',
+  individual: 'For myself',
 }
 
 export default function Pricing() {
   const [audience, setAudience] = useState<Audience>('schools')
+
+  /*
+   * Fetched whichever tab is showing, and that is deliberate. It is one small
+   * read of published titles and prices, and having it already in hand means
+   * the individuals tab does not flash "Loading the current prices" at
+   * somebody who has just clicked onto it.
+   */
+  const catalogue = useQuery({
+    queryKey: queryKeys.courseCatalogue,
+    queryFn: fetchCourseCatalogue,
+  })
+  const forIndividuals = (catalogue.data ?? []).filter((c) =>
+    c.audiences.includes('individual'),
+  )
+  const allFree = forIndividuals.every((c) => c.price_cents === null)
 
   return (
     <PublicLayout
@@ -268,14 +290,18 @@ export default function Pricing() {
           ? 'School subscriptions'
           : audience === 'montessori'
             ? 'Montessori centres and early years'
-            : 'Family plans'}
+            : audience === 'individual'
+              ? 'Working on this yourself'
+              : 'Family plans'}
       </h2>
       <p className="mt-1 mb-8 text-center text-muted-foreground">
         {audience === 'schools'
           ? 'Annual contracts. Pilot programmes available.'
           : audience === 'montessori'
             ? 'Quoted per centre, because a centre is not sized like a school.'
-            : 'Reached through your school today. Nothing to pay.'}
+            : audience === 'individual'
+              ? 'A free account, and courses bought one at a time.'
+              : 'Reached through your school today. Nothing to pay.'}
       </p>
 
       {audience === 'schools' && (
@@ -368,6 +394,136 @@ export default function Pricing() {
             would rather quote you than round you into somebody else&rsquo;s
             band.
           </p>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------
+          INDIVIDUALS — THE ONLY CUSTOMER ON THIS PAGE WHO CAN BUY
+          SOMETHING TODAY, AND THE ONLY ONE WHO HAD NO TAB.
+
+          THE PRICES ARE READ, NOT PRINTED. Every other section here carries
+          figures copied from the client's designs. An individual's prices are
+          not a published list at all: they are `courses.price_cents`, set on
+          the Courses screen, and the checkout charges from that column. So
+          this section reads the same column rather than keeping a second copy
+          of it — which is the fault plans.ts exists to have ended.
+
+          Today every course is free and the page says so plainly. The day
+          Special Miles prices one, it appears here with no code change.
+          --------------------------------------------------------------- */}
+      {audience === 'individual' && (
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-card border border-border bg-card p-6 shadow-raised">
+            <h3 className="font-bold text-foreground">
+              The account itself is free, and stays free
+            </h3>
+            <ul className="mt-3 space-y-2 text-muted-foreground">
+              <li>
+                Reading from Special Miles, including everything about how your
+                information is handled.
+              </li>
+              <li>
+                Suggestions for your own situation, written for you rather than
+                about you. There is a daily limit so one person cannot use up
+                the day for everybody, and you are told plainly if you reach
+                it.
+              </li>
+              <li>
+                A record of what you have read and where you got to, which
+                nobody else can see &mdash; not a school, not Special Miles.
+              </li>
+              <li>
+                Closing the account, whenever you like, from the account page.
+              </li>
+            </ul>
+            <p className="mt-4 text-sm text-muted-foreground">
+              No card is asked for and no trial is running.
+            </p>
+          </div>
+
+          {/* --- what a course costs, read from the database ------------- */}
+          <h3 className="mt-10 font-semibold text-foreground">Courses</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bought one at a time. You read the first part of any course free,
+            then decide &mdash; and a course you have paid for stays yours even
+            if it later stops being offered to anybody else.
+          </p>
+
+          {catalogue.isPending && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Loading the current prices&hellip;
+            </p>
+          )}
+
+          {catalogue.isError && (
+            <p className="mt-4 text-sm text-danger-foreground">
+              The current prices could not be loaded, so none are shown rather
+              than shown wrongly. {catalogue.error.message}
+            </p>
+          )}
+
+          {catalogue.isSuccess && forIndividuals.length === 0 && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              There are no courses for individuals published yet.
+            </p>
+          )}
+
+          {forIndividuals.length > 0 && (
+            <dl className="mt-4 divide-y divide-border rounded-card border border-border bg-background">
+              {forIndividuals.map((course) => (
+                <div
+                  key={course.id}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+                >
+                  <dt className="font-medium text-foreground">
+                    {course.title}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {course.modules} part{course.modules === 1 ? '' : 's'}
+                    </span>
+                  </dt>
+                  <dd className="text-sm font-semibold text-foreground">
+                    {course.price_cents === null
+                      ? 'Free'
+                      : formatMoney(course.price_cents, course.currency)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {allFree && forIndividuals.length > 0 && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Every course is free at the moment. If that changes, the price is
+              on the course before you start it &mdash; nothing here begins
+              charging you quietly.
+            </p>
+          )}
+
+          <Link
+            to="/signup?as=individual"
+            className="mt-6 inline-block rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
+          >
+            Create my account
+          </Link>
+
+          {/* --- what is not built, said before it is asked for ---------- */}
+          <h3 className="mt-12 font-semibold text-foreground">
+            One-to-one sessions
+          </h3>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            You can ask a verified specialist for forty-five minutes, and they
+            accept or decline. What does not exist is a price: Special Miles
+            has not set one, so nothing is charged and nobody will ask you for
+            a card. When there is a figure it will be here, and asking will
+            still be asking &mdash; a specialist&rsquo;s afternoon is not
+            something you buy off a shelf.
+          </p>
+          <Link
+            to="/enquiry?plan=individual"
+            className="mt-4 inline-block rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground"
+          >
+            Tell me when this opens
+          </Link>
         </div>
       )}
 
