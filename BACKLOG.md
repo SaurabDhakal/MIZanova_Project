@@ -85,6 +85,16 @@ bulk import as gaps, and both shipped since it was written.
       do. The specialist's email deliberately carries only the time: what
       somebody wrote about what they are finding hard stays in the account,
       where RLS governs who reads it.
+- [x] ~~**The individual role is finished, end to end.**~~ Verified on 7 Sep by
+      using it rather than reading it: every screen, every button actuated.
+      Public funnel → signup → all six sidebar screens → receipts, the summary
+      document, and four Settings tabs. AI generation confirmed working after
+      db/111 replaced `my_ai_tier()` — a real ask returned a real answer on the
+      paid model, with one suggestion withheld below the confidence threshold,
+      zero redactions needed and no risk flag. Module completion moves the
+      counts on three screens consistently (1/3 → 2/3, "2 parts finished").
+      What remains below is decisions, not engineering.
+
 - [ ] **A session has no price.** Deliberate, not missing: `plans.ts` says
       figures come from the client and the brief says willingness to pay is
       still being researched. When Special Miles sets one, the accept step

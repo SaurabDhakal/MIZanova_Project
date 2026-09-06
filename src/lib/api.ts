@@ -3817,6 +3817,34 @@ export async function startSubscription(): Promise<string> {
 }
 
 /**
+ * Ask the server whether a returning subscription actually started.
+ *
+ * The fast path, as `confirmCoursePurchase` is for a course: the webhook is
+ * the reliable one, and this exists so somebody who has just paid sees it on
+ * the page they land on instead of whenever Stripe's notification arrives.
+ */
+export async function confirmSubscription(sessionId: string): Promise<boolean> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/subscription-confirm`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => {
+    throw new Error('Could not reach the API server.')
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return Boolean(body.active)
+}
+
+/**
  * Stop it renewing, or start it renewing again.
  *
  * `resume: true` undoes a cancellation that has not taken effect yet, which is

@@ -1,6 +1,13 @@
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { fetchMyPurchases, formatMoney, queryKeys } from '../../lib/api'
+import { useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  confirmSubscription,
+  fetchMyPurchases,
+  formatMoney,
+  queryKeys,
+} from '../../lib/api'
+import { showToast } from '../../lib/toast'
 import SubscriptionSection from '../../components/SubscriptionSection'
 import Icon from '../../components/Icon'
 
@@ -26,6 +33,72 @@ import Icon from '../../components/Icon'
  * would be a second, worse door to a room they already have.
  */
 export default function Payments() {
+  const queryClient = useQueryClient()
+  const [params, setParams] = useSearchParams()
+  const returned = params.get('session_id')
+  const cancelled = params.get('cancelled')
+
+  /* ------------------------------------------------------------------
+     COMING BACK FROM STRIPE.
+     ------------------------------------------------------------------
+     Stripe sends people here after paying. The webhook is what makes the
+     subscription real and does not care what the browser did — but it can
+     arrive seconds later, and until it does this page would show the person
+     who just paid the same "there is nothing to subscribe to" card they saw
+     before. Asking the server to confirm the session closes that gap, exactly
+     as the Academy does for a course.
+
+     The parameter is cleared either way, so a refresh does not re-run it and a
+     bookmarked URL does not confuse anybody a week later.
+     ------------------------------------------------------------------ */
+  useEffect(() => {
+    if (!returned) return
+    let active = true
+    void (async () => {
+      try {
+        const started = await confirmSubscription(returned)
+        if (!active) return
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.mySubscription,
+        })
+        showToast(
+          started
+            ? 'You are subscribed. Cancel whenever you like.'
+            : 'That payment has not come through yet.',
+          started ? 'success' : 'error',
+        )
+      } catch (err) {
+        if (active) {
+          showToast(
+            err instanceof Error ? err.message : 'Could not confirm that.',
+            'error',
+          )
+        }
+      } finally {
+        if (active) {
+          const next = new URLSearchParams(params)
+          next.delete('session_id')
+          setParams(next, { replace: true })
+        }
+      }
+    })()
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returned])
+
+  /* Somebody who pressed cancel at Stripe. Nothing happened, and saying so is
+     kinder than silently returning them to an unchanged page. */
+  useEffect(() => {
+    if (!cancelled) return
+    showToast('Nothing was charged.')
+    const next = new URLSearchParams(params)
+    next.delete('cancelled')
+    setParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancelled])
+
   const purchases = useQuery({
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,

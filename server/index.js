@@ -2506,8 +2506,14 @@ app.post('/api/billing/subscribe', async (req, res) => {
       /* The webhook cannot ask a settled session what it was for, so it is
          told. Same reason `kind: 'course'` exists. */
       metadata: { kind: 'subscription', profileId: user.id },
-      success_url: `${origin}/account/profile?subscribed=1`,
-      cancel_url: `${origin}/pricing`,
+      /* BACK TO WHERE THE SUBSCRIPTION ACTUALLY LIVES. This pointed at
+         /account/profile, which was true until billing moved to its own
+         Payments tab — so somebody who had just paid landed on a page with no
+         mention of a subscription anywhere on it. The session id travels so
+         the return can be confirmed immediately rather than waiting on the
+         webhook, exactly as the course and invoice paths do. */
+      success_url: `${origin}/account/payments?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/account/payments?cancelled=1`,
     })
 
     return res.json({ url: session.url })
@@ -2542,6 +2548,62 @@ app.post('/api/billing/subscribe', async (req, res) => {
  * Stripe keeps billing is worse than no button at all — the person believes
  * they have stopped paying and has not.
  */
+/**
+ * POST /api/billing/subscription-confirm  { sessionId }  -> { active }
+ *
+ * The fast path, as `/api/billing/course-confirm` is for a course. The webhook
+ * is the reliable one and does not care what the browser did; this exists so
+ * somebody who has just paid sees it on the page they land on rather than
+ * whenever Stripe's notification arrives.
+ *
+ * The browser is not believed about payment at any point — it hands over a
+ * session id and this server asks Stripe what happened to it.
+ *
+ * NO `payment_status === 'paid'` CHECK, and that is deliberate. A subscription
+ * opened with a free trial settles as `no_payment_required`, because no money
+ * moved. Requiring 'paid' here would reject exactly the returns a trial
+ * produces — the same trap the webhook had.
+ */
+app.post('/api/billing/subscription-confirm', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { sessionId } = req.body ?? {}
+  if (!sessionId) return res.status(400).json({ error: 'sessionId is required.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) return res.status(503).json({ error: 'Payments are not configured.' })
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.metadata?.kind !== 'subscription') {
+      return res.status(400).json({ error: 'That is not a subscription payment.' })
+    }
+    if (!session.subscription) return res.json({ active: false })
+
+    const sub = await stripe.subscriptions.retrieve(
+      typeof session.subscription === 'string'
+        ? session.subscription
+        : session.subscription.id,
+    )
+    const recorded = await recordSubscription(
+      sub,
+      session.metadata?.profileId ?? null,
+    )
+    return res.json({
+      active: recorded && ['trialing', 'active', 'past_due'].includes(sub.status),
+    })
+  } catch (err) {
+    recordEvent(
+      'critical',
+      'billing',
+      'subscription_confirm_failed',
+      `A paid subscription could not be confirmed on return: ${err.message}`,
+    )
+    return res.status(500).json({ error: 'Could not confirm the subscription.' })
+  }
+})
+
 app.post('/api/billing/subscription/cancel', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
