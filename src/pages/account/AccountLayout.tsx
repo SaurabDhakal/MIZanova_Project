@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ROLE_CONFIG, type Role } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
 
@@ -65,7 +65,33 @@ const TABS: { to: string; label: string; roles?: Role[] }[] = [
 
 export default function AccountLayout() {
   const { profile } = useAuth()
+  const { pathname } = useLocation()
   const roleLabel = profile ? ROLE_CONFIG[profile.role].label : ''
+
+  /* ------------------------------------------------------------------
+     THE TABS WERE FILTERED AND THE ROUTES WERE NOT.
+     ------------------------------------------------------------------
+     `roles` hid a tab from anybody it was not for, and stopped there — the
+     route underneath rendered for any signed-in person who reached the URL.
+     A platform admin who had been on /account/payments and then signed in
+     found themselves looking at an individual's subscription and receipts
+     screen, which is how this was noticed.
+
+     Nothing leaked: every query underneath is RLS-scoped to the caller, so a
+     platform admin saw their OWN (absent) subscription rather than somebody
+     else's. But being shown another role's screen is its own defect, and the
+     one URL somebody is most likely to still have open after switching
+     accounts is the one they were last on.
+
+     `/account/school` had the same hole before either of the new tabs
+     existed. Guarding from TABS rather than from a second list is the point:
+     one place decides who a tab is for, and it cannot drift from who the
+     route is for.
+     ------------------------------------------------------------------ */
+  const here = TABS.find((tab) => tab.to === pathname)
+  const allowed =
+    !here?.roles || (profile != null && here.roles.includes(profile.role))
+  if (!allowed) return <Navigate to="/account/profile" replace />
 
   return (
     <div>
