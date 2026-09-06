@@ -62,7 +62,15 @@ function moduleProgress(
 export default function Academy() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState<string | null>(null)
+  /* OPENED FROM WHEREVER THEY PRESSED "CARRY ON".
+     The home screen shows a course card with its title and "1 of 3 parts" and
+     a link reading "Carry on" — and that link landed on the Academy index,
+     where the person had to find the course again in a list. The card named it;
+     the link should open it. `?open=<courseId>` is read once as the initial
+     state, so the URL is a way in rather than a thing to keep in sync. */
+  const [open, setOpen] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('open'),
+  )
   /*
    * WHICH PART THEY ARE READING, not which course. Opening a course used to
    * unroll every module at once — three or eight of them, each several

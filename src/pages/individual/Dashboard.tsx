@@ -443,8 +443,12 @@ export default function IndividualHome() {
                     </span>
                   </div>
 
+                  {/* Opens the course it is sitting under, rather than the
+                      index. The card names a course and says how far through
+                      it you are; landing on a list and hunting for it again is
+                      the link not keeping its own promise. */}
                   <Link
-                    to="/individual/academy"
+                    to={`/individual/academy?open=${course.id}`}
                     className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
                   >
                     {finished ? 'Read it again →' : 'Carry on →'}
@@ -493,7 +497,7 @@ export default function IndividualHome() {
                     {course.summary}
                   </p>
                   <Link
-                    to="/individual/academy"
+                    to={`/individual/academy?open=${course.id}`}
                     className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
                   >
                     Start it →

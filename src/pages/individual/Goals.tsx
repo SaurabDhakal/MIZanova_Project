@@ -58,6 +58,9 @@ const HOW: { value: GoalCheckin['how_it_went']; label: string; tone: string }[] 
 
 export default function Goals() {
   const queryClient = useQueryClient()
+  /* Which finished/parked goal is asking to be confirmed. One id rather than a
+     set: two confirmations open at once is not a state worth supporting. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [why, setWhy] = useState('')
   const [targetDate, setTargetDate] = useState('')
@@ -314,13 +317,39 @@ export default function Goals() {
                   >
                     Pick it back up
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => remove.mutate(goal.id)}
-                    className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-                  >
-                    Delete
-                  </button>
+                  {/* Guarded for the same reason as the active list, and the
+                      case is arguably stronger: a finished or parked goal is
+                      the completed record, and its check-ins are the whole of
+                      what somebody has to look back on. */}
+                  {confirmingId === goal.id ? (
+                    <>
+                      <span className="text-sm text-danger-foreground">
+                        Delete this and its history?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => remove.mutate(goal.id)}
+                        className="text-sm font-semibold text-danger-foreground hover:underline"
+                      >
+                        Delete it
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="text-sm font-semibold text-foreground hover:underline"
+                      >
+                        Keep it
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(goal.id)}
+                      className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
@@ -373,6 +402,7 @@ function GoalCard({
      checking in is three buttons and typing is extra — so this is usually a
      much shorter list than `checkins`, and on many goals it is empty. */
   const written = checkins.filter((c) => c.note?.trim())
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
     <li className="rounded-card border border-border bg-card p-5 shadow-raised">
@@ -465,13 +495,51 @@ function GoalCard({
           >
             Park it
           </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-          >
-            Delete
-          </button>
+          {/* ONE CLICK USED TO DESTROY THE HISTORY. `onDelete` fired the
+              mutation immediately, from a button sitting in a row with "Done
+              with this" and "Park it" — two harmless status changes — and
+              `individual_goal_checkins.goal_id` is ON DELETE CASCADE, so it
+              took every check-in with it. The demo goal alone carries eight,
+              spanning three weeks, three of them with words the person wrote.
+              No undo, no warning, no way to get any of it back.
+
+              Not the type-the-phrase dialog: that guards closing an account,
+              and borrowing it here would say these are equally serious. One
+              step, in place, naming what actually goes. */}
+          {confirmingDelete ? (
+            <>
+              <span className="text-danger-foreground">
+                Delete this
+                {checkins.length > 0 &&
+                  ` and its ${checkins.length} check-in${
+                    checkins.length === 1 ? '' : 's'
+                  }`}
+                ? This cannot be undone.
+              </span>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="font-semibold text-danger-foreground hover:underline"
+              >
+                Delete it
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="font-semibold text-foreground hover:underline"
+              >
+                Keep it
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+            >
+              Delete
+            </button>
+          )}
         </span>
       </div>
 
