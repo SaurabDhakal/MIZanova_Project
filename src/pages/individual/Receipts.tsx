@@ -278,11 +278,24 @@ export default function Receipts() {
                 {/* SAYS WHAT IT IS NOT. A document about money that looks like
                     a tax invoice and is not one is worse than one that is
                     clear about itself. */}
+                {/* "ASK SPECIAL MILES" WITH NO WAY TO ASK THEM. The sentence
+                    told somebody to do something and named no route, on the
+                    one screen where the reader is most likely to be mid-claim
+                    and in a hurry. Settings now has a Help & contact tab that
+                    answers "how do I reach a person", including the honest
+                    part — that there is no support inbox yet. */}
                 <p className="mt-4 max-w-prose text-xs text-muted-foreground">
                   This is a receipt, not a tax invoice. A tax invoice must carry
                   the seller&rsquo;s ABN and its GST treatment, and neither has
                   been supplied for MiZanova yet. If you need one for a claim,
-                  ask Special Miles and quote the number above.
+                  quote the number above &mdash;{' '}
+                  <Link
+                    to="/account/help"
+                    className="print-hide font-semibold text-primary hover:underline"
+                  >
+                    here is how to reach Special Miles
+                  </Link>
+                  .
                 </p>
 
                 <button

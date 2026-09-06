@@ -38,13 +38,32 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/account/security': 'Security',
   '/account/profile': 'Your account',
   '/account/school': 'Your school',
+  '/account/help': 'Help and contact',
   '/design-tokens': 'Design tokens',
   '/link': 'Connect to your child',
+}
+
+/**
+ * Pages that live inside a role section but are not sidebar items — the
+ * DETAIL_ROUTES in App.tsx.
+ *
+ * Without an entry these fall through to the section's own label at the bottom
+ * of the role loop, which is not "Page not found" but is not much better: the
+ * browser tab, the history entry and the aria-label on <main> all read
+ * "Individual" on a page about receipts. Two identical history entries for two
+ * different screens is the practical cost.
+ */
+const OFF_NAV_TITLES: Record<string, string> = {
+  '/individual/receipts': 'Receipts — Individual',
+  '/individual/what-works': 'What works for me — Individual',
 }
 
 export function titleFor(pathname: string): string {
   const exact = PUBLIC_TITLES[pathname]
   if (exact) return exact
+
+  const offNav = OFF_NAV_TITLES[pathname]
+  if (offNav) return offNav
 
   /*
    * A ROUTE WHOSE NAME CARRIES A TOKEN. `/invite/:token` matched no exact key
