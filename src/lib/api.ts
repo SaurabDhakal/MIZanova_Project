@@ -7853,6 +7853,32 @@ export type SelfSuggestion = {
   body: string
   rationale: string[]
   confidence: number
+  /** Null until they say — db/108. */
+  outcome: 'helped' | 'didnt_help' | null
+}
+
+/**
+ * Say whether a suggestion helped — db/108.
+ *
+ * The only thing about a suggestion a person may change. db/109 revoked the
+ * table-wide update Supabase grants by default and left exactly these two
+ * columns, so the model's words stay the model's words.
+ *
+ * Sending null clears it, because somebody who pressed the wrong one should be
+ * able to take it back rather than live with a record that is not true.
+ */
+export async function setSuggestionOutcome(
+  id: string,
+  outcome: 'helped' | 'didnt_help' | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('individual_ai_suggestions')
+    .update({
+      outcome,
+      outcome_at: outcome ? new Date().toISOString() : null,
+    })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export type SelfRequest = {
@@ -7878,7 +7904,7 @@ export async function fetchMySelfRequests(): Promise<SelfRequest[]> {
   const { data, error } = await supabase
     .from('individual_ai_requests')
     .select(
-      'id, asked, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions (id, title, body, rationale, confidence)',
+      'id, asked, redaction_count, risk_flagged, withheld_count, withheld_reason, created_at, individual_ai_suggestions (id, title, body, rationale, confidence, outcome)',
     )
     .order('created_at', { ascending: false })
 

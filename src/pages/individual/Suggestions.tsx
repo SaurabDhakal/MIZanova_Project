@@ -8,9 +8,11 @@ import {
   fetchMyGoalsPersonal,
   fetchMySelfRequests,
   setAiMemory,
+  setSuggestionOutcome,
   queryKeys,
   requestSelfStrategies,
   type SelfRequest,
+  type SelfSuggestion,
 } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
@@ -375,6 +377,11 @@ export default function Suggestions() {
                 request={request}
                 onDelete={() => remove.mutate(request.id)}
                 deleting={remove.isPending && remove.variables === request.id}
+                onChanged={() =>
+                  void queryClient.invalidateQueries({
+                    queryKey: queryKeys.mySelfRequests,
+                  })
+                }
                 open={(openAsk ?? history.data[0]?.id) === request.id}
                 onToggle={() =>
                   setOpenAsk(
@@ -413,44 +420,119 @@ export default function Suggestions() {
  * question is a to-do list, and this product says in as many words that one
  * thing at a time is plenty.
  */
-function TryThis({ title }: { title: string }) {
+function SuggestionActions({
+  suggestion,
+  onChanged,
+}: {
+  suggestion: SelfSuggestion
+  onChanged: () => void
+}) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
 
-  if (state === 'saved') {
+  const outcome = useMutation({
+    mutationFn: (o: 'helped' | 'didnt_help' | null) =>
+      setSuggestionOutcome(suggestion.id, o),
+    onSuccess: onChanged,
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  /* ALREADY ANSWERED. It says what they said, and lets them take it back —
+     somebody who pressed the wrong one should not be stuck with a record that
+     is not true, and the model is reading these. */
+  if (suggestion.outcome) {
     return (
-      <p className="mt-3 text-sm text-success-foreground">
-        Added to what you are working on.{' '}
-        <Link
-          to="/individual/goals"
-          className="font-semibold text-primary hover:underline"
+      <p className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+        <span
+          className={
+            suggestion.outcome === 'helped'
+              ? 'font-semibold text-success-foreground'
+              : 'font-semibold text-muted-foreground'
+          }
         >
-          See it
-        </Link>
+          {suggestion.outcome === 'helped'
+            ? 'You said this helped'
+            : 'You said this was not for you'}
+        </span>
+        <button
+          type="button"
+          onClick={() => outcome.mutate(null)}
+          className="text-muted-foreground hover:underline"
+        >
+          Undo
+        </button>
       </p>
     )
   }
 
   return (
-    <button
-      type="button"
-      disabled={state === 'saving'}
-      onClick={() => {
-        setState('saving')
-        addMyGoal({
-          title,
-          why: 'From a suggestion, on a day I was finding this hard.',
-          targetDate: null,
-        })
-          .then(() => setState('saved'))
-          .catch((e: Error) => {
-            setState('idle')
-            showToast(e.message, 'error')
-          })
-      }}
-      className="mt-3 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
-    >
-      {state === 'saving' ? 'Adding…' : 'I want to try this'}
-    </button>
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {state === 'saved' ? (
+        <p className="text-sm text-success-foreground">
+          Added to what you are working on.{' '}
+          <Link
+            to="/individual/goals"
+            className="font-semibold text-primary hover:underline"
+          >
+            See it
+          </Link>
+        </p>
+      ) : (
+        <button
+          type="button"
+          disabled={state === 'saving'}
+          onClick={() => {
+            setState('saving')
+            addMyGoal({
+              title: suggestion.title,
+              why: 'From a suggestion, on a day I was finding this hard.',
+              targetDate: null,
+            })
+              .then(() => setState('saved'))
+              .catch((e: Error) => {
+                setState('idle')
+                showToast(e.message, 'error')
+              })
+          }}
+          className="rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
+        >
+          {state === 'saving' ? 'Adding…' : 'I want to try this'}
+        </button>
+      )}
+
+      {/* ---------------------------------------------------------------
+          DID IT HELP — the step this product never had.
+          ---------------------------------------------------------------
+          Two answers, because "did this help" is answerable in the
+          half-second somebody has and a five-point scale is a decision. The
+          same reasoning db/101 used for three check-in options rather than
+          five.
+
+          It is not feedback for us. db/107 lets the model see what somebody
+          is working on, and "I tried this and it did not help" is the single
+          most useful thing it could be told — without it, it will suggest the
+          same thing again in six weeks and be right to, because nothing ever
+          said otherwise.
+          --------------------------------------------------------------- */}
+      <span className="ml-auto flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">Tried it?</span>
+        <button
+          type="button"
+          disabled={outcome.isPending}
+          onClick={() => outcome.mutate('helped')}
+          className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
+        >
+          It helped
+        </button>
+        <button
+          type="button"
+          disabled={outcome.isPending}
+          onClick={() => outcome.mutate('didnt_help')}
+          className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
+        >
+          Not for me
+        </button>
+      </span>
+    </div>
   )
 }
 
@@ -460,12 +542,14 @@ function RequestCard({
   deleting,
   open,
   onToggle,
+  onChanged,
 }: {
   request: SelfRequest
   onDelete: () => void
   deleting: boolean
   open: boolean
   onToggle: () => void
+  onChanged: () => void
 }) {
   /* The TIME as well as the date. Somebody who asked four things on a Tuesday
      had four collapsed rows reading "Asked 6 September 2026", which
@@ -576,7 +660,7 @@ function RequestCard({
               <p className="mt-2 border-l-4 border-accent pl-3 text-foreground">
                 {s.body}
               </p>
-              <TryThis title={s.title} />
+              <SuggestionActions suggestion={s} onChanged={onChanged} />
 
               {s.rationale.length > 0 && (
                 <>

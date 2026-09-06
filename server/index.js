@@ -1141,7 +1141,7 @@ async function historyFor(userId, names) {
       .limit(3),
     admin
       .from('individual_ai_requests')
-      .select('asked, created_at')
+      .select('asked, created_at, individual_ai_suggestions (title, outcome)')
       .eq('profile_id', userId)
       .order('created_at', { ascending: false })
       .limit(3),
@@ -1176,6 +1176,22 @@ async function historyFor(userId, names) {
      so there is no risk of the model being shown its own prompt twice. */
   for (const a of asks.data ?? []) {
     lines.push(`- Asked before: ${clean(a.asked)}`)
+    /*
+     * db/108. THE MOST USEFUL THING IN HERE. Everything else tells the model
+     * what somebody is doing; this tells it what it got wrong. Without it the
+     * model will cheerfully suggest again, in September, the thing they tried
+     * in March and abandoned in April — and the person will conclude it is not
+     * listening, which it was not.
+     */
+    for (const s of a.individual_ai_suggestions ?? []) {
+      if (s.outcome === 'helped') {
+        lines.push(`    you suggested "${clean(s.title)}" and it HELPED`)
+      } else if (s.outcome === 'didnt_help') {
+        lines.push(
+          `    you suggested "${clean(s.title)}" and it did NOT help — do not suggest it again`,
+        )
+      }
+    }
   }
 
   return { text: lines.join('\n'), redactions, used: lines.length > 0 }
