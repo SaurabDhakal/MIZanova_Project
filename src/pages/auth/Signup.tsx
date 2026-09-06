@@ -259,11 +259,17 @@ export default function Signup() {
           <p className="font-semibold text-foreground">
             I am here for myself
           </p>
+          {/* This said "the Academy and the Library" and stopped there, which
+              was true when it was written and had not been touched since the
+              account gained the thing it is actually for. This is the last
+              sentence somebody reads before deciding, so it is the worst place
+              on the site to undersell. */}
           <p className="mt-1 text-sm text-muted-foreground">
-            No school, no code, nobody else involved. You get the Academy and
-            the Library &mdash; short courses and reading you work through at
-            your own pace. Nothing you do is reported to a school, because there
-            is no school.
+            No school, no code, nobody else involved. Describe something you are
+            finding hard and get practical things to try, keep track of what you
+            are working on, take short courses and reading at your own pace, and
+            ask a specialist for time if you want it. Nothing you do is reported
+            to a school, because there is no school.
           </p>
           <Link
             to="/signup?as=individual"

@@ -24,6 +24,20 @@ bulk import as gaps, and both shipped since it was written.
       deploys. Either correct the words (small) or build the layer, which
       `docs/11` argues is "cheap now and impossible later".
 
+- [x] ~~**Four sentences shipped to individuals had stopped being true.**~~
+      Found by walking the funnel on 6 September. "Nothing emails either of you
+      about it yet" was on the public page, the individual's home screen and
+      the specialist's schedule, while `notifyAboutBooking` has sent mail both
+      ways since db/104 — `specialist/Schedule.tsx` even carries a note about
+      correcting this once, and the other three were missed. The account page
+      told an individual no notification would ever reach them, while the same
+      function pushes to `/individual/book`. The public page said sessions "do
+      not exist yet" twenty lines above a paragraph on how to use them. And
+      "What you actually get" listed four things, omitting suggestions, goals,
+      sessions and receipts, while the pricing page's own tab described
+      suggestions — two public pages disagreeing about what the product is.
+      All corrected; the signup card had the same undersell and is fixed too.
+
 ---
 
 ## 2. The individual account — finishing it
@@ -86,6 +100,35 @@ bulk import as gaps, and both shipped since it was written.
       showed fewer suggestions than the free one, because Opus scores itself
       honestly near its 0.70 bar while the cheap model inflates. Worth watching
       the escalation rate and the withheld counts before tuning either.
+
+- [x] ~~**The paid AI tier was unreachable, so db/099 was a capability with no
+      consumer.**~~ db/099 defined paid as "has bought a course" and said the
+      day a subscription existed the function would gain a branch. Every course
+      is priced null and course-checkout refuses a free course, so no new paid
+      purchase row could be created by anybody — `my_ai_tier()` returned 'free'
+      for every individual alive, and `paid_model`, `daily_limit_per_user` and
+      the escalation path were live code nothing could reach. db/111 adds the
+      subscription and the branch.
+- [ ] **Set a subscription price, or decide there is not one.** db/111 ships
+      the machinery with `price_cents` null and `is_offered` false, because
+      willingness to pay is still being researched with Practera and this
+      project does not print figures nobody has agreed to. Nothing is on sale
+      until Special Miles creates a recurring Price in Stripe and runs the one
+      UPDATE at the bottom of db/111. A check constraint refuses to put a plan
+      on sale without both a price and a Stripe price id, so it cannot go live
+      half-configured. **Joe's call, not an engineering task.**
+- [ ] **Decide whether there is a free trial, and how long.** `trial_days` is
+      null, which means no trial, and every public page says so plainly rather
+      than implying one. Setting it to a number passes it to Stripe as
+      `trial_period_days`; Stripe owns the clock. Note this is NOT the school
+      trial — `TrialNotice.tsx` says outright that MiZanova has no trial end
+      date and no billing clock, which stays true for schools, who are invoiced
+      after a conversation. **Joe's call.**
+- [ ] **`STRIPE_SECRET_KEY` is empty locally and absent on Render**, so no
+      payment of any kind can complete today — course or subscription. The
+      checkout routes are real and refuse honestly (503, "Payments are not
+      configured"), but nothing has been taken end to end. **Saurab's, and it
+      needs a Stripe account.**
 
 ---
 
