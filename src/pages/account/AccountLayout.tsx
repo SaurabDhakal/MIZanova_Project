@@ -47,6 +47,11 @@ const TABS: { to: string; label: string; roles?: Role[] }[] = [
   { to: '/account/profile', label: 'Account' },
   { to: '/account/security', label: 'Security & 2FA' },
   { to: '/account/school', label: 'School', roles: ['school_admin'] },
+  /* Individual only. The other roles' money is a different thing and already
+     lives elsewhere — a parent has Collab & Finance, a school admin has
+     Invoices — so a tab here would be a second, worse door to a room they
+     have. */
+  { to: '/account/payments', label: 'Payments', roles: ['individual'] },
   /* LAST, AND FOR EVERYBODY. `/help` is a real 4,000-word page that was
      reachable from exactly one place once signed in — an item in the avatar
      menu, which is where people go to sign out. Settings is where they go when

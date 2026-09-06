@@ -21,7 +21,6 @@ import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
 import PushNotificationsSection from '../../components/PushNotificationsSection'
-import SubscriptionSection from '../../components/SubscriptionSection'
 import WhatWorksLink from '../../components/WhatWorksLink'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
@@ -712,11 +711,11 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             they cannot act on would be a dead control. */}
         {profile?.role === 'individual' && (
           <>
-            {/* BEFORE take-your-data and close-your-account, deliberately.
-                Those two are the exits; a subscription is something you have
-                while you are still here, and putting billing after the door
-                marked "delete everything" reads as an afterthought. */}
-            <SubscriptionSection />
+            {/* The subscription used to sit here. It moved to its own
+                Payments tab: this page had grown to eleven sections, so
+                somebody coming to change their name scrolled past their
+                billing and somebody coming about billing scrolled past
+                everything else. */}
             {/* Beside the export rather than after it: both answer "something
                 I can take away", and this is the one most people actually
                 want — the export is a data-rights file, this is a document. */}

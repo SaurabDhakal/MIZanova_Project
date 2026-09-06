@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
+import { FAQS } from '../../content/faqs'
 import Icon from '../../components/Icon'
 import NotBuiltYet from '../../components/NotBuiltYet'
 
@@ -34,29 +36,79 @@ import NotBuiltYet from '../../components/NotBuiltYet'
  */
 export default function HelpContact() {
   const { profile } = useAuth()
+  /* Collapsed by default. Six groups of answers opened flat would make this the
+     longest screen in the product, and somebody arriving with one question
+     should see the shape of what is answered, not scroll past everything that
+     is not their question. */
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
   const role = profile?.role
   const inASchool = Boolean(profile?.school_id)
 
   return (
     <div>
+      {/* ------------------------------------------------------------------
+          THE ANSWERS ARE HERE, NOT BEHIND A LINK OFF THE APPLICATION.
+          ------------------------------------------------------------------
+          This was a button to `/help`, which is a public page: it renders the
+          marketing header, whose logo goes to `/`, and `/` sends a signed-in
+          person to their own dashboard. Opening Help from Settings therefore
+          left the application, and the obvious way onward put somebody on the
+          home screen with Settings gone. They had not done anything wrong —
+          the door led outside.
+
+          Same answers, rendered in place. The public page still exists for
+          people who are not signed in.
+          ------------------------------------------------------------------ */}
       <section className="rounded-card border border-border bg-card p-6 shadow-raised">
         <div className="flex items-start gap-3">
           <Icon name="hand" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-foreground">
               Questions people actually arrive with
             </h2>
             <p className="mt-1 max-w-prose text-muted-foreground">
-              What MiZanova does with what you write, who can see it, what the
-              AI will not do, and how to get your data out or close your
-              account. It opens outside Settings.
+              There is no ticket system and no chatbot. If your question is not
+              answered here, a person reads what you send and replies.
             </p>
-            <Link
-              to="/help"
-              className="mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
-            >
-              Read the help page
-            </Link>
+
+            <div className="mt-4 divide-y divide-border border-t border-border">
+              {FAQS.map((group) => {
+                const open = openGroup === group.section
+                return (
+                  <div key={group.section}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenGroup(open ? null : group.section)}
+                      aria-expanded={open}
+                      className="flex w-full items-center justify-between gap-3 py-3 text-left font-semibold text-foreground"
+                    >
+                      {group.section}
+                      <span className="shrink-0 text-sm font-normal text-muted-foreground">
+                        {open
+                          ? 'Hide'
+                          : `${group.items.length} ${
+                              group.items.length === 1 ? 'answer' : 'answers'
+                            }`}
+                      </span>
+                    </button>
+                    {open && (
+                      <dl className="space-y-5 pb-5">
+                        {group.items.map((item) => (
+                          <div key={item.q}>
+                            <dt className="font-semibold text-foreground">
+                              {item.q}
+                            </dt>
+                            <dd className="mt-1.5 max-w-prose text-muted-foreground">
+                              {item.a}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -110,8 +162,8 @@ export default function HelpContact() {
           <>
             <p className="mt-1 max-w-prose text-muted-foreground">
               There is no school behind this account and nobody administering it
-              but you, so there is nobody in MiZanova to escalate to. The help
-              page answers most of what comes up.
+              but you, so there is nobody in MiZanova to escalate to. The
+              answers above cover most of what comes up.
             </p>
             <p className="mt-3 max-w-prose text-muted-foreground">
               If what you want is to talk something through with a person, you

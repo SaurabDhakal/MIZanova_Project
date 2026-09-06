@@ -62,6 +62,7 @@ const AccountSchool = lazy(() => import('./pages/account/School'))
 const AccountHelpContact = lazy(
   () => import('./pages/account/HelpContact'),
 )
+const AccountPayments = lazy(() => import('./pages/account/Payments'))
 
 /**
  * ROLE SCREENS ARE ADDED HERE, BY THE PERSON WHO OWNS THAT ROLE.
@@ -540,6 +541,7 @@ export default function App() {
               non-school-admin who types the URL gets a page that can read
               nothing and write nothing. */}
           <Route path="school" element={<AccountSchool />} />
+          <Route path="payments" element={<AccountPayments />} />
           <Route path="help" element={<AccountHelpContact />} />
         </Route>
       </Route>
