@@ -124,11 +124,20 @@ bulk import as gaps, and both shipped since it was written.
       trial — `TrialNotice.tsx` says outright that MiZanova has no trial end
       date and no billing clock, which stays true for schools, who are invoiced
       after a conversation. **Joe's call.**
-- [ ] **`STRIPE_SECRET_KEY` is empty locally and absent on Render**, so no
-      payment of any kind can complete today — course or subscription. The
-      checkout routes are real and refuse honestly (503, "Payments are not
-      configured"), but nothing has been taken end to end. **Saurab's, and it
-      needs a Stripe account.**
+- [ ] **The Stripe key is a placeholder, so no payment can complete.** Corrected
+      on 6 September: an earlier note here said the key was *empty*, which was
+      wrong — `.env.local` holds `sk_test_…xxxx` and `whsec_…`, both the right
+      shape and neither real. The first genuine call returns "Invalid API Key
+      provided". Render has separately never deployed. Needs a real Stripe test
+      key to exercise a payment end to end. **Saurab's.**
+- [x] ~~**/api/health was green on a key that could not take a payment.**~~
+      `stripe_key_looks_right` was `startsWith('sk_')`, so a shaped placeholder
+      passed and the endpoint reported `"status":"ok"` with every Stripe check
+      true. Its own docstring says a health check that is green during an
+      outage is worse than none. It now asks Stripe (cheapest authenticated
+      read, cached five minutes, failures cached too) and reports "degraded".
+      Anthropic is deliberately still presence-only: the cheapest honest check
+      there is a generation, which would charge Special Miles per poll.
 
 ---
 

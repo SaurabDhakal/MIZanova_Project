@@ -438,6 +438,57 @@ app.use(cors({ origin: CORS_ORIGINS }))
  * the server, which is an external service and a deployment decision. This
  * endpoint is what such a service would call.
  */
+/**
+ * Does the Stripe key actually work — asked of Stripe, not of the string.
+ *
+ * ---------------------------------------------------------------------------
+ * THIS ENDPOINT WAS GREEN ON A KEY THAT COULD NOT TAKE A PAYMENT
+ * ---------------------------------------------------------------------------
+ * `stripe_key_looks_right` is `startsWith('sk_')`, and the key in .env.local
+ * was `sk_test_…xxxx` — a placeholder with the right shape. So /api/health
+ * reported `"status":"ok"` with every Stripe check true, while the first real
+ * call returned "Invalid API Key provided". This endpoint's own docstring says
+ * a health check that is green during an outage is worse than none, and the
+ * one thing it could not catch was the one thing most likely to be wrong.
+ *
+ * A prefix test cannot tell a key from a shape. Asking Stripe can.
+ *
+ * ---------------------------------------------------------------------------
+ * CACHED, BECAUSE HEALTH IS POLLED AND STRIPE IS NOT OURS TO HAMMER
+ * ---------------------------------------------------------------------------
+ * A five-minute cache: long enough that a monitor calling every thirty seconds
+ * makes one Stripe request per five minutes, short enough that fixing the key
+ * shows up without a restart. Failures are cached too — a broken key stays
+ * broken, and retrying it per request would turn an outage into a rate limit.
+ *
+ * Anthropic is deliberately NOT checked this way. A Stripe key lookup is free;
+ * the cheapest honest Anthropic check is a generation, which costs money on
+ * every poll. Presence is the most that can be checked there without charging
+ * Special Miles to find out.
+ */
+let stripeCheck = { at: 0, ok: false }
+const STRIPE_CHECK_TTL_MS = 5 * 60 * 1000
+
+async function stripeKeyWorks() {
+  if (!process.env.STRIPE_SECRET_KEY) return false
+  if (Date.now() - stripeCheck.at < STRIPE_CHECK_TTL_MS) return stripeCheck.ok
+
+  let ok = false
+  try {
+    const stripe = await getStripe()
+    if (stripe) {
+      // The cheapest authenticated read there is. It proves the key is real
+      // and the account is reachable, and returns nothing worth logging.
+      await stripe.prices.list({ limit: 1 })
+      ok = true
+    }
+  } catch {
+    ok = false
+  }
+  stripeCheck = { at: Date.now(), ok }
+  return ok
+}
+
 app.get('/api/health', async (_req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY
   const checks = {
@@ -445,6 +496,7 @@ app.get('/api/health', async (_req, res) => {
     supabase: false,
     stripe_key_present: Boolean(stripeKey),
     stripe_key_looks_right: Boolean(stripeKey?.startsWith('sk_')),
+    stripe_key_works: await stripeKeyWorks(),
     stripe_webhook_configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
   }
 
@@ -458,7 +510,8 @@ app.get('/api/health', async (_req, res) => {
   // Degraded, not broken: the app works without Stripe, and saying "ok" while
   // payments cannot be recorded is the failure this endpoint exists to avoid.
   const healthy = checks.supabase && checks.anthropic
-  const complete = healthy && checks.stripe_key_looks_right && checks.stripe_webhook_configured
+  const complete =
+    healthy && checks.stripe_key_works && checks.stripe_webhook_configured
 
   res.status(healthy ? 200 : 503).json({
     ok: healthy,

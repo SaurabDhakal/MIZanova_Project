@@ -117,10 +117,21 @@ export default function Features() {
       </div>
 
       <NotThis title="Deliberately not built">
+        {/* THIS SAID BOOKING DID NOT EXIST. It was written before db/059
+            appointments, db/073 (a family can see and pay for one) and
+            db/102-104, which added a specialist's recurring hours with an
+            exclusion constraint against overlaps, `free_slots()` derived from
+            both diaries, and asking and answering. A public page was telling
+            prospective customers the product deliberately lacked a feature it
+            has. The half that is still true — and the reason the original
+            claim was made — is reminders. */}
         <p>
-          <strong className="text-foreground">No booking calendar.</strong>{' '}
-          Nothing here books an appointment — no slots, no availability, no
-          reminders — so there is no week grid pretending otherwise.
+          <strong className="text-foreground">No reminders.</strong> Sessions
+          can be arranged here — a specialist&rsquo;s hours, the times actually
+          free in both diaries, and asking for one — but nothing chases anybody
+          as the day approaches. There is no scheduler in this product, so a
+          time agreed here belongs in your own calendar too, and the screen
+          says so rather than letting you assume otherwise.
         </p>
         <p>
           <strong className="text-foreground">No behaviour trend chart for families.</strong>{' '}
@@ -131,9 +142,19 @@ export default function Features() {
           <strong className="text-foreground">No compliance scores.</strong>{' '}
           Nothing computes a percentage next to a staff member’s name.
         </p>
+        {/* ALSO NO LONGER TRUE. db/074 added the student role and there are
+            student accounts in use; they get goals, the Academy and the
+            Library and nothing else. What was being promised is that a child
+            is not administering their own record, and that is still exactly
+            right — so it is now said about the thing that is true. */}
         <p>
-          <strong className="text-foreground">No student logins.</strong>{' '}
-          Children do not have accounts.
+          <strong className="text-foreground">
+            No child administering their own record.
+          </strong>{' '}
+          An older student can be given an account, and it shows them their own
+          goals and the reading &mdash; not the log a teacher wrote, not a
+          safeguarding note, and nothing about anybody else. The record is the
+          school&rsquo;s to keep and the family&rsquo;s to see.
         </p>
         <p>
           <strong className="text-foreground">No diagnosis.</strong> It suggests

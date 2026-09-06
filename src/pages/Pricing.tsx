@@ -710,11 +710,16 @@ export default function Pricing() {
         <h2 className="font-semibold text-foreground">
           Before you choose a plan
         </h2>
+        {/* THE SCHOOL SENTENCE WAS SHOWN TO EVERYBODY, including somebody on
+            the "For myself" tab who has no school and is not creating one.
+            The true half — that nothing on this page charges you — holds for
+            all four audiences and is the half worth keeping. */}
         <p className="mt-2 text-sm text-muted-foreground">
-          Nothing on this page takes a payment. Every button here starts a
-          conversation — a school account is created by Special Miles, because
-          creating one means creating the thing every account at that school
-          hangs off. No card is entered and no plan is applied.
+          Nothing on this page takes a payment. No card is entered here and no
+          plan is applied.{' '}
+          {audience === 'individual'
+            ? 'You make an account first, and anything with a price on it is paid for from inside it, with the figure shown before you decide.'
+            : 'Every button here starts a conversation — a school account is created by Special Miles, because creating one means creating the thing every account at that school hangs off.'}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
           The design for this page also carries a list of frequently asked
