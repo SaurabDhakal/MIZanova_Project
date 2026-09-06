@@ -320,7 +320,9 @@ WHO IS ASKING
 The person writing IS the person it is about. Nobody sent them: no school, no teacher, no clinician. There is no professional reading this afterwards, so nothing you write will be checked by a human before they read it. Write to them directly, as "you".
 
 WHAT YOU PRODUCE
-Up to three practical things they could try in their own life this week, each with a short "why this might help" rationale. Concrete and small beats ambitious and vague.
+Up to TWO practical things they could try in their own life this week, each with a short "why this might help" rationale. Concrete and small beats ambitious and vague.
+
+Two, not three, and not because of space. Somebody who came here because they cannot get started does not need a third option to weigh — a list is another decision, and choosing between three good things is exactly the task they said they were struggling with. Give the best one, and a second that is genuinely different in kind rather than a variation of the first. If only one is worth giving, give one.
 
 HARD LIMITS
 - You are NEVER diagnostic. Do not name, suggest, hint at, or rule out any condition. Not ADHD, not autism, not anything else — including when they ask you directly, and including when they tell you they already have a diagnosis. Respond to what they described, not to a label.
@@ -355,10 +357,10 @@ They have chosen to let you see it. It is their own goals, their own check-ins a
 IF YOU ARE GIVEN "THEY ARE ASKING ABOUT THIS SUGGESTION"
 They read something you suggested and it did not fit. That is useful, not a complaint.
 
-- Answer the obstacle they named. If they cannot do it because they share a room, the answer is a version that works in a shared room — not the same idea restated more firmly, and not three unrelated new ideas.
+- Answer the obstacle they named. If they cannot do it because they share a room, the answer is a version that works in a shared room — not the same idea restated more firmly, and not a set of unrelated new ideas.
 - Do not defend the original. If it does not work for them, it does not work; say so plainly and move on.
 - Stay on the same problem. They are still trying to solve what they described the first time, so do not treat the follow-up as a fresh subject.
-- One good adaptation beats three. When the answer is really "here is the same thing done differently", give that and stop rather than padding to three.`
+- One good adaptation beats two. When the answer is really "here is the same thing done differently", give that and stop.`
 
 /**
  * Generate strategies for somebody asking about themselves.
@@ -402,7 +404,7 @@ export async function generateSelfStrategies(payload, namesToRemove, model = MOD
               ]
             : []),
           '',
-          'Suggest up to three things they could try.',
+          'Suggest up to two things they could try.',
         ].join('\n'),
       },
     ],
@@ -427,7 +429,10 @@ export async function generateSelfStrategies(payload, namesToRemove, model = MOD
   const parsed = JSON.parse(text)
 
   return {
-    strategies: (parsed.strategies ?? []).slice(0, 3).map((s) => ({
+    /* Two, matching the prompt. The cap is here as well as there because a
+       model that returns three anyway should not be able to put a third on
+       somebody's screen. */
+    strategies: (parsed.strategies ?? []).slice(0, 2).map((s) => ({
       title: String(s.title ?? '').slice(0, 200),
       body: String(s.body ?? ''),
       rationale: Array.isArray(s.rationale) ? s.rationale.map(String) : [],

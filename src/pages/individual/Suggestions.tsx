@@ -146,7 +146,7 @@ export default function Suggestions() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Ask for suggestions</h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
-          Describe something you are finding hard and get a few practical
+          Describe something you are finding hard and get one or two practical
           things to try.
         </p>
       </header>
@@ -451,8 +451,8 @@ export default function Suggestions() {
  * ---------------------------------------------------------------------------
  * THE GAP THIS CLOSES
  * ---------------------------------------------------------------------------
- * Somebody described what they were finding hard, waited, read three practical
- * things to try — and then nothing happened to any of them. The suggestions
+ * Somebody described what they were finding hard, waited, read a couple of
+ * practical things to try — and then nothing happened to any of them. The suggestions
  * sat in a history and were never seen again. The one part of this product
  * that carries a thread from one week to the next is a goal, and there was no
  * way to get from here to there except retyping.
