@@ -720,6 +720,9 @@ function RequestCard({
      had four collapsed rows reading "Asked 6 September 2026", which
      distinguishes nothing — and this is a screen people use in bursts on the
      same day. */
+  const [confirming, setConfirming] = useState(false)
+  const kept = request.individual_ai_suggestions.length
+
   const asked = new Date(request.created_at).toLocaleString('en-AU', {
     day: 'numeric',
     month: 'long',
@@ -757,14 +760,50 @@ function RequestCard({
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={deleting}
-          className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline disabled:opacity-50"
-        >
-          {deleting ? 'Deleting…' : 'Delete this'}
-        </button>
+        {/* CONFIRMED, because this cascades. `individual_ai_suggestions` is
+            ON DELETE CASCADE on request_id, so deleting a question also
+            deletes every answer it produced — including any marked as having
+            helped, which are the ones feeding the "what works for me" page.
+            db/110 reasoned carefully about this deletion and made follow-ups
+            survive it with ON DELETE SET NULL; the button then let it happen
+            on a single misclick, with no undo.
+
+            Same one-step shape as the goals list, for consistency. */}
+        {confirming ? (
+          <span className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-danger-foreground">
+              Delete this question
+              {kept > 0
+                ? ` and the ${kept} suggestion${kept === 1 ? '' : 's'} under it`
+                : ''}
+              ?
+            </span>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={deleting}
+              className="font-semibold text-danger-foreground hover:underline disabled:opacity-50"
+            >
+              {deleting ? 'Deleting…' : 'Delete it'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="font-semibold text-foreground hover:underline"
+            >
+              Keep it
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            disabled={deleting}
+            className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline disabled:opacity-50"
+          >
+            Delete this
+          </button>
+        )}
       </div>
 
       {/* SAYS WHAT IT IS. Without this a follow-up reads as somebody asking a

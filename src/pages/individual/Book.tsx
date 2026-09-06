@@ -42,6 +42,8 @@ import Icon from '../../components/Icon'
 export default function Book() {
   const queryClient = useQueryClient()
   const [chosen, setChosen] = useState<string | null>(null)
+  /* Which booking is being asked about before it is withdrawn. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [slot, setSlot] = useState<string | null>(null)
   const [purpose, setPurpose] = useState('')
   /* Read once when the screen mounts, and up here with the other hooks rather
@@ -282,17 +284,48 @@ export default function Book() {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => cancel.mutate(b.id)}
-                      className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-                    >
-                      Withdraw this
-                    </button>
+                    {/* CONFIRMED IS THE ONE THAT NEEDS ASKING. A specialist
+                        has put this in their diary and turned other people
+                        away from the slot; withdrawing it on one press, with
+                        no undo and no way to get the time back, is not a
+                        control that should behave like a toggle. */}
+                    {confirmingId === b.id ? (
+                      <span className="flex shrink-0 flex-wrap items-center gap-3 text-sm">
+                        <span className="text-danger-foreground">
+                          Withdraw? The time goes back to them.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => cancel.mutate(b.id)}
+                          className="font-semibold text-danger-foreground hover:underline"
+                        >
+                          Withdraw it
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(null)}
+                          className="font-semibold text-foreground hover:underline"
+                        >
+                          Keep it
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(b.id)}
+                        className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                      >
+                        Withdraw this
+                      </button>
+                    )}
                   </div>
-                  {/* NOTHING EMAILS EITHER OF YOU — said on the card that
-                      matters, not only in a note at the bottom of the home
-                      screen. Somebody who thinks a reminder is coming will
+                  {/* NO REMINDER — said on the card that matters, not only in
+                      a note at the bottom of the home screen. This comment
+                      used to read "nothing emails either of you", which stopped
+                      being true when db/104 wired notifyAboutBooking both ways:
+                      you ARE emailed when a specialist answers. What is still
+                      absent is a reminder before the day, because there is no
+                      scheduler. Somebody who thinks a reminder is coming will
                       miss this. */}
                   <p className="mt-4 text-xs text-muted-foreground">
                     No reminder will be sent for this. It is worth putting in
@@ -377,13 +410,35 @@ export default function Book() {
                     </p>
                   )}
                   {b.status !== 'declined' && (
-                    <button
-                      type="button"
-                      onClick={() => cancel.mutate(b.id)}
-                      className="mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-                    >
-                      Withdraw this
-                    </button>
+                    confirmingId === b.id ? (
+                      <span className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                        <span className="text-danger-foreground">
+                          Withdraw this request?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => cancel.mutate(b.id)}
+                          className="font-semibold text-danger-foreground hover:underline"
+                        >
+                          Withdraw it
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(null)}
+                          className="font-semibold text-foreground hover:underline"
+                        >
+                          Keep it
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(b.id)}
+                        className="mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                      >
+                        Withdraw this
+                      </button>
+                    )
                   )}
                 </li>
               )
