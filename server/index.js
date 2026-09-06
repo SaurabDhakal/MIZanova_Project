@@ -2484,7 +2484,15 @@ app.post('/api/billing/subscribe', async (req, res) => {
       return res.status(409).json({ error: 'You are already subscribed.' })
     }
 
-    const origin = appUrl()
+    /* `returnOrigin(req)` is what the other two checkout routes use: it takes
+       the caller's Origin header and refuses anything not in ALLOWED_ORIGINS,
+       so a success_url cannot be pointed at somebody else's site. The first
+       version of this route called an `appUrl()` that does not exist — it
+       passed lint and build, because this is plain JavaScript and nothing was
+       type-checking it, and then threw ReferenceError on the first real
+       request. It only surfaced by putting the plan on sale and pressing the
+       button. */
+    const origin = returnOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
@@ -2504,6 +2512,19 @@ app.post('/api/billing/subscribe', async (req, res) => {
 
     return res.json({ url: session.url })
   } catch (err) {
+    /* RECORDED, NOT JUST LOGGED. A console line lives in whatever terminal the
+       server happens to be running in; nobody at Special Miles reads it. This
+       is the route that takes money, and the failure mode found in testing —
+       a Stripe price id that does not resolve — is silent, permanent and
+       invisible: every attempt fails, the person sees a toast, and the company
+       learns nothing. `system_events` is the thing the platform admin's
+       dashboard actually shows. */
+    recordEvent(
+      'critical',
+      'billing',
+      'subscribe_failed',
+      `A subscription could not be started: ${err.message}`,
+    )
     console.error('Subscribe failed:', err)
     return res.status(500).json({ error: 'Could not start the subscription.' })
   }
@@ -2567,6 +2588,15 @@ app.post('/api/billing/subscription/cancel', async (req, res) => {
         : null,
     })
   } catch (err) {
+    // Same reasoning as above, and arguably worse: somebody who pressed cancel
+    // and saw an error will assume they are still being charged, and they will
+    // be right until a person looks at this.
+    recordEvent(
+      'critical',
+      'billing',
+      'subscription_change_failed',
+      `A subscription could not be changed: ${err.message}`,
+    )
     console.error('Cancel failed:', err)
     return res.status(500).json({ error: 'Could not change the subscription.' })
   }
