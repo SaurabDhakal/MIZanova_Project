@@ -2085,6 +2085,15 @@ export type AiControls = {
    */
   daily_limit_per_school: number
   daily_limit_per_user: number
+  /*
+   * db/099 split the per-person limit in two and nothing on the governance
+   * screen said so, so `daily_limit_per_user` was shown as "per person" when
+   * it is the figure for somebody who has PAID. Everyone else gets the one
+   * below, and which model answers them differs too.
+   */
+  free_daily_limit_per_user: number
+  free_model: string
+  paid_model: string
 }
 
 export async function fetchAiControls(): Promise<AiControls | null> {
@@ -2092,7 +2101,8 @@ export async function fetchAiControls(): Promise<AiControls | null> {
     .from('ai_controls')
     .select(
       'ai_enabled, confidence_threshold, last_change_reason, updated_at, ' +
-        'daily_limit_per_school, daily_limit_per_user',
+        'daily_limit_per_school, daily_limit_per_user, ' +
+        'free_daily_limit_per_user, free_model, paid_model',
     )
     .eq('id', true)
     .maybeSingle()
@@ -2166,6 +2176,10 @@ export async function fetchAiUsage(): Promise<AiUsageRow[]> {
 export async function updateAiLimits(input: {
   schoolLimit: number
   userLimit: number
+  /* db/099's free tier. The screen edited only the paid figure and displayed
+     it as "per person", which is what a platform admin then believed applied
+     to everybody. */
+  freeUserLimit: number
   reason: string
 }): Promise<void> {
   const auth = await supabase.auth.getUser()
@@ -2174,6 +2188,7 @@ export async function updateAiLimits(input: {
     .update({
       daily_limit_per_school: input.schoolLimit,
       daily_limit_per_user: input.userLimit,
+      free_daily_limit_per_user: input.freeUserLimit,
       last_change_reason: input.reason.trim(),
       changed_by: auth.data.user?.id ?? null,
     })
@@ -3764,6 +3779,61 @@ export async function fetchIndividualPlan(): Promise<IndividualPlan | null> {
 
   if (error) throw new Error(error.message)
   return (data ?? null) as IndividualPlan | null
+}
+
+/**
+ * The plan as Special Miles sees it — including the Stripe price id, which the
+ * public view deliberately withholds.
+ *
+ * Reads the table rather than `individual_plan_public`, because a platform
+ * admin setting a price needs to see whether an id is configured; a visitor
+ * reading a pricing page does not.
+ */
+export type IndividualPlanAdmin = IndividualPlan & {
+  stripe_price_id: string | null
+}
+
+export async function fetchIndividualPlanAdmin(): Promise<IndividualPlanAdmin | null> {
+  const { data, error } = await supabase
+    .from('individual_plan')
+    .select(
+      'name, price_cents, currency, bill_every, trial_days, is_offered, stripe_price_id',
+    )
+    .eq('id', 1)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data ?? null) as IndividualPlanAdmin | null
+}
+
+/**
+ * Set what an individual pays. Platform admin only — db/111's update policy.
+ *
+ * `assertChanged` because an RLS-refused update returns success with zero rows,
+ * so without it a non-admin would see "saved" and nothing would have moved.
+ */
+export async function updateIndividualPlan(input: {
+  priceCents: number | null
+  billEvery: 'month' | 'year'
+  trialDays: number | null
+  stripePriceId: string | null
+  isOffered: boolean
+}): Promise<void> {
+  const { data, error } = await supabase
+    .from('individual_plan')
+    .update({
+      price_cents: input.priceCents,
+      bill_every: input.billEvery,
+      trial_days: input.trialDays,
+      stripe_price_id: input.stripePriceId,
+      is_offered: input.isOffered,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The plan change')
 }
 
 /**
@@ -8885,6 +8955,7 @@ export const queryKeys = {
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
   individualPlan: ['individual-plan'] as const,
+  individualPlanAdmin: ['individual-plan-admin'] as const,
   mySubscription: ['my-subscription'] as const,
   mySelfRequests: ['my-self-requests'] as const,
   aiHealth: ['ai-health'] as const,

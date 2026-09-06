@@ -176,6 +176,49 @@ describe('the price is Special Miles’ to set', () => {
     expect(plan!.price_cents).toBeNull()
   })
 
+  test('a platform admin can, which is the half that has to work too', async () => {
+    /* The Subscriptions screen writes exactly this. Without it the price could
+       only be set by an UPDATE statement typed into a database client, which
+       is no use to the person whose decision it is. */
+    const { error, count } = await world.platformAdmin.db
+      .from('individual_plan')
+      .update(
+        {
+          price_cents: 1234,
+          bill_every: 'month',
+          trial_days: 7,
+          stripe_price_id: 'price_test_admin_can_write',
+          is_offered: true,
+        },
+        { count: 'exact' },
+      )
+      .eq('id', 1)
+
+    expect(error).toBeNull()
+    expect(count).toBe(1)
+
+    const { data: after } = await admin
+      .from('individual_plan')
+      .select('price_cents, is_offered, trial_days')
+      .eq('id', 1)
+      .single()
+    expect(after!.price_cents).toBe(1234)
+    expect(after!.is_offered).toBe(true)
+    expect(after!.trial_days).toBe(7)
+
+    // Back to not-for-sale; is_offered must go false first or the constraint
+    // refuses the row.
+    await admin
+      .from('individual_plan')
+      .update({
+        is_offered: false,
+        price_cents: null,
+        stripe_price_id: null,
+        trial_days: null,
+      })
+      .eq('id', 1)
+  })
+
   test('a plan cannot go on sale without a price and a Stripe id', async () => {
     // The check constraint, not a policy — this is the one that stops a
     // half-configured plan showing a Subscribe button that cannot work.

@@ -126,7 +126,8 @@ bulk import as gaps, and both shipped since it was written.
       until Special Miles creates a recurring Price in Stripe and runs the one
       UPDATE at the bottom of db/111. A check constraint refuses to put a plan
       on sale without both a price and a Stripe price id, so it cannot go live
-      half-configured. **Joe's call, not an engineering task.**
+      half-configured. Set from **Platform Admin → Subscriptions → "What an individual pays"**;
+      no SQL and no deployment. **Joe's call, not an engineering task.**
 - [ ] **Decide whether there is a free trial, and how long.** `trial_days` is
       null, which means no trial, and every public page says so plainly rather
       than implying one. Setting it to a number passes it to Stripe as
