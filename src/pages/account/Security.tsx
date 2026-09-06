@@ -456,16 +456,29 @@ export default function Security() {
         </p>
       </section>
 
-      {/* --- What this page does not do ------------------------------------- */}
+      {/* --- What this page does not do -------------------------------------
+          RE-VERIFICATION CAME OFF THIS LIST BECAUSE IT GOT BUILT. It was named
+          here as missing while the password was already being re-checked
+          before a password change (just above), before an email change on the
+          Account tab, and server-side before an account is closed — which is
+          the most sensitive action in the product. A list of absences has to be
+          maintained as carefully as the features, or it becomes the most
+          confident wrong sentence on the page; this one was telling people a
+          protection they had was not there. */}
       <NotBuiltYet>
         <p>
           The design for this screen also shows SMS codes, a 20-minute
-          auto-lock, re-verification before sensitive actions, alerts on
-          sign-in from a new device, a list of active sessions, and a sign-in
-          history. None of those exist yet, so they are not shown as switches
-          here — a control that looks authoritative and changes nothing is
-          worse than an admission on a page about whether your account is
-          protected.
+          auto-lock, alerts on sign-in from a new device, a list of active
+          sessions, and a sign-in history. None of those exist yet, so they are
+          not shown as switches here &mdash; a control that looks authoritative
+          and changes nothing is worse than an admission on a page about
+          whether your account is protected.
+        </p>
+        <p>
+          Re-verification before sensitive actions <em>is</em> here, and is not
+          a switch because there is nothing to turn on: your password is asked
+          for again before it is changed, before your email address is changed,
+          and before your account is closed.
         </p>
       </NotBuiltYet>
     </div>

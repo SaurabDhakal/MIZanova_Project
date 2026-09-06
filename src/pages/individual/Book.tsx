@@ -164,7 +164,30 @@ export default function Book() {
 
   /** "in 3 days", "tomorrow" — the thing somebody actually wants to know. */
   const howSoon = (iso: string) => {
-    const days = Math.round((+new Date(iso) - now) / 86400000)
+    /* CALENDAR DAYS, NOT ELAPSED HOURS. This divided the millisecond gap by
+       86400000 and rounded, which is not the same question. "Tomorrow" means
+       the next date on the calendar; it does not mean "roughly 24 hours from
+       now", and the two disagree for most of every day.
+
+       Measured live on a real booking: at 23:18 on Sunday, a session at 9am on
+       TUESDAY is 33.7 hours away, so the old line computed round(1.4) = 1 and
+       the screen said TOMORROW about something two days off. The mirror is
+       worse and just as easy: at 23:00, a 9am session the NEXT morning is ten
+       hours away, round(0.42) = 0, and the screen says "today" about an
+       appointment that has not arrived yet.
+
+       Both misfire in the evening, which is when somebody checks what is on
+       tomorrow. Comparing local midnights answers the question that was
+       actually asked, and rounding after the subtraction absorbs the 23- and
+       25-hour days at a daylight-saving change. */
+    const midnight = (d: Date | number) => {
+      const x = new Date(d)
+      x.setHours(0, 0, 0, 0)
+      return +x
+    }
+    const days = Math.round(
+      (midnight(new Date(iso)) - midnight(now)) / 86400000,
+    )
     if (days <= 0) return 'today'
     if (days === 1) return 'tomorrow'
     if (days < 14) return `in ${days} days`
