@@ -219,8 +219,8 @@ export default function PushNotificationsSection() {
           <p className="mt-3 text-xs text-muted-foreground">
             {/* Said because the alternative is somebody turning it off on one
                 machine and assuming it is off everywhere. */}
-            Each browser is separate. Turning this on at school does not turn it
-            on at home.
+            Each browser is separate. Turning this on in one does not turn it
+            on in another.
           </p>
         </>
       )}

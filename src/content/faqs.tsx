@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import type { Role } from '../lib/roles'
 
 /**
  * The questions people actually arrive with.
@@ -20,12 +21,36 @@ import { Link } from 'react-router-dom'
  * being built — most of them by Saurab, testing it. The account questions come
  * first because "how do I get in" is what nearly everybody lands here for.
  */
-export const FAQS: { section: string; items: { q: string; a: React.ReactNode }[] }[] = [
+/**
+ * `roles` means "only these people". Absent means everybody.
+ *
+ * ---------------------------------------------------------------------------
+ * BECAUSE MOST OF THIS IS NOT AN INDIVIDUAL'S QUESTION
+ * ---------------------------------------------------------------------------
+ * Signed in as an individual, the Help tab asked them "Can I stop AI
+ * suggestions for my child?" and "Who can see my child's record?", and
+ * answered the second with teachers, caseloads and school administrators.
+ * They have no child, no school and nobody administering them — that is the
+ * whole definition of the role.
+ *
+ * Eleven of the thirteen questions were somebody else's. Tagging them costs a
+ * line each and means the in-app page answers the person actually reading it.
+ * The PUBLIC help page still shows all of them, because a visitor there has
+ * not told us who they are and might be any of these people.
+ */
+export type Faq = {
+  q: string
+  a: React.ReactNode
+  roles?: Role[]
+}
+
+export const FAQS: { section: string; items: Faq[] }[] = [
   {
     section: 'Getting an account',
     items: [
       {
         q: 'How do I sign up?',
+        roles: ['parent', 'educator', 'specialist', 'school_admin', 'student'],
         a: (
           <>
             You do not. An account is created for you by the thing that gives
@@ -40,6 +65,7 @@ export const FAQS: { section: string; items: { q: string; a: React.ReactNode }[]
       },
       {
         q: 'My child’s school gave me a code. What now?',
+        roles: ['parent'],
         a: (
           <>
             <Link to="/link" className="text-primary hover:underline">
@@ -54,14 +80,17 @@ export const FAQS: { section: string; items: { q: string; a: React.ReactNode }[]
       },
       {
         q: 'I work at a school and there is no invitation in my inbox.',
+        roles: ['educator', 'specialist', 'school_admin'],
         a: 'Ask your school office to send one. Only a school administrator can, and only they can say you work there — which is the point. Check spam first: invitations come from an automated address.',
       },
       {
         q: 'My invitation link says it does not work.',
+        roles: ['parent', 'educator', 'specialist', 'school_admin'],
         a: 'Invitations expire after fourteen days and can only be used once, so the most common cause is that it was already opened or has been sitting in an inbox too long. Ask whoever invited you to send a new one.',
       },
       {
         q: 'I am a specialist. How do I join?',
+        roles: ['specialist'],
         a: (
           <>
             Apply to the network and Special Miles checks your registration and
@@ -85,14 +114,17 @@ export const FAQS: { section: string; items: { q: string; a: React.ReactNode }[]
       },
       {
         q: 'Why can I not see any students?',
+        roles: ['educator', 'specialist', 'school_admin'],
         a: 'Two possible reasons, and the screen usually says which. Either your account has not been verified by Special Miles yet, or you have not been assigned to any students. Access comes from an assignment, never from being employed at the school.',
       },
       {
         q: 'I am a parent and my dashboard is empty.',
+        roles: ['parent'],
         a: 'No child is linked to your account yet. If you have a code from the school, enter it. If you do not, ask the school office — only they can issue one, and only to the address they hold for you.',
       },
       {
         q: 'Can I be a parent and a teacher at the same time?',
+        roles: ['parent', 'educator'],
         a: 'Yes. One account can hold several roles — a teacher at one school, a parent of a child at another. Use the context switcher at the top to change which one you are acting as.',
       },
     ],
@@ -115,11 +147,46 @@ export const FAQS: { section: string; items: { q: string; a: React.ReactNode }[]
       },
       {
         q: 'Can I stop AI suggestions for my child?',
+        roles: ['parent'],
         a: 'Yes, from Privacy & Consent in your account, and it takes effect immediately — the next request is refused by the database rather than queued.',
       },
       {
         q: 'Who can see my child’s record?',
+        roles: ['parent'],
         a: 'The teachers assigned to them, specialists with them on a caseload, the school’s administrators, and you. Special Miles staff can reach records for support and safeguarding, and every time they do it is written to the same access log your school can read.',
+      },
+    ],
+  },
+  {
+    /*
+     * WRITTEN FOR SOMEBODY WITH NO SCHOOL AND NOBODY ABOVE THEM.
+     *
+     * Every answer here is a fact about the product that can be pointed at —
+     * an RLS policy, a migration, a route — not a policy nobody has agreed.
+     * Where the honest answer is "Special Miles has not decided", it says so
+     * rather than filling the gap.
+     */
+    section: 'Paying for it',
+    items: [
+      {
+        q: 'Do I have to pay anything?',
+        roles: ['individual'],
+        a: 'No. The account is free, every course is free at the moment, and asking a specialist for a session costs nothing because no price has been set for one. If a course ever costs something, the price is on it before you start.',
+      },
+      {
+        q: 'What does subscribing actually change?',
+        roles: ['individual'],
+        a: 'Two things, and nothing else: your suggestions are answered by the more capable model, and you can ask more times a day. Courses, the library, your goals and asking for a session are the same either way.',
+      },
+      {
+        q: 'What happens if I cancel?',
+        roles: ['individual'],
+        a: 'It stops renewing and you keep what you have paid for until the end of the period you are in — nothing is switched off the moment you press it. You can start it again any time before then.',
+      },
+      {
+        q: 'Can anybody else see what I write?',
+        roles: ['individual'],
+        a: 'No. Your goals, your check-ins and what you ask the AI are readable by you and nobody else — not another user, not a specialist, not Special Miles. That is enforced by the database rather than by the screens hiding things.',
       },
     ],
   },

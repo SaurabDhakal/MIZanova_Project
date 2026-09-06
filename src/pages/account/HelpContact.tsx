@@ -71,8 +71,20 @@ export default function HelpContact() {
               answered here, a person reads what you send and replies.
             </p>
 
+            {/* FILTERED TO THE PERSON READING IT. An untagged question is for
+                everybody; a tagged one is only for the roles named. Empty
+                groups are dropped rather than rendered as a heading that opens
+                onto nothing. The PUBLIC help page still lists all of them,
+                because a visitor there has not said who they are. */}
             <div className="mt-4 divide-y divide-border border-t border-border">
-              {FAQS.map((group) => {
+              {FAQS.map((group) => ({
+                ...group,
+                items: group.items.filter(
+                  (item) => !item.roles || (role && item.roles.includes(role)),
+                ),
+              }))
+                .filter((group) => group.items.length > 0)
+                .map((group) => {
                 const open = openGroup === group.section
                 return (
                   <div key={group.section}>
@@ -161,9 +173,9 @@ export default function HelpContact() {
         {role === 'individual' && (
           <>
             <p className="mt-1 max-w-prose text-muted-foreground">
-              There is no school behind this account and nobody administering it
-              but you, so there is nobody in MiZanova to escalate to. The
-              answers above cover most of what comes up.
+              This account is yours alone and nobody administers it but you, so
+              there is nobody inside MiZanova to escalate to. The answers above
+              cover most of what comes up.
             </p>
             <p className="mt-3 max-w-prose text-muted-foreground">
               If what you want is to talk something through with a person, you

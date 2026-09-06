@@ -186,13 +186,14 @@ export default function Library() {
         )
       )}
 
+      {/* The case-study sentence is about schools and families, which has
+          nothing to do with somebody reading this on their own account — an
+          individual has neither. The first sentence is true for everyone. */}
       <PageNote>
         Written and published by Special Miles for particular audiences, so this
         shows what is meant for your role rather than everything that exists.
-        Case studies describe work with real schools and families and are only
-        published once somebody has confirmed the people in them agreed —
-        db/079 refuses to publish one otherwise, so that is a rule rather than a
-        habit.
+        {profile?.role !== 'individual' &&
+          ' Case studies describe work with real schools and families and are only published once somebody has confirmed the people in them agreed — db/079 refuses to publish one otherwise, so that is a rule rather than a habit.'}
       </PageNote>
     </div>
   )

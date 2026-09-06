@@ -476,12 +476,21 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
 
         <PushNotificationsSection />
 
+        {/* CLINICAL PREFERENCES AND CASELOADS ARE NOT AN INDIVIDUAL'S WORDS.
+            The first paragraph is about a staff design, and it was shown to
+            everybody — so somebody with no school and no caseload was told
+            which staff features were missing from their own settings page.
+            The paragraph below it is about notifications and is true for
+            everyone, so only the first is narrowed. */}
         <NotBuiltYet>
-          <p>
-            The design also shows clinical preferences, caseload settings and a
-            per-user audit log. None of those have anything behind them, so they
-            are absent rather than drawn as controls that would change nothing.
-          </p>
+          {profile?.role !== 'individual' && (
+            <p>
+              The design also shows clinical preferences, caseload settings and
+              a per-user audit log. None of those have anything behind them, so
+              they are absent rather than drawn as controls that would change
+              nothing.
+            </p>
+          )}
           <p>
             {/* This paragraph used to end "MiZanova sends no notifications at
                 all", which stopped being true with db/081. A note about what

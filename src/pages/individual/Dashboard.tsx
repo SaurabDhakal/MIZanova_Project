@@ -244,8 +244,12 @@ export default function IndividualHome() {
               {firstName ? `Hello, ${firstName}` : 'Hello'}
             </h1>
             <p className="mt-2 max-w-prose text-foreground">
-              Everything here is yours. No school holds any of it, and nothing
-              you do on these pages is reported to anybody.
+              {/* "No school holds any of it" was reassurance, and it still put
+                  a word in front of somebody that has nothing to do with them.
+                  An individual account is not a school account with the school
+                  taken out; it is its own thing. */}
+              Everything here is yours alone. Nothing you do on these pages is
+              reported to anybody, and nobody else can read any of it.
             </p>
           </div>
 
