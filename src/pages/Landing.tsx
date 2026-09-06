@@ -373,10 +373,27 @@ export default function Landing() {
                   Year 3&rdquo; tells a guide immediately that the product was
                   not built for them.
                 </p>
+                {/* ------------------------------------------------------
+                    THIS SAID THE PRODUCT ALREADY SPEAKS MONTESSORI. IT DOES
+                    NOT.
+                    ------------------------------------------------------
+                    "So it is not built that way ... in the words your setting
+                    actually uses" described a terminology layer that has never
+                    existed: nothing in src/ varies a single word by
+                    organisation kind. `montessori` is a value in a dropdown
+                    and a label on the admin list, and that is all.
+
+                    Checked before rewriting, because two of the four rows in
+                    the old table turned out to be true in a different form —
+                    `year_level` is free text, and there is no class concept in
+                    the database at all. So the honest version is not "we
+                    cannot do any of this", it is "two of these are already
+                    yours and two still say our words".
+                    ------------------------------------------------------ */}
                 <p className="mt-3 max-w-prose text-foreground">
-                  So it is not built that way. Same safeguarding, same
-                  specialist review, same records held in Sydney &mdash; in the
-                  words your setting actually uses.
+                  Some of that already fits and some of it does not, so here is
+                  exactly which. Same safeguarding, same specialist review, and
+                  the same records held in Sydney either way.
                 </p>
                 <Link
                   to="/pricing"
@@ -386,32 +403,60 @@ export default function Landing() {
                 </Link>
               </div>
 
-              {/* THE COLUMNS ARE LABELLED because the strikethrough below is
-                  the only other thing saying which word is which, and a
-                  strikethrough is a visual signal a screen reader does not
-                  announce. With the headings there, the list reads correctly
-                  whether or not the styling arrives. */}
+              {/* THE COLUMNS ARE LABELLED because the marks are otherwise
+                  the only thing saying which side is which, and a tick or a
+                  dash is a visual signal a screen reader does not announce.
+                  Each row carries its own word — "Yours" or "Ours" — so the
+                  list reads correctly whether or not the styling arrives.
+
+                  The old version of this table struck through four words and
+                  claimed the right-hand column instead. It was a mapping the
+                  product does not perform. */}
               <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-border bg-border">
                 <div className="contents">
                   <p className="bg-background p-4 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    Instead of
+                    What a centre calls it
                   </p>
                   <p className="bg-background p-4 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    Your setting says
+                    In MiZanova today
                   </p>
                 </div>
                 {[
-                  ['Teacher', 'Guide'],
-                  ['Class', 'Environment'],
-                  ['Behaviour log', 'Observation'],
-                  ['Year 3', 'Lower Elementary'],
-                ].map(([standard, montessori]) => (
-                  <div key={standard} className="contents">
-                    <dt className="bg-card p-4 text-sm text-muted-foreground line-through">
-                      {standard}
+                  {
+                    theirs: 'Lower Elementary',
+                    ours: 'Yours — the year level is a free text field, so it holds whatever you type.',
+                    fits: true,
+                  },
+                  {
+                    theirs: 'Environment',
+                    ours: 'Yours — MiZanova has no concept of a class at all, so nothing puts children in one.',
+                    fits: true,
+                  },
+                  {
+                    theirs: 'Guide',
+                    ours: 'Ours — the screens say teacher. Changing that is a conversation to have with us.',
+                    fits: false,
+                  },
+                  {
+                    theirs: 'Observation',
+                    ours: 'Ours — the screens say behaviour log.',
+                    fits: false,
+                  },
+                ].map((row) => (
+                  <div key={row.theirs} className="contents">
+                    <dt className="bg-card p-4 text-sm font-semibold text-foreground">
+                      {row.theirs}
                     </dt>
-                    <dd className="bg-card p-4 text-sm font-semibold text-foreground">
-                      {montessori}
+                    <dd className="bg-card p-4 text-sm text-muted-foreground">
+                      <span
+                        aria-hidden
+                        className={`mr-1.5 font-bold ${
+                          row.fits ? 'text-success-foreground' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {row.fits ? '✓' : '×'}
+                      </span>
+                      {row.ours}
                     </dd>
                   </div>
                 ))}

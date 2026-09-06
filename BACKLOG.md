@@ -13,16 +13,20 @@ bulk import as gaps, and both shipped since it was written.
 
 ## 1. Wrong on the live site — my error, fix first
 
-- [ ] **The Montessori copy claims a terminology layer that does not exist.**
-      The homepage and the pricing page both say a Montessori setting gets "the
-      words your setting actually uses", with a table showing Teacher → Guide
-      and Class → Environment. Nothing in `src/` varies a single word by
-      organisation kind: `montessori` is a dropdown value in
-      `AddSchoolSection` and a label on the admin Schools screen, and that is
-      all. `docs/11` *recommends* the label map; it was read as describing
-      something built. This is on `main` and would be public the moment Render
-      deploys. Either correct the words (small) or build the layer, which
-      `docs/11` argues is "cheap now and impossible later".
+- [x] ~~**The Montessori copy claimed a terminology layer that does not exist.**~~
+      Corrected on 7 September. Checked each of the four claims before
+      rewriting rather than deleting the section, and two turned out to be true
+      in a different form: `year_level` is a free text field, so a centre can
+      type "Lower Elementary" into it, and there is no class concept anywhere in
+      the database, so nothing puts a child in one. The other two — Guide and
+      Observation — are genuinely our words, and the page now says so.
+
+      **The layer itself is still not built, and is deliberately not mine to
+      build.** Those words live in the educator, school admin, specialist and
+      parent screens, which belong to Prabin, Osheit and Tahmid. A cross-cutting
+      rename through their folders is a team decision, not a copy fix. docs/11
+      argues it is "cheap now and impossible later", which is the case for
+      having that conversation soon.
 
 ---
 
