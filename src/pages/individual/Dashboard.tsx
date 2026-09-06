@@ -574,10 +574,11 @@ export default function IndividualHome() {
         <section className="mt-10 rounded-card border border-border bg-background p-6">
           <h2 className="font-semibold text-foreground">Worth knowing</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            You can ask a specialist for a session, and they answer here &mdash;
-            but nothing emails either of you about it yet, so check this account
-            for their reply rather than waiting for a message. There is no price
-            for a session either, so nobody will ask you for a card.
+            You can ask a specialist for a session, and they answer here. You
+            are emailed when they do, so you do not have to keep checking &mdash;
+            though what you wrote about what you are finding hard stays in this
+            account and never goes in the email. There is no price for a session
+            either, so nobody will ask you for a card.
           </p>
         </section>
         </aside>

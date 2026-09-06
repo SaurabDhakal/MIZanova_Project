@@ -21,6 +21,7 @@ import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
 import PushNotificationsSection from '../../components/PushNotificationsSection'
+import SubscriptionSection from '../../components/SubscriptionSection'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 
@@ -710,6 +711,11 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             they cannot act on would be a dead control. */}
         {profile?.role === 'individual' && (
           <>
+            {/* BEFORE take-your-data and close-your-account, deliberately.
+                Those two are the exits; a subscription is something you have
+                while you are still here, and putting billing after the door
+                marked "delete everything" reads as an afterthought. */}
+            <SubscriptionSection />
             <ExportSection />
             <CloseAccountSection />
           </>

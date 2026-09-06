@@ -3720,6 +3720,135 @@ export async function buyCourse(courseId: string): Promise<string> {
   return body.url as string
 }
 
+/* -------------------------------------------------------------------------
+ * The subscription — db/111
+ * ---------------------------------------------------------------------- */
+
+export type IndividualPlan = {
+  name: string
+  /** Null until Special Miles sets one. Null is not zero — see db/111. */
+  price_cents: number | null
+  currency: string
+  bill_every: 'month' | 'year'
+  /** Null means no trial, and the copy says so rather than implying one. */
+  trial_days: number | null
+  is_offered: boolean
+}
+
+export type IndividualSubscription = {
+  id: string
+  amount_cents: number
+  currency: string
+  bill_every: 'month' | 'year'
+  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete'
+  current_period_end: string | null
+  trial_ends_at: string | null
+  cancel_at_period_end: boolean
+  created_at: string
+  canceled_at: string | null
+}
+
+/**
+ * What is on sale, readable signed OUT.
+ *
+ * Reads `individual_plan_public`, the definer view db/111 grants to `anon` —
+ * db/098's reasoning one table along: a pricing page is read by people without
+ * accounts, and a shop that hides its prices until you have one is not
+ * protecting anything. The view carries no Stripe ids.
+ */
+export async function fetchIndividualPlan(): Promise<IndividualPlan | null> {
+  const { data, error } = await supabase
+    .from('individual_plan_public')
+    .select('name, price_cents, currency, bill_every, trial_days, is_offered')
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data ?? null) as IndividualPlan | null
+}
+
+/**
+ * Your own subscription, or null.
+ *
+ * Every row, not just the live one: a cancelled subscription is still yours to
+ * see, and "you subscribed in March and cancelled in June" is a fair question
+ * to be able to answer from your own account.
+ */
+export async function fetchMySubscription(): Promise<IndividualSubscription | null> {
+  const { data, error } = await supabase
+    .from('individual_subscriptions')
+    .select(
+      'id, amount_cents, currency, bill_every, status, current_period_end, trial_ends_at, cancel_at_period_end, created_at, canceled_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data ?? null) as IndividualSubscription | null
+}
+
+/**
+ * Start subscribing. Returns the Stripe page to send them to.
+ *
+ * No price travels, for `buyCourse`'s reason and more sharply: a browser that
+ * could name its own recurring price could subscribe itself for a cent, every
+ * month, forever.
+ */
+export async function startSubscription(): Promise<string> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/subscribe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body.url as string
+}
+
+/**
+ * Stop it renewing, or start it renewing again.
+ *
+ * `resume: true` undoes a cancellation that has not taken effect yet, which is
+ * a real thing people do — cancelling is often a Sunday-night decision and
+ * Monday disagrees. It is the same Stripe field either way, so it is one route
+ * rather than two that could disagree.
+ */
+export async function setSubscriptionRenewal(
+  resume: boolean,
+): Promise<{ cancelAtPeriodEnd: boolean; endsAt: string | null }> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/subscription/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ resume }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body
+}
+
 /**
  * Ask the server whether a returning payment actually went through.
  *
@@ -8727,6 +8856,8 @@ export const queryKeys = {
   myCompletions: ['my-completions'] as const,
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
+  individualPlan: ['individual-plan'] as const,
+  mySubscription: ['my-subscription'] as const,
   mySelfRequests: ['my-self-requests'] as const,
   aiHealth: ['ai-health'] as const,
   aiMemory: ['ai-memory'] as const,

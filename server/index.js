@@ -284,12 +284,51 @@ app.post(
     const handled = [
       'checkout.session.completed',
       'checkout.session.async_payment_succeeded',
+      // db/111. Stripe owns the subscription clock; these are how it tells us
+      // the time changed — a renewal, a failed card, an ended cancellation.
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
     ]
     if (!handled.includes(event.type)) {
       return res.json({ received: true, ignored: event.type })
     }
 
+    /* ------------------------------------------------------------------
+     * SUBSCRIPTION LIFECYCLE COMES FIRST, because the object is a
+     * Subscription rather than a Session and has no `payment_status` at all.
+     * Falling through to the check below would read undefined, decide the
+     * event was unpaid, and drop every renewal and cancellation on the floor.
+     * ------------------------------------------------------------------ */
+    if (event.type.startsWith('customer.subscription.')) {
+      const recorded = await recordSubscription(event.data.object)
+      return res.json({ received: true, subscription: recorded })
+    }
+
     const session = event.data.object
+
+    /* ------------------------------------------------------------------
+     * A SUBSCRIPTION CHECKOUT ALSO COMES BEFORE THE PAID CHECK, and this one
+     * is easy to get wrong: a checkout that opens with a free trial settles
+     * with `payment_status: 'no_payment_required'`, because no money moved.
+     * Requiring 'paid' would throw away exactly the sessions a trial creates —
+     * the subscription would exist at Stripe and never appear here.
+     * ------------------------------------------------------------------ */
+    if (session.metadata?.kind === 'subscription') {
+      if (!session.subscription) {
+        return res.json({ received: true, subscription: false })
+      }
+      const stripeSub = await stripe.subscriptions.retrieve(
+        typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription.id,
+      )
+      const recorded = await recordSubscription(
+        stripeSub,
+        session.metadata?.profileId ?? null,
+      )
+      return res.json({ received: true, subscription: recorded })
+    }
+
     if (session.payment_status !== 'paid') {
       // A completed session that has not been paid: a delayed method still
       // clearing, or a failure. Not our business until it succeeds.
@@ -763,6 +802,94 @@ function whenInSydney(date) {
  * NEVER AWAITED BY A ROUTE. Somebody whose booking went through must not be
  * told it failed because a mail server was slow.
  */
+/**
+ * Write what Stripe says about a subscription into `individual_subscriptions`.
+ *
+ * ---------------------------------------------------------------------------
+ * STRIPE IS THE TRUTH; THIS TABLE IS A COPY
+ * ---------------------------------------------------------------------------
+ * Every field here comes from the Stripe object rather than being worked out
+ * locally. The row exists so a screen can say "renews on the 3rd" without a
+ * network call on every page load — not so the product can hold an opinion
+ * about somebody's billing that differs from the company taking the money.
+ *
+ * IDEMPOTENT BY INDEX. `individual_subscriptions_stripe_idx` is unique on
+ * `stripe_subscription_id`, so an upsert on that column is safe to replay —
+ * which matters, because Stripe retries any webhook that does not return 2xx
+ * and will happily deliver the same event twice on a good day.
+ *
+ * `profileId` is only supplied on the first event, from the checkout session's
+ * metadata. Later events are about a subscription that already has a row, so
+ * the update must not null the column out — hence the conditional spread.
+ */
+async function recordSubscription(sub, profileId = null) {
+  try {
+    const price = sub.items?.data?.[0]?.price
+    const amountCents = price?.unit_amount ?? null
+    if (!amountCents) {
+      recordEvent(
+        'warning',
+        'billing',
+        'subscription_no_amount',
+        `Stripe subscription ${sub.id} arrived with no unit_amount.`,
+      )
+      return false
+    }
+
+    /* Stripe's statuses are a superset of ours. 'unpaid' and 'incomplete_expired'
+       both mean it is over, and mapping them to 'canceled' keeps one meaning of
+       "this is finished" rather than spreading it across four spellings. */
+    const status =
+      sub.status === 'unpaid' || sub.status === 'incomplete_expired'
+        ? 'canceled'
+        : sub.status === 'incomplete'
+          ? 'incomplete'
+          : sub.status
+
+    const seconds = (n) => (n ? new Date(n * 1000).toISOString() : null)
+
+    const row = {
+      ...(profileId ? { profile_id: profileId } : {}),
+      amount_cents: amountCents,
+      currency: price?.currency ?? 'aud',
+      bill_every: price?.recurring?.interval === 'year' ? 'year' : 'month',
+      status,
+      stripe_subscription_id: sub.id,
+      stripe_customer_id:
+        typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null),
+      current_period_end: seconds(sub.current_period_end),
+      trial_ends_at: seconds(sub.trial_end),
+      cancel_at_period_end: Boolean(sub.cancel_at_period_end),
+      /* db/111 has a check constraint tying these together: a canceled row
+         must carry a time, and a live one must not. */
+      canceled_at: status === 'canceled' ? seconds(sub.canceled_at) ?? new Date().toISOString() : null,
+    }
+
+    const { error } = await admin
+      .from('individual_subscriptions')
+      .upsert(row, { onConflict: 'stripe_subscription_id' })
+
+    if (error) {
+      recordEvent(
+        'critical',
+        'billing',
+        'subscription_unrecorded',
+        `Stripe subscription ${sub.id} could not be recorded: ${error.message}`,
+      )
+      return false
+    }
+    return true
+  } catch (err) {
+    recordEvent(
+      'critical',
+      'billing',
+      'subscription_unrecorded',
+      `Stripe subscription ${sub?.id} could not be recorded: ${err.message}`,
+    )
+    return false
+  }
+}
+
 async function notifyAboutBooking(profileId, kind, { whenText, note }) {
   try {
     const { data: person } = await admin
@@ -2237,6 +2364,158 @@ app.post('/api/billing/course-confirm', async (req, res) => {
   } catch (err) {
     console.error('Course confirm failed:', err)
     return res.status(500).json({ error: 'Could not confirm the payment.' })
+  }
+})
+
+/**
+ * POST /api/billing/subscribe   -> { url }
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS NOT course-checkout WITH A FLAG
+ * ---------------------------------------------------------------------------
+ * A course is bought once and the row is settled forever. A subscription has a
+ * clock: it renews, it can fail to renew, it can be cancelled and keep working
+ * until the month somebody paid for runs out. Stripe owns that clock, and the
+ * webhook below is what keeps our copy of it honest.
+ *
+ * The price is NOT read from a request body. A browser that could name its own
+ * price could subscribe for a cent — the plan row is the only source, and
+ * db/111's check constraint refuses to mark a plan on sale without both a
+ * price and a Stripe price id, so a half-configured plan cannot be bought.
+ */
+app.post('/api/billing/subscribe', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) {
+      return res.status(503).json({
+        error:
+          'Payments are not configured on this server. STRIPE_SECRET_KEY is missing from .env.local.',
+      })
+    }
+
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: plan } = await admin
+      .from('individual_plan')
+      .select('name, price_cents, currency, bill_every, trial_days, stripe_price_id, is_offered')
+      .eq('id', 1)
+      .single()
+
+    /* NOT ON SALE IS A 409, NOT A 500. Nothing is broken — Special Miles has
+       not set a price yet, which is the state this shipped in. The screen says
+       so plainly rather than showing a button that fails. */
+    if (!plan?.is_offered) {
+      return res.status(409).json({
+        error: 'There is no subscription on sale yet.',
+      })
+    }
+
+    const { data: live } = await admin
+      .from('individual_subscriptions')
+      .select('id, status')
+      .eq('profile_id', user.id)
+      .in('status', ['trialing', 'active', 'past_due'])
+      .maybeSingle()
+
+    if (live) {
+      return res.status(409).json({ error: 'You are already subscribed.' })
+    }
+
+    const origin = appUrl()
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
+      customer_email: user.email ?? undefined,
+      /* Stripe owns the trial. Passing the number rather than implementing a
+         clock here means "14 days" means the same thing on the invoice, in the
+         dashboard and on the screen. Null sends nothing, which is no trial. */
+      subscription_data: plan.trial_days
+        ? { trial_period_days: plan.trial_days }
+        : undefined,
+      /* The webhook cannot ask a settled session what it was for, so it is
+         told. Same reason `kind: 'course'` exists. */
+      metadata: { kind: 'subscription', profileId: user.id },
+      success_url: `${origin}/account/profile?subscribed=1`,
+      cancel_url: `${origin}/pricing`,
+    })
+
+    return res.json({ url: session.url })
+  } catch (err) {
+    console.error('Subscribe failed:', err)
+    return res.status(500).json({ error: 'Could not start the subscription.' })
+  }
+})
+
+/**
+ * POST /api/billing/subscription/cancel   -> { cancelAt }
+ *
+ * CANCELS AT THE END OF THE PERIOD, NOT NOW. Somebody who has paid for the
+ * month keeps the month. Ending access the instant they press cancel is
+ * charging for time and then not providing it, and it also punishes anybody
+ * who cancels early precisely so they do not forget.
+ *
+ * Stripe is changed FIRST and our row second. A row saying 'canceled' while
+ * Stripe keeps billing is worse than no button at all — the person believes
+ * they have stopped paying and has not.
+ */
+app.post('/api/billing/subscription/cancel', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { resume } = req.body ?? {}
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) return res.status(503).json({ error: 'Payments are not configured.' })
+
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: sub } = await admin
+      .from('individual_subscriptions')
+      .select('id, stripe_subscription_id, status')
+      .eq('profile_id', user.id)
+      .in('status', ['trialing', 'active', 'past_due'])
+      .maybeSingle()
+
+    if (!sub?.stripe_subscription_id) {
+      return res.status(404).json({ error: 'You do not have a subscription.' })
+    }
+
+    const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      cancel_at_period_end: !resume,
+    })
+
+    await admin
+      .from('individual_subscriptions')
+      .update({ cancel_at_period_end: !resume })
+      .eq('id', sub.id)
+
+    return res.json({
+      cancelAtPeriodEnd: !resume,
+      endsAt: updated.current_period_end
+        ? new Date(updated.current_period_end * 1000).toISOString()
+        : null,
+    })
+  } catch (err) {
+    console.error('Cancel failed:', err)
+    return res.status(500).json({ error: 'Could not change the subscription.' })
   }
 })
 
