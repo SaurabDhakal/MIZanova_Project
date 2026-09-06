@@ -105,16 +105,26 @@ describe('a subscription is written by the server and nobody else', () => {
       .select('id')
       .single()
 
-    /* An RLS-refused update returns success with zero rows, so the count is
-       the assertion. Checking `error` alone passes on a table nobody may
-       write. */
     const { error, count } = await subscriber.db
       .from('individual_subscriptions')
       .update({ status: 'active' }, { count: 'exact' })
       .eq('id', row!.id)
 
-    expect(error ? true : count).toBeTruthy()
-    if (!error) expect(count).toBe(0)
+    /* REFUSED EITHER WAY, and both ways have to be spelled out. A missing
+       grant produces an error; a policy that admits no rows produces success
+       with a count of zero. Collapsing those into one truthiness check is how
+       the first version of this test managed to FAIL on the secure outcome —
+       zero is falsy. It is the same trap `assertChanged()` exists for. */
+    if (error) expect(error).not.toBeNull()
+    else expect(count).toBe(0)
+
+    // The property, rather than the mechanism: it is still cancelled.
+    const { data: after } = await admin
+      .from('individual_subscriptions')
+      .select('status')
+      .eq('id', row!.id)
+      .single()
+    expect(after!.status).toBe('canceled')
 
     await admin.from('individual_subscriptions').delete().eq('id', row!.id)
   })
@@ -149,8 +159,21 @@ describe('the price is Special Miles’ to set', () => {
       .update({ price_cents: 1 }, { count: 'exact' })
       .eq('id', 1)
 
-    expect(error ? true : count).toBeTruthy()
-    if (!error) expect(count).toBe(0)
+    /* This one takes the zero-rows path, because db/111 deliberately GRANTS
+       update on these columns to `authenticated` and then lets the policy
+       decide who. So there is no error to catch — only a count — and the
+       first version of this test failed precisely because it was refused
+       correctly. */
+    if (error) expect(error).not.toBeNull()
+    else expect(count).toBe(0)
+
+    // What actually matters: the price is still unset.
+    const { data: plan } = await admin
+      .from('individual_plan')
+      .select('price_cents')
+      .eq('id', 1)
+      .single()
+    expect(plan!.price_cents).toBeNull()
   })
 
   test('a plan cannot go on sale without a price and a Stripe id', async () => {
