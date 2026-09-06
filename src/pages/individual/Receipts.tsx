@@ -8,6 +8,7 @@ import {
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import Icon from '../../components/Icon'
 
 /**
  * Receipts for an individual — db/100.
@@ -68,11 +69,74 @@ export default function Receipts() {
    */
   const paid = purchases.data
     .filter((p) => p.status === 'paid')
-    .sort((a, b) => (b.receipt_number ?? 0) - (a.receipt_number ?? 0))
+    /* Newest first, BY DATE. It sorted by receipt number, which is an
+       identifier that happens to run in payment order — so the two agree until
+       they don't, and then the page lists a July receipt above a September one
+       while the reader is scanning the date column. Sort on the thing they are
+       actually reading; keep the number as the tiebreaker for the same day. */
+    .sort(
+      (a, b) =>
+        (b.paid_at ?? '').localeCompare(a.paid_at ?? '') ||
+        (b.receipt_number ?? 0) - (a.receipt_number ?? 0),
+    )
+
+  /* The span the total covers. A figure with no dates on it is not much use to
+     anybody filing a claim for a particular year.
+
+     Read off the DATES, not off the ends of the list. The list is ordered by
+     receipt number, and taking the first and last row assumes numbers and
+     dates run the same way. They normally do — a number is issued when the
+     money moves — but "normally" printed the range backwards the first time
+     this was looked at, and a date range that reads September to July is the
+     kind of thing somebody notices on a document they are about to send to
+     the tax office. Sorting the times costs nothing and cannot be wrong. */
+  const times = paid
+    .map((p) => p.paid_at)
+    .filter((d): d is string => Boolean(d))
+    .sort()
+  const month = (iso: string | undefined) =>
+    iso
+      ? new Date(iso).toLocaleDateString('en-AU', {
+          month: 'long',
+          year: 'numeric',
+        })
+      : null
+  const oldest = month(times[0])
+  const newest = month(times[times.length - 1])
 
   return (
     <div>
-      <header className="mb-6 print:hidden">
+      {/* ---------------------------------------------------------------
+          THE HOUSE PRINT CONVENTIONS, WHICH THIS PAGE WAS NOT USING.
+          ---------------------------------------------------------------
+          index.css already carries a print stylesheet — it hides nav, aside
+          and every button, forces the light tokens so a dark-mode reader does
+          not print white on white, sets a margin wide enough for a hole punch,
+          and defines `.print-keep` and `.print-only`. Progress.tsx uses them.
+
+          This page had its own ad-hoc `print:hidden` and
+          `print:break-inside-avoid` instead, which happened to work and meant
+          the one screen whose entire purpose is being printed was the one
+          screen not following the rules written for printing.
+          --------------------------------------------------------------- */}
+      <div className="print-only mb-6 border-b border-border pb-4">
+        <p className="text-sm font-semibold tracking-wide uppercase">
+          MiZanova — receipts
+        </p>
+        <h1 className="mt-1 text-2xl font-bold">
+          {profile?.full_name?.trim() || profile?.email}
+        </h1>
+        <p className="mt-1 text-sm">
+          Printed{' '}
+          {new Date().toLocaleDateString('en-AU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </p>
+      </div>
+
+      <header className="print-hide mb-6">
         <h1 className="text-title text-foreground">Receipts</h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
           Everything you have paid for, with a number you can quote. Use your
@@ -81,7 +145,7 @@ export default function Receipts() {
       </header>
 
       {paid.length === 0 && (
-        <div className="rounded-card border border-border bg-card p-6 shadow-raised print:hidden">
+        <div className="print-hide rounded-card border border-border bg-card p-6 shadow-raised">
           <p className="max-w-prose text-muted-foreground">
             You have not paid for anything, so there is nothing here. Every
             course is free at the moment &mdash; if that changes, the price is
@@ -97,6 +161,50 @@ export default function Receipts() {
         </div>
       )}
 
+      {/* ---------------------------------------------------------------
+          THE TOTAL, BECAUSE THAT IS THE NUMBER SOMEBODY IS AFTER.
+          ---------------------------------------------------------------
+          The page listed receipts and left the arithmetic to the reader. But
+          the reason this screen exists is a claim — an NDIS plan, a study
+          allowance, a tax return — and every one of those asks what you spent,
+          not what you spent on the third of March. Adding up cards by hand is
+          exactly the sort of task the people using this account find hardest.
+
+          It prints, deliberately: a claim wants the total on the paper.
+
+          Only shown for more than one, because "1 receipt, $49.00 in total"
+          under a receipt for $49.00 is the page repeating itself.
+          --------------------------------------------------------------- */}
+      {paid.length > 1 && (
+        <section className="print-keep mb-6 rounded-card border border-border bg-primary-subtle p-5">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                Everything you have paid
+              </p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-foreground">
+                {formatMoney(
+                  paid.reduce((n, p) => n + p.amount_cents, 0),
+                  paid[0].currency,
+                )}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {paid.length} receipts
+              {oldest && newest && (
+                <>
+                  {' '}
+                  &middot;{' '}
+                  {/* Everything in one month says the month once. "July 2026
+                      to July 2026" is a range that isn't one. */}
+                  {oldest === newest ? oldest : `${oldest} to ${newest}`}
+                </>
+              )}
+            </p>
+          </div>
+        </section>
+      )}
+
       {paid.length > 0 && (
         <ul className="space-y-6">
           {paid.map((purchase) => {
@@ -107,7 +215,7 @@ export default function Receipts() {
                 /* break-inside-avoid so a receipt is never split across two
                    printed pages, which is the one thing that makes a printed
                    receipt useless. */
-                className="rounded-card border border-border bg-card p-6 shadow-raised print:break-inside-avoid print:border print:shadow-none"
+                className="print-keep rounded-card border border-border bg-card p-6 shadow-raised"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
@@ -180,8 +288,9 @@ export default function Receipts() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="mt-4 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground print:hidden"
+                  className="mt-4 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
                 >
+                  <Icon name="invoices" className="h-4 w-4 shrink-0" />
                   Print or save as PDF
                 </button>
               </li>
