@@ -141,8 +141,8 @@ export default function Suggestions() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Ask for suggestions</h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
-          Describe something you are finding hard and it will suggest a few
-          practical things to try. It is a starting point, not an answer.
+          Describe something you are finding hard and get a few practical
+          things to try.
         </p>
       </header>
 
@@ -165,9 +165,9 @@ export default function Suggestions() {
             What it will not do
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            It never names a condition, rules one out or hints at one &mdash;
-            not even if you ask it directly &mdash; and it gives no medical
-            advice. That is a conversation for a GP.
+            A starting point, not an answer. It never names a condition or
+            hints at one, even if you ask directly, and gives no medical
+            advice &mdash; that is a conversation for a GP.
           </p>
         </div>
         <div>
@@ -175,10 +175,9 @@ export default function Suggestions() {
             What happens to what you write
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your name, email, phone number and any dates are stripped before it
-            is sent. What you write is kept so you can read it again &mdash;
-            nobody else can open it, not a school and not Special Miles &mdash;
-            and you can delete it below.
+            Your name, email, phone number and dates are stripped before it is
+            sent. What you write is kept so you can read it again, nobody else
+            can open it, and you can delete it below.
           </p>
         </div>
       </section>
@@ -270,6 +269,12 @@ export default function Suggestions() {
               Let it see what you are working on
             </span>
             <span className="mt-0.5 block text-muted-foreground">
+              {/* THE COUNTS, AND NOTHING ELSE. This was fifty words explaining
+                  redaction, defaults and reversibility — all true, all already
+                  said in the panel above, and all of it turning a one-line
+                  decision into a paragraph on the page somebody said was too
+                  full of words. What somebody needs here is what would travel
+                  and how much of it. */}
               {(() => {
                 const active = (goals.data ?? []).filter(
                   (g) => g.status === 'active',
@@ -280,19 +285,15 @@ export default function Suggestions() {
                 )
                 const asks = Math.min(history.data?.length ?? 0, 3)
                 if (active.length === 0 && asks === 0) {
-                  return 'Nothing to send yet — once you have a goal or have asked something, this lets the next answer build on it instead of starting cold.'
+                  return 'Nothing to send yet — it starts working once you have a goal or have asked something.'
                 }
-                return `Your ${active.length} goal${
-                  active.length === 1 ? '' : 's'
-                }${
-                  checkins > 0
-                    ? ` and ${checkins} check-in${checkins === 1 ? '' : 's'}`
-                    : ''
-                }${
-                  asks > 0
-                    ? `, and your last ${asks} question${asks === 1 ? '' : 's'}`
-                    : ''
-                } go with your next question, so it can build on them rather than starting cold. Names and contact details are stripped from those too. Off by default, and you can turn it off again whenever you like.`
+                const bits = [
+                  `${active.length} goal${active.length === 1 ? '' : 's'}`,
+                  checkins > 0 &&
+                    `${checkins} check-in${checkins === 1 ? '' : 's'}`,
+                  asks > 0 && `${asks} recent question${asks === 1 ? '' : 's'}`,
+                ].filter(Boolean)
+                return `Sends ${bits.join(', ')} — redacted, and off again whenever you like.`
               })()}
             </span>
           </span>
@@ -433,14 +434,38 @@ function SuggestionActions({
   onChanged,
   onAskAbout,
   asking,
+  askedAt,
 }: {
   suggestion: SelfSuggestion
   onChanged: () => void
   onAskAbout: (suggestionId: string, question: string) => void
   asking: boolean
+  askedAt: string
 }) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [followUp, setFollowUp] = useState<string | null>(null)
+
+  /*
+   * ---------------------------------------------------------------------
+   * THE ACTIONS FOLLOW THE AGE OF THE ANSWER
+   * ---------------------------------------------------------------------
+   * Four buttons sat on every suggestion — try it, ask about it, it helped,
+   * not for me — and two of them asked about the past on an answer written ten
+   * seconds ago. Nobody has tried anything yet, so "did it help" is not a
+   * question, it is clutter competing with the two things somebody might
+   * actually do.
+   *
+   * A day is the line. Before it, the answer is new and the useful actions are
+   * forward-looking; after it, they have had a night and a morning with it and
+   * whether it worked is the only thing worth asking. Two controls at a time
+   * rather than four, and each one is a question that makes sense when it is
+   * asked.
+   */
+  /* The clock read once at mount, not on every render — the linter is right
+     that a clock read during render is not a pure value, and a card must not
+     change what it offers while somebody is looking at it. */
+  const [now] = useState(() => Date.now())
+  const oldEnoughToHaveTried = now - +new Date(askedAt) > 20 * 3600 * 1000
 
   const outcome = useMutation({
     mutationFn: (o: 'helped' | 'didnt_help' | null) =>
@@ -489,7 +514,7 @@ function SuggestionActions({
             See it
           </Link>
         </p>
-      ) : (
+      ) : oldEnoughToHaveTried ? null : (
         <button
           type="button"
           disabled={state === 'saving'}
@@ -594,25 +619,27 @@ function SuggestionActions({
           same thing again in six weeks and be right to, because nothing ever
           said otherwise.
           --------------------------------------------------------------- */}
-      <span className="ml-auto flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Tried it?</span>
-        <button
-          type="button"
-          disabled={outcome.isPending}
-          onClick={() => outcome.mutate('helped')}
-          className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
-        >
-          It helped
-        </button>
-        <button
-          type="button"
-          disabled={outcome.isPending}
-          onClick={() => outcome.mutate('didnt_help')}
-          className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
-        >
-          Not for me
-        </button>
-      </span>
+      {oldEnoughToHaveTried && (
+        <span className="ml-auto flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Did this help?</span>
+          <button
+            type="button"
+            disabled={outcome.isPending}
+            onClick={() => outcome.mutate('helped')}
+            className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            disabled={outcome.isPending}
+            onClick={() => outcome.mutate('didnt_help')}
+            className="rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
+          >
+            Not for me
+          </button>
+        </span>
+      )}
     </div>
   )
 }
@@ -758,6 +785,7 @@ function RequestCard({
                 onChanged={onChanged}
                 onAskAbout={onAskAbout}
                 asking={asking}
+                askedAt={request.created_at}
               />
 
               {s.rationale.length > 0 && (
