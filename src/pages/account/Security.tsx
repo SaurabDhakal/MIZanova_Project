@@ -9,6 +9,7 @@ import {
   startEnrolment,
   type EnrolmentStart,
 } from '../../lib/mfa'
+import { signOutOtherSessions } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 import { ErrorState } from '../../components/QueryState'
@@ -65,6 +66,7 @@ export default function Security() {
   const mandatory =
     profile !== null && MFA_REQUIRED_ROLES.includes(profile.role)
 
+  const signOutOthers = useMutation({ mutationFn: signOutOtherSessions })
   const begin = useMutation({
     mutationFn: startEnrolment,
     onSuccess: (started) => setEnrolment(started),
@@ -454,6 +456,42 @@ export default function Security() {
           Your current password is checked before the change is made. Changing
           it here does not sign you out of other devices.
         </p>
+      </section>
+
+      {/* ------------------------------------------------------------------
+          MOVED HERE FROM THE ACCOUNT TAB, where it was one of nine sections.
+          It belongs beside the password and not merely because both are
+          security: the two were already finishing each other's sentences from
+          different tabs. This one said "changing your password does not do
+          this on its own"; the password section above says "changing it here
+          does not sign you out of other devices". Somebody reading either had
+          to go and find the other.
+          ------------------------------------------------------------------ */}
+      <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
+        <h2 className="text-lg font-bold text-foreground">Other devices</h2>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          Ends every other signed-in session and leaves this one alone. Worth
+          doing if you have left yourself signed in on a shared machine &mdash;
+          changing your password above does not do this on its own.
+        </p>
+        <button
+          type="button"
+          onClick={() => signOutOthers.mutate()}
+          disabled={signOutOthers.isPending}
+          className="mt-4 min-h-11 rounded-btn border border-border px-4 font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+        >
+          {signOutOthers.isPending ? 'Signing out…' : 'Sign out everywhere else'}
+        </button>
+        {signOutOthers.isError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+            {signOutOthers.error.message}
+          </p>
+        )}
+        {signOutOthers.isSuccess && (
+          <p className="mt-3 text-sm font-medium text-success-foreground">
+            Every other session has been signed out.
+          </p>
+        )}
       </section>
 
       {/* --- What this page does not do -------------------------------------

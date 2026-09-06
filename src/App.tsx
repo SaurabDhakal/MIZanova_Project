@@ -63,6 +63,7 @@ const AccountHelpContact = lazy(
   () => import('./pages/account/HelpContact'),
 )
 const AccountPayments = lazy(() => import('./pages/account/Payments'))
+const AccountYourData = lazy(() => import('./pages/account/YourData'))
 
 /**
  * ROLE SCREENS ARE ADDED HERE, BY THE PERSON WHO OWNS THAT ROLE.
@@ -542,6 +543,7 @@ export default function App() {
               nothing and write nothing. */}
           <Route path="school" element={<AccountSchool />} />
           <Route path="payments" element={<AccountPayments />} />
+          <Route path="data" element={<AccountYourData />} />
           <Route path="help" element={<AccountHelpContact />} />
         </Route>
       </Route>

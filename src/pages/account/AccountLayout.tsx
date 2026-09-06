@@ -52,6 +52,10 @@ const TABS: { to: string; label: string; roles?: Role[] }[] = [
      Invoices — so a tab here would be a second, worse door to a room they
      have. */
   { to: '/account/payments', label: 'Payments', roles: ['individual'] },
+  /* Individual only for now: the export and the summary document are built
+     from what an individual's own account holds, and closing an account is a
+     right this product only offers where nobody else depends on the record. */
+  { to: '/account/data', label: 'Your data', roles: ['individual'] },
   /* LAST, AND FOR EVERYBODY. `/help` is a real 4,000-word page that was
      reachable from exactly one place once signed in — an item in the avatar
      menu, which is where people go to sign out. Settings is where they go when
@@ -81,7 +85,11 @@ export default function AccountLayout() {
       */}
       <nav
         aria-label="Settings sections"
-        className="mt-5 flex gap-1 border-b border-border"
+        /* SCROLLS RATHER THAN WRAPS. An individual now has five tabs and a
+           narrow phone fits about three; wrapping would put a lone tab on its
+           own line under a border that is supposed to be the row itself.
+           `-mb-px` on the items keeps them sitting on that border either way. */
+        className="mt-5 flex gap-1 overflow-x-auto border-b border-border"
       >
         {TABS.filter(
           (tab) => !tab.roles || (profile && tab.roles.includes(profile.role)),
@@ -90,7 +98,7 @@ export default function AccountLayout() {
             key={tab.to}
             to={tab.to}
             className={({ isActive }) =>
-              `-mb-px inline-flex min-h-11 items-center border-b-2 px-4 text-sm font-semibold ${
+              `-mb-px inline-flex min-h-11 shrink-0 items-center border-b-2 px-4 text-sm font-semibold whitespace-nowrap ${
                 isActive
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'

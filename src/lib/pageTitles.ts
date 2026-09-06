@@ -40,6 +40,7 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/account/school': 'Your school',
   '/account/help': 'Help and contact',
   '/account/payments': 'Payments',
+  '/account/data': 'Your data',
   '/design-tokens': 'Design tokens',
   '/link': 'Connect to your child',
 }
