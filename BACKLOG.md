@@ -157,8 +157,18 @@ served its purpose; closing it removes everything and detaches the purchase.
 - [x] ~~Delete the test account `zz-individual-test@example.invalid`.~~ Gone —
       it was closed through the new closure flow, which tested the feature and
       cleared the account in one go.
-- [ ] The Library carries a file titled **"articultion exrecise"** — two
-      spelling mistakes, visible to every user who opens the Library.
+- [x] ~~The Library carries a file titled **"articultion exrecise"**.~~ Fixed
+      on 8 September — but the interesting half is what the typo was hiding.
+      The stored file is `Assignment-Cover-Page-Individual_fillable_16_Jan_2023.pdf`,
+      which is not an articulation exercise at all, so correcting only the
+      title would have made placeholder data look like real content. The
+      misspelling was doing useful work: it signalled "test data" at a glance.
+      The title is now spelled properly AND the description says the attached
+      file is a placeholder, so nobody opens it expecting a handout.
+- [ ] **Replace or remove that Library file.** It is the only resource in the
+      Library, so a demo of that screen shows one item whose download is an
+      assignment cover page. Either upload a real handout or delete the row —
+      a content call, not an engineering one.
 
 ---
 
