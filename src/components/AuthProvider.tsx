@@ -155,9 +155,43 @@ export default function AuthProvider({
 
       if (!stillWanted()) return
       if (error) {
-        // Two very different causes, and neither should blank the screen:
-        // the signup trigger did not run (no profile row exists), or there
-        // is simply no network. The cached profile below covers the second.
+        /*
+         * THREE CAUSES, AND ONE OF THEM MUST END THE SESSION.
+         *
+         * PGRST116 is PostgREST for "that returned no rows", and from
+         * `.single()` on a primary key it means one thing: this account's
+         * profile is gone. A network failure and a trigger that has not
+         * committed yet both look different — they carry other codes, or no
+         * code at all.
+         *
+         * Until this branch existed, all three fell through to the cached
+         * profile below, so an account DELETED while signed in kept a working
+         * shell until its token expired: on 8 September a school admin removed
+         * seconds earlier still rendered the whole Command Centre, with every
+         * figure reading 0 and Safeguarding saying "Nothing outstanding".
+         * Nothing leaked — every policy denies once the row is gone, which is
+         * precisely why the numbers were zero — but the calmest sentence in
+         * the product was on screen at the moment the truth was "you no longer
+         * have an account".
+         *
+         * The cache is cleared either way, so the stale role cannot render.
+         * The sign-out is conditional on there HAVING been a cache: an account
+         * whose signup trigger has not landed yet has no cache and no row, and
+         * throwing that person out mid-signup would be the wrong answer to a
+         * race that resolves itself.
+         */
+        if (error.code === 'PGRST116') {
+          const hadCache = readCachedProfile(id) !== null
+          clearCachedProfile()
+          if (hadCache) {
+            setProfileRow(null)
+            void supabase.auth.signOut().catch(() => {})
+          }
+          return
+        }
+
+        // Everything else: no network, or the signup trigger has not run. The
+        // cached profile below covers the first and must not be thrown away.
         console.error('Could not load profile:', error.message)
         return
       }
