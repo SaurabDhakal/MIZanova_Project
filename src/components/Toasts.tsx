@@ -60,6 +60,26 @@ export default function Toasts() {
           >
             {toast.message}
           </p>
+          {/* The action sits before Dismiss, because it is the thing somebody
+              is reaching for when they read the toast at all. It dismisses on
+              its own — leaving it up after it has been pressed invites a
+              second press on something that has already happened. */}
+          {toast.action && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.action!.run()
+                dismissToast(toast.id)
+              }}
+              className={`shrink-0 rounded-btn border px-3 py-1 text-sm font-semibold ${
+                toast.tone === 'error'
+                  ? 'border-danger text-danger-foreground'
+                  : 'border-success text-success-foreground'
+              }`}
+            >
+              {toast.action.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => dismissToast(toast.id)}

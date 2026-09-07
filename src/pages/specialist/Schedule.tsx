@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   fetchAppointments,
   fetchMySessions,
+  fetchIncomingBookings,
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
@@ -68,6 +69,13 @@ export default function Schedule() {
     queryKey: queryKeys.students,
     queryFn: fetchStudents,
   })
+
+  /* Read here as well as in SessionRequestsSection: React Query dedupes by key,
+     so this is the same request, not a second one. */
+  const bookings = useQuery({
+    queryKey: queryKeys.incomingBookings,
+    queryFn: fetchIncomingBookings,
+  })
   const appointments = useQuery({
     queryKey: queryKeys.appointments,
     queryFn: fetchAppointments,
@@ -103,7 +111,27 @@ export default function Schedule() {
     : []
 
   const scheduled = (appointments.data ?? []).filter((a) => a.status === 'scheduled')
-  const upcoming = scheduled.filter((a) => new Date(a.starts_at).getTime() >= now)
+  /* ------------------------------------------------------------------
+     BOOKED AHEAD COUNTED HALF THE DIARY.
+     ------------------------------------------------------------------
+     `appointments` is `specialist_appointments` — a school booking a
+     clinician for one of its children. Since db/103 a second kind exists:
+     an individual with no school books the same person against the same
+     working hours, and those land in `individual_bookings`, which only
+     `SessionRequestsSection` further down this page was reading.
+
+     So a specialist with an accepted session in two days read "BOOKED AHEAD
+     0" at the top of the screen and found the booking eight hundred pixels
+     below it. The tile is the thing that answers "what is coming up", and it
+     was answering about one source out of two.
+     ------------------------------------------------------------------ */
+  const upcomingIndividual = (bookings.data ?? []).filter(
+    (b) => b.status === 'accepted' && new Date(b.starts_at).getTime() >= now,
+  )
+  const upcoming = [
+    ...scheduled.filter((a) => new Date(a.starts_at).getTime() >= now),
+    ...upcomingIndividual,
+  ]
 
   /*
    * STILL 'scheduled', AND ALREADY OVER. Nothing moves an appointment out of
@@ -170,71 +198,21 @@ export default function Schedule() {
         />
       </div>
 
-      {notSeen.length > 0 && (
-        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
-          <p className="font-semibold text-warning-foreground">
-            No session recorded this month for:
-          </p>
-          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {notSeen.map((student) => (
-              <li key={student.id}>
-                <Link
-                  to={`/specialist/students/${student.id}`}
-                  className="text-sm font-medium text-warning-foreground underline"
-                >
-                  {student.first_name} {student.last_name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-sm text-warning-foreground">
-            This counts what has been logged here, not what happened. A session
-            you have not recorded looks the same as one that did not occur.
-          </p>
-        </div>
-      )}
 
-      {unwritten.length > 0 && (
-        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
-          <p className="font-semibold text-warning-foreground">
-            {unwritten.length} appointment
-            {unwritten.length === 1 ? ' has' : 's have'} been and gone without a
-            session recorded
-          </p>
-          <p className="mt-1 max-w-prose text-sm text-warning-foreground">
-            Until one is written up it counts as nothing delivered, and it keeps
-            holding its slot against a new booking. Open it to record the
-            session, or cancel it if it did not happen.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {unwrittenShown.map((appointment) => (
-              <li key={appointment.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(appointment.id)}
-                  className="text-sm font-medium text-warning-foreground underline"
-                >
-                  {nameOf(appointment.student_id)}
-                  {' · '}
-                  {new Date(appointment.starts_at).toLocaleDateString('en-AU', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {unwritten.length > unwrittenShown.length && (
-            <p className="mt-2 text-sm text-warning-foreground">
-              The {unwrittenShown.length} most recent are listed. The rest are
-              in the calendar, further back.
-            </p>
-          )}
-        </div>
-      )}
+      {/* ------------------------------------------------------------------
+          ABOVE THE CALENDAR, BECAUSE SOMEBODY IS WAITING ON IT.
+          ------------------------------------------------------------------
+          This sat at 2,277px on a 3,100px page — below the diary, below the
+          delivered sessions, above only the settings. It is the one block on
+          the screen holding a person who has asked for something and not been
+          answered, and it was the last thing anybody would reach.
+
+          Everything above it is reference: what is booked, who has not been
+          seen, what was delivered. Reference can wait; a request cannot. It
+          renders nothing at all when there is nothing waiting, so on an
+          ordinary day this costs the page no height.
+          ------------------------------------------------------------------ */}
+      <SessionRequestsSection />
 
       {/* --- The calendar --------------------------------------------------- */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -306,6 +284,81 @@ export default function Schedule() {
       )}
 
       {/* --- Delivered ------------------------------------------------------ */}
+      {/* ------------------------------------------------------------------
+          THE CATCHING-UP MOVED BELOW THE DIARY.
+          ------------------------------------------------------------------
+          Both of these are admin: children not seen this month, and past
+          appointments with no session written up. Worth prompting, and neither
+          is what somebody opens this page to find out. Between them they were
+          368px sitting on top of the calendar, which is the answer to "what is
+          on today" and was starting a thousand pixels down.
+          ------------------------------------------------------------------ */}
+      {notSeen.length > 0 && (
+        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
+          <p className="font-semibold text-warning-foreground">
+            No session recorded this month for:
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {notSeen.map((student) => (
+              <li key={student.id}>
+                <Link
+                  to={`/specialist/students/${student.id}`}
+                  className="text-sm font-medium text-warning-foreground underline"
+                >
+                  {student.first_name} {student.last_name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-warning-foreground">
+            This counts what has been logged here, not what happened. A session
+            you have not recorded looks the same as one that did not occur.
+          </p>
+        </div>
+      )}
+
+      {unwritten.length > 0 && (
+        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
+          <p className="font-semibold text-warning-foreground">
+            {unwritten.length} appointment
+            {unwritten.length === 1 ? ' has' : 's have'} been and gone without a
+            session recorded
+          </p>
+          <p className="mt-1 max-w-prose text-sm text-warning-foreground">
+            Until one is written up it counts as nothing delivered, and it keeps
+            holding its slot against a new booking. Open it to record the
+            session, or cancel it if it did not happen.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {unwrittenShown.map((appointment) => (
+              <li key={appointment.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(appointment.id)}
+                  className="text-sm font-medium text-warning-foreground underline"
+                >
+                  {nameOf(appointment.student_id)}
+                  {' · '}
+                  {new Date(appointment.starts_at).toLocaleDateString('en-AU', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {unwritten.length > unwrittenShown.length && (
+            <p className="mt-2 text-sm text-warning-foreground">
+              The {unwrittenShown.length} most recent are listed. The rest are
+              in the calendar, further back.
+            </p>
+          )}
+        </div>
+      )}
+
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
         Sessions delivered
       </h2>
@@ -360,8 +413,6 @@ export default function Schedule() {
         </ul>
       )}
 
-      <SessionRequestsSection />
-
       {profile && (
         <WorkingHoursSection specialistId={profile.id} canEdit />
       )}
@@ -375,8 +426,24 @@ export default function Schedule() {
               a note about what is missing has to be maintained as carefully as
               the features or it becomes the most confident wrong sentence on
               the page. */}
-          Setting your hours above says when you are available; it does not tell
-          anybody. Nobody is told about an appointment either:
+          {/* AND THE FIRST HALF WENT STALE A SECOND TIME. "Setting your hours
+              says when you are available; it does not tell anybody" was true
+              when only this school could see them. db/103 and db/104 then built
+              individual booking on top of the SAME `specialist_availability`
+              rows: `free_slots()` derives openings from them and
+              `bookable_specialists` lists whoever has any, so publishing hours
+              is what makes somebody bookable by a person with no school at all.
+              And `notifyAboutBooking` emails the specialist the moment one
+              asks.
+
+              So the sentence was not merely out of date, it was telling a
+              clinician that a control has no reach when what it actually does
+              is open their diary to strangers. That is the wrong direction for
+              a note whose whole purpose is to stop people assuming. */}
+          Setting your hours above is what makes you bookable: an individual
+          with no school can see the openings they leave and ask for one, and
+          you are emailed when they do. Nobody is told about a SCHOOL
+          appointment, which is the part that still has no mail behind it:
           {/* This said "there is no email in this product", which stopped
               being true when the server started sending invitations,
               enquiries, application decisions and access codes. What is

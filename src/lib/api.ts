@@ -3035,6 +3035,43 @@ export async function fetchStrategyConfidence(): Promise<
  * `approved` is in the teacher's select policy; `rejected` is not, so a
  * rejected suggestion simply never appears — no separate hiding logic needed.
  */
+/**
+ * Put a reviewed suggestion back in the queue — the other half of reviewStrategy.
+ *
+ * WHY THIS IS SAFE TO OFFER. db/006's update policy admits a specialist for any
+ * student they can view and says nothing about which status they may set, so
+ * returning one to `pending` needs no new grant. The reviewer fields are
+ * cleared with it: a strategy that is waiting again has not been reviewed by
+ * anybody, and leaving a name and a timestamp on it would make the audit trail
+ * say something that is no longer true.
+ *
+ * What it cannot undo is a teacher who has already looked. Releasing puts a
+ * suggestion in front of somebody; this takes it back off the list, it does not
+ * unsee it. That is why the toast says "released" first and offers this second,
+ * rather than pretending the decision had not happened yet.
+ */
+export async function undoReview(strategyId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('ai_strategies')
+    .update({
+      /* `pending_review`, not `pending`. The enum in db/006 is published /
+         pending_review / approved / rejected, and the first version of this
+         wrote a value that is not in it — so every undo failed, silently,
+         because the error came back on a call nobody was reading. Found by
+         pressing the button and then looking at the row rather than at the
+         screen. */
+      status: 'pending_review',
+      reviewed_by: null,
+      reviewed_at: null,
+      review_note: null,
+    })
+    .eq('id', strategyId)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Putting it back in the queue')
+}
+
 export async function reviewStrategy(
   strategyId: string,
   decision: 'approved' | 'rejected',
