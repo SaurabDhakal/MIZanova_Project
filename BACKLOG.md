@@ -383,6 +383,14 @@ the live database rather than against memory.
       unverified one on the same caseload can read the request and cannot
       answer it.
 
+      **Driven end to end across both roles.** As the parent: asked about a
+      goal, the note came back on the card, and the second goal's button
+      stayed while the asked-about one's was replaced by the pending request.
+      As a temporary verified specialist with TOTP enrolled: the question
+      appeared on Caseload with the child, the goal and the note, and was
+      answered. Back as the parent: "The specialist answered", with the words
+      they wrote. Temporary account and probe row both removed.
+
 - [ ] **FR24's other half — parents creating SMART goals and milestones.**
       Deliberately not built, and this is the argument rather than an
       oversight. A goal here is the school's plan, agreed at a meeting and
