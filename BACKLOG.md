@@ -615,6 +615,28 @@ the notification bell, all four account-menu destinations, and Link a child.
 
 ---
 
+### Found in passing on 8 September — a deleted account still gets a shell
+
+- [ ] **An account deleted while signed in keeps a working-looking session
+      until its token expires.** Noticed after removing a temporary school
+      admin: the browser still rendered the full Command Centre, the whole
+      sidebar, and every figure as **0** — "Students 0 · Active at school",
+      "Open safeguarding 0 · Nothing outstanding".
+
+      No data leaks. The profile row cascades away, so `my_role()` returns null
+      and every policy denies, which is exactly why the numbers are zero. But
+      that is the false-zeros fault this project has already fixed once: the
+      calmest sentence on the screen — "nothing outstanding" — shown at the
+      moment the truth is "this account no longer exists".
+
+      `AuthProvider` already documents the state: `profile` is "null while
+      loading, **or if the row is somehow missing**". The fix is to tell those
+      two apart — a completed lookup that returns null is not a loading state,
+      and should end the session with a sentence rather than render a school
+      with no children in it.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

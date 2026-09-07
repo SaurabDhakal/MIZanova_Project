@@ -94,7 +94,20 @@ describe('a family can ask for a second look', () => {
   })
 
   test('nor answer the question they asked', async () => {
-    const { error } = await world.guardianOfA.db
+    /*
+     * FILTERED, NOT REJECTED, and the difference is the whole reason
+     * `assertChanged` exists in this codebase.
+     *
+     * A guardian has no UPDATE policy on this table at all — only the
+     * specialist does — so there is no `with check` to reject the row. The
+     * statement simply matches nothing and Postgres reports success. This was
+     * written expecting an error, which is what db/115's withdraw policy does,
+     * because THAT one grants the guardian an update and pins its destination.
+     *
+     * So the assertion is on the rows, and on the record afterwards. An error
+     * would have been a nicer answer; zero rows is the true one.
+     */
+    const { data, error } = await world.guardianOfA.db
       .from('goal_review_requests')
       .update({
         status: 'answered',
@@ -103,10 +116,10 @@ describe('a family can ask for a second look', () => {
         response: 'All fine.',
       })
       .eq('student_id', world.childA)
+      .select('id')
 
-    // Refused rather than silently filtered: the `with check` pins the
-    // destination, so this is a row the policy rejects.
-    expect(error).not.toBeNull()
+    expect(error).toBeNull()
+    expect(data ?? []).toHaveLength(0)
 
     const { data: after } = await admin
       .from('goal_review_requests')
@@ -138,7 +151,7 @@ describe('the specialist assigned to the child answers it', () => {
       .eq('status', 'open')
       .single()
 
-    const { error } = await world.unverifiedSpecialist.db
+    const { data, error } = await world.unverifiedSpecialist.db
       .from('goal_review_requests')
       .update({
         status: 'answered',
@@ -147,8 +160,19 @@ describe('the specialist assigned to the child answers it', () => {
         response: 'Looks fine to me.',
       })
       .eq('id', before!.id)
+      .select('id')
 
-    expect(error).not.toBeNull()
+    // Same shape as above: `am_i_verified()` is in the USING clause, so this
+    // person's update sees no rows rather than being refused one.
+    expect(error).toBeNull()
+    expect(data ?? []).toHaveLength(0)
+
+    const { data: still } = await admin
+      .from('goal_review_requests')
+      .select('status')
+      .eq('id', before!.id)
+      .single()
+    expect(still?.status).toBe('open')
   })
 
   test('the verified one can, and the family may then ask again', async () => {
