@@ -949,7 +949,7 @@ async function notifyAboutBooking(profileId, kind, { whenText, note }) {
   try {
     const { data: person } = await admin
       .from('profiles')
-      .select('email')
+      .select('email, role')
       .eq('id', profileId)
       .single()
 
@@ -972,7 +972,23 @@ async function notifyAboutBooking(profileId, kind, { whenText, note }) {
     await sendToProfile(admin, profileId, {
       count: 1,
       where: null,
-      url: kind === 'requested' ? '/specialist/schedule' : '/individual/book',
+      /*
+       * THE DESTINATION FOLLOWS THE PERSON, NOT THE EVENT.
+       *
+       * This read `'/individual/book'` for every answered booking, which was
+       * right while individuals were the only people who could ask. db/115
+       * gave families the same ability, and a parent tapping that push would
+       * have been sent to a route `ProtectedRoute` allows to individuals
+       * only — bounced to their dashboard with no idea why, which is the
+       * failure BACKLOG already records under in-app links that strand
+       * people.
+       */
+      url:
+        kind === 'requested'
+          ? '/specialist/schedule'
+          : person?.role === 'parent'
+            ? '/parent/appointments'
+            : '/individual/book',
     })
   } catch (err) {
     // Recorded rather than raised, for the reason above.
@@ -1136,6 +1152,161 @@ app.post('/api/bookings/answer', async (req, res) => {
     return res.status(500).json({ error: 'Could not send that answer.' })
   }
 })
+
+/**
+ * A family asking their child's specialist for a time — db/115, FR6, P05.
+ *
+ * The same shape as `/api/bookings/request` above, against the other table.
+ * `individual_bookings` is for somebody with no school; this writes to
+ * `specialist_appointments`, because a parent's request is for a child and the
+ * row it wants to become is exactly the row a specialist would have created.
+ *
+ * The insert runs with the CALLER'S token, so db/115's policy decides all four
+ * of the things that matter — their own child, an assigned specialist, status
+ * 'requested' and nothing else. None of that is re-checked here, on purpose:
+ * a second copy of a rule is a second place for it to be wrong.
+ */
+app.post('/api/appointments/request', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { studentId, specialistId, startsAt, purpose } = req.body ?? {}
+  if (!studentId || !specialistId || !startsAt) {
+    return res.status(400).json({ error: 'A child, a specialist and a time are required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const starts = new Date(startsAt)
+    const ends = new Date(starts.getTime() + 45 * 60000)
+
+    const { data: appointment, error: insertError } = await userClient
+      .from('specialist_appointments')
+      .insert({
+        student_id: studentId,
+        specialist_id: specialistId,
+        starts_at: starts.toISOString(),
+        duration_minutes: 45,
+        ends_at: ends.toISOString(),
+        purpose: (purpose ?? '').trim() || null,
+        status: 'requested',
+      })
+      .select('id, starts_at')
+      .single()
+
+    if (insertError) {
+      /*
+       * The database refusing this is the normal case rather than a fault: a
+       * specialist who is not on the child's caseload, or a family that is not
+       * theirs. Its own message is about row-level security and means nothing
+       * to a parent.
+       */
+      return res.status(400).json({
+        error:
+          'That time could not be requested. It may have been taken, or that specialist may no longer be working with your child.',
+      })
+    }
+
+    /*
+     * THE SPECIALIST IS TOLD THE TIME AND NOTHING ELSE. `purpose` is what a
+     * family wrote about what they are finding hard, and db/103 made the same
+     * call for the same reason: that stays in the account where RLS governs
+     * who reads it, rather than travelling to an inbox.
+     */
+    void notifyAboutBooking(specialistId, 'requested', {
+      whenText: whenInSydney(starts),
+    })
+
+    return res.json({ id: appointment.id })
+  } catch (err) {
+    console.error('Appointment request failed:', err)
+    return res.status(500).json({ error: 'Could not ask for that time.' })
+  }
+})
+
+/**
+ * A specialist answering one — db/115.
+ *
+ * Accepting is an UPDATE to 'scheduled' rather than a new row, which is the
+ * whole reason this extends the appointments table instead of copying db/103:
+ * the request and the booking are the same appointment at two moments.
+ *
+ * db/059's update policy already allows exactly this person and no other, so
+ * again the check is the database's rather than a second copy here.
+ */
+app.post('/api/appointments/answer', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { appointmentId, decision, note } = req.body ?? {}
+  if (!appointmentId || !['scheduled', 'declined'].includes(decision)) {
+    return res.status(400).json({ error: 'An appointment and a decision are required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: updated, error: updateError } = await userClient
+      .from('specialist_appointments')
+      .update({
+        status: decision,
+        cancelled_reason: decision === 'declined' ? (note ?? '').trim() || null : null,
+      })
+      .eq('id', appointmentId)
+      .eq('status', 'requested')
+      .select('id, student_id, starts_at, status')
+      .single()
+
+    if (updateError || !updated) {
+      /*
+       * A REFUSED UPDATE AND AN ALREADY-ANSWERED ONE LOOK IDENTICAL under RLS —
+       * both return no rows. The exclusion constraint is the third possibility
+       * and the likeliest here: two families can ask for the same half hour
+       * because a request reserves nothing, so the second acceptance is the
+       * one the database stops.
+       */
+      return res.status(409).json({
+        error:
+          'That could not be answered. Somebody may have answered it already, or you may have since agreed to something else at the same time.',
+      })
+    }
+
+    // Everybody at home, because either guardian may have asked and both are
+    // waiting on the answer.
+    const { data: guardians } = await admin
+      .from('student_guardians')
+      .select('profile_id')
+      .eq('student_id', updated.student_id)
+
+    for (const g of guardians ?? []) {
+      void notifyAboutBooking(g.profile_id, decision === 'scheduled' ? 'accepted' : 'declined', {
+        whenText: whenInSydney(new Date(updated.starts_at)),
+        note: decision === 'declined' ? (note ?? '').trim() || null : null,
+      })
+    }
+
+    return res.json({ id: updated.id, status: updated.status })
+  } catch (err) {
+    console.error('Appointment answer failed:', err)
+    return res.status(500).json({ error: 'Could not answer that request.' })
+  }
+})
+
 
 /**
  * POST /api/account/close  { password }

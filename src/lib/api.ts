@@ -4475,7 +4475,7 @@ export type FamilyAppointment = {
   starts_at: string
   ends_at: string
   duration_minutes: number
-  status: 'scheduled' | 'completed' | 'cancelled'
+  status: 'requested' | 'scheduled' | 'completed' | 'cancelled' | 'declined'
   purpose: string | null
   cancelled_reason: string | null
   /** Null means no separate charge — included in what the school already pays. */
@@ -4501,6 +4501,81 @@ export type FamilyAppointment = {
  * what decides. Passing a student id the caller is not a guardian of returns an
  * empty list rather than an error.
  */
+/**
+ * The specialists on this child's caseload — db/115, P05.
+ *
+ * "Assigned specialists", not the verified directory db/104 built for
+ * individuals. A family should not be able to put a clinician they have never
+ * met into their child's diary, and db/115's insert policy refuses it anyway;
+ * this is the screen agreeing with the database rather than discovering it.
+ */
+export async function fetchChildSpecialists(
+  studentId: string,
+): Promise<{ profile_id: string; full_name: string }[]> {
+  const { data, error } = await supabase
+    .from('student_educators')
+    .select('profile_id, profiles ( full_name, role )')
+    .eq('student_id', studentId)
+    .eq('assignment', 'specialist')
+
+  if (error) throw new Error(error.message)
+  return (data ?? [])
+    .map((r) => {
+      const p = (r as unknown as { profiles: { full_name: string; role: string } | null })
+        .profiles
+      return { profile_id: r.profile_id as string, full_name: p?.full_name ?? '', role: p?.role }
+    })
+    .filter((r) => r.role === 'specialist' && r.full_name)
+    .map(({ profile_id, full_name }) => ({ profile_id, full_name }))
+}
+
+/** Ask a specialist for a time — db/115. Goes through the server so it can notify. */
+export async function requestAppointment(input: {
+  studentId: string
+  specialistId: string
+  startsAt: string
+  purpose: string
+}): Promise<{ id: string }> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/appointments/request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  }).catch(() => {
+    throw new Error('Could not reach the API server. Is it running?')
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as { id: string }
+}
+
+/**
+ * Take back a request nobody has answered — db/115.
+ *
+ * Written from the browser rather than the server: there is nobody to notify.
+ * A specialist who never saw the request does not need telling it is gone.
+ * `assertChanged` because an RLS-filtered update returns success with zero
+ * rows, which is indistinguishable from a button that does nothing.
+ */
+export async function withdrawAppointmentRequest(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ status: 'cancelled' })
+    .eq('id', id)
+    .eq('status', 'requested')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'That request could not be withdrawn. It may already have been answered.')
+}
+
 export async function fetchAppointmentsForChild(
   studentId: string,
 ): Promise<FamilyAppointment[]> {
@@ -8871,6 +8946,66 @@ export async function fetchFreeSlots(
   return ((data ?? []) as { slot: string }[]).map((r) => r.slot)
 }
 
+/**
+ * Requests from families, for the specialist they were asked of — db/115.
+ *
+ * No status filter beyond 'requested' and no policy restated: db/059's select
+ * policy already limits this to their own caseload.
+ */
+export async function fetchIncomingAppointmentRequests(): Promise<
+  {
+    id: string
+    student_id: string
+    starts_at: string
+    duration_minutes: number
+    purpose: string | null
+    students: { first_name: string; last_name: string } | null
+  }[]
+> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .select(
+      'id, student_id, starts_at, duration_minutes, purpose, students ( first_name, last_name )',
+    )
+    .eq('status', 'requested')
+    .order('starts_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as {
+    id: string
+    student_id: string
+    starts_at: string
+    duration_minutes: number
+    purpose: string | null
+    students: { first_name: string; last_name: string } | null
+  }[]
+}
+
+/** Agree to a family's request, or decline it with a reason — db/115. */
+export async function answerAppointmentRequest(
+  appointmentId: string,
+  decision: 'scheduled' | 'declined',
+  note?: string,
+): Promise<void> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/appointments/answer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ appointmentId, decision, note }),
+  }).catch(() => {
+    throw new Error('Could not reach the API server. Is it running?')
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+}
+
 export async function fetchMyBookings(): Promise<IndividualBooking[]> {
   const { data, error } = await supabase
     .from('individual_bookings')
@@ -9098,6 +9233,8 @@ export const queryKeys = {
   sharedLogs: (id: string) => ['shared-logs', id] as const,
   homeObservations: (id: string) => ['home-observations', id] as const,
   homeStrategies: (id: string) => ['home-strategies', id] as const,
+  childSpecialists: (id: string) => ['child-specialists', id] as const,
+  incomingAppointmentRequests: ['incoming-appointment-requests'] as const,
   allHomeObservations: ['home-observations', 'all'] as const,
   goals: (id: string) => ['goals', id] as const,
   iepDocuments: (id: string) => ['iep-documents', id] as const,

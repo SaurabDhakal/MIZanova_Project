@@ -1,15 +1,18 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchAppointmentsForChild,
   formatMoney,
   queryKeys,
+  withdrawAppointmentRequest,
   type FamilyAppointment,
 } from '../../lib/api'
+import { showToast } from '../../lib/toast'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import NoChildYet from '../../components/NoChildYet'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import AppointmentCalendar from '../../components/AppointmentCalendar'
+import AskForATimeSection from '../../components/AskForATimeSection'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import { fullName } from '../../lib/displayName'
 
@@ -68,17 +71,32 @@ function money(cents: number | null) {
 }
 
 const STATUS_STYLE: Record<FamilyAppointment['status'], string> = {
+  // Warning, not primary: it is not settled, and a family should be able to
+  // tell an answered booking from an unanswered question at a glance.
+  requested: 'bg-warning-subtle text-warning-foreground',
   scheduled: 'bg-primary-subtle text-primary',
   completed: 'bg-success-subtle text-success-foreground',
   // Not styled as an error. A cancelled session is usually a child being
   // unwell, not something that went wrong with the service.
   cancelled: 'bg-background text-muted-foreground',
+  declined: 'bg-background text-muted-foreground',
 }
 
+/*
+ * db/115 ADDED TWO STATUSES AND THIS MAP DID NOT KNOW THEM, which is a
+ * failure worth naming because everything else worked. A request written on
+ * 8 September for the 14th rendered with NO badge at all — a Record lookup on
+ * a missing key is undefined and React draws nothing — under a heading that
+ * said "Earlier", beside a fee label reading "Included", while "Coming up"
+ * said "Nothing booked at the moment". Four true-looking statements, all
+ * wrong, about the family's own request.
+ */
 const STATUS_LABEL: Record<FamilyAppointment['status'], string> = {
+  requested: 'Waiting for an answer',
   scheduled: 'Booked',
   completed: 'Done',
   cancelled: 'Cancelled',
+  declined: 'Could not make it',
 }
 
 function when(iso: string) {
@@ -93,8 +111,24 @@ function when(iso: string) {
 }
 
 export default function Appointments() {
+  const queryClient = useQueryClient()
   const { children, child, selectChild, isPending, isError, error } =
     useSelectedChild()
+
+  /*
+   * `withdrawAppointmentRequest` was written with db/115 and wired to nothing,
+   * which is the fault this codebase keeps naming in itself — a capability
+   * with no consumer. It is the only write a family has on this screen.
+   */
+  const withdraw = useMutation({
+    mutationFn: withdrawAppointmentRequest,
+    onSuccess: async () => {
+      showToast('Request withdrawn.')
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.appointmentsForChild(child!.id),
+      })
+    },
+  })
 
   const appointments = useQuery({
     queryKey: queryKeys.appointmentsForChild(child?.id ?? ''),
@@ -117,10 +151,22 @@ export default function Appointments() {
    */
   const now = appointments.dataUpdatedAt
   const rows = appointments.data ?? []
+  /*
+   * THREE GROUPS, NOT TWO. `past` was "everything that is not a confirmed
+   * future booking", which was true while a family could only be told about
+   * appointments. Now that they can ask for one, that definition files their
+   * own pending question under "Earlier" — a date six days away, described as
+   * past, while "Coming up" reports nothing booked.
+   */
+  const waiting = rows.filter(
+    (a) => a.status === 'requested' && new Date(a.starts_at).getTime() >= now,
+  )
   const upcoming = rows.filter(
     (a) => a.status === 'scheduled' && new Date(a.starts_at).getTime() >= now,
   )
-  const past = rows.filter((a) => !upcoming.includes(a))
+  const past = rows.filter(
+    (a) => !upcoming.includes(a) && !waiting.includes(a),
+  )
 
   return (
     <div>
@@ -178,6 +224,38 @@ export default function Appointments() {
             />
           </div>
 
+          {/* FIRST, BECAUSE IT IS THE ONLY THING HERE THE FAMILY CAN ACT ON.
+              Everything below is a booking somebody else owns; this is their
+              own question, and the only control on the page. */}
+          {waiting.length > 0 && (
+            <>
+              <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+                Waiting for an answer{' '}
+                <span className="font-normal text-muted-foreground">
+                  ({waiting.length})
+                </span>
+              </h2>
+              <ul className="space-y-3">
+                {waiting.map((a) => (
+                  <AppointmentCard
+                    key={a.id}
+                    appointment={a}
+                    onWithdraw={() => withdraw.mutate(a.id)}
+                    withdrawing={withdraw.isPending}
+                  />
+                ))}
+              </ul>
+              {withdraw.isError && (
+                <p
+                  role="alert"
+                  className="mt-2 rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
+                >
+                  {withdraw.error.message}
+                </p>
+              )}
+            </>
+          )}
+
           <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
             Coming up{' '}
             <span className="font-normal text-muted-foreground">
@@ -214,6 +292,16 @@ export default function Appointments() {
         </>
       )}
 
+      {/* Guarded rather than assumed: nothing on this page narrows `child`,
+          and a section that asks for a time on behalf of nobody is worse than
+          one that waits for the switcher to settle. */}
+      {child && (
+        <AskForATimeSection
+          studentId={child.id}
+          childName={fullName(child)}
+        />
+      )}
+
       <PageNote>
         <strong className="font-semibold text-foreground">
           Times can change, and your school confirms them.
@@ -221,8 +309,9 @@ export default function Appointments() {
         This list shows what is currently booked rather than a promise — if a
         session has been moved since it was arranged, its card says so. Nothing
         here emails you when that happens yet, so check before you plan around a
-        time. This list is also read only: to change or cancel a session, speak
-        to the specialist who booked it or to your school, because an
+        time. You can ask for a session above and take back a request nobody has
+        answered, but you cannot change or cancel one that has been agreed:
+        speak to the specialist who booked it or to your school, because an
         appointment is a clinician&rsquo;s working day as well as your
         child&rsquo;s. &ldquo;Included&rdquo; means the session is covered by
         what your school already pays and there is nothing for you to pay.
@@ -233,7 +322,16 @@ export default function Appointments() {
   )
 }
 
-function AppointmentCard({ appointment }: { appointment: FamilyAppointment }) {
+function AppointmentCard({
+  appointment,
+  onWithdraw,
+  withdrawing,
+}: {
+  appointment: FamilyAppointment
+  /** Only passed for a request nobody has answered — db/115. */
+  onWithdraw?: () => void
+  withdrawing?: boolean
+}) {
   const a = appointment
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-4">
@@ -246,15 +344,45 @@ function AppointmentCard({ appointment }: { appointment: FamilyAppointment }) {
         >
           {STATUS_LABEL[a.status]}
         </span>
-        <span className="ml-auto text-sm text-muted-foreground">
-          {money(a.fee_cents)}
-        </span>
+        {/* NO FEE LABEL ON A QUESTION. "Included" against a time nobody has
+            agreed to reads as a settled, paid-for booking — it was on the
+            request card before this, saying the most reassuring thing on the
+            screen about the one row that was not yet real. */}
+        {a.status !== 'requested' && (
+          <span className="ml-auto text-sm text-muted-foreground">
+            {money(a.fee_cents)}
+          </span>
+        )}
       </div>
 
       <p className="mt-1 text-sm text-muted-foreground">
         {when(a.starts_at)} · {a.duration_minutes} minutes
         {a.profiles?.full_name ? ` · with ${a.profiles.full_name}` : ''}
       </p>
+
+      {a.status === 'requested' && (
+        <p className="mt-1 text-sm text-muted-foreground">
+          They have not answered yet, and this time is still free for anybody
+          else to book until they do.
+        </p>
+      )}
+
+      {a.status === 'declined' && a.cancelled_reason && (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {a.cancelled_reason}
+        </p>
+      )}
+
+      {onWithdraw && (
+        <button
+          type="button"
+          onClick={onWithdraw}
+          disabled={withdrawing}
+          className="mt-3 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+        >
+          {withdrawing ? 'Withdrawing…' : 'Withdraw this request'}
+        </button>
+      )}
 
       {/*
         A MOVED BOOKING ANNOUNCES ITSELF. Without this the new time simply

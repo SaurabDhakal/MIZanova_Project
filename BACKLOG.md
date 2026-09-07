@@ -323,14 +323,28 @@ the live database rather than against memory.
 
 ### Still missing, in the order I would build them
 
-- [ ] **FR6 / P05 — a parent cannot book or pay for a specialist session.**
-      The Appointments screen is read-only. Closer than it looks:
-      `specialist_appointments` already carries `student_id`, `fee_cents` and
-      `invoice_id` from db/073, `specialist_availability` from db/102 is
-      readable by anyone signed in, and `notifyAboutBooking` emails both ways.
-      Missing is a guardian-writable request path and a screen.
-      `individual_bookings` cannot be reused — it is keyed on `profile_id` and
-      its own header says why.
+- [x] ~~**FR6 / P05 — a parent cannot book a specialist session.**~~ db/115.
+      One more status on `specialist_appointments` rather than a second table,
+      because a parent's request is for a child and the row it wants to become
+      is exactly the row a specialist would have created. Accepting is an
+      UPDATE. A family may ask their child's assigned, verified specialist and
+      may withdraw a request nobody has answered; they cannot confirm their
+      own, book an unverified clinician or a class teacher, or ask on behalf
+      of another family's child.
+
+      **The part that would have shipped broken:** `free_slots` excluded
+      appointments with `status <> 'cancelled'` — a negative list from when
+      'cancelled' was the only status that did not occupy a diary. Adding
+      'requested' to it would have let one unanswered request remove a slot
+      from the calendar it was asked from, so a family could empty a
+      specialist's availability for everybody by asking for everything. It is
+      a positive list now, and the test asserts 8 free slots → 8 while
+      requested → 7 once agreed.
+
+      **The payment half is deliberately absent.** FR6 says "book and pay";
+      `fee_cents` has been on the table since db/073 and is null on every row
+      because nobody has priced a specialist's afternoon.
+      `raise_appointment_invoice()` is ready for the day there is a figure.
 - [ ] **P03 — no export.** "An Export button must allow parents to save these
       notes as a PDF or CSV file." The individual's JSON export and the
       Progress print stylesheet are both precedents.
