@@ -14,8 +14,21 @@ import type { StrategyRow } from '../lib/api'
  * that says "1 held for review" would be reporting on something they are not
  * allowed to see.
  *
- * This renders only what arrived, and says where it came from. Nothing here
- * can be pressed.
+ * This renders only what arrived, and says where it came from.
+ *
+ * ---------------------------------------------------------------------------
+ * FOLDED, BECAUSE IT IS UNDER EVERY UPDATE
+ * ---------------------------------------------------------------------------
+ * Open, one of these is three suggestions with three "why this works" bullets
+ * each. On the parent home that sits under the newest update AND under every
+ * row of the list below it — which took a child with real history to nearly
+ * five screens of scrolling before a family reached the goals card. The
+ * incident is what they came for; the advice is what they read when they have
+ * a minute.
+ *
+ * `<details>` for the same reasons `NotBuiltYet` uses it: natively accessible,
+ * one keystroke away, and it changes not a word of what is there. The summary
+ * counts them, so a folded block still says something is inside.
  *
  * ---------------------------------------------------------------------------
  * IT SAYS WHOSE ADVICE THIS IS, BECAUSE IT IS NOT THE FAMILY'S
@@ -51,11 +64,14 @@ export default function SharedStrategies({
   if (strategies.length === 0) return null
 
   return (
-    <div className="mt-3 rounded-card bg-background p-4">
-      <h3 className="text-sm font-semibold text-foreground">
-        What the school is trying
-      </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <details className="mt-3 rounded-card bg-background px-4 py-3">
+      <summary className="cursor-pointer text-sm font-semibold text-primary">
+        What the school is trying{' '}
+        <span className="font-normal text-muted-foreground">
+          ({strategies.length})
+        </span>
+      </summary>
+      <p className="mt-2 text-sm text-muted-foreground">
         Classroom strategies for your child’s teacher, shared so you know what
         is being used at school.
       </p>
@@ -89,6 +105,6 @@ export default function SharedStrategies({
         what happened on Home Observations and ask there. Not clinical advice
         or a diagnosis.
       </p>
-    </div>
+    </details>
   )
 }

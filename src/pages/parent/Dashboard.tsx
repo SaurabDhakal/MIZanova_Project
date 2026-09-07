@@ -147,8 +147,20 @@ export default function ParentDashboard() {
    * in full, so the rest expand here rather than living behind a link that
    * does not exist.
    */
-  const visibleShared = showAllShared ? shared : shared.slice(0, SHARED_SHOWN)
-  const hiddenShared = shared.length - visibleShared.length
+  /*
+   * THE NEWEST UPDATE WAS ON THIS PAGE TWICE. It is the hero card at the top
+   * — "Update from school · 21 Aug" — and it was also the first row of the
+   * list below, with the same notes and, since db/113, the same three
+   * strategies underneath both. On a child with real history that was around
+   * a thousand pixels of exact duplicate before a family reached anything new.
+   *
+   * The list starts after it. `rest` is the honest name: the hero is not
+   * "recent updates", it is the latest one, and everything under the heading
+   * is the rest of them.
+   */
+  const rest = shared.slice(1)
+  const visibleShared = showAllShared ? rest : rest.slice(0, SHARED_SHOWN)
+  const hiddenShared = rest.length - visibleShared.length
 
   const adviceFor = (logId: string) =>
     (strategies.data ?? []).filter((s) => s.behaviour_log_id === logId)
@@ -432,7 +444,7 @@ export default function ParentDashboard() {
         </button>
       )}
 
-      {showAllShared && shared.length > SHARED_SHOWN && (
+      {showAllShared && rest.length > SHARED_SHOWN && (
         <button
           type="button"
           onClick={() => setShowAllShared(false)}
