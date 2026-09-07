@@ -15,6 +15,18 @@ import SupportContacts from './SupportContacts'
  * suggestion the point, with the record of what happened a by-product.
  *
  * ---------------------------------------------------------------------------
+ * FOLDED, FOR THE REASON THE HOME PAGE'S IS
+ * ---------------------------------------------------------------------------
+ * Open, an answer is up to three suggestions with three "why this works"
+ * bullets each, and one sits under every observation a family has asked about.
+ * One of them already made this screen 1266px; a family a year in would scroll
+ * past a wall of advice to reach what they wrote last week.
+ *
+ * The count is in the summary, so a folded answer still says how much is
+ * inside — and the panel appears exactly where the button was, which is the
+ * result somebody who just pressed it is looking for.
+ *
+ * ---------------------------------------------------------------------------
  * A HELD SUGGESTION IS SAID OUT LOUD
  * ---------------------------------------------------------------------------
  * db/094 discards what it cannot show, because an individual has no specialist
@@ -80,7 +92,18 @@ export default function HomeStrategiesPanel({
   }
 
   return (
-    <div className="mt-3 rounded-card bg-background p-4">
+    <details className="mt-3 rounded-card bg-background px-4 py-3">
+      <summary className="cursor-pointer text-sm font-semibold text-primary">
+        {strategies.length > 0
+          ? 'Things you could try at home'
+          : 'What came back'}{' '}
+        {strategies.length > 0 && (
+          <span className="font-normal text-muted-foreground">
+            ({strategies.length})
+          </span>
+        )}
+      </summary>
+
       {/* SUPPORT, AND NO PRETENCE OF PRIVACY. The individual's version of
           this says "nobody has been told and nothing has been reported",
           which is true there and false here: db/007 shows a home observation
@@ -104,9 +127,6 @@ export default function HomeStrategiesPanel({
 
       {strategies.length > 0 && (
         <>
-          <h4 className="text-sm font-semibold text-foreground">
-            Things you could try at home
-          </h4>
           <ul className="mt-2 space-y-3">
             {strategies.map((s) => (
               <li key={s.id}>
@@ -157,6 +177,6 @@ export default function HomeStrategiesPanel({
         before it was sent. General suggestions, not clinical advice or a
         diagnosis.
       </p>
-    </div>
+    </details>
   )
 }

@@ -615,6 +615,20 @@ enrolment and module completion (0 → 1 of 3, the tick, the auto-advance), the
 message composer with attachments, dictation in five languages and voice notes,
 the notification bell, all four account-menu destinations, and Link a child.
 
+The sweep finished on 8 September across the rest: **Privacy & Consent** —
+granting works, withdrawing asks "Yes, withdraw consent / Keep it" first, and
+confirming returns the page to where it started. **About your child** — both
+in-sentence links stay inside the app, and a missing date of birth reads "not
+recorded by the school" rather than blank. **Library** — an article opens and
+closes, and it is the article that settled the naming question above.
+**Home Observations** — "Correct this" edits and saves an author's own
+observation, and the change survives a reload.
+
+One more length fix came out of it: db/114's answer panel was rendering
+expanded under every observation a family had asked about, which made a single
+one 1266px. Folded with its count, the same way the school's advice on the home
+page is: 750px folded, 1258 expanded.
+
 - [x] ~~**Message threads said "about Arlo K." while every other parent screen
       said "Arlo Kaur".**~~ Settled by the Library article rather than by me:
       it states both halves of the rule — the short form exists "so that a
