@@ -7,6 +7,7 @@ import {
   queryKeys,
   type IepPlanStatus,
 } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { ErrorState, LoadingCards } from './QueryState'
 import IepAgreement from './IepAgreement'
 
@@ -147,6 +148,7 @@ const FAMILY_STATUS_LABEL: Record<IepPlanStatus, string> = {
 }
 
 export default function FamilyIepPlans({ studentId }: { studentId: string }) {
+  const { profile } = useAuth()
   const [open, setOpen] = useState<string | null>(null)
   const plans = useQuery({
     queryKey: queryKeys.iepPlans(studentId),
@@ -178,6 +180,17 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
         <ul className="space-y-3">
           {plans.data.map((p) => {
             const isOpen = open === p.id
+            /*
+             * The card asked every visit. Opening the panel was the only way to
+             * learn whether your own agreement had registered, so a parent who
+             * agreed last week came back to a button still saying "Read it and
+             * agree" under a pill still saying "Agreed at the meeting" — the
+             * exact pairing the note above this file set out to fix, left
+             * standing on the one control the family actually presses.
+             */
+            const iAgreed = p.iep_plan_confirmations.some(
+              (c) => c.profile_id === profile?.id,
+            )
             return (
               <li
                 key={p.id}
@@ -190,6 +203,11 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
                   <span className="rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
                     {FAMILY_STATUS_LABEL[p.status]}
                   </span>
+                  {iAgreed && (
+                    <span className="rounded-btn bg-success-subtle px-2 py-0.5 text-xs font-semibold text-success-foreground">
+                      You have agreed
+                    </span>
+                  )}
                 </div>
 
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -204,9 +222,9 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
                   type="button"
                   onClick={() => setOpen(isOpen ? null : p.id)}
                   aria-expanded={isOpen}
-                  className="mt-3 text-sm font-semibold text-primary hover:underline"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
-                  {isOpen ? 'Close' : 'Read it and agree'}
+                  {isOpen ? 'Close' : iAgreed ? 'Read it again' : 'Read it and agree'}
                 </button>
 
                 {isOpen && <PlanBody planId={p.id} />}

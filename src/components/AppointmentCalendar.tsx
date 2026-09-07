@@ -187,8 +187,19 @@ export default function AppointmentCalendar<T extends CalendarAppointment>({
         firstDay={1}
         allDaySlot={allDay}
         nowIndicator
-        height="auto"
+        /* IT WAS TALLER THAN THE WINDOW, SO NOTHING IN IT COULD BE SEEN AT
+           ONCE. `height="auto"` makes the calendar as tall as its content: a
+           single 7:30pm booking anywhere in the loaded set widens the day to
+           7am–9pm, and 28 half-hour rows came to 1099px inside a 698px
+           viewport. The page scrolled instead of the grid, so the toolbar and
+           the day headers scrolled away with it, and the red now-indicator —
+           which only draws inside the visible hours — was never where anybody
+           was looking. A real height gives FullCalendar its own scroller: the
+           header stays put and `scrollTime` opens the day at the school
+           morning rather than at whatever hour the widening reached. */
+        height="70vh"
         expandRows
+        scrollTime="08:00:00"
         slotMinTime={`${pad(minHour)}:00:00`}
         slotMaxTime={`${pad(maxHour)}:00:00`}
         slotDuration="00:30:00"
@@ -218,6 +229,16 @@ export default function AppointmentCalendar<T extends CalendarAppointment>({
            side it falls on. */
         locale={enAu}
         dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
+        /* THE MONTH VIEW HAS NO DATES TO PUT IN ITS HEADER. Week and day views
+           give each column a real date, so "Mon, 7 Sep" above it is true. A
+           month grid's header names the seven weekdays for five different
+           weeks at once, and FullCalendar has to date them from an arbitrary
+           reference week — so asking for a day and a month printed "Mon, 5 Jan"
+           across a September calendar, with the Sunday column reading 4 Jan
+           after Saturday's 10th. The format above was written for the week
+           header and applied to every view; only the month one needs the
+           weekday on its own. */
+        views={{ dayGridMonth: { dayHeaderFormat: { weekday: 'short' } } }}
         titleFormat={{ day: 'numeric', month: 'long', year: 'numeric' }}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         slotLabelFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}

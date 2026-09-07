@@ -219,7 +219,7 @@ export default function ParentDashboard() {
                 family when one moves. The link is where that is said. */}
             <Link
               to="/parent/appointments"
-              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
             >
               All appointments →
             </Link>
@@ -289,7 +289,7 @@ export default function ParentDashboard() {
                 </p>
                 <Link
                   to="/parent/goals"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
                   View goals →
                 </Link>
@@ -331,7 +331,13 @@ export default function ParentDashboard() {
 
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Your home observations
+            {/* NOT "your". The query is every observation from home for this
+                child, which for a family with two guardians includes the ones
+                the other one wrote — so a parent who had written nothing was
+                told they had one. The count is the useful figure and the list
+                below names each author; it was only the word that was
+                untrue. */}
+            Observations from home
           </p>
           <p className="mt-2 text-4xl font-bold text-foreground">
             {observations.isSuccess ? observations.data.length : '—'}
@@ -343,7 +349,7 @@ export default function ParentDashboard() {
           )}
           <Link
             to="/parent/observations"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            className="mt-3 inline-block rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
           >
             Log an observation
           </Link>

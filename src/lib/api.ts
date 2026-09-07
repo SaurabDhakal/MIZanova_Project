@@ -1082,6 +1082,18 @@ export type ObservationCategory =
 export type HomeObservationRow = {
   id: string
   student_id: string
+  /*
+   * WHO WROTE IT. Written since db/007 and never read back, which is why every
+   * parent screen treated a child's observations as the reader's own: a second
+   * guardian saw the first one's note with no name on it, a count labelled
+   * "your" that was not, and a "Correct this" the database was always going to
+   * refuse. `null` where the author's account has since been deleted — db/007
+   * keeps the observation on purpose, so the school's picture does not develop
+   * holes.
+   */
+  logged_by: string | null
+  /** Null when the author's profile is not readable, which RLS decides. */
+  author: { full_name: string } | null
   title: string
   body: string
   category: ObservationCategory
@@ -1089,17 +1101,22 @@ export type HomeObservationRow = {
   created_at: string
 }
 
+/** The columns every observation fetch needs, including who wrote it. */
+const HOME_OBSERVATION_COLUMNS = `id, student_id, logged_by, title, body,
+   category, observed_on, created_at,
+   author:profiles!home_observations_logged_by_fkey ( full_name )`
+
 export async function fetchHomeObservations(
   studentId: string,
 ): Promise<HomeObservationRow[]> {
   const { data, error } = await supabase
     .from('home_observations')
-    .select('id, student_id, title, body, category, observed_on, created_at')
+    .select(HOME_OBSERVATION_COLUMNS)
     .eq('student_id', studentId)
     .order('observed_on', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []) as unknown as HomeObservationRow[]
 }
 
 /**
@@ -1111,11 +1128,11 @@ export async function fetchHomeObservations(
 export async function fetchAllHomeObservations(): Promise<HomeObservationRow[]> {
   const { data, error } = await supabase
     .from('home_observations')
-    .select('id, student_id, title, body, category, observed_on, created_at')
+    .select(HOME_OBSERVATION_COLUMNS)
     .order('observed_on', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []) as unknown as HomeObservationRow[]
 }
 
 /**
@@ -7385,6 +7402,13 @@ export type IepPlanRow = {
   home_languages: string | null
   /** PostgREST returns an aggregate as a one-element array. */
   iep_goals: { count: number }[]
+  /*
+   * WHO HAS PERSONALLY CONFIRMED, so a card can say whether the person reading
+   * it is one of them. Ids rather than a count: "somebody agreed" is the fact
+   * `status` already carries, and the whole point of db/054's second table is
+   * that it is not the same fact as "you agreed".
+   */
+  iep_plan_confirmations: { profile_id: string }[]
 }
 
 export type IepPlanDetail = {
@@ -7455,7 +7479,8 @@ export async function fetchIepPlans(studentId: string): Promise<IepPlanRow[]> {
     .from('iep_plans')
     .select(
       `id, plan_date, status, proposed_review_date, actual_review_date,
-       agreed_at, home_languages, iep_goals ( count )`,
+       agreed_at, home_languages, iep_goals ( count ),
+       iep_plan_confirmations ( profile_id )`,
     )
     .eq('student_id', studentId)
     .order('plan_date', { ascending: false })

@@ -345,7 +345,7 @@ export default function Academy() {
                         type="button"
                         disabled={buy.isPending || total === 0}
                         onClick={() => buy.mutate(course.id)}
-                        className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {total === 0
                           ? 'Not ready yet'
@@ -358,7 +358,7 @@ export default function Academy() {
                         type="button"
                         disabled={enrol.isPending || total === 0}
                         onClick={() => enrol.mutate(course.id)}
-                        className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {total === 0 ? 'Not ready yet' : 'Start this course'}
                       </button>

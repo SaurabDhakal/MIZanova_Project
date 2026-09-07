@@ -119,7 +119,7 @@ export default function Library() {
                   type="button"
                   onClick={() => setOpen(isOpen ? null : a.id)}
                   aria-expanded={isOpen}
-                  className="mt-3 text-sm font-semibold text-primary hover:underline"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
                   {isOpen ? 'Close' : 'Read it'}
                 </button>

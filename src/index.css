@@ -348,6 +348,33 @@ select:not([aria-invalid='true']) {
   box-shadow: none;
 }
 
+/* THE TOOLBAR HAS THREE GROUPS AND A PHONE HAS ONE ROW.
+   FullCalendar lays prev/next/today, the title and the view switcher across a
+   single flex row at every width. At 394px that left the title a 90px column,
+   so "1 – 30 September 2026" wrapped onto three lines between two button
+   groups and the switcher sat flush against the right edge. Stacked, each part
+   gets the width it needs and the title reads as a heading, which is what it
+   is. Everything above this is colour; this is the one place the widget needed
+   telling about small screens. */
+@media (max-width: 640px) {
+  .mizanova-calendar .fc .fc-header-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .mizanova-calendar .fc .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Order the row the way it is read: what am I looking at, then how do I move
+     through it, then how do I change the shape of it. */
+  .mizanova-calendar .fc .fc-toolbar-chunk:nth-child(2) {
+    order: -1;
+  }
+}
+
 /* Its default focus ring is its own blue. The app has one ring colour and
    keyboard users should meet the same one everywhere. */
 .mizanova-calendar .fc .fc-button:focus-visible {

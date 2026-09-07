@@ -152,6 +152,140 @@ bulk import as gaps, and both shipped since it was written.
 
 ---
 
+## 2b. The parent role — audited by using it, 8 September 2026
+
+Signed in as a parent and walked all thirteen sidebar screens against a child
+with real data. Four defects, all fixed; every one of them was green under
+lint, the typecheck and the build both before and after, and none was visible
+from reading the code.
+
+- [x] ~~**A co-parent's writing was rendered as your own.**~~ `logged_by` has
+      been written since db/007 and was never selected back, so a child's
+      second guardian met "your home observations: 1" having written nothing,
+      the other parent's account of an evening with no name on it, and a
+      "Correct this" whose update db/007's policy was always going to refuse.
+      The refusal itself was sound — `assertChanged` caught it — but it read
+      "your account does not have permission for this record", which blames
+      the account rather than saying somebody else wrote it. Verified both
+      ways: the co-parent's note is attributed and has no edit control, and a
+      note written by the signed-in parent still has one and still saves.
+- [x] ~~**The month calendar's header read "Mon, 5 Jan" over September.**~~
+      `dayHeaderFormat` was written for the week header, where every column is
+      a real date, and applied to every view. A month grid's header names seven
+      weekdays for five weeks at once, so FullCalendar dated them from an
+      arbitrary reference week — and the Sunday column read 4 Jan, after
+      Saturday's 10th. It was on the parent, specialist and educator calendars
+      alike. Week and day views still show real dates; checked after the fix.
+- [x] ~~**An IEP card asked for agreement it already had.**~~ Opening the panel
+      was the only way to see whether your own confirmation had registered, so
+      the card sat at "Read it and agree" under a pill reading "Agreed at the
+      meeting" — the unreadable pairing `FamilyIepPlans.tsx` was written to fix,
+      still standing on the one control a family presses. The card now carries
+      "You have agreed" and the button reads "Read it again".
+- [x] ~~**Every date field defaulted to yesterday until mid-morning.**~~
+      `new Date().toISOString().slice(0, 10)` is UTC and Australia is UTC+10, so
+      for the first ten hours of each day a parent writing up last night dated
+      it a day early — and the field's own `max` refused to let them correct it
+      to today. Found live: an observation logged at 01:17 on 8 September was
+      filed as the 7th. `src/lib/localTime.ts` already existed to stop exactly
+      this and its docstring names the fault; it now exports `todayLocal()`.
+
+- [ ] **The same UTC expression is still on eleven other call sites**, none of
+      them reachable from a parent account and so none verified by this pass.
+      Each defaults or caps a date and each is a day early every morning:
+      `components/IepDocumentsSection.tsx:77`, `components/SessionsSection.tsx:175`,
+      `lib/api.ts:4510`, `lib/api.ts:4541` (writes `ends_on`),
+      `lib/api.ts:8008`, `lib/api.ts:8774-8775` (a reporting range),
+      `pages/educator/AddStudent.tsx:159` (caps a date of birth),
+      `pages/platformAdmin/Subscriptions.tsx:339`,
+      `pages/shared/IepPlanEditor.tsx:368`, `pages/shared/IepPlans.tsx:146`
+      (writes `plan_date`). The fix is `todayLocal()` in each; what it needs is
+      somebody signed into those roles to confirm nothing else read the old
+      value. The download-filename and authenticator-label uses of the same
+      expression are left alone deliberately — a filename a day behind is not
+      a record a day behind.
+
+- [ ] **Nothing tells a parent a plan is waiting for their agreement.** The
+      notification bell gives a parent unread conversations and unpaid invoices;
+      an IEP awaiting confirmation passes the bell's own test — it links to the
+      screen that clears it — and is the thing a school most needs a family to
+      act on. Not built rather than broken, so it is listed rather than fixed.
+
+- [ ] **A plan's review date passes in silence.** The card read "to be reviewed
+      around 29 Aug 2026" on 8 September in the same grey as everything else.
+      Whether that should be the family's problem to notice is Joe's call.
+
+### The UI pass over the same thirteen screens
+
+Measured rather than eyeballed — every figure below came out of the running
+page, at 1159px and again at 375px.
+
+- [x] ~~**The calendar was taller than the window.**~~ 1099px of calendar in a
+      698px viewport, so the page scrolled instead of the grid and the toolbar
+      and day headers scrolled away with it. `height="auto"` makes FullCalendar
+      as tall as its content, and the visible day is widened to fit whatever is
+      booked — one 7:30pm session anywhere in the loaded set opened every week
+      at 7am–9pm, 28 half-hour rows. A real height (`70vh`) gives the grid its
+      own scroller: 489px, header pinned, and `scrollTime` opens it at the
+      school morning. Month view now fits a whole month on one screen.
+- [x] ~~**No line showed the time of day.**~~ The red now-indicator only draws
+      inside the visible hours, and with the grid opening wherever the widening
+      reached, it was never where anybody was looking. Confirmed the machinery
+      itself is sound by temporarily widening the day to midnight: the line
+      rendered at the right offset in the right colour, then the probe was
+      reverted. It stays absent outside 7am–9pm, which is correct for a school
+      calendar — a line at 2am marks nothing.
+- [x] ~~**The calendar toolbar crammed three groups onto one row on a
+      phone.**~~ At 394px the title got a 90px column, so "1 – 30 September
+      2026" wrapped onto three lines between two button groups and the view
+      switcher sat flush against the right edge. The scoped calendar CSS had no
+      responsive rule at all — it is 90 lines of colour and nothing about small
+      screens. Stacked below 640px, title first.
+- [x] ~~**Nine standalone controls were under the 44px touch floor.**~~ Every
+      one was a bare text button: "View goals →" and "All appointments →" at
+      20px, "Read it and agree" at 20px — the single control a family presses
+      on the IEP screen — "Correct this", "Read it" ×3 in the Library at 20px,
+      "Start this course" at 36px and "Log an observation" at 40px. The idiom
+      already existed: `inline-flex min-h-11 items-center`, from the sign-in
+      touch-target fix, which also warns against widening a target so far that
+      it becomes a different bug. All thirteen parent screens now measure zero.
+
+**Clean, and worth not re-checking:** no screen scrolls horizontally at 375px,
+on any of the thirteen. The contrast checker passes WCAG AA on every pair in
+use, including the calendar's event colours.
+
+- [ ] **The same sub-44px text button is on nineteen more call sites**, in
+      fourteen files across specialist, educator, platform admin and individual
+      screens. Not touched, for the reason the date fix was not: they belong to
+      roles this pass could not sign into. The fix is the same class string
+      each time.
+- [ ] **The visible hours are computed from every appointment loaded, not the
+      week on screen.** A single evening booking in August still widens
+      September's empty weeks to fourteen hours. Harmless now the grid scrolls
+      inside itself, and worth fixing when somebody is next in that file.
+- [ ] **The sidebar says "Collab & Finance" and the page says "Finance".**
+      One of the two is wrong and it is not obvious which.
+
+### Checked and sound, so nobody re-audits them
+
+About your child, Privacy & Consent, Link a child, Resources, Academy, Library,
+Messages and Collab & Finance all say what they do and do what they say.
+"About your child" names the other guardian outright, which is what made the
+observations screen's silence about authorship a contradiction rather than
+just a gap. The Resources page still promises no email about resources, and
+that is still true — nothing notifies on a shared resource.
+
+### The demo account
+
+`parent.demo@mizanova.test` / `Demo!Parent2026` — a second guardian on Ethan
+Mitchell at the demo school, made because the three real parent accounts belong
+to teammates. Delete the account and its `student_guardians` row when it has
+served its purpose. It holds one IEP agreement on the plan of 22 Aug, left in
+place because the screen says agreement cannot be undone there and quietly
+deleting it from behind would make that untrue.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

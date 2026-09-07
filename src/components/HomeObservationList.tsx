@@ -11,9 +11,20 @@ import type { HomeObservationRow } from '../lib/api'
  */
 export default function HomeObservationList({
   observations,
+  viewerId,
   onEdit,
 }: {
   observations: HomeObservationRow[]
+  /*
+   * WHO IS READING, so the list can tell "you wrote this" from "the other
+   * parent did". A child usually has two guardians and both write here, and
+   * without this the list rendered a co-parent's account of an evening as
+   * though the reader had written it themselves.
+   *
+   * Undefined means the reader is not one of the authors — the staff case —
+   * and every row is then attributed, which is what a teacher needs anyway.
+   */
+  viewerId?: string
   /*
    * OPT-IN, AND ABSENT MEANS NO CONTROL.
    *
@@ -25,6 +36,13 @@ export default function HomeObservationList({
    * school something the database will refuse and the migration forbids.
    * Passing the handler is a deliberate act; not passing it is the safe
    * default.
+   *
+   * It is now offered per ROW rather than per list: db/007's update policy is
+   * `logged_by = auth.uid()`, so offering it on a co-parent's observation was
+   * a control the database was always going to refuse. The refusal was honest
+   * when it came — `assertChanged` caught it — but it arrived as "your account
+   * does not have permission for this record", which reads like a fault in the
+   * account rather than the plain fact that somebody else wrote it.
    */
   onEdit?: (observation: HomeObservationRow) => void
 }) {
@@ -33,6 +51,7 @@ export default function HomeObservationList({
       {observations.map((observation) => {
         const style = observationCategoryStyle(observation.category)
         const date = new Date(observation.observed_on)
+        const isMine = Boolean(viewerId) && observation.logged_by === viewerId
         return (
           <li
             key={observation.id}
@@ -56,11 +75,16 @@ export default function HomeObservationList({
                 </span>
               </div>
               <p className="mt-1 text-foreground">{observation.body}</p>
-              {onEdit && (
+              {!isMine && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Written by {observation.author?.full_name ?? 'someone at home'}
+                </p>
+              )}
+              {onEdit && isMine && (
                 <button
                   type="button"
                   onClick={() => onEdit(observation)}
-                  className="mt-2 text-sm font-semibold text-primary hover:underline"
+                  className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
                   Correct this
                 </button>

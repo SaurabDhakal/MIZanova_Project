@@ -8,6 +8,8 @@ import {
   queryKeys,
   type ObservationCategory,
 } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { todayLocal } from '../../lib/localTime'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
@@ -30,6 +32,7 @@ import { OBSERVATION_CATEGORIES } from '../../lib/observationCategories'
  */
 
 export default function HomeObservations() {
+  const { profile } = useAuth()
   const queryClient = useQueryClient()
   const {
     children,
@@ -55,9 +58,7 @@ export default function HomeObservations() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [category, setCategory] = useState<ObservationCategory>('social_emotional')
-  const [observedOn, setObservedOn] = useState(
-    () => new Date().toISOString().slice(0, 10),
-  )
+  const [observedOn, setObservedOn] = useState(todayLocal)
 
   const observations = useQuery({
     queryKey: queryKeys.homeObservations(child?.id ?? ''),
@@ -254,7 +255,7 @@ export default function HomeObservations() {
               label="When did it happen?"
               type="date"
               value={observedOn}
-              max={new Date().toISOString().slice(0, 10)}
+              max={todayLocal()}
               onChange={(e) => setObservedOn(e.target.value)}
             />
 
@@ -335,6 +336,7 @@ export default function HomeObservations() {
           ) : (
             <HomeObservationList
               observations={visible}
+              viewerId={profile?.id}
               onEdit={(o) => {
                 setEditingId(o.id)
                 setTitle(o.title)
