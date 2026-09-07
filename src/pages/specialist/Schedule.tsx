@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   fetchAppointments,
   fetchMySessions,
+  fetchIncomingBookings,
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
@@ -68,6 +69,13 @@ export default function Schedule() {
     queryKey: queryKeys.students,
     queryFn: fetchStudents,
   })
+
+  /* Read here as well as in SessionRequestsSection: React Query dedupes by key,
+     so this is the same request, not a second one. */
+  const bookings = useQuery({
+    queryKey: queryKeys.incomingBookings,
+    queryFn: fetchIncomingBookings,
+  })
   const appointments = useQuery({
     queryKey: queryKeys.appointments,
     queryFn: fetchAppointments,
@@ -103,7 +111,27 @@ export default function Schedule() {
     : []
 
   const scheduled = (appointments.data ?? []).filter((a) => a.status === 'scheduled')
-  const upcoming = scheduled.filter((a) => new Date(a.starts_at).getTime() >= now)
+  /* ------------------------------------------------------------------
+     BOOKED AHEAD COUNTED HALF THE DIARY.
+     ------------------------------------------------------------------
+     `appointments` is `specialist_appointments` — a school booking a
+     clinician for one of its children. Since db/103 a second kind exists:
+     an individual with no school books the same person against the same
+     working hours, and those land in `individual_bookings`, which only
+     `SessionRequestsSection` further down this page was reading.
+
+     So a specialist with an accepted session in two days read "BOOKED AHEAD
+     0" at the top of the screen and found the booking eight hundred pixels
+     below it. The tile is the thing that answers "what is coming up", and it
+     was answering about one source out of two.
+     ------------------------------------------------------------------ */
+  const upcomingIndividual = (bookings.data ?? []).filter(
+    (b) => b.status === 'accepted' && new Date(b.starts_at).getTime() >= now,
+  )
+  const upcoming = [
+    ...scheduled.filter((a) => new Date(a.starts_at).getTime() >= now),
+    ...upcomingIndividual,
+  ]
 
   /*
    * STILL 'scheduled', AND ALREADY OVER. Nothing moves an appointment out of
