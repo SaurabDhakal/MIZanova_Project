@@ -615,11 +615,19 @@ enrolment and module completion (0 → 1 of 3, the tick, the auto-advance), the
 message composer with attachments, dictation in five languages and voice notes,
 the notification bell, all four account-menu destinations, and Link a child.
 
-- [ ] **Message threads say "about Arlo K." while every other parent screen
-      says "Arlo Kaur".** The Library still carries an article to families
-      explaining the short form. Saurab reversed to full names on 4 September;
-      this is the one place that did not follow, and the article now describes
-      behaviour the product mostly does not have. **His call, like FR5.**
+- [x] ~~**Message threads said "about Arlo K." while every other parent screen
+      said "Arlo Kaur".**~~ Settled by the Library article rather than by me:
+      it states both halves of the rule — the short form exists "so that a
+      list, a chart, or a screenshot shared in a staff meeting cannot carry
+      somebody else's surname out of the room", AND "a parent reads their own
+      child's full name on their own screens". Messages was the one parent
+      screen that had not followed the 4 September reversal.
+
+      `Messenger` is shared by four roles and the short form is correct for
+      three of them, so the decision is read off the reader's role inside the
+      component rather than passed in as a prop a future call site could
+      forget. RLS has already decided a parent sees only their own child, so
+      the short form protected nobody there.
 
 ---
 

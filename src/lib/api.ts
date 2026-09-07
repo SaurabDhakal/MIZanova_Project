@@ -1774,7 +1774,7 @@ export type ThreadRow = {
   subject: string | null
   last_message_at: string
   /** Which child this conversation is about. Every thread has one. */
-  students: { display_name: string } | null
+  students: { display_name: string; first_name: string; last_name: string } | null
   thread_participants: {
     profile_id: string
     last_read_at: string | null
@@ -1794,7 +1794,7 @@ export async function fetchThreads(): Promise<ThreadRow[]> {
     .from('message_threads')
     .select(
       `id, student_id, subject, last_message_at,
-       students ( display_name ),
+       students ( display_name, first_name, last_name ),
        thread_participants ( profile_id, last_read_at, profiles ( id, full_name, role ) ),
        messages ( sender_id, body, created_at, deleted_at, message_attachments ( kind ) )`,
     )
@@ -1809,7 +1809,7 @@ export async function fetchThreads(): Promise<ThreadRow[]> {
         .from('message_threads')
         .select(
           `id, student_id, subject, last_message_at,
-           students ( display_name ),
+           students ( display_name, first_name, last_name ),
            thread_participants ( profile_id, last_read_at, profiles ( id, full_name, role ) ),
            messages ( sender_id, body, created_at )`,
         )
@@ -6976,7 +6976,7 @@ export async function fetchUnengagedSpecialists(): Promise<FreelanceSpecialist[]
 }
 
 export type UpcomingGoal = GoalRow & {
-  students: { display_name: string } | null
+  students: { display_name: string; first_name: string; last_name: string } | null
 }
 
 /**

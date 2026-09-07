@@ -125,6 +125,35 @@ export default function Messenger({
   studentId: string | null
 }) {
   const { profile } = useAuth()
+
+  /*
+   * WHICH NAME A THREAD IS LABELLED WITH, AND WHY IT IS DECIDED HERE.
+   *
+   * This component is shared by four roles, and `display_name` — "Arlo K." —
+   * is right for three of them: a staff inbox is many households at once, and
+   * the Library article to families says the short form exists "so that a
+   * list, a chart, or a screenshot shared in a staff meeting cannot carry
+   * somebody else's surname out of the room".
+   *
+   * The same article states the other half of the rule: "a parent reads their
+   * own child's full name on their own screens". Every other parent screen
+   * followed that after Saurab's call on 4 September; this one did not, so a
+   * family read "about Arlo K." on the one screen where the short form
+   * protects nobody — RLS has already decided they see only their own child.
+   *
+   * Read off the role rather than passed in, because a prop is a thing a
+   * future call site can forget, and the answer is never ambiguous: a parent
+   * is by construction reading their own family.
+   */
+  const namesInFull = profile?.role === 'parent'
+  const childName = (
+    student: { display_name: string; first_name: string; last_name: string } | null,
+  ) =>
+    student
+      ? namesInFull
+        ? `${student.first_name} ${student.last_name}`
+        : student.display_name
+      : ''
   const queryClient = useQueryClient()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -559,7 +588,7 @@ export default function Messenger({
                     <p className="text-xs font-medium text-primary">
                       {person ? ROLE_CONFIG[person.role].label : ''}
                       {thread.students?.display_name &&
-                        ` · about ${thread.students.display_name}`}
+                        ` · about ${childName(thread.students)}`}
                     </p>
                     <div className="mt-1 flex items-center gap-2">
                       <p className="line-clamp-2 min-w-0 flex-1 text-sm text-muted-foreground">
@@ -648,7 +677,7 @@ export default function Messenger({
                 <p className="text-xs font-medium text-primary">
                   {activeWith ? ROLE_CONFIG[activeWith.role].label : ''}
                   {active.students?.display_name &&
-                    ` · about ${active.students.display_name}`}
+                    ` · about ${childName(active.students)}`}
                 </p>
               </div>
             </header>
