@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Spinner from './Spinner'
 import { ROLE_CONFIG, type Role } from '../lib/roles'
 import { useAuth } from '../lib/auth'
+import IdleTimeout from './IdleTimeout'
 import { titleFor } from '../lib/pageTitles'
 import Icon from './Icon'
 import Logo from './Logo'
@@ -228,6 +229,10 @@ export default function AppShell({ role }: { role: Role }) {
 
   return (
     <div className="flex min-h-screen">
+      {/* NFR5. Renders nothing for the roles it does not apply to, and nothing
+          for the four it does until they have been idle for nineteen minutes —
+          so it costs a listener and a five-second interval, and no layout. */}
+      <IdleTimeout />
       {/* WCAG 2.4.1, Bypass Blocks. The sidebar repeats on every screen, so a
           keyboard user was tabbing through every nav item before reaching the
           page — on a roster of thirty students, on every single navigation.

@@ -443,10 +443,25 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
       review" is clearly a parent action and is missing; creating goals I would
       argue against.
 - [ ] **FR22 — Development / Staging / Production switch.** One environment.
-- [ ] **NFR5 — sessions must time out after 20 minutes.** 2FA is enforced for
-      the four roles that need it; **no idle timeout exists anywhere.** This is
-      the only unmet requirement that is a security control rather than a
-      feature, and it is small.
+- [x] ~~**NFR5 — sessions must time out after 20 minutes.**~~ `IdleTimeout`,
+      mounted in `AppShell`. It follows `MFA_REQUIRED_ROLES` rather than
+      applying to everybody: `Final Requirements` puts NFR5 under the
+      specialist's section and pairs it with the 2FA this product already
+      enforces for exactly those four roles, and they are the four with
+      somebody else's child on screen. A parent on their own phone gains
+      nothing from being signed out every twenty minutes.
+
+      It warns a minute first, because a teacher is most likely to be idle
+      here while part-way through a behaviour log that exists nowhere but the
+      form. A banner rather than a modal — the decision it offers is "carry on",
+      and a modal could not have been verified in the in-app browser anyway.
+
+      Proved by shortening the clock and widening the roles temporarily: the
+      warning appeared, ignoring it signed the session out to `/login`,
+      pressing "Stop the clock" cleared it and the session outlived its
+      original deadline. Probe reverted. The Security tab's own "not built yet"
+      note stopped listing the auto-lock and now describes it, gated on the
+      same constant so the two cannot drift.
 - [ ] **NFR4 — "WhatsApp notifications must not contain names; only a secure
       link."** There is no WhatsApp integration at all, so the requirement is
       vacuously satisfied and actually unbuilt. Email and push exist and both
