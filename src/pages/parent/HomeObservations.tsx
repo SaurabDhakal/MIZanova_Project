@@ -12,7 +12,6 @@ import {
 import { useAuth } from '../../lib/auth'
 import { todayLocal } from '../../lib/localTime'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import FormField from '../../components/FormField'
@@ -36,9 +35,7 @@ export default function HomeObservations() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -168,7 +165,6 @@ export default function HomeObservations() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {/* --- Prompt / form ------------------------------------------------- */}

@@ -8,7 +8,6 @@ import {
 } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import NoChildYet from '../../components/NoChildYet'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import AppointmentCalendar from '../../components/AppointmentCalendar'
@@ -112,7 +111,7 @@ function when(iso: string) {
 
 export default function Appointments() {
   const queryClient = useQueryClient()
-  const { children, child, selectChild, isPending, isError, error } =
+  const { children, child, isPending, isError, error } =
     useSelectedChild()
 
   /*
@@ -172,10 +171,13 @@ export default function Appointments() {
     <div>
       <PageHeader
         title="Appointments"
-        lead="When a specialist is seeing your child, and what each session costs."
+        lead={
+          child
+            ? `When a specialist is seeing ${fullName(child)}, and what each session costs.`
+            : 'When a specialist is seeing your child, and what each session costs.'
+        }
       />
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
       {appointments.isPending && <LoadingCards count={2} />}
       {appointments.isError && (

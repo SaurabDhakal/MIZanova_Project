@@ -8,7 +8,6 @@ import {
   type GoalRow,
 } from '../../lib/api'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { GOAL_CATEGORY_LABEL } from '../../lib/goalCategories'
 import { observationCategoryStyle } from '../../lib/observationCategories'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
@@ -87,9 +86,7 @@ function formatDate(iso: string): string {
 
 export default function ParentProgress() {
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -224,7 +221,6 @@ export default function ParentProgress() {
         </button>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {/* --- Skill progress ------------------------------------------------ */}

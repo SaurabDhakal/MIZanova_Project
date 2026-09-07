@@ -459,6 +459,26 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
 
 ---
 
+### One child switcher, not eight — 8 September 2026
+
+Saurab's call, and the right one. `ChildSwitcher` was drawn on all eight parent
+screens, which is the same settled decision asked eight times. The choice
+already lived in `localStorage` and every screen read it on mount, so nothing
+about the mechanism had to change: switching on Home has always changed what
+the whole role is looking at. Drawing it repeatedly only made a decision look
+unsettled and took a row off every page.
+
+It now renders on Home alone. What every other screen has to do instead is name
+the child in its own lead sentence, so a family with two never wonders whose
+page they are on — seven of the eight already did, and **Appointments did not**,
+which is why removing its switcher without adding the name would have made it
+worse rather than tidier.
+
+Verified by switching to Ethan on Home and walking Goals, Appointments and
+Progress: all three followed, none drew a switcher.
+
+---
+
 ### The UI sweep, done properly — 8 September 2026
 
 Saurab pointed out that I had been checking pages rather than reading them:

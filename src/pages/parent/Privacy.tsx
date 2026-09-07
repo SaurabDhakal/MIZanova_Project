@@ -11,7 +11,6 @@ import {
 } from '../../lib/api'
 import { CONSENT_COPY, CONSENT_ORDER } from '../../lib/consent'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import { fullName } from '../../lib/displayName'
@@ -43,9 +42,7 @@ function formatDate(iso: string): string {
 export default function Privacy() {
   const queryClient = useQueryClient()
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -128,7 +125,6 @@ export default function Privacy() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {consents.isPending && <LoadingCards count={3} />}

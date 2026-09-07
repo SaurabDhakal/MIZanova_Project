@@ -8,7 +8,6 @@ import {
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import FamilyIepPlans from '../../components/FamilyIepPlans'
 import GoalCard from '../../components/GoalCard'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
@@ -28,9 +27,7 @@ export default function GoalsAndIep() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -105,7 +102,6 @@ export default function GoalsAndIep() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
