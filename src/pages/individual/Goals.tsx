@@ -17,6 +17,7 @@ import {
 import { Link } from 'react-router-dom'
 import { showToast } from '../../lib/toast'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import WhatWorksLink from '../../components/WhatWorksLink'
 
 /**
  * What somebody is working on — db/101.
@@ -57,6 +58,9 @@ const HOW: { value: GoalCheckin['how_it_went']; label: string; tone: string }[] 
 
 export default function Goals() {
   const queryClient = useQueryClient()
+  /* Which finished/parked goal is asking to be confirmed. One id rather than a
+     set: two confirmations open at once is not a state worth supporting. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [why, setWhy] = useState('')
   const [targetDate, setTargetDate] = useState('')
@@ -313,19 +317,47 @@ export default function Goals() {
                   >
                     Pick it back up
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => remove.mutate(goal.id)}
-                    className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-                  >
-                    Delete
-                  </button>
+                  {/* Guarded for the same reason as the active list, and the
+                      case is arguably stronger: a finished or parked goal is
+                      the completed record, and its check-ins are the whole of
+                      what somebody has to look back on. */}
+                  {confirmingId === goal.id ? (
+                    <>
+                      <span className="text-sm text-danger-foreground">
+                        Delete this and its history?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => remove.mutate(goal.id)}
+                        className="text-sm font-semibold text-danger-foreground hover:underline"
+                      >
+                        Delete it
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="text-sm font-semibold text-foreground hover:underline"
+                      >
+                        Keep it
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(goal.id)}
+                      className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
         </>
       )}
+
+      <WhatWorksLink from="goals" />
     </div>
   )
 }
@@ -366,6 +398,11 @@ function GoalCard({
   const checkins = [...goal.individual_goal_checkins].sort(
     (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
   )
+  /* The ones with something actually written in them. `note` is optional —
+     checking in is three buttons and typing is extra — so this is usually a
+     much shorter list than `checkins`, and on many goals it is empty. */
+  const written = checkins.filter((c) => c.note?.trim())
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
     <li className="rounded-card border border-border bg-card p-5 shadow-raised">
@@ -458,13 +495,51 @@ function GoalCard({
           >
             Park it
           </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-          >
-            Delete
-          </button>
+          {/* ONE CLICK USED TO DESTROY THE HISTORY. `onDelete` fired the
+              mutation immediately, from a button sitting in a row with "Done
+              with this" and "Park it" — two harmless status changes — and
+              `individual_goal_checkins.goal_id` is ON DELETE CASCADE, so it
+              took every check-in with it. The demo goal alone carries eight,
+              spanning three weeks, three of them with words the person wrote.
+              No undo, no warning, no way to get any of it back.
+
+              Not the type-the-phrase dialog: that guards closing an account,
+              and borrowing it here would say these are equally serious. One
+              step, in place, naming what actually goes. */}
+          {confirmingDelete ? (
+            <>
+              <span className="text-danger-foreground">
+                Delete this
+                {checkins.length > 0 &&
+                  ` and its ${checkins.length} check-in${
+                    checkins.length === 1 ? '' : 's'
+                  }`}
+                ? This cannot be undone.
+              </span>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="font-semibold text-danger-foreground hover:underline"
+              >
+                Delete it
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="font-semibold text-foreground hover:underline"
+              >
+                Keep it
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+            >
+              Delete
+            </button>
+          )}
         </span>
       </div>
 
@@ -569,33 +644,44 @@ function GoalCard({
 
           {/* Three, not five. The strip above already carries the shape; this
               is here for the words somebody wrote, and a long list of them
-              buries the goal underneath it. */}
-          <p className="mt-4 text-sm font-semibold text-foreground">
-            What you wrote
-          </p>
-          <ul className="mt-2 space-y-2">
-            {checkins.slice(0, 3).map((c) => (
-              <li key={c.id} className="text-sm">
-                <span className="text-muted-foreground">
-                  {new Date(c.created_at).toLocaleDateString('en-AU', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-                <span
-                  className={`ml-3 font-medium ${
-                    HOW.find((h) => h.value === c.how_it_went)?.tone ??
-                    'text-foreground'
-                  }`}
-                >
-                  {HOW.find((h) => h.value === c.how_it_went)?.label}
-                </span>
-                {c.note && (
-                  <span className="ml-3 text-muted-foreground">{c.note}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+              buries the goal underneath it.
+
+              ONLY CHECK-INS THAT HAVE WORDS IN THEM. This took the most recent
+              three regardless, and printed the note only if there was one — so
+              a check-in made with the three buttons and nothing typed, which is
+              the ordinary case, produced a row under "What you wrote" carrying
+              a date and a label and nothing written at all. Both of those are
+              already in the strip above, so the section repeated it and broke
+              its own heading. On this demo goal, two of the three rows were
+              empty. */}
+          {written.length > 0 && (
+            <>
+              <p className="mt-4 text-sm font-semibold text-foreground">
+                What you wrote
+              </p>
+              <ul className="mt-2 space-y-2">
+                {written.slice(0, 3).map((c) => (
+                  <li key={c.id} className="text-sm">
+                    <span className="text-muted-foreground">
+                      {new Date(c.created_at).toLocaleDateString('en-AU', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </span>
+                    <span
+                      className={`ml-3 font-medium ${
+                        HOW.find((h) => h.value === c.how_it_went)?.tone ??
+                        'text-foreground'
+                      }`}
+                    >
+                      {HOW.find((h) => h.value === c.how_it_went)?.label}
+                    </span>
+                    <span className="ml-3 text-muted-foreground">{c.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
     </li>

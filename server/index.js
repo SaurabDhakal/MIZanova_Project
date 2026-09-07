@@ -284,12 +284,51 @@ app.post(
     const handled = [
       'checkout.session.completed',
       'checkout.session.async_payment_succeeded',
+      // db/111. Stripe owns the subscription clock; these are how it tells us
+      // the time changed — a renewal, a failed card, an ended cancellation.
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
     ]
     if (!handled.includes(event.type)) {
       return res.json({ received: true, ignored: event.type })
     }
 
+    /* ------------------------------------------------------------------
+     * SUBSCRIPTION LIFECYCLE COMES FIRST, because the object is a
+     * Subscription rather than a Session and has no `payment_status` at all.
+     * Falling through to the check below would read undefined, decide the
+     * event was unpaid, and drop every renewal and cancellation on the floor.
+     * ------------------------------------------------------------------ */
+    if (event.type.startsWith('customer.subscription.')) {
+      const recorded = await recordSubscription(event.data.object)
+      return res.json({ received: true, subscription: recorded })
+    }
+
     const session = event.data.object
+
+    /* ------------------------------------------------------------------
+     * A SUBSCRIPTION CHECKOUT ALSO COMES BEFORE THE PAID CHECK, and this one
+     * is easy to get wrong: a checkout that opens with a free trial settles
+     * with `payment_status: 'no_payment_required'`, because no money moved.
+     * Requiring 'paid' would throw away exactly the sessions a trial creates —
+     * the subscription would exist at Stripe and never appear here.
+     * ------------------------------------------------------------------ */
+    if (session.metadata?.kind === 'subscription') {
+      if (!session.subscription) {
+        return res.json({ received: true, subscription: false })
+      }
+      const stripeSub = await stripe.subscriptions.retrieve(
+        typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription.id,
+      )
+      const recorded = await recordSubscription(
+        stripeSub,
+        session.metadata?.profileId ?? null,
+      )
+      return res.json({ received: true, subscription: recorded })
+    }
+
     if (session.payment_status !== 'paid') {
       // A completed session that has not been paid: a delayed method still
       // clearing, or a failure. Not our business until it succeeds.
@@ -399,6 +438,57 @@ app.use(cors({ origin: CORS_ORIGINS }))
  * the server, which is an external service and a deployment decision. This
  * endpoint is what such a service would call.
  */
+/**
+ * Does the Stripe key actually work — asked of Stripe, not of the string.
+ *
+ * ---------------------------------------------------------------------------
+ * THIS ENDPOINT WAS GREEN ON A KEY THAT COULD NOT TAKE A PAYMENT
+ * ---------------------------------------------------------------------------
+ * `stripe_key_looks_right` is `startsWith('sk_')`, and the key in .env.local
+ * was `sk_test_…xxxx` — a placeholder with the right shape. So /api/health
+ * reported `"status":"ok"` with every Stripe check true, while the first real
+ * call returned "Invalid API Key provided". This endpoint's own docstring says
+ * a health check that is green during an outage is worse than none, and the
+ * one thing it could not catch was the one thing most likely to be wrong.
+ *
+ * A prefix test cannot tell a key from a shape. Asking Stripe can.
+ *
+ * ---------------------------------------------------------------------------
+ * CACHED, BECAUSE HEALTH IS POLLED AND STRIPE IS NOT OURS TO HAMMER
+ * ---------------------------------------------------------------------------
+ * A five-minute cache: long enough that a monitor calling every thirty seconds
+ * makes one Stripe request per five minutes, short enough that fixing the key
+ * shows up without a restart. Failures are cached too — a broken key stays
+ * broken, and retrying it per request would turn an outage into a rate limit.
+ *
+ * Anthropic is deliberately NOT checked this way. A Stripe key lookup is free;
+ * the cheapest honest Anthropic check is a generation, which costs money on
+ * every poll. Presence is the most that can be checked there without charging
+ * Special Miles to find out.
+ */
+let stripeCheck = { at: 0, ok: false }
+const STRIPE_CHECK_TTL_MS = 5 * 60 * 1000
+
+async function stripeKeyWorks() {
+  if (!process.env.STRIPE_SECRET_KEY) return false
+  if (Date.now() - stripeCheck.at < STRIPE_CHECK_TTL_MS) return stripeCheck.ok
+
+  let ok = false
+  try {
+    const stripe = await getStripe()
+    if (stripe) {
+      // The cheapest authenticated read there is. It proves the key is real
+      // and the account is reachable, and returns nothing worth logging.
+      await stripe.prices.list({ limit: 1 })
+      ok = true
+    }
+  } catch {
+    ok = false
+  }
+  stripeCheck = { at: Date.now(), ok }
+  return ok
+}
+
 app.get('/api/health', async (_req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY
   const checks = {
@@ -406,6 +496,7 @@ app.get('/api/health', async (_req, res) => {
     supabase: false,
     stripe_key_present: Boolean(stripeKey),
     stripe_key_looks_right: Boolean(stripeKey?.startsWith('sk_')),
+    stripe_key_works: await stripeKeyWorks(),
     stripe_webhook_configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
   }
 
@@ -419,7 +510,8 @@ app.get('/api/health', async (_req, res) => {
   // Degraded, not broken: the app works without Stripe, and saying "ok" while
   // payments cannot be recorded is the failure this endpoint exists to avoid.
   const healthy = checks.supabase && checks.anthropic
-  const complete = healthy && checks.stripe_key_looks_right && checks.stripe_webhook_configured
+  const complete =
+    healthy && checks.stripe_key_works && checks.stripe_webhook_configured
 
   res.status(healthy ? 200 : 503).json({
     ok: healthy,
@@ -763,6 +855,94 @@ function whenInSydney(date) {
  * NEVER AWAITED BY A ROUTE. Somebody whose booking went through must not be
  * told it failed because a mail server was slow.
  */
+/**
+ * Write what Stripe says about a subscription into `individual_subscriptions`.
+ *
+ * ---------------------------------------------------------------------------
+ * STRIPE IS THE TRUTH; THIS TABLE IS A COPY
+ * ---------------------------------------------------------------------------
+ * Every field here comes from the Stripe object rather than being worked out
+ * locally. The row exists so a screen can say "renews on the 3rd" without a
+ * network call on every page load — not so the product can hold an opinion
+ * about somebody's billing that differs from the company taking the money.
+ *
+ * IDEMPOTENT BY INDEX. `individual_subscriptions_stripe_idx` is unique on
+ * `stripe_subscription_id`, so an upsert on that column is safe to replay —
+ * which matters, because Stripe retries any webhook that does not return 2xx
+ * and will happily deliver the same event twice on a good day.
+ *
+ * `profileId` is only supplied on the first event, from the checkout session's
+ * metadata. Later events are about a subscription that already has a row, so
+ * the update must not null the column out — hence the conditional spread.
+ */
+async function recordSubscription(sub, profileId = null) {
+  try {
+    const price = sub.items?.data?.[0]?.price
+    const amountCents = price?.unit_amount ?? null
+    if (!amountCents) {
+      recordEvent(
+        'warning',
+        'billing',
+        'subscription_no_amount',
+        `Stripe subscription ${sub.id} arrived with no unit_amount.`,
+      )
+      return false
+    }
+
+    /* Stripe's statuses are a superset of ours. 'unpaid' and 'incomplete_expired'
+       both mean it is over, and mapping them to 'canceled' keeps one meaning of
+       "this is finished" rather than spreading it across four spellings. */
+    const status =
+      sub.status === 'unpaid' || sub.status === 'incomplete_expired'
+        ? 'canceled'
+        : sub.status === 'incomplete'
+          ? 'incomplete'
+          : sub.status
+
+    const seconds = (n) => (n ? new Date(n * 1000).toISOString() : null)
+
+    const row = {
+      ...(profileId ? { profile_id: profileId } : {}),
+      amount_cents: amountCents,
+      currency: price?.currency ?? 'aud',
+      bill_every: price?.recurring?.interval === 'year' ? 'year' : 'month',
+      status,
+      stripe_subscription_id: sub.id,
+      stripe_customer_id:
+        typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null),
+      current_period_end: seconds(sub.current_period_end),
+      trial_ends_at: seconds(sub.trial_end),
+      cancel_at_period_end: Boolean(sub.cancel_at_period_end),
+      /* db/111 has a check constraint tying these together: a canceled row
+         must carry a time, and a live one must not. */
+      canceled_at: status === 'canceled' ? seconds(sub.canceled_at) ?? new Date().toISOString() : null,
+    }
+
+    const { error } = await admin
+      .from('individual_subscriptions')
+      .upsert(row, { onConflict: 'stripe_subscription_id' })
+
+    if (error) {
+      recordEvent(
+        'critical',
+        'billing',
+        'subscription_unrecorded',
+        `Stripe subscription ${sub.id} could not be recorded: ${error.message}`,
+      )
+      return false
+    }
+    return true
+  } catch (err) {
+    recordEvent(
+      'critical',
+      'billing',
+      'subscription_unrecorded',
+      `Stripe subscription ${sub?.id} could not be recorded: ${err.message}`,
+    )
+    return false
+  }
+}
+
 async function notifyAboutBooking(profileId, kind, { whenText, note }) {
   try {
     const { data: person } = await admin
@@ -2237,6 +2417,250 @@ app.post('/api/billing/course-confirm', async (req, res) => {
   } catch (err) {
     console.error('Course confirm failed:', err)
     return res.status(500).json({ error: 'Could not confirm the payment.' })
+  }
+})
+
+/**
+ * POST /api/billing/subscribe   -> { url }
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS NOT course-checkout WITH A FLAG
+ * ---------------------------------------------------------------------------
+ * A course is bought once and the row is settled forever. A subscription has a
+ * clock: it renews, it can fail to renew, it can be cancelled and keep working
+ * until the month somebody paid for runs out. Stripe owns that clock, and the
+ * webhook below is what keeps our copy of it honest.
+ *
+ * The price is NOT read from a request body. A browser that could name its own
+ * price could subscribe for a cent — the plan row is the only source, and
+ * db/111's check constraint refuses to mark a plan on sale without both a
+ * price and a Stripe price id, so a half-configured plan cannot be bought.
+ */
+app.post('/api/billing/subscribe', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) {
+      return res.status(503).json({
+        error:
+          'Payments are not configured on this server. STRIPE_SECRET_KEY is missing from .env.local.',
+      })
+    }
+
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: plan } = await admin
+      .from('individual_plan')
+      .select('name, price_cents, currency, bill_every, trial_days, stripe_price_id, is_offered')
+      .eq('id', 1)
+      .single()
+
+    /* NOT ON SALE IS A 409, NOT A 500. Nothing is broken — Special Miles has
+       not set a price yet, which is the state this shipped in. The screen says
+       so plainly rather than showing a button that fails. */
+    if (!plan?.is_offered) {
+      return res.status(409).json({
+        error: 'There is no subscription on sale yet.',
+      })
+    }
+
+    const { data: live } = await admin
+      .from('individual_subscriptions')
+      .select('id, status')
+      .eq('profile_id', user.id)
+      .in('status', ['trialing', 'active', 'past_due'])
+      .maybeSingle()
+
+    if (live) {
+      return res.status(409).json({ error: 'You are already subscribed.' })
+    }
+
+    /* `returnOrigin(req)` is what the other two checkout routes use: it takes
+       the caller's Origin header and refuses anything not in ALLOWED_ORIGINS,
+       so a success_url cannot be pointed at somebody else's site. The first
+       version of this route called an `appUrl()` that does not exist — it
+       passed lint and build, because this is plain JavaScript and nothing was
+       type-checking it, and then threw ReferenceError on the first real
+       request. It only surfaced by putting the plan on sale and pressing the
+       button. */
+    const origin = returnOrigin(req)
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
+      customer_email: user.email ?? undefined,
+      /* Stripe owns the trial. Passing the number rather than implementing a
+         clock here means "14 days" means the same thing on the invoice, in the
+         dashboard and on the screen. Null sends nothing, which is no trial. */
+      subscription_data: plan.trial_days
+        ? { trial_period_days: plan.trial_days }
+        : undefined,
+      /* The webhook cannot ask a settled session what it was for, so it is
+         told. Same reason `kind: 'course'` exists. */
+      metadata: { kind: 'subscription', profileId: user.id },
+      /* BACK TO WHERE THE SUBSCRIPTION ACTUALLY LIVES. This pointed at
+         /account/profile, which was true until billing moved to its own
+         Payments tab — so somebody who had just paid landed on a page with no
+         mention of a subscription anywhere on it. The session id travels so
+         the return can be confirmed immediately rather than waiting on the
+         webhook, exactly as the course and invoice paths do. */
+      success_url: `${origin}/account/payments?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/account/payments?cancelled=1`,
+    })
+
+    return res.json({ url: session.url })
+  } catch (err) {
+    /* RECORDED, NOT JUST LOGGED. A console line lives in whatever terminal the
+       server happens to be running in; nobody at Special Miles reads it. This
+       is the route that takes money, and the failure mode found in testing —
+       a Stripe price id that does not resolve — is silent, permanent and
+       invisible: every attempt fails, the person sees a toast, and the company
+       learns nothing. `system_events` is the thing the platform admin's
+       dashboard actually shows. */
+    recordEvent(
+      'critical',
+      'billing',
+      'subscribe_failed',
+      `A subscription could not be started: ${err.message}`,
+    )
+    console.error('Subscribe failed:', err)
+    return res.status(500).json({ error: 'Could not start the subscription.' })
+  }
+})
+
+/**
+ * POST /api/billing/subscription/cancel   -> { cancelAt }
+ *
+ * CANCELS AT THE END OF THE PERIOD, NOT NOW. Somebody who has paid for the
+ * month keeps the month. Ending access the instant they press cancel is
+ * charging for time and then not providing it, and it also punishes anybody
+ * who cancels early precisely so they do not forget.
+ *
+ * Stripe is changed FIRST and our row second. A row saying 'canceled' while
+ * Stripe keeps billing is worse than no button at all — the person believes
+ * they have stopped paying and has not.
+ */
+/**
+ * POST /api/billing/subscription-confirm  { sessionId }  -> { active }
+ *
+ * The fast path, as `/api/billing/course-confirm` is for a course. The webhook
+ * is the reliable one and does not care what the browser did; this exists so
+ * somebody who has just paid sees it on the page they land on rather than
+ * whenever Stripe's notification arrives.
+ *
+ * The browser is not believed about payment at any point — it hands over a
+ * session id and this server asks Stripe what happened to it.
+ *
+ * NO `payment_status === 'paid'` CHECK, and that is deliberate. A subscription
+ * opened with a free trial settles as `no_payment_required`, because no money
+ * moved. Requiring 'paid' here would reject exactly the returns a trial
+ * produces — the same trap the webhook had.
+ */
+app.post('/api/billing/subscription-confirm', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { sessionId } = req.body ?? {}
+  if (!sessionId) return res.status(400).json({ error: 'sessionId is required.' })
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) return res.status(503).json({ error: 'Payments are not configured.' })
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.metadata?.kind !== 'subscription') {
+      return res.status(400).json({ error: 'That is not a subscription payment.' })
+    }
+    if (!session.subscription) return res.json({ active: false })
+
+    const sub = await stripe.subscriptions.retrieve(
+      typeof session.subscription === 'string'
+        ? session.subscription
+        : session.subscription.id,
+    )
+    const recorded = await recordSubscription(
+      sub,
+      session.metadata?.profileId ?? null,
+    )
+    return res.json({
+      active: recorded && ['trialing', 'active', 'past_due'].includes(sub.status),
+    })
+  } catch (err) {
+    recordEvent(
+      'critical',
+      'billing',
+      'subscription_confirm_failed',
+      `A paid subscription could not be confirmed on return: ${err.message}`,
+    )
+    return res.status(500).json({ error: 'Could not confirm the subscription.' })
+  }
+})
+
+app.post('/api/billing/subscription/cancel', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { resume } = req.body ?? {}
+
+  try {
+    const stripe = await getStripe()
+    if (!stripe) return res.status(503).json({ error: 'Payments are not configured.' })
+
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: sub } = await admin
+      .from('individual_subscriptions')
+      .select('id, stripe_subscription_id, status')
+      .eq('profile_id', user.id)
+      .in('status', ['trialing', 'active', 'past_due'])
+      .maybeSingle()
+
+    if (!sub?.stripe_subscription_id) {
+      return res.status(404).json({ error: 'You do not have a subscription.' })
+    }
+
+    const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      cancel_at_period_end: !resume,
+    })
+
+    await admin
+      .from('individual_subscriptions')
+      .update({ cancel_at_period_end: !resume })
+      .eq('id', sub.id)
+
+    return res.json({
+      cancelAtPeriodEnd: !resume,
+      endsAt: updated.current_period_end
+        ? new Date(updated.current_period_end * 1000).toISOString()
+        : null,
+    })
+  } catch (err) {
+    // Same reasoning as above, and arguably worse: somebody who pressed cancel
+    // and saw an error will assume they are still being charged, and they will
+    // be right until a person looks at this.
+    recordEvent(
+      'critical',
+      'billing',
+      'subscription_change_failed',
+      `A subscription could not be changed: ${err.message}`,
+    )
+    console.error('Cancel failed:', err)
+    return res.status(500).json({ error: 'Could not change the subscription.' })
   }
 })
 

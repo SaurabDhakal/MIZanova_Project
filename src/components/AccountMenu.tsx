@@ -104,8 +104,11 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
           which is where somebody actually goes to check which account they are
           signed in as. Hidden below sm, where the avatar alone carries it.
         */}
+        {/* WITHOUT A ROLE, THEIR NAME. The trigger has to say something, and
+            for somebody who holds one role and cannot switch, their own name
+            is more use than a category they did not pick. */}
         <span className="hidden text-sm font-medium text-foreground sm:block">
-          {roleLabel}
+          {roleLabel || name}
         </span>
         <Icon
           name="chevronDown"
@@ -142,9 +145,14 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
               <div className="min-w-0">
                 <p className="truncate font-semibold text-foreground">{name}</p>
                 <p className="text-xs break-all text-muted-foreground">{profile.email}</p>
-                <p className="mt-1 inline-flex rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
-                  {roleLabel}
-                </p>
+                {/* The chip tells a member of staff which hat is on, because
+                    they can hold several. One role and no switcher makes it a
+                    label for its own sake. */}
+                {roleLabel && (
+                  <p className="mt-1 inline-flex rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
+                    {roleLabel}
+                  </p>
+                )}
               </div>
             </div>
 

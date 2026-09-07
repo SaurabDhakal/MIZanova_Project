@@ -2085,6 +2085,15 @@ export type AiControls = {
    */
   daily_limit_per_school: number
   daily_limit_per_user: number
+  /*
+   * db/099 split the per-person limit in two and nothing on the governance
+   * screen said so, so `daily_limit_per_user` was shown as "per person" when
+   * it is the figure for somebody who has PAID. Everyone else gets the one
+   * below, and which model answers them differs too.
+   */
+  free_daily_limit_per_user: number
+  free_model: string
+  paid_model: string
 }
 
 export async function fetchAiControls(): Promise<AiControls | null> {
@@ -2092,7 +2101,8 @@ export async function fetchAiControls(): Promise<AiControls | null> {
     .from('ai_controls')
     .select(
       'ai_enabled, confidence_threshold, last_change_reason, updated_at, ' +
-        'daily_limit_per_school, daily_limit_per_user',
+        'daily_limit_per_school, daily_limit_per_user, ' +
+        'free_daily_limit_per_user, free_model, paid_model',
     )
     .eq('id', true)
     .maybeSingle()
@@ -2166,6 +2176,10 @@ export async function fetchAiUsage(): Promise<AiUsageRow[]> {
 export async function updateAiLimits(input: {
   schoolLimit: number
   userLimit: number
+  /* db/099's free tier. The screen edited only the paid figure and displayed
+     it as "per person", which is what a platform admin then believed applied
+     to everybody. */
+  freeUserLimit: number
   reason: string
 }): Promise<void> {
   const auth = await supabase.auth.getUser()
@@ -2174,6 +2188,7 @@ export async function updateAiLimits(input: {
     .update({
       daily_limit_per_school: input.schoolLimit,
       daily_limit_per_user: input.userLimit,
+      free_daily_limit_per_user: input.freeUserLimit,
       last_change_reason: input.reason.trim(),
       changed_by: auth.data.user?.id ?? null,
     })
@@ -3718,6 +3733,250 @@ export async function buyCourse(courseId: string): Promise<string> {
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
   return body.url as string
+}
+
+/* -------------------------------------------------------------------------
+ * The subscription — db/111
+ * ---------------------------------------------------------------------- */
+
+export type IndividualPlan = {
+  name: string
+  /** Null until Special Miles sets one. Null is not zero — see db/111. */
+  price_cents: number | null
+  currency: string
+  bill_every: 'month' | 'year'
+  /** Null means no trial, and the copy says so rather than implying one. */
+  trial_days: number | null
+  is_offered: boolean
+}
+
+export type IndividualSubscription = {
+  id: string
+  amount_cents: number
+  currency: string
+  bill_every: 'month' | 'year'
+  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete'
+  current_period_end: string | null
+  trial_ends_at: string | null
+  cancel_at_period_end: boolean
+  created_at: string
+  canceled_at: string | null
+}
+
+/**
+ * What is on sale, readable signed OUT.
+ *
+ * Reads `individual_plan_public`, the definer view db/111 grants to `anon` —
+ * db/098's reasoning one table along: a pricing page is read by people without
+ * accounts, and a shop that hides its prices until you have one is not
+ * protecting anything. The view carries no Stripe ids.
+ */
+export async function fetchIndividualPlan(): Promise<IndividualPlan | null> {
+  const { data, error } = await supabase
+    .from('individual_plan_public')
+    .select('name, price_cents, currency, bill_every, trial_days, is_offered')
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data ?? null) as IndividualPlan | null
+}
+
+/**
+ * Which AI tier this person is actually on — db/099, db/111.
+ *
+ * ASKED BECAUSE "HAS A SUBSCRIPTION" IS NOT THE SAME QUESTION. `my_ai_tier()`
+ * answers paid for a live subscription OR a course somebody bought, so a
+ * person who has never subscribed can already be on the capable model. Offering
+ * them the subscription "for the more capable model" would be selling
+ * something they have — the promise-with-nothing-behind-it fault, pointed the
+ * other way.
+ *
+ * The function is the one place that decides this, which is why db/099 put it
+ * in the database rather than spreading it through the server.
+ */
+export async function fetchMyAiTier(): Promise<'free' | 'paid'> {
+  const { data, error } = await supabase.rpc('my_ai_tier')
+  if (error) throw new Error(error.message)
+  return data === 'paid' ? 'paid' : 'free'
+}
+
+/**
+ * The plan as Special Miles sees it — including the Stripe price id, which the
+ * public view deliberately withholds.
+ *
+ * Reads the table rather than `individual_plan_public`, because a platform
+ * admin setting a price needs to see whether an id is configured; a visitor
+ * reading a pricing page does not.
+ */
+export type IndividualPlanAdmin = IndividualPlan & {
+  stripe_price_id: string | null
+}
+
+export async function fetchIndividualPlanAdmin(): Promise<IndividualPlanAdmin | null> {
+  const { data, error } = await supabase
+    .from('individual_plan')
+    .select(
+      'name, price_cents, currency, bill_every, trial_days, is_offered, stripe_price_id',
+    )
+    .eq('id', 1)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data ?? null) as IndividualPlanAdmin | null
+}
+
+/**
+ * Set what an individual pays. Platform admin only — db/111's update policy.
+ *
+ * `assertChanged` because an RLS-refused update returns success with zero rows,
+ * so without it a non-admin would see "saved" and nothing would have moved.
+ */
+export async function updateIndividualPlan(input: {
+  priceCents: number | null
+  billEvery: 'month' | 'year'
+  trialDays: number | null
+  stripePriceId: string | null
+  isOffered: boolean
+}): Promise<void> {
+  const { data, error } = await supabase
+    .from('individual_plan')
+    .update({
+      price_cents: input.priceCents,
+      bill_every: input.billEvery,
+      trial_days: input.trialDays,
+      stripe_price_id: input.stripePriceId,
+      is_offered: input.isOffered,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1)
+    .select('id')
+
+  if (error) {
+    /* db/111's constraint refuses `is_offered` without both a price and a
+       Stripe price id, which is the right rule and the wrong sentence to show
+       somebody: it arrived on screen as `new row for relation
+       "individual_plan" violates check constraint
+       "individual_plan_offered_needs_a_price"`. A platform admin does not need
+       the constraint's name, they need to know which box to fill in. */
+    if (error.message.includes('individual_plan_offered_needs_a_price')) {
+      throw new Error(
+        'A plan cannot go on sale without both a price and a Stripe price id. Fill both in, or leave it switched off.',
+      )
+    }
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The plan change')
+}
+
+/**
+ * Your own subscription, or null.
+ *
+ * Every row, not just the live one: a cancelled subscription is still yours to
+ * see, and "you subscribed in March and cancelled in June" is a fair question
+ * to be able to answer from your own account.
+ */
+export async function fetchMySubscription(): Promise<IndividualSubscription | null> {
+  const { data, error } = await supabase
+    .from('individual_subscriptions')
+    .select(
+      'id, amount_cents, currency, bill_every, status, current_period_end, trial_ends_at, cancel_at_period_end, created_at, canceled_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data ?? null) as IndividualSubscription | null
+}
+
+/**
+ * Start subscribing. Returns the Stripe page to send them to.
+ *
+ * No price travels, for `buyCourse`'s reason and more sharply: a browser that
+ * could name its own recurring price could subscribe itself for a cent, every
+ * month, forever.
+ */
+export async function startSubscription(): Promise<string> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/subscribe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body.url as string
+}
+
+/**
+ * Ask the server whether a returning subscription actually started.
+ *
+ * The fast path, as `confirmCoursePurchase` is for a course: the webhook is
+ * the reliable one, and this exists so somebody who has just paid sees it on
+ * the page they land on instead of whenever Stripe's notification arrives.
+ */
+export async function confirmSubscription(sessionId: string): Promise<boolean> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/subscription-confirm`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => {
+    throw new Error('Could not reach the API server.')
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return Boolean(body.active)
+}
+
+/**
+ * Stop it renewing, or start it renewing again.
+ *
+ * `resume: true` undoes a cancellation that has not taken effect yet, which is
+ * a real thing people do — cancelling is often a Sunday-night decision and
+ * Monday disagrees. It is the same Stripe field either way, so it is one route
+ * rather than two that could disagree.
+ */
+export async function setSubscriptionRenewal(
+  resume: boolean,
+): Promise<{ cancelAtPeriodEnd: boolean; endsAt: string | null }> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/billing/subscription/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ resume }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body
 }
 
 /**
@@ -8727,6 +8986,10 @@ export const queryKeys = {
   myCompletions: ['my-completions'] as const,
   courseEngagement: ['course-engagement'] as const,
   myPurchases: ['my-purchases'] as const,
+  individualPlan: ['individual-plan'] as const,
+  individualPlanAdmin: ['individual-plan-admin'] as const,
+  myAiTier: ['my-ai-tier'] as const,
+  mySubscription: ['my-subscription'] as const,
   mySelfRequests: ['my-self-requests'] as const,
   aiHealth: ['ai-health'] as const,
   aiMemory: ['ai-memory'] as const,

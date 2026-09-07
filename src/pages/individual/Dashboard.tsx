@@ -9,6 +9,9 @@ import {
   goalNeedsAsking,
   sinceLastLook,
   fetchMyPurchases,
+  fetchIndividualPlan,
+  fetchMyAiTier,
+  fetchMySubscription,
   formatMoney,
   queryKeys,
 } from '../../lib/api'
@@ -59,6 +62,24 @@ export default function IndividualHome() {
     queryKey: queryKeys.articles,
     queryFn: fetchArticles,
   })
+
+  /* Both only decide whether the price card renders, so a failure on either is
+     a card that does not appear rather than a screen that breaks. */
+  const plan = useQuery({
+    queryKey: queryKeys.individualPlan,
+    queryFn: fetchIndividualPlan,
+  })
+  const tier = useQuery({ queryKey: queryKeys.myAiTier, queryFn: fetchMyAiTier })
+  /* Which of the two reasons they are on the paid tier. Asked rather than
+     inferred from the purchase list, because a subscription is the answer that
+     changes what the card offers to do next. */
+  const subscription = useQuery({
+    queryKey: queryKeys.mySubscription,
+    queryFn: fetchMySubscription,
+  })
+  const hasLiveSubscription = ['trialing', 'active', 'past_due'].includes(
+    subscription.data?.status ?? '',
+  )
   const purchases = useQuery({
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
@@ -223,34 +244,52 @@ export default function IndividualHome() {
               {firstName ? `Hello, ${firstName}` : 'Hello'}
             </h1>
             <p className="mt-2 max-w-prose text-foreground">
-              Everything here is yours. No school holds any of it, and nothing
-              you do on these pages is reported to anybody.
+              {/* "No school holds any of it" was reassurance, and it still put
+                  a word in front of somebody that has nothing to do with them.
+                  An individual account is not a school account with the school
+                  taken out; it is its own thing. */}
+              Everything here is yours alone. Nothing you do on these pages is
+              reported to anybody, and nobody else can read any of it.
             </p>
           </div>
 
           {/* Counted from what is already loaded — no extra request, and no
               figure that cannot go up. */}
           <dl className="flex gap-6">
+            {/* THE LABEL WAS IN HERE TWICE. An `sr-only` <dt> carried it for
+                screen readers and a visible <span> carried it for everybody
+                else, inside the <dd> — so a screen reader read "goals on the
+                go, 2, goals on the go" on every tile. Two copies of one label
+                is also two things to keep in step.
+
+                The visible label IS the term, which is what a description list
+                is for. `flex-col-reverse` puts the number on top visually while
+                the DOM keeps dt before dd, so it reads correctly and once. */}
             {stats.map((s) => (
-              <div key={s.label}>
-                <dt className="sr-only">{s.label}</dt>
-                <dd>
-                  {/* A ZERO IS STILL SHOWN AND STILL TRUE — it says what this
-                      account counts, and it fills in as somebody uses it. It
-                      just stops shouting as loudly as the figure that is
-                      actually there, so the eye lands on the one that means
-                      something. Hiding it would make the row jump about as
-                      numbers crossed one. */}
-                  <span
-                    className={`block text-3xl font-bold tabular-nums ${
-                      s.n === 0 ? 'text-muted-foreground/50' : 'text-foreground'
-                    }`}
-                  >
-                    {s.n}
-                  </span>
-                  <span className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
-                    {s.label}
-                  </span>
+              <div
+                key={s.label}
+                /* `justify-end` because in column-reverse the main axis starts
+                   at the BOTTOM, so the default packs content downwards and a
+                   one-line label ("part finished") sat its number lower than a
+                   two-line one ("goals on the go"). Packing to main-end is what
+                   puts every figure on the same line. */
+                className="flex flex-col-reverse justify-end"
+              >
+                <dt className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
+                  {s.label}
+                </dt>
+                {/* A ZERO IS STILL SHOWN AND STILL TRUE — it says what this
+                    account counts, and it fills in as somebody uses it. It just
+                    stops shouting as loudly as the figure that is actually
+                    there, so the eye lands on the one that means something.
+                    Hiding it would make the row jump about as numbers crossed
+                    one. */}
+                <dd
+                  className={`block text-3xl font-bold tabular-nums ${
+                    s.n === 0 ? 'text-muted-foreground/50' : 'text-foreground'
+                  }`}
+                >
+                  {s.n}
                 </dd>
               </div>
             ))}
@@ -377,6 +416,18 @@ export default function IndividualHome() {
           </>
         )}
 
+        {/* --- what they have started ----------------------------------------
+            THE HEADING WAS BELOW ITS OWN LIST. It sat after the closing tag of
+            the <ul>, so whenever somebody actually had a course on the go the
+            card rendered under "What you are working on" — reading as a goal —
+            and "What you have started" then introduced "Also for you", which
+            is the opposite thing. It only labelled the right content in the two
+            states where the list does not render at all: the error and the
+            empty one. A screen reader got the same wrong grouping, worse. */}
+        <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+          What you have started
+        </h2>
+
         {enrolmentsKnown && started.length > 0 && (
           <ul className="space-y-3">
             {started.map(({ enrolment, course, total, done }) => {
@@ -417,8 +468,12 @@ export default function IndividualHome() {
                     </span>
                   </div>
 
+                  {/* Opens the course it is sitting under, rather than the
+                      index. The card names a course and says how far through
+                      it you are; landing on a list and hunting for it again is
+                      the link not keeping its own promise. */}
                   <Link
-                    to="/individual/academy"
+                    to={`/individual/academy?open=${course.id}`}
                     className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
                   >
                     {finished ? 'Read it again →' : 'Carry on →'}
@@ -428,11 +483,6 @@ export default function IndividualHome() {
             })}
           </ul>
         )}
-        {/* --- what they have started ---------------------------------------- */}
-        <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
-          What you have started
-        </h2>
-
         {!enrolmentsKnown && (
           <ErrorState
             message="Your courses could not be loaded, so this is unknown rather than empty. Nothing has been lost — this is a problem reaching the server."
@@ -472,7 +522,7 @@ export default function IndividualHome() {
                     {course.summary}
                   </p>
                   <Link
-                    to="/individual/academy"
+                    to={`/individual/academy?open=${course.id}`}
                     className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
                   >
                     Start it →
@@ -516,6 +566,93 @@ export default function IndividualHome() {
             Ask for suggestions &rarr;
           </Link>
         </section>
+        {/* ------------------------------------------------------------------
+            WHAT IT COSTS, ON THE SCREEN PEOPLE ACTUALLY OPEN.
+            ------------------------------------------------------------------
+            The price lived on the public pricing page and on the Payments tab
+            in Settings — the first is for people deciding whether to make an
+            account, the second is where you go to change something you already
+            have. So a signed-in person could use MiZanova for months without
+            knowing a subscription existed.
+
+            THREE STATES, BECAUSE "PAID" HAS TWO CAUSES.
+            `my_ai_tier()` answers paid for a live subscription OR a course
+            already bought (db/099, db/111). The first version of this card
+            simply hid itself from anybody on the paid tier, which meant the
+            one account with test receipts on it — the demo — never saw the
+            price at all, and neither would a real customer who had bought a
+            single course.
+
+            Hiding it also hid something worth knowing: one course purchase
+            grants the capable model permanently, so it overlaps a subscription
+            almost entirely. Saying that out loud is more honest than quietly
+            withholding an offer, and it is the sort of thing Special Miles
+            should see rather than discover from a support email.
+            ------------------------------------------------------------------ */}
+        {/* `tier.data` is in the condition, not just the ternary below. A
+            ternary on `=== 'free'` sends undefined down the ELSE branch, so
+            while the tier query is in flight — or if it fails — a free account
+            would be told "you already have this", which is both wrong and the
+            one thing that would stop them subscribing. No answer means no
+            card. */}
+        {plan.data?.is_offered && plan.data.price_cents !== null && tier.data && (
+          <section className="mt-4 rounded-card border border-primary bg-primary-subtle p-5">
+            {tier.data === 'free' ? (
+              <>
+                <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                  If you want more of them
+                </p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {formatMoney(plan.data.price_cents, plan.data.currency)}{' '}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    a {plan.data.bill_every}
+                  </span>
+                </p>
+                <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+                  {plan.data.trial_days
+                    ? `Free for the first ${plan.data.trial_days} days. `
+                    : ''}
+                  More suggestions a day, answered by the model that does not
+                  give up on the hard ones. Everything else here stays free
+                  either way.
+                </p>
+                <Link
+                  to="/account/payments"
+                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                >
+                  What you get &rarr;
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                  You already have this
+                </p>
+                <p className="mt-1 max-w-prose text-sm text-foreground">
+                  {hasLiveSubscription
+                    ? 'You subscribe, so your suggestions are answered by the more capable model and you can ask more times a day.'
+                    : 'Because you have bought a course, your suggestions are answered by the more capable model and you can ask more times a day.'}
+                </p>
+                {/* THE PRICE IS STILL SHOWN. Somebody on the paid tier through
+                    a course has not been told what the subscription costs, and
+                    withholding it because they happen not to need it today
+                    makes the figure feel like something being kept from them. */}
+                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                  {hasLiveSubscription
+                    ? `${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every}.`
+                    : `The subscription is ${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every} and would give you the same thing, so there is nothing to pay for now.`}
+                </p>
+                <Link
+                  to="/account/payments"
+                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                >
+                  {hasLiveSubscription ? 'Manage it' : 'See the details'} &rarr;
+                </Link>
+              </>
+            )}
+          </section>
+        )}
+
         {/* --- what they have paid for -------------------------------------- */}
         {paid.length > 0 && (
           <>
@@ -574,10 +711,11 @@ export default function IndividualHome() {
         <section className="mt-10 rounded-card border border-border bg-background p-6">
           <h2 className="font-semibold text-foreground">Worth knowing</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            You can ask a specialist for a session, and they answer here &mdash;
-            but nothing emails either of you about it yet, so check this account
-            for their reply rather than waiting for a message. There is no price
-            for a session either, so nobody will ask you for a card.
+            You can ask a specialist for a session, and they answer here. You
+            are emailed when they do, so you do not have to keep checking &mdash;
+            though what you wrote about what you are finding hard stays in this
+            account and never goes in the email. There is no price for a session
+            either, so nobody will ask you for a card.
           </p>
         </section>
         </aside>

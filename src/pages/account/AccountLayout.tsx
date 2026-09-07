@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ROLE_CONFIG, type Role } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
 
@@ -47,11 +47,57 @@ const TABS: { to: string; label: string; roles?: Role[] }[] = [
   { to: '/account/profile', label: 'Account' },
   { to: '/account/security', label: 'Security & 2FA' },
   { to: '/account/school', label: 'School', roles: ['school_admin'] },
+  /* Individual only. The other roles' money is a different thing and already
+     lives elsewhere — a parent has Collab & Finance, a school admin has
+     Invoices — so a tab here would be a second, worse door to a room they
+     have. */
+  { to: '/account/payments', label: 'Payments', roles: ['individual'] },
+  /* Individual only for now: the export and the summary document are built
+     from what an individual's own account holds, and closing an account is a
+     right this product only offers where nobody else depends on the record. */
+  { to: '/account/data', label: 'Your data', roles: ['individual'] },
+  /* LAST, AND FOR EVERYBODY. `/help` is a real 4,000-word page that was
+     reachable from exactly one place once signed in — an item in the avatar
+     menu, which is where people go to sign out. Settings is where they go when
+     something is wrong, and it did not offer it. */
+  { to: '/account/help', label: 'Help & contact' },
 ]
 
 export default function AccountLayout() {
   const { profile } = useAuth()
-  const roleLabel = profile ? ROLE_CONFIG[profile.role].label : ''
+  const { pathname } = useLocation()
+  /* The self-facing label, so this reads "Your account" rather than
+     "Individual account" for somebody who never chose that word. The ternary
+     below already handled an empty one — it was only ever empty while the
+     profile loaded. */
+  const roleLabel = profile
+    ? (ROLE_CONFIG[profile.role].selfLabel ?? ROLE_CONFIG[profile.role].label)
+    : ''
+
+  /* ------------------------------------------------------------------
+     THE TABS WERE FILTERED AND THE ROUTES WERE NOT.
+     ------------------------------------------------------------------
+     `roles` hid a tab from anybody it was not for, and stopped there — the
+     route underneath rendered for any signed-in person who reached the URL.
+     A platform admin who had been on /account/payments and then signed in
+     found themselves looking at an individual's subscription and receipts
+     screen, which is how this was noticed.
+
+     Nothing leaked: every query underneath is RLS-scoped to the caller, so a
+     platform admin saw their OWN (absent) subscription rather than somebody
+     else's. But being shown another role's screen is its own defect, and the
+     one URL somebody is most likely to still have open after switching
+     accounts is the one they were last on.
+
+     `/account/school` had the same hole before either of the new tabs
+     existed. Guarding from TABS rather than from a second list is the point:
+     one place decides who a tab is for, and it cannot drift from who the
+     route is for.
+     ------------------------------------------------------------------ */
+  const here = TABS.find((tab) => tab.to === pathname)
+  const allowed =
+    !here?.roles || (profile != null && here.roles.includes(profile.role))
+  if (!allowed) return <Navigate to="/account/profile" replace />
 
   return (
     <div>
@@ -71,7 +117,11 @@ export default function AccountLayout() {
       */}
       <nav
         aria-label="Settings sections"
-        className="mt-5 flex gap-1 border-b border-border"
+        /* SCROLLS RATHER THAN WRAPS. An individual now has five tabs and a
+           narrow phone fits about three; wrapping would put a lone tab on its
+           own line under a border that is supposed to be the row itself.
+           `-mb-px` on the items keeps them sitting on that border either way. */
+        className="mt-5 flex gap-1 overflow-x-auto border-b border-border"
       >
         {TABS.filter(
           (tab) => !tab.roles || (profile && tab.roles.includes(profile.role)),
@@ -80,7 +130,7 @@ export default function AccountLayout() {
             key={tab.to}
             to={tab.to}
             className={({ isActive }) =>
-              `-mb-px inline-flex min-h-11 items-center border-b-2 px-4 text-sm font-semibold ${
+              `-mb-px inline-flex min-h-11 shrink-0 items-center border-b-2 px-4 text-sm font-semibold whitespace-nowrap ${
                 isActive
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'

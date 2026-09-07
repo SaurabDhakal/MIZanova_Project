@@ -42,6 +42,8 @@ import Icon from '../../components/Icon'
 export default function Book() {
   const queryClient = useQueryClient()
   const [chosen, setChosen] = useState<string | null>(null)
+  /* Which booking is being asked about before it is withdrawn. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [slot, setSlot] = useState<string | null>(null)
   const [purpose, setPurpose] = useState('')
   /* Read once when the screen mounts, and up here with the other hooks rather
@@ -164,7 +166,30 @@ export default function Book() {
 
   /** "in 3 days", "tomorrow" — the thing somebody actually wants to know. */
   const howSoon = (iso: string) => {
-    const days = Math.round((+new Date(iso) - now) / 86400000)
+    /* CALENDAR DAYS, NOT ELAPSED HOURS. This divided the millisecond gap by
+       86400000 and rounded, which is not the same question. "Tomorrow" means
+       the next date on the calendar; it does not mean "roughly 24 hours from
+       now", and the two disagree for most of every day.
+
+       Measured live on a real booking: at 23:18 on Sunday, a session at 9am on
+       TUESDAY is 33.7 hours away, so the old line computed round(1.4) = 1 and
+       the screen said TOMORROW about something two days off. The mirror is
+       worse and just as easy: at 23:00, a 9am session the NEXT morning is ten
+       hours away, round(0.42) = 0, and the screen says "today" about an
+       appointment that has not arrived yet.
+
+       Both misfire in the evening, which is when somebody checks what is on
+       tomorrow. Comparing local midnights answers the question that was
+       actually asked, and rounding after the subtraction absorbs the 23- and
+       25-hour days at a daylight-saving change. */
+    const midnight = (d: Date | number) => {
+      const x = new Date(d)
+      x.setHours(0, 0, 0, 0)
+      return +x
+    }
+    const days = Math.round(
+      (midnight(new Date(iso)) - midnight(now)) / 86400000,
+    )
     if (days <= 0) return 'today'
     if (days === 1) return 'tomorrow'
     if (days < 14) return `in ${days} days`
@@ -259,17 +284,48 @@ export default function Book() {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => cancel.mutate(b.id)}
-                      className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-                    >
-                      Withdraw this
-                    </button>
+                    {/* CONFIRMED IS THE ONE THAT NEEDS ASKING. A specialist
+                        has put this in their diary and turned other people
+                        away from the slot; withdrawing it on one press, with
+                        no undo and no way to get the time back, is not a
+                        control that should behave like a toggle. */}
+                    {confirmingId === b.id ? (
+                      <span className="flex shrink-0 flex-wrap items-center gap-3 text-sm">
+                        <span className="text-danger-foreground">
+                          Withdraw? The time goes back to them.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => cancel.mutate(b.id)}
+                          className="font-semibold text-danger-foreground hover:underline"
+                        >
+                          Withdraw it
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(null)}
+                          className="font-semibold text-foreground hover:underline"
+                        >
+                          Keep it
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(b.id)}
+                        className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                      >
+                        Withdraw this
+                      </button>
+                    )}
                   </div>
-                  {/* NOTHING EMAILS EITHER OF YOU — said on the card that
-                      matters, not only in a note at the bottom of the home
-                      screen. Somebody who thinks a reminder is coming will
+                  {/* NO REMINDER — said on the card that matters, not only in
+                      a note at the bottom of the home screen. This comment
+                      used to read "nothing emails either of you", which stopped
+                      being true when db/104 wired notifyAboutBooking both ways:
+                      you ARE emailed when a specialist answers. What is still
+                      absent is a reminder before the day, because there is no
+                      scheduler. Somebody who thinks a reminder is coming will
                       miss this. */}
                   <p className="mt-4 text-xs text-muted-foreground">
                     No reminder will be sent for this. It is worth putting in
@@ -354,13 +410,35 @@ export default function Book() {
                     </p>
                   )}
                   {b.status !== 'declined' && (
-                    <button
-                      type="button"
-                      onClick={() => cancel.mutate(b.id)}
-                      className="mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
-                    >
-                      Withdraw this
-                    </button>
+                    confirmingId === b.id ? (
+                      <span className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                        <span className="text-danger-foreground">
+                          Withdraw this request?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => cancel.mutate(b.id)}
+                          className="font-semibold text-danger-foreground hover:underline"
+                        >
+                          Withdraw it
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(null)}
+                          className="font-semibold text-foreground hover:underline"
+                        >
+                          Keep it
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(b.id)}
+                        className="mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                      >
+                        Withdraw this
+                      </button>
+                    )
                   )}
                 </li>
               )

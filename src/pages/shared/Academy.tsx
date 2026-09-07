@@ -15,6 +15,7 @@ import {
   type Course,
   type Enrolment,
 } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import Icon from '../../components/Icon'
@@ -59,8 +60,17 @@ function moduleProgress(
 }
 
 export default function Academy() {
+  const { profile } = useAuth()
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState<string | null>(null)
+  /* OPENED FROM WHEREVER THEY PRESSED "CARRY ON".
+     The home screen shows a course card with its title and "1 of 3 parts" and
+     a link reading "Carry on" — and that link landed on the Academy index,
+     where the person had to find the course again in a list. The card named it;
+     the link should open it. `?open=<courseId>` is read once as the initial
+     state, so the URL is a way in rather than a thing to keep in sync. */
+  const [open, setOpen] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('open'),
+  )
   /*
    * WHICH PART THEY ARE READING, not which course. Opening a course used to
    * unroll every module at once — three or eight of them, each several
@@ -218,9 +228,21 @@ export default function Academy() {
 
   return (
     <div>
+      {/* ONE PAGE, SIX ROLES, AND ONE OF THEM DOES NOT DO "WORK".
+          This lead was written for staff and shown to everybody, including an
+          individual — somebody with no school, no job attached to this account
+          and nobody assigning them anything. "For the work you actually do" is
+          a stranger's sentence to them, on the page they were sent to from a
+          public site promising the opposite. The rest of the screen is genuinely
+          audience-driven through `audiences`; only the sentence at the top was
+          not. */}
       <PageHeader
         title="Academy"
-        lead="Short courses from Special Miles, for the work you actually do."
+        lead={
+          profile?.role === 'individual'
+            ? 'Short courses from Special Miles, at your own pace. Nothing is timed and nothing is scored.'
+            : 'Short courses from Special Miles, for the work you actually do.'
+        }
       />
 
       {visible.length === 0 ? (

@@ -18,6 +18,7 @@ import {
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import IndividualPlanSection from '../../components/IndividualPlanSection'
 import SchoolBadge from '../../components/SchoolBadge'
 import { findPublishedPlan, PUBLISHED_PLANS } from '../../lib/plans'
 import { showToast } from '../../lib/toast'
@@ -637,8 +638,14 @@ export default function Subscriptions() {
         </div>
       </div>
 
+      {/* db/111. The other customer who pays us directly, and until now the
+          only way to set their price was an UPDATE statement written out in a
+          migration comment. A commercial decision that needs a database client
+          to enact is one that does not get made. */}
+      <IndividualPlanSection />
+
       {/* --- Agreements ---------------------------------------------------- */}
-      <h2 className="mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
         What each school has agreed
       </h2>
 

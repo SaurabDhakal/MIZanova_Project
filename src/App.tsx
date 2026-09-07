@@ -59,6 +59,11 @@ const Status = lazy(() => import('./pages/public/Status'))
 const Security = lazy(() => import('./pages/account/Security'))
 const AccountProfile = lazy(() => import('./pages/account/Profile'))
 const AccountSchool = lazy(() => import('./pages/account/School'))
+const AccountHelpContact = lazy(
+  () => import('./pages/account/HelpContact'),
+)
+const AccountPayments = lazy(() => import('./pages/account/Payments'))
+const AccountYourData = lazy(() => import('./pages/account/YourData'))
 
 /**
  * ROLE SCREENS ARE ADDED HERE, BY THE PERSON WHO OWNS THAT ROLE.
@@ -103,6 +108,9 @@ const IndividualSuggestions = lazy(
   () => import('./pages/individual/Suggestions'),
 )
 const IndividualReceipts = lazy(() => import('./pages/individual/Receipts'))
+const IndividualWhatWorks = lazy(
+  () => import('./pages/individual/WhatWorks'),
+)
 const IndividualGoals = lazy(() => import('./pages/individual/Goals'))
 const IndividualBook = lazy(() => import('./pages/individual/Book'))
 const GoalsAndIep = lazy(() => import('./pages/parent/GoalsAndIep'))
@@ -299,7 +307,15 @@ const DETAIL_ROUTES: Partial<
   // BUILT_SCREENS entry with no matching nav item builds no route at all — the
   // screen was written, imported and rendered by nothing, and both links to it
   // landed on Page not found.
-  individual: [{ path: 'receipts', element: <IndividualReceipts /> }],
+  individual: [
+    { path: 'receipts', element: <IndividualReceipts /> },
+    /* Off-nav for a different reason than receipts. This is not a screen
+       somebody visits weekly — it is the thing they open when somebody has
+       asked them for something, so it belongs where that thought starts: a
+       link from Goals and from Suggestions, which is where the material for
+       it comes from. */
+    { path: 'what-works', element: <IndividualWhatWorks /> },
+  ],
 
   // --- Saurab: parent, platform_admin ---
   // Clicking a school opens who is in it. The Schools row answers "how is this
@@ -526,6 +542,9 @@ export default function App() {
               non-school-admin who types the URL gets a page that can read
               nothing and write nothing. */}
           <Route path="school" element={<AccountSchool />} />
+          <Route path="payments" element={<AccountPayments />} />
+          <Route path="data" element={<AccountYourData />} />
+          <Route path="help" element={<AccountHelpContact />} />
         </Route>
       </Route>
 

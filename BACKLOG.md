@@ -24,6 +24,20 @@ bulk import as gaps, and both shipped since it was written.
       deploys. Either correct the words (small) or build the layer, which
       `docs/11` argues is "cheap now and impossible later".
 
+- [x] ~~**Four sentences shipped to individuals had stopped being true.**~~
+      Found by walking the funnel on 6 September. "Nothing emails either of you
+      about it yet" was on the public page, the individual's home screen and
+      the specialist's schedule, while `notifyAboutBooking` has sent mail both
+      ways since db/104 — `specialist/Schedule.tsx` even carries a note about
+      correcting this once, and the other three were missed. The account page
+      told an individual no notification would ever reach them, while the same
+      function pushes to `/individual/book`. The public page said sessions "do
+      not exist yet" twenty lines above a paragraph on how to use them. And
+      "What you actually get" listed four things, omitting suggestions, goals,
+      sessions and receipts, while the pricing page's own tab described
+      suggestions — two public pages disagreeing about what the product is.
+      All corrected; the signup card had the same undersell and is fixed too.
+
 ---
 
 ## 2. The individual account — finishing it
@@ -71,6 +85,16 @@ bulk import as gaps, and both shipped since it was written.
       do. The specialist's email deliberately carries only the time: what
       somebody wrote about what they are finding hard stays in the account,
       where RLS governs who reads it.
+- [x] ~~**The individual role is finished, end to end.**~~ Verified on 7 Sep by
+      using it rather than reading it: every screen, every button actuated.
+      Public funnel → signup → all six sidebar screens → receipts, the summary
+      document, and four Settings tabs. AI generation confirmed working after
+      db/111 replaced `my_ai_tier()` — a real ask returned a real answer on the
+      paid model, with one suggestion withheld below the confidence threshold,
+      zero redactions needed and no risk flag. Module completion moves the
+      counts on three screens consistently (1/3 → 2/3, "2 parts finished").
+      What remains below is decisions, not engineering.
+
 - [ ] **A session has no price.** Deliberate, not missing: `plans.ts` says
       figures come from the client and the brief says willingness to pay is
       still being researched. When Special Miles sets one, the accept step
@@ -86,6 +110,45 @@ bulk import as gaps, and both shipped since it was written.
       showed fewer suggestions than the free one, because Opus scores itself
       honestly near its 0.70 bar while the cheap model inflates. Worth watching
       the escalation rate and the withheld counts before tuning either.
+
+- [x] ~~**The paid AI tier was unreachable, so db/099 was a capability with no
+      consumer.**~~ db/099 defined paid as "has bought a course" and said the
+      day a subscription existed the function would gain a branch. Every course
+      is priced null and course-checkout refuses a free course, so no new paid
+      purchase row could be created by anybody — `my_ai_tier()` returned 'free'
+      for every individual alive, and `paid_model`, `daily_limit_per_user` and
+      the escalation path were live code nothing could reach. db/111 adds the
+      subscription and the branch.
+- [ ] **Set a subscription price, or decide there is not one.** db/111 ships
+      the machinery with `price_cents` null and `is_offered` false, because
+      willingness to pay is still being researched with Practera and this
+      project does not print figures nobody has agreed to. Nothing is on sale
+      until Special Miles creates a recurring Price in Stripe and runs the one
+      UPDATE at the bottom of db/111. A check constraint refuses to put a plan
+      on sale without both a price and a Stripe price id, so it cannot go live
+      half-configured. Set from **Platform Admin → Subscriptions → "What an individual pays"**;
+      no SQL and no deployment. **Joe's call, not an engineering task.**
+- [ ] **Decide whether there is a free trial, and how long.** `trial_days` is
+      null, which means no trial, and every public page says so plainly rather
+      than implying one. Setting it to a number passes it to Stripe as
+      `trial_period_days`; Stripe owns the clock. Note this is NOT the school
+      trial — `TrialNotice.tsx` says outright that MiZanova has no trial end
+      date and no billing clock, which stays true for schools, who are invoiced
+      after a conversation. **Joe's call.**
+- [ ] **The Stripe key is a placeholder, so no payment can complete.** Corrected
+      on 6 September: an earlier note here said the key was *empty*, which was
+      wrong — `.env.local` holds `sk_test_…xxxx` and `whsec_…`, both the right
+      shape and neither real. The first genuine call returns "Invalid API Key
+      provided". Render has separately never deployed. Needs a real Stripe test
+      key to exercise a payment end to end. **Saurab's.**
+- [x] ~~**/api/health was green on a key that could not take a payment.**~~
+      `stripe_key_looks_right` was `startsWith('sk_')`, so a shaped placeholder
+      passed and the endpoint reported `"status":"ok"` with every Stripe check
+      true. Its own docstring says a health check that is green during an
+      outage is worse than none. It now asks Stripe (cheapest authenticated
+      read, cached five minutes, failures cached too) and reports "degraded".
+      Anthropic is deliberately still presence-only: the cheapest honest check
+      there is a generation, which would charge Special Miles per poll.
 
 ---
 

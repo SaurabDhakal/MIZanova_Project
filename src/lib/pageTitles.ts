@@ -38,13 +38,38 @@ const PUBLIC_TITLES: Record<string, string> = {
   '/account/security': 'Security',
   '/account/profile': 'Your account',
   '/account/school': 'Your school',
+  '/account/help': 'Help and contact',
+  '/account/payments': 'Payments',
+  '/account/data': 'Your data',
   '/design-tokens': 'Design tokens',
   '/link': 'Connect to your child',
+}
+
+/**
+ * Pages that live inside a role section but are not sidebar items — the
+ * DETAIL_ROUTES in App.tsx.
+ *
+ * Without an entry these fall through to the section's own label at the bottom
+ * of the role loop, which is not "Page not found" but is not much better: the
+ * browser tab, the history entry and the aria-label on <main> all read
+ * "Individual" on a page about receipts. Two identical history entries for two
+ * different screens is the practical cost.
+ */
+const OFF_NAV_TITLES: Record<string, string> = {
+  /* No " — Individual" suffix, matching the nav pages above. These were
+     written with it baked in a day before `selfLabel` existed, so they were
+     the only two individual screens still announcing a category the person
+     never chose. */
+  '/individual/receipts': 'Receipts',
+  '/individual/what-works': 'What works for me',
 }
 
 export function titleFor(pathname: string): string {
   const exact = PUBLIC_TITLES[pathname]
   if (exact) return exact
+
+  const offNav = OFF_NAV_TITLES[pathname]
+  if (offNav) return offNav
 
   /*
    * A ROUTE WHOSE NAME CARRIES A TOKEN. `/invite/:token` matched no exact key
@@ -91,12 +116,19 @@ export function titleFor(pathname: string): string {
         : pathname === full
 
       if (matches) {
-        return `${item.label} — ${config.label}`
+        /* "Home — Individual" names a category the person never picked, in the
+           browser tab, the history entry and what a screen reader announces on
+           arrival. `selfLabel` is empty exactly where that suffix is noise, so
+           an individual gets "Home" and staff keep the section they are in —
+           which for them is genuinely useful, because they can hold more than
+           one. */
+        const suffix = config.selfLabel ?? config.label
+        return suffix ? `${item.label} — ${suffix}` : item.label
       }
     }
 
     // A detail page under the section, e.g. /educator/students/<id>.
-    return config.label
+    return config.selfLabel || config.label
   }
 
   return 'Page not found'

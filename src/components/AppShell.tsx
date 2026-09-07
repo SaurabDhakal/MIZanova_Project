@@ -323,7 +323,9 @@ export default function AppShell({ role }: { role: Role }) {
                 one, and every role's lines are counted from work that is really
                 waiting — see NotificationBell. */}
             <NotificationBell role={role} basePath={config.basePath} />
-            <AccountMenu roleLabel={config.label} />
+            {/* The label as this person should see it, not as they are catalogued.
+                `selfLabel` is only set where the two differ. */}
+            <AccountMenu roleLabel={config.selfLabel ?? config.label} />
           </div>
         </header>
 

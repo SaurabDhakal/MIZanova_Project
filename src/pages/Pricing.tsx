@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import PublicLayout from '../components/PublicLayout'
 import {
   fetchCourseCatalogue,
+  fetchIndividualPlan,
   formatMoney,
   queryKeys,
   type EnquiryPlan,
@@ -246,6 +247,13 @@ export default function Pricing() {
   const catalogue = useQuery({
     queryKey: queryKeys.courseCatalogue,
     queryFn: fetchCourseCatalogue,
+  })
+  /* The subscription — db/111. Same reasoning as the catalogue above: read
+     from the database rather than typed here, so the page and the thing that
+     charges cannot drift. Signed-out readable through a definer view. */
+  const plan = useQuery({
+    queryKey: queryKeys.individualPlan,
+    queryFn: fetchIndividualPlan,
   })
   const forIndividuals = (catalogue.data ?? []).filter((c) =>
     c.audiences.includes('individual'),
@@ -506,6 +514,99 @@ export default function Pricing() {
             Create my account
           </Link>
 
+          {/* ------------------------------------------------------------
+              THE SUBSCRIPTION — db/111, read from the database, never typed.
+              ------------------------------------------------------------
+              `individual_plan_public` is a definer view granted to `anon` for
+              db/098's reason: a pricing page is read by people who are not
+              signed in, and a shop that hides its prices until you have an
+              account is not protecting anything.
+
+              WHEN THERE IS NO PRICE THIS SAYS SO AND SHOWS NO BUTTON. A
+              "Subscribe" control that fails on press is the fault this
+              codebase keeps finding in itself, and a figure invented to fill
+              the space would be the fabricated ABN again.
+              ------------------------------------------------------------ */}
+          <h3 className="mt-12 font-semibold text-foreground">
+            A subscription
+          </h3>
+
+          {plan.isPending && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Loading&hellip;
+            </p>
+          )}
+
+          {/* The catalogue above does exactly this, and for the same reason: a
+              heading with nothing under it reads as a broken page, and a price
+              that failed to load must not be replaced by a guess. */}
+          {plan.isError && (
+            <p className="mt-1 max-w-prose text-sm text-danger-foreground">
+              Whether there is a subscription could not be loaded, so nothing is
+              shown rather than shown wrongly. {plan.error.message}
+            </p>
+          )}
+
+          {plan.isSuccess && !plan.data?.is_offered && (
+            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+              There is not one yet. Special Miles has not settled a price, and
+              nothing here will print one nobody has agreed to. Everything
+              described above is free and stays free; if a subscription is
+              offered it appears here with the figure on it, and it would
+              change how many suggestions you can ask for in a day rather than
+              whether you can use MiZanova.
+            </p>
+          )}
+
+          {plan.isSuccess &&
+            plan.data?.is_offered &&
+            plan.data.price_cents !== null && (
+              <div className="mt-3 rounded-card border border-border bg-card p-6 shadow-raised">
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <h4 className="font-bold text-foreground">
+                    {plan.data.name}
+                  </h4>
+                  <p className="text-2xl font-bold tabular-nums text-foreground">
+                    {formatMoney(plan.data.price_cents, plan.data.currency)}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {' '}
+                      / {plan.data.bill_every === 'year' ? 'year' : 'month'}
+                    </span>
+                  </p>
+                </div>
+                {plan.data.trial_days && (
+                  <p className="mt-1 text-sm font-semibold text-primary">
+                    Free for the first {plan.data.trial_days} days.
+                  </p>
+                )}
+                <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  <li>
+                    Suggestions answered by the more capable model &mdash; the
+                    one that does not give up on the hard questions.
+                  </li>
+                  <li>
+                    More suggestions a day than the free account allows.
+                  </li>
+                  <li>
+                    Everything else is identical, and cancelling leaves you with
+                    what you paid for until the period ends.
+                  </li>
+                </ul>
+                <Link
+                  to="/signup"
+                  className="mt-5 inline-block rounded-btn bg-primary px-5 py-3 font-semibold text-primary-foreground"
+                >
+                  {plan.data.trial_days
+                    ? 'Start the free trial'
+                    : 'Make an account'}
+                </Link>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  You subscribe from your account page once you are signed in.
+                  Payment is taken by Stripe; MiZanova never sees your card.
+                </p>
+              </div>
+            )}
+
           {/* --- what is not built, said before it is asked for ---------- */}
           <h3 className="mt-12 font-semibold text-foreground">
             One-to-one sessions
@@ -609,11 +710,16 @@ export default function Pricing() {
         <h2 className="font-semibold text-foreground">
           Before you choose a plan
         </h2>
+        {/* THE SCHOOL SENTENCE WAS SHOWN TO EVERYBODY, including somebody on
+            the "For myself" tab who has no school and is not creating one.
+            The true half — that nothing on this page charges you — holds for
+            all four audiences and is the half worth keeping. */}
         <p className="mt-2 text-sm text-muted-foreground">
-          Nothing on this page takes a payment. Every button here starts a
-          conversation — a school account is created by Special Miles, because
-          creating one means creating the thing every account at that school
-          hangs off. No card is entered and no plan is applied.
+          Nothing on this page takes a payment. No card is entered here and no
+          plan is applied.{' '}
+          {audience === 'individual'
+            ? 'You make an account first, and anything with a price on it is paid for from inside it, with the figure shown before you decide.'
+            : 'Every button here starts a conversation — a school account is created by Special Miles, because creating one means creating the thing every account at that school hangs off.'}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
           The design for this page also carries a list of frequently asked

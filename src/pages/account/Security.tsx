@@ -9,6 +9,7 @@ import {
   startEnrolment,
   type EnrolmentStart,
 } from '../../lib/mfa'
+import { signOutOtherSessions } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 import { ErrorState } from '../../components/QueryState'
@@ -65,6 +66,7 @@ export default function Security() {
   const mandatory =
     profile !== null && MFA_REQUIRED_ROLES.includes(profile.role)
 
+  const signOutOthers = useMutation({ mutationFn: signOutOtherSessions })
   const begin = useMutation({
     mutationFn: startEnrolment,
     onSuccess: (started) => setEnrolment(started),
@@ -456,16 +458,65 @@ export default function Security() {
         </p>
       </section>
 
-      {/* --- What this page does not do ------------------------------------- */}
+      {/* ------------------------------------------------------------------
+          MOVED HERE FROM THE ACCOUNT TAB, where it was one of nine sections.
+          It belongs beside the password and not merely because both are
+          security: the two were already finishing each other's sentences from
+          different tabs. This one said "changing your password does not do
+          this on its own"; the password section above says "changing it here
+          does not sign you out of other devices". Somebody reading either had
+          to go and find the other.
+          ------------------------------------------------------------------ */}
+      <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
+        <h2 className="text-lg font-bold text-foreground">Other devices</h2>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          Ends every other signed-in session and leaves this one alone. Worth
+          doing if you have left yourself signed in on a shared machine &mdash;
+          changing your password above does not do this on its own.
+        </p>
+        <button
+          type="button"
+          onClick={() => signOutOthers.mutate()}
+          disabled={signOutOthers.isPending}
+          className="mt-4 min-h-11 rounded-btn border border-border px-4 font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+        >
+          {signOutOthers.isPending ? 'Signing out…' : 'Sign out everywhere else'}
+        </button>
+        {signOutOthers.isError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+            {signOutOthers.error.message}
+          </p>
+        )}
+        {signOutOthers.isSuccess && (
+          <p className="mt-3 text-sm font-medium text-success-foreground">
+            Every other session has been signed out.
+          </p>
+        )}
+      </section>
+
+      {/* --- What this page does not do -------------------------------------
+          RE-VERIFICATION CAME OFF THIS LIST BECAUSE IT GOT BUILT. It was named
+          here as missing while the password was already being re-checked
+          before a password change (just above), before an email change on the
+          Account tab, and server-side before an account is closed — which is
+          the most sensitive action in the product. A list of absences has to be
+          maintained as carefully as the features, or it becomes the most
+          confident wrong sentence on the page; this one was telling people a
+          protection they had was not there. */}
       <NotBuiltYet>
         <p>
           The design for this screen also shows SMS codes, a 20-minute
-          auto-lock, re-verification before sensitive actions, alerts on
-          sign-in from a new device, a list of active sessions, and a sign-in
-          history. None of those exist yet, so they are not shown as switches
-          here — a control that looks authoritative and changes nothing is
-          worse than an admission on a page about whether your account is
-          protected.
+          auto-lock, alerts on sign-in from a new device, a list of active
+          sessions, and a sign-in history. None of those exist yet, so they are
+          not shown as switches here &mdash; a control that looks authoritative
+          and changes nothing is worse than an admission on a page about
+          whether your account is protected.
+        </p>
+        <p>
+          Re-verification before sensitive actions <em>is</em> here, and is not
+          a switch because there is nothing to turn on: your password is asked
+          for again before it is changed, before your email address is changed,
+          and before your account is closed.
         </p>
       </NotBuiltYet>
     </div>

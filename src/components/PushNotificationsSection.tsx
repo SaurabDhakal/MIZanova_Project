@@ -112,11 +112,19 @@ export default function PushNotificationsSection() {
       </h2>
 
       {/* WHAT A NOTIFICATION SAYS DEPENDS ON WHETHER THERE IS A SCHOOL.
-          Every notification MiZanova sends today is about a child at one, and
-          an individual (db/088) is not connected to any — so this control is
-          real, the browser permission is real, and nothing would ever arrive
-          through it. Offering it without saying so is a promise with nothing
-          behind it, which is the fault this codebase keeps finding in itself. */}
+          This used to say that nothing would ever reach an individual, because
+          when it was written every notification was about a child at a school
+          and an individual (db/088) is connected to none.
+
+          That stopped being true and the sentence did not. Booking (db/102-104)
+          notifies BOTH sides through `notifyAboutBooking`, which sends push as
+          well as email — an individual is pushed at `/individual/book` the
+          moment a specialist answers them. So the honest fault reversed: the
+          screen was talking somebody out of switching on the one notification
+          that would actually reach them.
+
+          A note about what is missing has to be maintained as carefully as the
+          feature, or it becomes the most confident wrong sentence on the page. */}
       {inASchool ? (
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           A notification tells you <b>how many</b> things need you and{' '}
@@ -126,11 +134,12 @@ export default function PushNotificationsSection() {
         </p>
       ) : (
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          <b>Nothing sends you one yet.</b> Every notification MiZanova sends
-          today is about a child at a school, and this account is not connected
-          to one. You can switch this on and the browser will remember it, but
-          it will stay quiet until there is something here worth telling you
-          about.
+          <b>One thing sends you a notification:</b> a specialist answering
+          your session request. It says that something needs you and takes you
+          to it &mdash; never what you asked about, because a notification can
+          be read without signing in and what you wrote is the private part.
+          Nothing else here notifies you, so switching this on stays quiet
+          otherwise.
         </p>
       )}
 
@@ -210,8 +219,8 @@ export default function PushNotificationsSection() {
           <p className="mt-3 text-xs text-muted-foreground">
             {/* Said because the alternative is somebody turning it off on one
                 machine and assuming it is off everywhere. */}
-            Each browser is separate. Turning this on at school does not turn it
-            on at home.
+            Each browser is separate. Turning this on in one does not turn it
+            on in another.
           </p>
         </>
       )}

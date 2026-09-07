@@ -379,6 +379,7 @@ function UsageSection() {
   const [editing, setEditing] = useState(false)
   const [schoolLimit, setSchoolLimit] = useState('')
   const [userLimit, setUserLimit] = useState('')
+  const [freeUserLimit, setFreeUserLimit] = useState('')
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -394,6 +395,7 @@ function UsageSection() {
       updateAiLimits({
         schoolLimit: Number(schoolLimit),
         userLimit: Number(userLimit),
+        freeUserLimit: Number(freeUserLimit),
         reason,
       }),
     onSuccess: async () => {
@@ -435,21 +437,46 @@ function UsageSection() {
           </p>
         ) : !editing ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-foreground">
-              <span className="font-semibold">
-                {controls.data?.daily_limit_per_school}
-              </span>{' '}
-              requests a day per school,{' '}
-              <span className="font-semibold">
-                {controls.data?.daily_limit_per_user}
-              </span>{' '}
-              per person.
-            </p>
+            {/* THERE ARE TWO PER-PERSON LIMITS AND THIS SHOWED ONE. db/099
+                split them: somebody who has paid gets `daily_limit_per_user`,
+                everybody else gets `free_daily_limit_per_user`, and they are
+                answered by different models. This line read "N per person",
+                so a platform admin setting spend controls believed the paid
+                figure applied to everyone. */}
+            <div className="text-sm text-foreground">
+              <p>
+                <span className="font-semibold">
+                  {controls.data?.daily_limit_per_school}
+                </span>{' '}
+                requests a day per school.
+              </p>
+              <p className="mt-1">
+                Per person:{' '}
+                <span className="font-semibold">
+                  {controls.data?.free_daily_limit_per_user}
+                </span>{' '}
+                on the free tier,{' '}
+                <span className="font-semibold">
+                  {controls.data?.daily_limit_per_user}
+                </span>{' '}
+                for somebody who has paid.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Free is answered by {controls.data?.free_model}, paid by{' '}
+                {controls.data?.paid_model} — and a free answer that is
+                risk-flagged or empty is re-run on the paid model anyway, so
+                the cheaper one is never the last word on the cases that
+                matter. Paid means a live subscription or a course bought.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => {
                 setSchoolLimit(String(controls.data?.daily_limit_per_school ?? ''))
                 setUserLimit(String(controls.data?.daily_limit_per_user ?? ''))
+                setFreeUserLimit(
+                  String(controls.data?.free_daily_limit_per_user ?? ''),
+                )
                 setEditing(true)
               }}
               className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
@@ -492,7 +519,7 @@ function UsageSection() {
               </div>
               <div>
                 <label htmlFor="ai-user-limit" className="block text-sm font-medium text-foreground">
-                  Per person, per day
+                  Per person, per day — paid
                 </label>
                 <input
                   id="ai-user-limit"
@@ -501,6 +528,23 @@ function UsageSection() {
                   inputMode="numeric"
                   className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
                 />
+              </div>
+              <div>
+                <label htmlFor="ai-free-user-limit" className="block text-sm font-medium text-foreground">
+                  Per person, per day — free
+                </label>
+                <input
+                  id="ai-free-user-limit"
+                  value={freeUserLimit}
+                  onChange={(e) => setFreeUserLimit(e.target.value)}
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                />
+                {/* db/099's check constraint refuses a free limit above the
+                    paid one, so this is worth saying before the save fails. */}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Cannot be higher than the paid limit.
+                </p>
               </div>
             </div>
             <div className="mt-3">
