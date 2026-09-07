@@ -1014,6 +1014,145 @@ export async function fetchStrategyStatus(
  * the AI call — happens on the server, so nothing sensitive and no API key
  * passes through here.
  */
+// ---------------------------------------------------------------------------
+// The Evidence Database — db/118, FR12 and E02
+// ---------------------------------------------------------------------------
+
+export type EvidenceStrategy = {
+  id: string
+  lineage_id: string
+  version: number
+  is_current: boolean
+  behaviour_type: BehaviourType
+  title: string
+  body: string
+  rationale: string[]
+  provenance: string
+  created_at: string
+  retired_at: string | null
+  retired_reason: string | null
+}
+
+/** Everything current, for a specialist to manage or a screen to fall back on. */
+export async function fetchEvidenceStrategies(): Promise<EvidenceStrategy[]> {
+  const { data, error } = await supabase
+    .from('evidence_strategies')
+    .select(
+      'id, lineage_id, version, is_current, behaviour_type, title, body, rationale, provenance, created_at, retired_at, retired_reason',
+    )
+    .eq('is_current', true)
+    .order('behaviour_type')
+    .order('title')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as EvidenceStrategy[]
+}
+
+/** Every version of one lineage, oldest first — the "version-controlled" half. */
+export async function fetchEvidenceHistory(
+  lineageId: string,
+): Promise<EvidenceStrategy[]> {
+  const { data, error } = await supabase
+    .from('evidence_strategies')
+    .select(
+      'id, lineage_id, version, is_current, behaviour_type, title, body, rationale, provenance, created_at, retired_at, retired_reason',
+    )
+    .eq('lineage_id', lineageId)
+    .order('version')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as EvidenceStrategy[]
+}
+
+/**
+ * Add a strategy, or a new version of one — db/118.
+ *
+ * There is no update. Revising inserts a row in the same lineage and takes the
+ * previous one out of currency, which is what "version-controlled" means here:
+ * a strategy that changed after a teacher used it is still readable as the
+ * words they were given.
+ *
+ * The two writes are not a transaction, and the order is deliberate: the new
+ * row goes in FIRST and would collide with the partial unique index if
+ * anything went wrong, so a failure leaves the old version current rather than
+ * leaving the library with nothing live for that behaviour.
+ */
+export async function saveEvidenceStrategy(input: {
+  lineageId?: string
+  behaviourType: BehaviourType
+  title: string
+  body: string
+  rationale: string[]
+  provenance: string
+}): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const me = session.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  if (input.lineageId) {
+    const previous = await fetchEvidenceHistory(input.lineageId)
+    const current = previous.find((v) => v.is_current)
+    if (!current) throw new Error('That strategy has no current version to revise.')
+
+    // Retire the old one first so the partial index has room for the new.
+    const { data: freed, error: freeError } = await supabase
+      .from('evidence_strategies')
+      .update({ is_current: false })
+      .eq('id', current.id)
+      .select('id')
+    if (freeError) throw new Error(freeError.message)
+    assertChanged(freed, 'That revision')
+
+    const { error } = await supabase.from('evidence_strategies').insert({
+      lineage_id: input.lineageId,
+      version: current.version + 1,
+      behaviour_type: input.behaviourType,
+      title: input.title.trim(),
+      body: input.body.trim(),
+      rationale: input.rationale.filter((r) => r.trim()),
+      provenance: input.provenance.trim(),
+      created_by: me,
+    })
+    if (error) {
+      // Put the old one back rather than leaving the lineage with nothing
+      // current — a library that silently loses a strategy is worse than one
+      // that refuses an edit.
+      await supabase
+        .from('evidence_strategies')
+        .update({ is_current: true })
+        .eq('id', current.id)
+      throw new Error(error.message)
+    }
+    return
+  }
+
+  const { error } = await supabase.from('evidence_strategies').insert({
+    lineage_id: crypto.randomUUID(),
+    behaviour_type: input.behaviourType,
+    title: input.title.trim(),
+    body: input.body.trim(),
+    rationale: input.rationale.filter((r) => r.trim()),
+    provenance: input.provenance.trim(),
+    created_by: me,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Withdraw one from use. Not a delete — see db/118. */
+export async function retireEvidenceStrategy(
+  id: string,
+  reason: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('evidence_strategies')
+    .update({ retired_at: new Date().toISOString(), retired_reason: reason.trim() || null })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'That withdrawal')
+}
+
 export async function requestStrategies(
   behaviourLogId: string,
 ): Promise<StrategyResponse> {
@@ -9372,6 +9511,7 @@ export const queryKeys = {
   sharedLogs: (id: string) => ['shared-logs', id] as const,
   homeObservations: (id: string) => ['home-observations', id] as const,
   homeStrategies: (id: string) => ['home-strategies', id] as const,
+  evidenceStrategies: ['evidence-strategies'] as const,
   goalReviews: (id: string) => ['goal-reviews', id] as const,
   openGoalReviews: ['open-goal-reviews'] as const,
   childSpecialists: (id: string) => ['child-specialists', id] as const,

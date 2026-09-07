@@ -513,9 +513,43 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
 - [ ] **FR17 — a Country on each school to trigger local privacy law.** No
       country column exists. Everything is implicitly Australian. Matters the
       day a second jurisdiction appears, and is much cheaper before then.
-- [ ] **FR12 — a version-controlled library of proven strategies.** Specialists
-      review suggestions one at a time and nothing accumulates. Distinct from
-      the Library (articles) and the Academy (courses).
+- [x] ~~**FR12 — a version-controlled library of proven strategies.**~~
+      db/118, and reading FR12 alone badly understates it. Three requirements
+      point at one thing: FR12 asks for the library, **E02 says "strategies
+      must fall back to the curated Evidence Database if AI is blocked or
+      offline"**, and A04 wants "the ratio of AI-generated strategies versus
+      Database-only usage".
+
+      **It is the net under the AI, and there was none.** `/api/strategies`
+      returned a 503 and nothing else when `ai_enabled` was false — so FR21's
+      kill switch, the one Special Miles pulls during a crisis, left every
+      teacher in every classroom with no strategies at all, at the moment they
+      were most likely to need one. Same for the offline case the brief names
+      as a core challenge.
+
+      Version-controlled taken literally: nothing is ever edited. A revision
+      inserts a new row in the same lineage and a partial unique index keeps
+      one current; a trigger refuses any change to the words outright, so an
+      edit cannot look saved. A strategy that changed after a teacher used it
+      is still readable as the words they were given.
+
+      `provenance` is NOT NULL. "Proven" is the requirement's word and a claim
+      nobody can check is not proof — it is the sentence a specialist would say
+      if a parent asked why the school is doing this.
+
+      Select is `using (true)`, the only such policy in the schema. These rows
+      carry no student, school or incident, which is what lets a laptop hold
+      them offline safely. Writing is a verified specialist or a platform
+      admin, and the test asserts an unverified specialist and a teacher are
+      both refused.
+
+- [ ] **The Evidence Database ships EMPTY, and that is deliberate.** Writing
+      "evidence-based" strategies with invented provenance would be the same
+      fabrication this project has refused for the ABN and for prices. Until
+      Special Miles writes some, the kill switch still leaves a teacher with
+      nothing — the screen's empty state says exactly that rather than "no
+      strategies yet", and the 503 now names the empty library as the reason.
+      **Content is Joe's, not an engineering task.**
 - [ ] **FR7 / 1.5.2 — Parent Premium and the 3-month report.** Eleven named
       sections. Blocked on price and a real Stripe key.
 - [ ] **FR23 — optional neurodevelopment profile.** Needs Joe on consent and

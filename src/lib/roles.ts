@@ -240,6 +240,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: '', label: 'Command Centre', icon: 'dashboard', milestone: 'M10' },
       { path: 'caseload', label: 'Caseload', icon: 'caseload', group: 'Your work', milestone: 'M10' },
       { path: 'review-queue', label: 'Review Queue', icon: 'review', group: 'Your work', milestone: 'M6' },
+      // db/118. FR12's library, and the net E02 asks for under the AI.
+      { path: 'evidence', label: 'Evidence Database', icon: 'review', group: 'Your work', milestone: 'M6' },
       { path: 'schedule', label: 'Schedule', icon: 'schedule', group: 'Your work', milestone: 'M10' },
       // A specialist could always be MESSAGED — start_message_thread puts any
       // two of a child's care team in a thread — and until now had no screen to

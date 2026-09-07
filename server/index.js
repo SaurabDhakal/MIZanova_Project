@@ -536,6 +536,82 @@ app.get('/api/health', async (_req, res) => {
  * sources of truth that can drift apart, and the one in JavaScript would be
  * the one nobody re-tests.
  */
+/**
+ * The curated answer, for when the model cannot give one — db/118, E02.
+ *
+ * Shaped exactly like a generated response so `StrategyPanel` renders either
+ * without knowing which it got, and marked `source: 'evidence'` so it can SAY
+ * which it got. A teacher handed advice in a crisis is entitled to know it
+ * came from a library rather than from a model reading their notes.
+ *
+ * The usage row is written with the same `source`, because A04 asks for "the
+ * ratio of AI-generated strategies versus Database-only usage" and without it
+ * that ratio cannot be computed at all.
+ */
+async function evidenceFallback(log, actorId) {
+  /*
+   * The school is looked up here rather than passed in. The first version took
+   * a `student` the caller had already fetched — and the kill-switch branch
+   * runs BEFORE that fetch, so it read a `const` in its temporal dead zone.
+   * Neither the linter nor `node --check` sees that; it throws at runtime, in
+   * the branch that only runs during a crisis, which is the worst possible
+   * place to find out.
+   */
+  const { data: student } = await admin
+    .from('students')
+    .select('school_id')
+    .eq('id', log.student_id)
+    .maybeSingle()
+
+  const { data: rows, error } = await admin
+    .from('evidence_strategies')
+    .select('id, title, body, rationale, provenance')
+    .eq('behaviour_type', log.behaviour_type)
+    .eq('is_current', true)
+    .is('retired_at', null)
+    .limit(3)
+
+  if (error) {
+    console.error('Evidence fallback failed:', error.message)
+    return { strategies: [] }
+  }
+
+  const strategies = (rows ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    body: r.body,
+    rationale: r.rationale ?? [],
+    /*
+     * No confidence score. A number here would be invented: these were written
+     * by a person and chosen by a specialist, and a made-up 0.9 beside them
+     * would put them on the same scale as something a model scored itself on.
+     */
+    confidence: null,
+    status: 'published',
+    provenance: r.provenance,
+  }))
+
+  if (strategies.length > 0) {
+    await admin.from('ai_generation_events').insert({
+      school_id: student?.school_id ?? null,
+      requested_by: actorId,
+      behaviour_log_id: log.id,
+      strategies_returned: strategies.length,
+      model: null,
+      source: 'evidence',
+    })
+  }
+
+  return {
+    strategies,
+    heldForReview: 0,
+    rejected: 0,
+    riskFlagged: false,
+    redactions: 0,
+    source: 'evidence',
+  }
+}
+
 app.post('/api/strategies', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
@@ -614,9 +690,21 @@ app.post('/api/strategies', async (req, res) => {
       .single()
 
     if (!controls?.ai_enabled) {
+      /*
+       * E02: "Strategies must fall back to the curated Evidence Database (DB)
+       * if AI is blocked or offline."
+       *
+       * This used to be a 503 and nothing else — so FR21's kill switch, the
+       * one Special Miles pulls during a crisis, left every teacher in every
+       * classroom with no strategies at all, at the moment they were most
+       * likely to need one. db/118 is the net that was missing.
+       */
+      const fallback = await evidenceFallback(log, user.id)
+      if (fallback.strategies.length > 0) return res.json(fallback)
+
       return res.status(503).json({
         error:
-          'AI suggestions are currently switched off by Special Miles. Contact your specialist for support.',
+          'AI suggestions are switched off at the moment, and the evidence library has nothing recorded for this behaviour yet. Your school specialist can help.',
       })
     }
 
