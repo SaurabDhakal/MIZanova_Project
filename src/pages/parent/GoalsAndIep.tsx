@@ -10,6 +10,7 @@ import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import FamilyIepPlans from '../../components/FamilyIepPlans'
 import GoalCard from '../../components/GoalCard'
+import GoalReviewSection from '../../components/GoalReviewSection'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SignedFileLink from '../../components/SignedFileLink'
@@ -148,6 +149,11 @@ export default function GoalsAndIep() {
           </ul>
         </>
       )}
+
+      {/* FR24's parent half — db/117. Below the goals it is about, and above
+          the plan, because asking about a goal is a smaller act than reading
+          the document the goal came from. */}
+      <GoalReviewSection studentId={child.id} goals={active} />
 
       <FamilyIepPlans studentId={child.id} />
 

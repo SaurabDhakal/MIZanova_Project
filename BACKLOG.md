@@ -365,10 +365,34 @@ the live database rather than against memory.
       because "-2 hours of sleep" is a thing people write. Eleven unit tests,
       and proved end to end by typing a real HYPERLINK formula into a real
       observation and reading it back out of the download defused.
-- [ ] **FR24, the half that is clearly a parent's** — "request specialist
-      progress reviews". Creating SMART goals is the other half and I would
-      argue against it: a goal a parent adds to a school's IEP that no teacher
-      agreed to undermines the plan model. **Worth Joe deciding.**
+- [x] ~~**FR24, the half that is clearly a parent's** — "request specialist
+      progress reviews".~~ db/117. A family reads a goal that has not moved and
+      asks the specialist to look at it; it lands on a queue on the
+      specialist's Caseload rather than in a message thread somebody has to be
+      reading. One open question per goal, enforced by a partial unique index,
+      because a worried parent presses the button again and nine identical rows
+      teach a specialist to skim the queue.
+
+      Answering and declining are both kept — "not the right person" is a real
+      answer and does not imply the family was wrong to ask. The response is a
+      column written TO the family, deliberately separate from
+      `specialist_session_notes`, which db/028 says families never see: keeping
+      them apart is what lets a clinician write honestly in one of them.
+
+      Only a VERIFIED assigned specialist answers. The test proves the
+      unverified one on the same caseload can read the request and cannot
+      answer it.
+
+- [ ] **FR24's other half — parents creating SMART goals and milestones.**
+      Deliberately not built, and this is the argument rather than an
+      oversight. A goal here is the school's plan, agreed at a meeting and
+      frozen into an IEP by db/057. A parent adding one that no teacher agreed
+      to makes the plan a place where two parties post rather than a document
+      somebody signed, and hands a family a progress bar they control on the
+      screen they use to judge how their child is doing. db/101 already gives
+      an individual goals in their own words with check-ins and no percentage —
+      **if Special Miles wants this for parents, that is the shape to copy,
+      beside the school's plan rather than inside it. Joe's call.**
 - [ ] **P01 — nothing notifies a family when a teacher shares something.** The
       bell gives a parent unread conversations and unpaid invoices only.
 - [ ] **P02 — 15 course modules, 0 with a video, 3 articles.** The code links

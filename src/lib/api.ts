@@ -1044,6 +1044,114 @@ export async function requestStrategies(
 }
 
 // ---------------------------------------------------------------------------
+// Asking a specialist to look at a goal — db/117, FR24
+// ---------------------------------------------------------------------------
+
+export type GoalReviewRequest = {
+  id: string
+  goal_id: string
+  student_id: string
+  note: string | null
+  status: 'open' | 'answered' | 'declined'
+  response: string | null
+  answered_at: string | null
+  created_at: string
+  goals: { title: string } | null
+  students: { first_name: string; last_name: string } | null
+}
+
+/** Every review request for one child — the family's side. */
+export async function fetchGoalReviewRequests(
+  studentId: string,
+): Promise<GoalReviewRequest[]> {
+  const { data, error } = await supabase
+    .from('goal_review_requests')
+    .select(
+      'id, goal_id, student_id, note, status, response, answered_at, created_at, ' +
+        'goals ( title ), students ( first_name, last_name )',
+    )
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as GoalReviewRequest[]
+}
+
+/**
+ * Ask for one. Written from the browser: db/117's policy decides everything
+ * that matters, and there is nobody to email — the specialist sees it on their
+ * own screen, which is the surface this product has rather than a scheduler.
+ */
+export async function askForGoalReview(input: {
+  goalId: string
+  studentId: string
+  note: string
+}): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const me = session.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  const { error } = await supabase.from('goal_review_requests').insert({
+    goal_id: input.goalId,
+    student_id: input.studentId,
+    requested_by: me,
+    note: input.note.trim() || null,
+    status: 'open',
+  })
+
+  if (error) {
+    // The one-open-per-goal index, said the way a parent would understand it.
+    if (error.code === '23505') {
+      throw new Error(
+        'You have already asked about this goal. The specialist will answer here.',
+      )
+    }
+    throw new Error(error.message)
+  }
+}
+
+/** Everything waiting on this specialist, across their caseload. */
+export async function fetchOpenGoalReviews(): Promise<GoalReviewRequest[]> {
+  const { data, error } = await supabase
+    .from('goal_review_requests')
+    .select(
+      'id, goal_id, student_id, note, status, response, answered_at, created_at, ' +
+        'goals ( title ), students ( first_name, last_name )',
+    )
+    .eq('status', 'open')
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as GoalReviewRequest[]
+}
+
+/** Answer one, or decline it with the same box. */
+export async function answerGoalReview(
+  id: string,
+  status: 'answered' | 'declined',
+  response: string,
+): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const me = session.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  const { data, error } = await supabase
+    .from('goal_review_requests')
+    .update({
+      status,
+      response: response.trim() || null,
+      answered_by: me,
+      answered_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('status', 'open')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'That answer')
+}
+
+// ---------------------------------------------------------------------------
 // Parent portal
 // ---------------------------------------------------------------------------
 
@@ -9264,6 +9372,8 @@ export const queryKeys = {
   sharedLogs: (id: string) => ['shared-logs', id] as const,
   homeObservations: (id: string) => ['home-observations', id] as const,
   homeStrategies: (id: string) => ['home-strategies', id] as const,
+  goalReviews: (id: string) => ['goal-reviews', id] as const,
+  openGoalReviews: ['open-goal-reviews'] as const,
   childSpecialists: (id: string) => ['child-specialists', id] as const,
   incomingAppointmentRequests: ['incoming-appointment-requests'] as const,
   allHomeObservations: ['home-observations', 'all'] as const,
