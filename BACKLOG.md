@@ -537,6 +537,13 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
       nobody can check is not proof — it is the sentence a specialist would say
       if a parent asked why the school is doing this.
 
+      **Proved with the kill switch actually pulled.** With `ai_enabled` set
+      false, a verified teacher asking about a disruptive log used to get a
+      bare 503; it now returns 200 with `source=evidence`, the strategy and its
+      provenance, and writes an `ai_generation_events` row marked `evidence` —
+      so A04's ratio is computable rather than theoretical. The switch, the
+      probe row and the temporary teacher were all restored afterwards.
+
       Select is `using (true)`, the only such policy in the schema. These rows
       carry no student, school or incident, which is what lets a laptop hold
       them offline safely. Writing is a verified specialist or a platform
