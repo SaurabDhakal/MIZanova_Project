@@ -45,6 +45,18 @@ import { fullName } from '../../lib/displayName'
  *
  * There is no "Download Report" button. PDF export is a later milestone, and a
  * button that does nothing is a promise broken every time it is pressed.
+ *
+ * THE LAST SECTION IS NOT "HIGHLIGHTS" AND WAS CALLED THAT UNTIL 8 SEPTEMBER.
+ * It draws two things: milestones a teacher has ticked off, which are good
+ * news by definition, and every home observation the family has written, which
+ * are not. The first real one under that heading read "Bath time falls apart
+ * every night" — a nightly fight, filed under "Recent highlights", above a
+ * closing line promising "things that went well".
+ *
+ * There is no sentiment on an observation to filter by, and inventing one
+ * would be the product deciding which of a family's evenings counted as
+ * progress. So the heading changed instead: it says what is actually in the
+ * list.
  */
 
 type Highlight = {
@@ -312,7 +324,7 @@ export default function ParentProgress() {
 
       {/* --- Recent highlights ---------------------------------------------- */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-        Recent highlights
+        Lately
       </h2>
 
       {/*
@@ -371,7 +383,9 @@ export default function ParentProgress() {
       )}
 
       <p className="mt-4 max-w-prose text-xs text-muted-foreground">
-        This page shows goal progress and things that went well. It does not
+        This page shows goal progress, what the school has shared, and what you
+        have written from home — the hard evenings as well as the good ones. It
+        does not
         show a behaviour trend chart: you only see the behaviour logs a teacher
         has chosen to share with you, so a chart drawn from them could look like
         improvement when it only means fewer were shared. Ask your child&rsquo;s

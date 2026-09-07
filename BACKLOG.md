@@ -459,6 +459,54 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
 
 ---
 
+### The UI sweep, done properly — 8 September 2026
+
+Saurab pointed out that I had been checking pages rather than reading them:
+looking for what I expected, on one screen's worth of a page that is five
+screens long. Two mechanical reasons it kept working out that way, both worth
+knowing before the next role is audited:
+
+- **`get_page_text` returns `<main>` only.** The shell, the account menu, the
+  notification bell, toasts and dialogs are all outside it. Every "full page"
+  read this session before now was missing them.
+- **`innerText` omits a closed `<details>`.** `NotBuiltYet` renders one on
+  almost every screen, so the honest "what this does not do yet" note reads as
+  an empty heading. I reported it as a bug for a minute before checking.
+
+The method that works: expand every `<details>`, click every
+`[aria-expanded=false]`, then read `document.body.innerText` — and press the
+controls rather than reading their labels.
+
+Three faults it found, all copy rather than logic, and none of which any test
+would have caught:
+
+- [x] ~~**A parent was told their photo is "how you appear to colleagues and
+      families".**~~ `Profile.tsx` decided staff-vs-not with
+      `role !== 'individual'`, which made parents and students staff. Every
+      parent account carries `school_id` null, so they were not in a school in
+      any sense the rest of the product uses. Three groups now.
+- [x] ~~**"Recent highlights" listed a nightly fight.**~~ The section draws
+      ticked milestones and every home observation, and the closing line
+      promised "things that went well". The first real one under it read "Bath
+      time falls apart every night". There is no sentiment to filter on and
+      inventing one would be the product deciding which of a family's evenings
+      counted as progress, so the heading says what is in the list: "Lately".
+- [x] ~~**The sidebar said "Collab & Finance" and the page said "Finance".**~~
+      The screen has never had a collaboration half.
+
+Checked and working, by pressing them rather than reading them: Academy
+enrolment and module completion (0 → 1 of 3, the tick, the auto-advance), the
+message composer with attachments, dictation in five languages and voice notes,
+the notification bell, all four account-menu destinations, and Link a child.
+
+- [ ] **Message threads say "about Arlo K." while every other parent screen
+      says "Arlo Kaur".** The Library still carries an article to families
+      explaining the short form. Saurab reversed to full names on 4 September;
+      this is the one place that did not follow, and the article now describes
+      behaviour the product mostly does not have. **His call, like FR5.**
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

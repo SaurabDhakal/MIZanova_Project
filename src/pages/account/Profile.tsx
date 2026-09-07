@@ -137,7 +137,25 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
    * otherwise, which reads as having wandered into somebody else's product on
    * the one screen that is meant to be about them.
    */
-  const inASchool = profile !== null && profile.role !== 'individual'
+  /*
+   * STAFF, NOT "NOT AN INDIVIDUAL".
+   *
+   * This was `role !== 'individual'`, which made a parent and a student staff
+   * — so a parent read that their photo is "how you appear to colleagues and
+   * families", having no colleagues, and that their email is where invitations
+   * go. Every parent account in the database carries `school_id` null, so they
+   * are not in a school in any sense the rest of the product uses either.
+   *
+   * Three groups, because there are three answers: somebody who works at a
+   * school, somebody whose child attends one, and somebody with no school at
+   * all.
+   */
+  const isStaff =
+    profile !== null &&
+    ['educator', 'specialist', 'school_admin', 'platform_admin'].includes(
+      profile.role,
+    )
+  const hasAChild = profile?.role === 'parent'
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [firstName, setFirstName] = useState(profile.first_name ?? '')
@@ -215,9 +233,11 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             <div>
               <h2 className="text-lg font-bold text-foreground">Your details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {inASchool
+                {isStaff
                   ? 'How you appear to colleagues and families on every screen.'
-                  : 'Your name and picture, as they appear on your own screens.'}
+                  : hasAChild
+                    ? 'How you appear to the staff working with your child.'
+                    : 'Your name and picture, as they appear on your own screens.'}
               </p>
             </div>
             {/* The action sits in the card header, as the design has it —
@@ -311,9 +331,11 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           </div>
 
           <p className="mt-2 text-xs text-muted-foreground">
-            {inASchool
+            {isStaff
               ? 'PNG, JPEG or WebP, up to 2 MB. Anyone signed in can see it, including families — that is what it is for.'
-              : 'PNG, JPEG or WebP, up to 2 MB. Nobody shares this account, so this is for the corner of your own screen.'}
+              : hasAChild
+                ? 'PNG, JPEG or WebP, up to 2 MB. Your child’s teachers and specialists can see it, and so can anyone else at home on this record.'
+                : 'PNG, JPEG or WebP, up to 2 MB. Nobody shares this account, so this is for the corner of your own screen.'}
           </p>
           {(photoError || upload.isError || removePhoto.isError) && (
             <p role="alert" className="mt-2 text-sm font-medium text-danger-foreground">
@@ -360,7 +382,7 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
         <section className={card}>
           <h2 className="text-lg font-bold text-foreground">Email address</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            {inASchool
+            {isStaff
               ? 'What you sign in with, and where invitations and password resets go.'
               : 'What you sign in with, and where a password reset would be sent.'}
           </p>
