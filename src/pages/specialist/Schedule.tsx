@@ -375,8 +375,24 @@ export default function Schedule() {
               a note about what is missing has to be maintained as carefully as
               the features or it becomes the most confident wrong sentence on
               the page. */}
-          Setting your hours above says when you are available; it does not tell
-          anybody. Nobody is told about an appointment either:
+          {/* AND THE FIRST HALF WENT STALE A SECOND TIME. "Setting your hours
+              says when you are available; it does not tell anybody" was true
+              when only this school could see them. db/103 and db/104 then built
+              individual booking on top of the SAME `specialist_availability`
+              rows: `free_slots()` derives openings from them and
+              `bookable_specialists` lists whoever has any, so publishing hours
+              is what makes somebody bookable by a person with no school at all.
+              And `notifyAboutBooking` emails the specialist the moment one
+              asks.
+
+              So the sentence was not merely out of date, it was telling a
+              clinician that a control has no reach when what it actually does
+              is open their diary to strangers. That is the wrong direction for
+              a note whose whole purpose is to stop people assuming. */}
+          Setting your hours above is what makes you bookable: an individual
+          with no school can see the openings they leave and ask for one, and
+          you are emailed when they do. Nobody is told about a SCHOOL
+          appointment, which is the part that still has no mail behind it:
           {/* This said "there is no email in this product", which stopped
               being true when the server started sending invitations,
               enquiries, application decisions and access codes. What is

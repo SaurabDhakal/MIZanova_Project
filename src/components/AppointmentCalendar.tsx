@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import FullCalendar from '@fullcalendar/react'
+import enAu from '@fullcalendar/core/locales/en-au'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -199,6 +200,25 @@ export default function AppointmentCalendar<T extends CalendarAppointment>({
          * to read who it is with beats the block being exactly to scale.
          */
         eventMinHeight={34}
+        /* DATES WERE COMING OUT AMERICAN. No `locale` is set, so FullCalendar
+           falls back to en-US and the week header read "Mon 9/7" — which an
+           Australian reads as 9 July and the calendar means as 7 September.
+           Everything else in this product is en-AU ("6 September 2026",
+           "Tue, 25 Aug"), so the one screen where a misread date sends
+           somebody to a child's appointment on the wrong day was the one
+           screen disagreeing.
+
+           Named months rather than `locale="en-au"`: 7/9 is still ambiguous to
+           half the people who might read it, and "Mon 7 Sep" is ambiguous to
+           nobody. */
+        /* The locale sets the ORDER — en-AU puts the day before the month,
+           so this reads "Mon, 7 Sep" the way the rest of the product writes
+           dates, rather than "Mon, Sep 7". The explicit format above still
+           does the important half: a named month cannot be misread whichever
+           side it falls on. */
+        locale={enAu}
+        dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
+        titleFormat={{ day: 'numeric', month: 'long', year: 'numeric' }}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         slotLabelFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         // Month view renders timed events as a dot plus bare text by default,
