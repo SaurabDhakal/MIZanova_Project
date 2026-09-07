@@ -169,6 +169,19 @@ export default function AppointmentCalendar<T extends CalendarAppointment>({
           week: 'Week',
           day: 'Day',
         }}
+        /* THE ARROWS HAD NO NAME. FullCalendar draws prev and next as an icon
+           span with `role="img"` and nothing else, so a screen reader on the
+           specialist's Schedule met two buttons it could only describe as
+           "button". `buttonHints` is the library's own hook for this and it
+           becomes the aria-label; `$0` is substituted with the unit currently
+           in view, so it reads "Previous week" on the week view and "Previous
+           month" on the month one rather than a fixed word that is wrong two
+           views out of three. */
+        buttonHints={{
+          prev: 'Previous $0',
+          next: 'Next $0',
+          today: 'This $0',
+        }}
         // Monday. Australian school weeks do not start on Sunday.
         firstDay={1}
         allDaySlot={allDay}
