@@ -1,5 +1,6 @@
 import { observationCategoryStyle } from '../lib/observationCategories'
-import type { HomeObservationRow } from '../lib/api'
+import type { HomeAiRequestRow, HomeObservationRow } from '../lib/api'
+import HomeStrategiesPanel from './HomeStrategiesPanel'
 
 /**
  * Home observations, rendered identically for the parent who wrote them and
@@ -13,6 +14,7 @@ export default function HomeObservationList({
   observations,
   viewerId,
   onEdit,
+  answers,
 }: {
   observations: HomeObservationRow[]
   /*
@@ -45,6 +47,13 @@ export default function HomeObservationList({
    * account rather than the plain fact that somebody else wrote it.
    */
   onEdit?: (observation: HomeObservationRow) => void
+  /*
+   * WHAT THE AI SAID ABOUT EACH ONE — db/114. Absent on the staff screens,
+   * which is why it is a prop rather than a query inside this component: the
+   * suggestions belong to the family's side of the conversation, and a list
+   * that fetched them itself would try to on a teacher's roster too.
+   */
+  answers?: HomeAiRequestRow[]
 }) {
   return (
     <ul className="space-y-3">
@@ -79,6 +88,13 @@ export default function HomeObservationList({
                 <p className="mt-1 text-sm text-muted-foreground">
                   Written by {observation.author?.full_name ?? 'someone at home'}
                 </p>
+              )}
+              {answers && (
+                <HomeStrategiesPanel
+                  observationId={observation.id}
+                  answer={answers.find((a) => a.observation_id === observation.id)}
+                  canAsk={isMine}
+                />
               )}
               {onEdit && isMine && (
                 <button

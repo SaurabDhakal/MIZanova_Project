@@ -286,6 +286,83 @@ deleting it from behind would make that untrue.
 
 ---
 
+## 2c. What the client documents ask of a parent — 8 September 2026
+
+Read out of `docs/1.WDPBI Special Miles_Joe Abboud 14022026.docx` and
+`docs/Final Requirements.docx`, then checked one by one against the code and
+the live database rather than against memory.
+
+### Built, and verified by using it
+
+- [x] ~~**A family could not read the advice attached to an incident they were
+      told about.**~~ db/113. Measured before: 121 strategies existed, 136 logs
+      had been shared with parents, and 86 of those carried advice no guardian
+      could read. `ai_strategies` had two select policies and neither mentioned
+      a guardian. Two gates on the new one: the log must have been shared, and
+      the status must be settled. Verified signed in — five strategies across
+      three of Arlo Kaur's six shared updates.
+
+      **A defect this introduced, caught by looking at it.** The heading read
+      "What can help at home" over advice that said "put the next activity on
+      the whiteboard" and "whole-class practice, so no individual singling
+      out" — `generateStrategies` writes to a teacher about a room full of
+      children. It now says "What the school is trying", says it is classroom
+      advice, and points at the screen that answers the home question.
+
+- [x] ~~**FR9 / P06 — a parent got no suggestions at all.**~~ db/114. Two
+      tables, a third system prompt written for a kitchen rather than a
+      classroom, and `/api/home-strategies`. Proved end to end on a real
+      observation about bath time: two suggestions published at 0.85 and 0.82,
+      one held at 0.78 with its reason recorded, running on the free tier's
+      cheap model, `school_id` null on the spend record so the school's daily
+      budget is untouched, and the cap reading 1 of 40.
+
+      Nothing is discarded here, unlike db/094 — a child has a specialist, so
+      what falls under the bar waits for them. That is FR9's own requirement
+      and the reason this could not reuse the individual's tables.
+
+### Still missing, in the order I would build them
+
+- [ ] **FR6 / P05 — a parent cannot book or pay for a specialist session.**
+      The Appointments screen is read-only. Closer than it looks:
+      `specialist_appointments` already carries `student_id`, `fee_cents` and
+      `invoice_id` from db/073, `specialist_availability` from db/102 is
+      readable by anyone signed in, and `notifyAboutBooking` emails both ways.
+      Missing is a guardian-writable request path and a screen.
+      `individual_bookings` cannot be reused — it is keyed on `profile_id` and
+      its own header says why.
+- [ ] **P03 — no export.** "An Export button must allow parents to save these
+      notes as a PDF or CSV file." The individual's JSON export and the
+      Progress print stylesheet are both precedents.
+- [ ] **FR24, the half that is clearly a parent's** — "request specialist
+      progress reviews". Creating SMART goals is the other half and I would
+      argue against it: a goal a parent adds to a school's IEP that no teacher
+      agreed to undermines the plan model. **Worth Joe deciding.**
+- [ ] **P01 — nothing notifies a family when a teacher shares something.** The
+      bell gives a parent unread conversations and unpaid invoices only.
+- [ ] **P02 — 15 course modules, 0 with a video, 3 articles.** The code links
+      out rather than embedding, which is small. The absence of any video is a
+      content problem.
+
+### Not engineering, or not yet
+
+- [ ] **FR7 / 1.5.2 Parent Premium.** No parent subscription exists; db/111
+      built that shape for individuals only. Blocked on the same two things:
+      no real Stripe key, and no agreed price. The Pricing page advertises
+      $9.99 and $19.99 with "Tell me when this opens", which is honest.
+- [ ] **FR23 neurodevelopment profile.** Nothing exists. It would make
+      diagnosis the most sensitive field in a product that says "never
+      diagnostic" on six public pages. **Needs Joe on consent, visibility and
+      retention before any schema.**
+- [ ] **1.4.2 automated daily sync reports.** `server/index.js` says outright
+      there is no scheduler and that its first act must not be mailing people.
+- [ ] **P03 delete.** db/007 has no delete policy on purpose and the screen
+      says "Observations are corrected rather than deleted". FR8 asks for
+      delete. **A deliberate divergence worth confirming rather than quietly
+      complying with** — a note the school has acted on should not vanish.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

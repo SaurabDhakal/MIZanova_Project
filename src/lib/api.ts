@@ -1047,6 +1047,98 @@ export async function requestStrategies(
 // Parent portal
 // ---------------------------------------------------------------------------
 
+export type HomeStrategyRow = {
+  id: string
+  request_id: string
+  title: string
+  body: string
+  rationale: string[]
+  confidence: number
+}
+
+/** One family's answer to one observation — db/114. */
+export type HomeAiRequestRow = {
+  id: string
+  observation_id: string
+  risk_flagged: boolean
+  withheld_count: number
+  withheld_reason: string | null
+  created_at: string
+  home_ai_strategies: HomeStrategyRow[]
+}
+
+export type HomeStrategyResponse = {
+  requestId: string
+  strategies: HomeStrategyRow[]
+  /** Waiting on the child's specialist. Not gone — see db/114. */
+  heldForReview: number
+  heldReason: string | null
+  riskFlagged: boolean
+  redactions: number
+  escalated: boolean
+  /** True when the server returned an existing answer instead of generating. */
+  alreadyGenerated?: boolean
+}
+
+/**
+ * Ask for up to three things to try at home — db/114, FR9, P06.
+ *
+ * The observation must already exist. That is not an extra step to tidy away
+ * later: what the family wrote is a record the school can read whether or not
+ * the AI ever answers, and generating first would make the suggestion the
+ * point and the observation a by-product of it.
+ */
+export async function requestHomeStrategies(
+  observationId: string,
+): Promise<HomeStrategyResponse> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/home-strategies`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // The server reads the observation AS YOU, so RLS decides whether it is
+      // yours to ask about.
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ observationId }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as HomeStrategyResponse
+}
+
+/**
+ * Every answer a family has already had, for one child.
+ *
+ * One query for the child rather than one per observation, and no status
+ * filter here: db/114's guardian policy returns only settled strategies, so
+ * the rule that decides what a family reads is not restated in this file where
+ * it could drift.
+ */
+export async function fetchHomeStrategies(
+  studentId: string,
+): Promise<HomeAiRequestRow[]> {
+  const { data, error } = await supabase
+    .from('home_ai_requests')
+    .select(
+      `id, observation_id, risk_flagged, withheld_count, withheld_reason, created_at,
+       home_ai_strategies ( id, request_id, title, body, rationale, confidence )`,
+    )
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as HomeAiRequestRow[]
+}
+
 /**
  * Behaviour logs a teacher has deliberately shared with this child's guardians.
  *
@@ -9005,6 +9097,7 @@ export const queryKeys = {
   pendingStrategies: ['pending-strategies'] as const,
   sharedLogs: (id: string) => ['shared-logs', id] as const,
   homeObservations: (id: string) => ['home-observations', id] as const,
+  homeStrategies: (id: string) => ['home-strategies', id] as const,
   allHomeObservations: ['home-observations', 'all'] as const,
   goals: (id: string) => ['goals', id] as const,
   iepDocuments: (id: string) => ['iep-documents', id] as const,

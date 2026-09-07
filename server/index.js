@@ -39,7 +39,9 @@ import {
   RefusalError,
   generateStrategies,
   generateSelfStrategies,
+  generateHomeStrategies,
   SELF_PROMPT_VERSION,
+  HOME_PROMPT_VERSION,
 } from './claude.js'
 
 // 8887, not the conventional 8787 — see the note in vite.config.ts.
@@ -1757,6 +1759,311 @@ ${about.body}`, namesToRemove, '[ME]')
     return res.status(500).json({ error: 'Could not generate suggestions.' })
   }
 })
+
+/**
+ * Three things a family could try, from something that happened at home.
+ *
+ * db/114, FR9 and P06. The third generator and the third route, and the
+ * differences from the other two are the whole design:
+ *
+ * `/api/strategies` writes to a teacher about a classroom and routes anything
+ * unsure to a specialist. `/api/self-strategies` writes to an adult about
+ * themselves and has nowhere to route, so it discards what it cannot show.
+ * A parent is neither: writing about somebody else, at home, with a specialist
+ * attached to that child who CAN be asked.
+ *
+ * So nothing here is discarded. Everything under the bar — low confidence or
+ * flagged as needing a professional — is written as `pending_review` and waits
+ * for the child's specialist, which is exactly what FR9 asks for and what
+ * db/094's header says it could not do.
+ *
+ * THE SCHOOL'S BUDGET IS NOT TOUCHED. `p_school_id: null` on the quota call, on
+ * purpose: a family's private observation is not the school's spend, and
+ * letting it draw on the school's daily allowance would let somebody outside
+ * the building exhaust a classroom's quota. The per-user limit still applies
+ * and is the one that matters here.
+ */
+app.post('/api/home-strategies', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const observationId = String(req.body?.observationId ?? '').trim()
+  if (!observationId) {
+    return res.status(400).json({ error: 'Which observation?' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    /*
+     * READ THE OBSERVATION WITH THE CALLER'S TOKEN. RLS decides whether this
+     * person may see it at all, so a parent cannot ask for suggestions about
+     * another family's child by pasting an id — the row simply does not come
+     * back. This is the same reason the booking routes write with the caller's
+     * token rather than checking a guardian link by hand here.
+     */
+    const { data: observation, error: obsError } = await userClient
+      .from('home_observations')
+      .select('id, student_id, title, body, category, logged_by')
+      .eq('id', observationId)
+      .maybeSingle()
+
+    if (obsError) return res.status(500).json({ error: obsError.message })
+    if (!observation) {
+      return res.status(404).json({
+        error: 'That observation could not be found on your account.',
+      })
+    }
+
+    const { data: me } = await admin
+      .from('profiles')
+      .select('id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (me?.role !== 'parent') {
+      return res.status(403).json({
+        error:
+          'This is for families writing about their own child. Staff should use the behaviour log, where specialist review and consent already apply.',
+      })
+    }
+
+    // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
+    const { data: controls } = await admin
+      .from('ai_controls')
+      .select(
+        'ai_enabled, confidence_threshold, free_model, paid_model, free_confidence_threshold, free_daily_limit_per_user, daily_limit_per_user',
+      )
+      .eq('id', true)
+      .single()
+
+    if (!controls?.ai_enabled) {
+      return res.status(503).json({
+        error:
+          'Suggestions are switched off at the moment. Your observation has been saved and the school can still see it.',
+      })
+    }
+
+    // --- Already answered? -------------------------------------------------
+    // A second press must not spend a second generation. The teacher route
+    // makes the same check for the same reason.
+    const { data: existing } = await admin
+      .from('home_ai_requests')
+      .select('id')
+      .eq('observation_id', observation.id)
+      .maybeSingle()
+
+    if (existing) {
+      return res.json({ alreadyGenerated: true })
+    }
+
+    // --- Which tier, and therefore which model and which limits ------------
+    // db/099 through db/111. `my_ai_tier()` asks about the CALLER rather than
+    // their role, so a parent answers 'free' today and will answer 'paid' the
+    // day a family subscription exists, with nothing here to change.
+    const { data: tier } = await userClient.rpc('my_ai_tier')
+    const paidTier = tier === 'paid'
+    const firstModel = paidTier ? controls.paid_model : controls.free_model
+
+    const { data: quota } = await admin
+      .rpc('ai_quota_status', { p_school_id: null, p_actor_id: user.id })
+      .single()
+
+    const userLimit = paidTier
+      ? (quota?.user_limit ?? controls.daily_limit_per_user ?? 40)
+      : Number(controls.free_daily_limit_per_user ?? 10)
+
+    if (quota && quota.user_used >= userLimit) {
+      return res.status(429).json({
+        error: `That is ${userLimit} suggestions in the last twenty-four hours, which is the daily limit. Your observation is saved and the school can see it; try again tomorrow.`,
+      })
+    }
+
+    // --- Anonymise ---------------------------------------------------------
+    // Every child at the school, not only this one: a parent writing "he hit
+    // Maya at the park" would otherwise send a child this request has nothing
+    // to do with. The guardians' own names go too — the family is as entitled
+    // to that as the child is.
+    const { data: student } = await admin
+      .from('students')
+      .select('id, first_name, last_name, school_id')
+      .eq('id', observation.student_id)
+      .single()
+
+    const { data: roster } = await admin
+      .from('students')
+      .select('first_name, last_name')
+      .eq('school_id', student.school_id)
+
+    const { data: household } = await admin
+      .from('student_guardians')
+      .select('profiles ( first_name, last_name )')
+      .eq('student_id', observation.student_id)
+
+    const namesToRemove = [
+      ...(roster ?? []).flatMap((s) => [s.first_name, s.last_name]),
+      ...(household ?? []).flatMap((g) => [
+        g.profiles?.first_name,
+        g.profiles?.last_name,
+      ]),
+    ].filter(Boolean)
+
+    const { text: redacted, redactions } = redact(
+      `${observation.title}\n\n${observation.body}`,
+      namesToRemove,
+    )
+
+    const payload = {
+      text: redacted,
+      redactions,
+      category: observation.category ?? null,
+    }
+
+    // --- Generate, escalating when the cheap model comes back empty --------
+    // db/099's reasoning, unchanged: a family having a bad night should not
+    // get a worse model than one who has paid, and the escalation is rare
+    // enough to cost almost nothing.
+    const barFor = (model) =>
+      model === controls.paid_model
+        ? Number(controls.confidence_threshold ?? 0.7)
+        : Number(controls.free_confidence_threshold ?? 0.8)
+
+    const wouldShow = (r, model) =>
+      r.strategies.filter(
+        (s) => !s.safetyConcern && s.confidence >= barFor(model),
+      ).length
+
+    let result = await generateHomeStrategies(payload, namesToRemove, firstModel)
+    let escalated = false
+
+    const needsBetterModel =
+      firstModel !== controls.paid_model &&
+      (result.riskFlag || wouldShow(result, firstModel) === 0)
+
+    if (needsBetterModel) {
+      try {
+        result = await generateHomeStrategies(
+          payload,
+          namesToRemove,
+          controls.paid_model,
+        )
+        escalated = true
+      } catch (escalationError) {
+        console.error('Escalation failed, keeping the first answer:', escalationError)
+        recordEvent(
+          'warning',
+          'ai',
+          'escalation_failed',
+          'A risk-flagged home observation could not be re-run on the capable model. The first answer was kept.',
+        )
+      }
+    }
+
+    // --- Shown now, or waiting for the specialist --------------------------
+    // NOT withheld. This is the difference from db/094: the child has staff,
+    // so a suggestion under the bar has somebody to wait for rather than
+    // nowhere to go.
+    const answeredBy = escalated ? controls.paid_model : firstModel
+    const threshold = barFor(answeredBy)
+
+    const rows = result.strategies.map((s) => {
+      const held = s.safetyConcern || s.confidence < threshold
+      return {
+        title: s.title,
+        body: s.body,
+        rationale: s.rationale,
+        confidence: s.confidence,
+        status: held ? 'pending_review' : 'published',
+        routing_reason: !held
+          ? null
+          : s.safetyConcern
+            ? 'The model judged this needs somebody qualified involved before a family tries it.'
+            : `Confidence ${s.confidence.toFixed(2)} is below the ${threshold} bar for ${answeredBy}.`,
+      }
+    })
+
+    const heldCount = rows.filter((r) => r.status === 'pending_review').length
+
+    // --- Write it, with the service key ------------------------------------
+    // Neither table has an insert policy, so a browser cannot invent a
+    // suggestion and read it back as advice the school had settled.
+    const { data: request, error: requestError } = await admin
+      .from('home_ai_requests')
+      .insert({
+        observation_id: observation.id,
+        student_id: observation.student_id,
+        asked_by: user.id,
+        asked: redacted,
+        redaction_count: redactions,
+        risk_flagged: result.riskFlag,
+        withheld_count: heldCount,
+        withheld_reason:
+          heldCount === 0
+            ? null
+            : 'Waiting for your child’s specialist to look at it. You will see it here if they release it.',
+        model: result.model,
+        prompt_version: HOME_PROMPT_VERSION,
+      })
+      .select('id, created_at, risk_flagged, withheld_count, withheld_reason')
+      .single()
+
+    if (requestError) return res.status(500).json({ error: requestError.message })
+
+    let inserted = []
+    if (rows.length > 0) {
+      const { data, error: insertError } = await admin
+        .from('home_ai_strategies')
+        .insert(rows.map((r) => ({ ...r, request_id: request.id })))
+        .select('id, title, body, rationale, confidence, status')
+
+      if (insertError) return res.status(500).json({ error: insertError.message })
+      inserted = data ?? []
+    }
+
+    // --- The spend record --------------------------------------------------
+    // school_id null: see the note at the top of this route.
+    await admin.from('ai_generation_events').insert({
+      school_id: null,
+      requested_by: user.id,
+      home_observation_id: observation.id,
+      strategies_returned: inserted.length,
+      model: result.model,
+    })
+
+    res.json({
+      requestId: request.id,
+      // Only the settled ones. A held suggestion is invisible to the family by
+      // policy, and sending its text here would put it on their screen anyway.
+      strategies: inserted.filter((s) => s.status === 'published'),
+      heldForReview: heldCount,
+      heldReason: request.withheld_reason,
+      riskFlagged: result.riskFlag,
+      redactions,
+      escalated,
+    })
+  } catch (error) {
+    if (error instanceof AnonymisationError) {
+      console.error('Anonymisation refused a home observation:', error)
+      return res.status(500).json({
+        error:
+          'That could not be sent safely, so it was not sent at all. Your observation is saved and the school can see it.',
+      })
+    }
+    if (error instanceof RefusalError) {
+      return res.status(422).json({ error: error.message })
+    }
+    console.error('/api/home-strategies failed:', error)
+    res.status(500).json({ error: 'Suggestions could not be generated just now.' })
+  }
+})
+
 
 /**
  * GET /api/strategy-status/:studentId

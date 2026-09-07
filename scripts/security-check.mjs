@@ -84,6 +84,12 @@ const PROTECTED_TABLES = [
   'individual_ai_suggestions',
   'individual_goals',
   'individual_goal_checkins',
+  // db/114. A family's account of what happened at home and what the AI said
+  // back. Neither table has an insert policy and neither should answer an
+  // anonymous reader at all — the request carries the observation's words and
+  // the strategies carry advice about a named child's difficulties.
+  'home_ai_requests',
+  'home_ai_strategies',
 ]
 
 /*

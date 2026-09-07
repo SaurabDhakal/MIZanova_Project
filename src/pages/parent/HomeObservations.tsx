@@ -5,6 +5,7 @@ import {
   createHomeObservation,
   updateHomeObservation,
   fetchHomeObservations,
+  fetchHomeStrategies,
   queryKeys,
   type ObservationCategory,
 } from '../../lib/api'
@@ -63,6 +64,18 @@ export default function HomeObservations() {
   const observations = useQuery({
     queryKey: queryKeys.homeObservations(child?.id ?? ''),
     queryFn: () => fetchHomeObservations(child!.id),
+    enabled: Boolean(child),
+  })
+
+  /*
+   * The answers the family has already had — db/114. One query for the child
+   * rather than one per observation, and no status filter: the guardian policy
+   * returns only settled suggestions, so the rule that decides what is read is
+   * not restated here where it could drift from the database.
+   */
+  const answers = useQuery({
+    queryKey: queryKeys.homeStrategies(child?.id ?? ''),
+    queryFn: () => fetchHomeStrategies(child!.id),
     enabled: Boolean(child),
   })
 
@@ -337,6 +350,7 @@ export default function HomeObservations() {
             <HomeObservationList
               observations={visible}
               viewerId={profile?.id}
+              answers={answers.data ?? []}
               onEdit={(o) => {
                 setEditingId(o.id)
                 setTitle(o.title)
