@@ -722,6 +722,27 @@ page is: 750px folded, 1258 expanded.
 
 ---
 
+### A test that was green by coincidence — 8 September 2026
+
+- [x] ~~**`audit-timeline` asserted a school admin reads NOTHING through the
+      timeline.**~~ It passed for as long as `ai_control_events` happened to be
+      empty, and failed the first time anybody switched the AI off — which was
+      while proving db/118's fallback.
+
+      The policy is right and the test was wrong. `audit_timeline` unions two
+      tables with deliberately different audiences: `admin_audit_events` is
+      `is_platform_admin()`, and `ai_control_events` is `is_platform_admin() or
+      is_school_admin()` because db/012 says so in as many words — "the AI
+      affects their students, and 'who turned this off and why' is a question
+      they are entitled to ask."
+
+      The assertion now says what the rule actually is: no `admin` rows ever,
+      and anything that does come back is the AI half. Worth noticing that a
+      suite of 552 tests contained one whose truth depended on a table nobody
+      had written to.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

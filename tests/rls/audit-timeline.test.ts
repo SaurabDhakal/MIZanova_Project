@@ -75,18 +75,41 @@ describe('who may read the timeline', () => {
 
   /*
    * The one that matters. A school administrator has real authority inside
-   * their own school and none at all over this trail: it records what Special
-   * Miles does TO schools, including suspending theirs.
+   * their own school and none at all over the ADMINISTRATIVE half of this
+   * trail: it records what Special Miles does TO schools, including suspending
+   * theirs.
+   *
+   * THE AI HALF IS DIFFERENT, ON PURPOSE, and this test used to deny it. It
+   * asserted the whole view came back empty, which passed for as long as
+   * `ai_control_events` happened to be empty — and stopped the first time
+   * anybody toggled the AI, on 8 September, while proving db/118's fallback.
+   *
+   * db/012 is explicit about why they are not the same: "School admins see it
+   * too: the AI affects their students, and 'who turned this off and why' is a
+   * question they are entitled to ask." The policy is right; the assertion was
+   * over-broad and green by coincidence.
    */
-  test('a school admin reads nothing through it', async () => {
+  test('a school admin reads no administrative entries through it', async () => {
     const { data, error } = await world.schoolAdmin.db
       .from('audit_timeline')
-      .select('id')
+      .select('id, source')
 
     // Not an error — RLS filters rather than refuses, which is why an empty
     // result is the assertion rather than a rejection.
     expect(error).toBeNull()
-    expect(data).toEqual([])
+    expect((data ?? []).filter((row) => row.source === 'admin')).toEqual([])
+  })
+
+  test('but may read who turned the AI off, which is db/012’s intent', async () => {
+    const { data, error } = await world.schoolAdmin.db
+      .from('audit_timeline')
+      .select('id, source')
+
+    expect(error).toBeNull()
+    // Not asserted non-empty: whether any AI control change has ever been made
+    // is not this suite's business. What matters is that if any come back, they
+    // are the AI half and never the administrative one.
+    expect((data ?? []).every((row) => row.source === 'ai')).toBe(true)
   })
 
   test('a teacher reads nothing through it', async () => {
