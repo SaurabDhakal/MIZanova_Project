@@ -198,71 +198,21 @@ export default function Schedule() {
         />
       </div>
 
-      {notSeen.length > 0 && (
-        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
-          <p className="font-semibold text-warning-foreground">
-            No session recorded this month for:
-          </p>
-          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {notSeen.map((student) => (
-              <li key={student.id}>
-                <Link
-                  to={`/specialist/students/${student.id}`}
-                  className="text-sm font-medium text-warning-foreground underline"
-                >
-                  {student.first_name} {student.last_name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-sm text-warning-foreground">
-            This counts what has been logged here, not what happened. A session
-            you have not recorded looks the same as one that did not occur.
-          </p>
-        </div>
-      )}
 
-      {unwritten.length > 0 && (
-        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
-          <p className="font-semibold text-warning-foreground">
-            {unwritten.length} appointment
-            {unwritten.length === 1 ? ' has' : 's have'} been and gone without a
-            session recorded
-          </p>
-          <p className="mt-1 max-w-prose text-sm text-warning-foreground">
-            Until one is written up it counts as nothing delivered, and it keeps
-            holding its slot against a new booking. Open it to record the
-            session, or cancel it if it did not happen.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {unwrittenShown.map((appointment) => (
-              <li key={appointment.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(appointment.id)}
-                  className="text-sm font-medium text-warning-foreground underline"
-                >
-                  {nameOf(appointment.student_id)}
-                  {' · '}
-                  {new Date(appointment.starts_at).toLocaleDateString('en-AU', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {unwritten.length > unwrittenShown.length && (
-            <p className="mt-2 text-sm text-warning-foreground">
-              The {unwrittenShown.length} most recent are listed. The rest are
-              in the calendar, further back.
-            </p>
-          )}
-        </div>
-      )}
+      {/* ------------------------------------------------------------------
+          ABOVE THE CALENDAR, BECAUSE SOMEBODY IS WAITING ON IT.
+          ------------------------------------------------------------------
+          This sat at 2,277px on a 3,100px page — below the diary, below the
+          delivered sessions, above only the settings. It is the one block on
+          the screen holding a person who has asked for something and not been
+          answered, and it was the last thing anybody would reach.
+
+          Everything above it is reference: what is booked, who has not been
+          seen, what was delivered. Reference can wait; a request cannot. It
+          renders nothing at all when there is nothing waiting, so on an
+          ordinary day this costs the page no height.
+          ------------------------------------------------------------------ */}
+      <SessionRequestsSection />
 
       {/* --- The calendar --------------------------------------------------- */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -334,6 +284,81 @@ export default function Schedule() {
       )}
 
       {/* --- Delivered ------------------------------------------------------ */}
+      {/* ------------------------------------------------------------------
+          THE CATCHING-UP MOVED BELOW THE DIARY.
+          ------------------------------------------------------------------
+          Both of these are admin: children not seen this month, and past
+          appointments with no session written up. Worth prompting, and neither
+          is what somebody opens this page to find out. Between them they were
+          368px sitting on top of the calendar, which is the answer to "what is
+          on today" and was starting a thousand pixels down.
+          ------------------------------------------------------------------ */}
+      {notSeen.length > 0 && (
+        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
+          <p className="font-semibold text-warning-foreground">
+            No session recorded this month for:
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {notSeen.map((student) => (
+              <li key={student.id}>
+                <Link
+                  to={`/specialist/students/${student.id}`}
+                  className="text-sm font-medium text-warning-foreground underline"
+                >
+                  {student.first_name} {student.last_name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-warning-foreground">
+            This counts what has been logged here, not what happened. A session
+            you have not recorded looks the same as one that did not occur.
+          </p>
+        </div>
+      )}
+
+      {unwritten.length > 0 && (
+        <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
+          <p className="font-semibold text-warning-foreground">
+            {unwritten.length} appointment
+            {unwritten.length === 1 ? ' has' : 's have'} been and gone without a
+            session recorded
+          </p>
+          <p className="mt-1 max-w-prose text-sm text-warning-foreground">
+            Until one is written up it counts as nothing delivered, and it keeps
+            holding its slot against a new booking. Open it to record the
+            session, or cancel it if it did not happen.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {unwrittenShown.map((appointment) => (
+              <li key={appointment.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(appointment.id)}
+                  className="text-sm font-medium text-warning-foreground underline"
+                >
+                  {nameOf(appointment.student_id)}
+                  {' · '}
+                  {new Date(appointment.starts_at).toLocaleDateString('en-AU', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {unwritten.length > unwrittenShown.length && (
+            <p className="mt-2 text-sm text-warning-foreground">
+              The {unwrittenShown.length} most recent are listed. The rest are
+              in the calendar, further back.
+            </p>
+          )}
+        </div>
+      )}
+
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
         Sessions delivered
       </h2>
@@ -387,8 +412,6 @@ export default function Schedule() {
           ))}
         </ul>
       )}
-
-      <SessionRequestsSection />
 
       {profile && (
         <WorkingHoursSection specialistId={profile.id} canEdit />
