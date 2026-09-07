@@ -625,23 +625,37 @@ the notification bell, all four account-menu destinations, and Link a child.
 
 ### Found in passing on 8 September — a deleted account still gets a shell
 
-- [ ] **An account deleted while signed in keeps a working-looking session
-      until its token expires.** Noticed after removing a temporary school
-      admin: the browser still rendered the full Command Centre, the whole
-      sidebar, and every figure as **0** — "Students 0 · Active at school",
-      "Open safeguarding 0 · Nothing outstanding".
+- [x] ~~**An account deleted while signed in keeps a working-looking
+      session.**~~ Noticed after removing a temporary school admin: the browser
+      still rendered the full Command Centre and every figure as **0** —
+      "Students 0 · Active at school", "Open safeguarding 0 · Nothing
+      outstanding". No data leaked, because the profile row cascades away and
+      every policy then denies, which is precisely why the numbers were zero.
+      But that is the false-zeros fault this project has fixed once already,
+      putting the calmest sentence in the product on screen at the moment the
+      truth is "this account no longer exists".
 
-      No data leaks. The profile row cascades away, so `my_role()` returns null
-      and every policy denies, which is exactly why the numbers are zero. But
-      that is the false-zeros fault this project has already fixed once: the
-      calmest sentence on the screen — "nothing outstanding" — shown at the
-      moment the truth is "this account no longer exists".
+      `loadProfile` treated three causes as one and fell through to the cached
+      profile. PGRST116 from `.single()` on a primary key means the row is
+      gone; a network failure and an uncommitted signup trigger look different.
 
-      `AuthProvider` already documents the state: `profile` is "null while
-      loading, **or if the row is somehow missing**". The fix is to tell those
-      two apart — a completed lookup that returns null is not a loading state,
-      and should end the session with a sentence rather than render a school
-      with no children in it.
+      **The first fix was wrong, and using it found out.** It signed out only
+      when a cached profile existed — so a deleted session in a browser with no
+      cache neither signed out nor loaded, and the app sat on "Loading your
+      profile…" for ever with 406s stacking up. Worse than the bug it replaced:
+      a stale shell at least does something, and a spinner does not even let
+      somebody reach the sign-in page.
+
+      The discriminator is time, not the cache. It asks twice, 1.5 seconds
+      apart, and treats the second empty answer as the truth — a trigger that
+      has not committed resolves in a moment, a deleted account never does. A
+      loop rather than recursion, because a `useCallback` cannot reference
+      itself.
+
+      What this gives up, said rather than left to be found: a signup trigger
+      that genuinely has not run after 1.5 seconds now signs that person out
+      instead of leaving them on a spinner. For a broken signup the login page
+      is the better of the two, but it is a change.
 
 ---
 
