@@ -11,6 +11,43 @@ bulk import as gaps, and both shipped since it was written.
 
 ---
 
+## 0. Where this stands — 8 September 2026
+
+**Five branches hold work that is not on `main`. Seventeen others are already
+merged and can be deleted.** The list looks worse than it is: PRs here merge by
+rebase, which gives every commit a new SHA, so `git rev-list origin/main..<branch>`
+reports unmerged work on branches whose code has been on `main` for weeks.
+`git cherry origin/main <branch>` compares by patch content instead and tells
+the truth — `+` is genuinely new, `-` is already upstream.
+
+| Branch | Commits | What it is |
+|---|---|---|
+| `fix/montessori-copy-tells-the-truth` | 1 | item 1 below |
+| `fix/library-placeholder-file` | 1 | item in §4 |
+| `fix/public-header-and-mobile-menu` | 1 | the public nav is unreachable on a phone |
+| `fix/help-link-in-account-menu` | 2 | §2, and not pushed yet |
+| `fix/specialist-review-caseload-and-nav` | 4 | the specialist pass |
+
+`git branch -d` refuses the merged seventeen because their SHAs differ from the
+copies on `main`; the cleanup needs `-D`. That is why they accumulated — the
+safe delete never works after a rebase-merge, so nobody ever deletes anything.
+
+**Every CI check passes on `fix/help-link-in-account-menu`**, run locally on
+8 September: lint, build, contrast (WCAG AA), the RLS suite (506 tests, 32
+files), storage and resource policies, the anonymous attack surface, the
+anonymisation redactor, and the bundle secret scan. Saurab is merging once the
+checks pass, so this is the state they are in.
+
+**A branch far behind `main` explains a stale symptom faster than the code
+does.** The Help-link fault was reported twice as unfixed; both times the fix
+was on `main` and the branch under test had been cut 88 commits earlier, where
+it did not exist. Check `git rev-list --count <branch>..origin/main` first.
+
+**Next: the parent role**, audited the way the specialist was — signed in,
+every screen walked, fixed rather than listed. Nothing started.
+
+---
+
 ## 1. Wrong on the live site — my error, fix first
 
 - [ ] **The Montessori copy claims a terminology layer that does not exist.**
@@ -53,6 +90,22 @@ bulk import as gaps, and both shipped since it was written.
       was linked from nowhere once you signed in. It is now in the account
       menu, which every role sees — this was missing for all of them, not just
       individuals.
+      **Took three passes, and the last two are the lesson.** A link from inside
+      the shell to a public route replaces the app with the marketing site,
+      whose logo goes to `/`, which sends a signed-in person to their dashboard
+      — Settings gone. I fixed the reported link each time instead of the
+      surface. Pass 1 built the in-app `/account/help` tab and left the account
+      dropdown on `/help`. Pass 2 repointed the dropdown and left four more
+      doors inside the page it now led to: `src/content/faqs.tsx` is shared by
+      the public page and the Settings tab, and its answers link to `/signup`,
+      `/link`, `/for-specialists` and `/privacy`. Pass 3 (8 Sep) closed those.
+      A `roles` tag says *who* a question is for and cannot say *when*, so a
+      signed-in specialist was reading "I am a specialist. How do I join?" and
+      everybody was reading "How do I sign up?", answered "You do not";
+      `beforeAccount: true` now marks a question that expires once you have an
+      account and the in-app renderer drops it. `/privacy` and `/enquiry` have
+      no in-app twin and open in a new tab, saying so in the link text.
+      Verified in the running app as a specialist, not just built.
 - [x] ~~**An individual is a paying customer with no price anywhere.**~~ The
       Pricing page now has a "For myself" tab, reading live from
       `courses.price_cents` — the same column the checkout charges from —
