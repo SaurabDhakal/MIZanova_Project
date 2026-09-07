@@ -6,6 +6,7 @@ import {
   fetchGoals,
   fetchHomeObservations,
   fetchSharedLogs,
+  fetchStrategiesForStudent,
   queryKeys,
   type BehaviourType,
 } from '../../lib/api'
@@ -15,6 +16,7 @@ import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
+import SharedStrategies from '../../components/SharedStrategies'
 
 /**
  * Parent home — docs/Figma Pages Design/Parent Home Dashboard.png.
@@ -103,6 +105,25 @@ export default function ParentDashboard() {
     enabled: Boolean(child),
   })
 
+  /*
+   * THE ADVICE THAT GOES WITH THE UPDATE — db/113.
+   *
+   * One query for the whole child rather than one per update: RLS returns a
+   * guardian only the settled strategies on logs a teacher shared, so the
+   * filtering that matters is not written here and cannot be forgotten here.
+   * Grouped by log below.
+   *
+   * Its failure is deliberately quiet. An update with no advice under it is
+   * the ordinary case — most shared logs have none — so an error banner would
+   * be reporting an absence that is usually correct anyway. The incident
+   * itself is what the family came for and it renders either way.
+   */
+  const strategies = useQuery({
+    queryKey: queryKeys.studentStrategies(child?.id ?? ''),
+    queryFn: () => fetchStrategiesForStudent(child!.id),
+    enabled: Boolean(child),
+  })
+
   if (isPending) return <LoadingCards count={2} />
   if (isError) return <ErrorState message={error?.message ?? 'Unknown error'} />
 
@@ -128,6 +149,9 @@ export default function ParentDashboard() {
    */
   const visibleShared = showAllShared ? shared : shared.slice(0, SHARED_SHOWN)
   const hiddenShared = shared.length - visibleShared.length
+
+  const adviceFor = (logId: string) =>
+    (strategies.data ?? []).filter((s) => s.behaviour_log_id === logId)
 
   /*
    * "Now" comes from the fetch rather than from render — `Date.now()` here is
@@ -169,6 +193,7 @@ export default function ParentDashboard() {
           {latest.notes && (
             <p className="mt-2 text-foreground">{latest.notes}</p>
           )}
+          <SharedStrategies strategies={adviceFor(latest.id)} />
         </div>
       ) : (
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
@@ -391,6 +416,7 @@ export default function ParentDashboard() {
               {log.notes && (
                 <p className="mt-2 text-foreground">{log.notes}</p>
               )}
+              <SharedStrategies strategies={adviceFor(log.id)} />
             </li>
           ))}
         </ul>
