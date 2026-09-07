@@ -201,8 +201,15 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
               </NavLink>
             )}
 
+            {/* /account/help, NOT /help. The public page renders the marketing
+                header, whose logo goes to `/`, and `/` sends a signed-in person
+                to their own dashboard — so this item walked people out of the
+                application and stranded them on the home screen with Settings
+                gone. The in-app Help tab was built to fix precisely that, and
+                this link was never repointed at it, which left the dropdown
+                doing the exact thing the tab exists to prevent. */}
             <NavLink
-              to="/help"
+              to="/account/help"
               role="menuitem"
               onClick={close}
               className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
