@@ -4,6 +4,7 @@ import {
   fetchMySchool,
   queryKeys,
   updateMySchool,
+  updateSchoolPolicy,
   type MySchool,
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
@@ -74,6 +75,18 @@ function SchoolForm({ school }: { school: MySchool }) {
   const [state, setState] = useState(school.state ?? '')
   const [timezone, setTimezone] = useState(school.timezone)
   const [abn, setAbn] = useState(school.abn ?? '')
+
+  /* Its own mutation, and its own toast: a policy that reported "school
+     details saved" would leave somebody unsure which thing had changed. */
+  const policy = useMutation({
+    mutationFn: (fields: Parameters<typeof updateSchoolPolicy>[1]) =>
+      updateSchoolPolicy(school.id, fields),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.mySchool })
+      showToast('Setting changed.')
+    },
+    onError: (error) => showToast(error.message, 'error'),
+  })
 
   const save = useMutation({
     mutationFn: () =>
@@ -208,6 +221,46 @@ function SchoolForm({ school }: { school: MySchool }) {
         </div>
       </section>
 
+      {/* ================= FR15: the school's own policy ================== */}
+      <section className="rounded-card border border-border bg-card shadow-raised p-5">
+        <h2 className="font-semibold text-foreground">Sharing with families</h2>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          These are your school&rsquo;s rules rather than a preference, so they
+          take effect as soon as you press them. There is no Save button here on
+          purpose &mdash; a policy left half-changed in an abandoned form is
+          worse than one that changes when you say so.
+        </p>
+
+        <div className="mt-4 space-y-4">
+          <PolicyToggle
+            label="Share updates with families automatically"
+            on={school.auto_share_updates}
+            busy={policy.isPending}
+            onChange={(v) => policy.mutate({ auto_share_updates: v })}
+            detail={
+              school.auto_share_updates
+                ? 'Every behaviour log a teacher writes goes to the family as it is written. A teacher can still unshare one afterwards.'
+                : 'A teacher decides one log at a time. This is how the product behaved before this switch existed.'
+            }
+            /* The clause worth reading before turning it on, and the reason
+               the copy says it rather than the release notes. */
+            caveat="A flagged incident is never shared automatically, whichever way this is set. Those wait for whoever reviews safeguarding here."
+          />
+
+          <PolicyToggle
+            label="Let staff invite families"
+            on={school.parent_invite_enabled}
+            busy={policy.isPending}
+            onChange={(v) => policy.mutate({ parent_invite_enabled: v })}
+            detail={
+              school.parent_invite_enabled
+                ? 'Staff can issue an access code so a parent can link to their child.'
+                : 'No new access codes can be issued. Codes already sent still work — stopping new ones is not the same as withdrawing one somebody is holding.'
+            }
+          />
+        </div>
+      </section>
+
       <section className="rounded-card border border-border bg-card shadow-raised p-5">
         <h2 className="font-semibold text-foreground">Managed by Special Miles</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -273,5 +326,55 @@ export default function School() {
           screen about the school's relationship with Special Miles. */}
       <WhatWePaySection schoolId={school.data.id} />
     </>
+  )
+}
+
+/**
+ * One policy switch: a label, what it means right now, and the caveat if it
+ * has one.
+ *
+ * A checkbox rather than a styled slider. The state of a slider is a thing
+ * people misread, and this decides whether a family is told about their
+ * child's day — the control that changes that should be the one the browser
+ * already knows how to announce.
+ */
+function PolicyToggle({
+  label,
+  detail,
+  caveat,
+  on,
+  busy,
+  onChange,
+}: {
+  label: string
+  detail: string
+  caveat?: string
+  on: boolean
+  busy: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <div className="rounded-card border border-border bg-background p-4">
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={busy}
+          onChange={(e) => onChange(e.target.checked)}
+          className="mt-1 h-5 w-5 shrink-0 accent-[var(--color-primary)]"
+        />
+        <span className="min-w-0">
+          <span className="block font-semibold text-foreground">{label}</span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">
+            {detail}
+          </span>
+          {caveat && (
+            <span className="mt-2 block text-sm text-warning-foreground">
+              {caveat}
+            </span>
+          )}
+        </span>
+      </label>
+    </div>
   )
 }

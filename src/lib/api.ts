@@ -2129,12 +2129,18 @@ export type MySchool = {
   abn: string | null
   kind: OrganisationKind
   status: OrganisationStatus
+  /* db/116, FR15. Both are the school's own policy rather than a preference. */
+  auto_share_updates: boolean
+  parent_invite_enabled: boolean
 }
 
 export async function fetchMySchool(): Promise<MySchool | null> {
   const { data, error } = await supabase
     .from('schools')
-    .select('id, name, suburb, state, timezone, abn, kind, status')
+    .select(
+      'id, name, suburb, state, timezone, abn, kind, status, ' +
+        'auto_share_updates, parent_invite_enabled',
+    )
     .maybeSingle()
 
   if (error) throw new Error(error.message)
@@ -2148,6 +2154,31 @@ export async function fetchMySchool(): Promise<MySchool | null> {
  * a school that could write its own status could lift its own suspension, and
  * since db/063 that decides whether its educators can add children.
  */
+/**
+ * The two FR15 switches — db/116.
+ *
+ * Separate from `updateMySchool` on purpose. That one is a form with a Save
+ * button and five fields somebody is editing; these are policy, they take
+ * effect the moment they are pressed, and burying them in a form somebody
+ * might abandon half-changed would leave a school unsure which way round its
+ * own sharing rule was.
+ */
+export async function updateSchoolPolicy(
+  id: string,
+  fields: Partial<{ auto_share_updates: boolean; parent_invite_enabled: boolean }>,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('schools')
+    .update(fields)
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // db/066's trigger refuses status and kind; a policy change filtered out by
+  // RLS would otherwise report success and change nothing.
+  assertChanged(data, 'That setting')
+}
+
 export async function updateMySchool(
   id: string,
   fields: {

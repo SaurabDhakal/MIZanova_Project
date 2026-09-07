@@ -442,10 +442,42 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
 
 ### Not built, in the order I would take them
 
-- [ ] **FR15 — Auto-share and Parent Invite toggles.** Nothing under any
-      spelling. Sharing is a per-log decision by a teacher today; there is no
-      school-level policy switch at all. Small, and it is an admin screen plus
-      one column.
+- [x] ~~**FR15 — Auto-share and Parent Invite toggles.**~~ db/116, and two
+      switches on Settings → School. Not a form: they take effect on press,
+      because a policy left half-changed in an abandoned form is worse than one
+      that changes when you say so.
+
+      **The clause that matters is the one where two requirements collided.**
+      FR15 wants updates shared automatically; FR14 wants critical incidents
+      locked until a lead has reviewed them. An auto-share that ignored
+      `is_risk_flagged` would send exactly those to a family the instant a
+      teacher pressed save — before anybody had decided whether the family is
+      who the child needs protecting from. A flagged log is never auto-shared,
+      whichever way the switch is set, and the screen says so above the switch
+      rather than in a release note.
+
+      The trigger can only ever turn sharing ON. Switching the policy off stops
+      new logs being shared; it does not retract what families have already
+      been told.
+
+      Parent Invite gates `issue_guardian_code`, not `issue_invitation` —
+      the latter refuses the parent role outright, and gating it would have
+      produced a switch that looked authoritative and changed nothing.
+
+      **Verified by pressing the switches, not by reading them.** Reaching that
+      screen needed a temporary school admin, and the 2FA gate refused it until
+      the account had a real authenticator — so the probe enrols one by
+      computing the TOTP itself (RFC 6238 is HMAC-SHA1 over a 30-second
+      counter, which node has built in). Turning auto-share on in the browser
+      then made a real behaviour log come back shared, and a risk-flagged one
+      come back unshared, in the same write. Turning invitations off made
+      `issue_guardian_code` refuse. School restored, account deleted.
+
+      **And it nearly left the `schools` view behind for the third time.**
+      db/042 lost `kind`; db/067 exists only because `abn` went the same way.
+      Every screen reads the view, so a column added to `organisations` alone
+      simply does not exist to the product. The view is rebuilt with
+      `security_invoker` restated, and PostgREST told to reload.
 - [ ] **FR17 — a Country on each school to trigger local privacy law.** No
       country column exists. Everything is implicitly Australian. Matters the
       day a second jurisdiction appears, and is much cheaper before then.
