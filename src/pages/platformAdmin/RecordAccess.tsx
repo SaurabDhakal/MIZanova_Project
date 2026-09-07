@@ -9,6 +9,7 @@ import {
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
+import { csvCell } from '../../lib/csv'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Pagination from '../../components/Pagination'
@@ -144,7 +145,9 @@ export default function RecordAccess() {
   async function exportCsv() {
     try {
       const all = await fetchAllStudentAccessEvents(buildFilters())
-      const esc = (v: string) => `"${String(v).replaceAll('"', '""')}"`
+      // Was a local escaper that quoted correctly and did not guard against
+      // formula injection — see src/lib/csv.ts. Same shape, one import.
+      const esc = csvCell
       const csv = [
         ['When', 'Who', 'Role', 'School', 'Child', 'What'].join(','),
         ...all.rows.map((e) => {

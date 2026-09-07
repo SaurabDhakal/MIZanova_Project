@@ -7,6 +7,7 @@ import {
   queryKeys,
   type AuditFilters,
 } from '../../lib/api'
+import { csvCell } from '../../lib/csv'
 import { AUDIT_ACTION_CODES, auditAction } from '../../lib/auditActions'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
@@ -149,7 +150,9 @@ export default function AuditLog() {
   async function exportCsv() {
     try {
       const all = await fetchAllAuditTimeline(buildFilters())
-      const esc = (v: string) => `"${String(v).replaceAll('"', '""')}"`
+      // Was a local escaper that quoted correctly and did not guard against
+      // formula injection — see src/lib/csv.ts. Same shape, one import.
+      const esc = csvCell
       const csv = [
         ['When', 'Action', 'Who', 'Subject', 'Where', 'Detail', 'Source'].join(','),
         ...all.rows.map((e) =>

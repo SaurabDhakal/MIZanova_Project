@@ -13,6 +13,7 @@ import {
   type Course,
   type CourseEngagement,
 } from '../../lib/api'
+import { csvCell } from '../../lib/csv'
 import { ROLE_CONFIG, ROLES, type Role } from '../../lib/roles'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
@@ -532,7 +533,9 @@ function Engagement() {
   })
 
   function exportCsv(data: CourseEngagement[]) {
-    const esc = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`
+    // Was a local escaper that quoted correctly and did not guard against
+    // formula injection — see src/lib/csv.ts. Same shape, one import.
+    const esc = csvCell
     const csv = [
       ['Course', 'State', 'Audiences', 'Modules', 'Enrolled', 'Finished', 'Finished %'].join(','),
       ...data.map((r) =>

