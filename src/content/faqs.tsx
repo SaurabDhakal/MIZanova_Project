@@ -38,10 +38,33 @@ import type { Role } from '../lib/roles'
  * The PUBLIC help page still shows all of them, because a visitor there has
  * not told us who they are and might be any of these people.
  */
+/**
+ * `beforeAccount` means "this question stops making sense once you are in".
+ *
+ * ---------------------------------------------------------------------------
+ * THE WHOLE FIRST SECTION WAS SOMEBODY ELSE'S PROBLEM
+ * ---------------------------------------------------------------------------
+ * `roles` tags WHO a question is for. It cannot express WHEN, and every item
+ * in "Getting an account" is a question you only have before you have one.
+ * Tagged by role alone, they were shown in Settings to people who were, by
+ * definition, already signed in: a specialist reading "I am a specialist. How
+ * do I join?", a teacher reading "there is no invitation in my inbox", and
+ * everybody reading "How do I sign up?" — answered "You do not."
+ *
+ * It was not only noise. Four of the five answers link to `/signup`, `/link`
+ * and `/for-specialists`, which are PUBLIC pages — so the section that made no
+ * sense in-app was also the densest source of doors out of the application,
+ * the exact fault the in-app Help tab was built to stop. Dropping it here
+ * closes all four at once.
+ *
+ * The public page still shows them, and must: that is where somebody who has
+ * not got an account is standing.
+ */
 export type Faq = {
   q: string
   a: React.ReactNode
   roles?: Role[]
+  beforeAccount?: boolean
 }
 
 export const FAQS: { section: string; items: Faq[] }[] = [
@@ -51,6 +74,7 @@ export const FAQS: { section: string; items: Faq[] }[] = [
       {
         q: 'How do I sign up?',
         roles: ['parent', 'educator', 'specialist', 'school_admin', 'student'],
+        beforeAccount: true,
         a: (
           <>
             You do not. An account is created for you by the thing that gives
@@ -66,6 +90,7 @@ export const FAQS: { section: string; items: Faq[] }[] = [
       {
         q: 'My child’s school gave me a code. What now?',
         roles: ['parent'],
+        beforeAccount: true,
         a: (
           <>
             <Link to="/link" className="text-primary hover:underline">
@@ -81,16 +106,19 @@ export const FAQS: { section: string; items: Faq[] }[] = [
       {
         q: 'I work at a school and there is no invitation in my inbox.',
         roles: ['educator', 'specialist', 'school_admin'],
+        beforeAccount: true,
         a: 'Ask your school office to send one. Only a school administrator can, and only they can say you work there — which is the point. Check spam first: invitations come from an automated address.',
       },
       {
         q: 'My invitation link says it does not work.',
         roles: ['parent', 'educator', 'specialist', 'school_admin'],
+        beforeAccount: true,
         a: 'Invitations expire after fourteen days and can only be used once, so the most common cause is that it was already opened or has been sitting in an inbox too long. Ask whoever invited you to send a new one.',
       },
       {
         q: 'I am a specialist. How do I join?',
         roles: ['specialist'],
+        beforeAccount: true,
         a: (
           <>
             Apply to the network and Special Miles checks your registration and
@@ -139,9 +167,22 @@ export const FAQS: { section: string; items: Faq[] }[] = [
             The text of an observation, with names, contact details and dates of
             birth removed first. The exact anonymised text is stored against the
             record, so you can be shown what left rather than told about it.{' '}
-            <Link to="/privacy" className="text-primary hover:underline">
-              More on how data is handled →
-            </Link>
+            {/* A NEW TAB, BECAUSE THIS ANSWER IS READ IN TWO PLACES.
+                /privacy is public and has no in-app twin, so following it
+                from the Settings Help tab would render the marketing header
+                over the top of the application — the same walking-out this
+                tab exists to prevent. Opening it alongside leaves Settings
+                where it was. Said in the link text rather than only in the
+                markup, because a tab opening unannounced is its own small
+                surprise. */}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              More on how data is handled (opens in a new tab)
+            </a>
           </>
         ),
       },
