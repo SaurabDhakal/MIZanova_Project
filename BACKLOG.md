@@ -377,6 +377,88 @@ the live database rather than against memory.
 
 ---
 
+## 2d. Every requirement in the client documents, traced — 8 September 2026
+
+Read out of `docs/1.WDPBI Special Miles_Joe Abboud 14022026.docx` and
+`docs/Final Requirements.docx` and checked against the code, not remembered.
+FR1–FR26 and NFR1–NFR7 in full, so nothing has to be rediscovered.
+
+### The three relations the documents themselves define
+
+`Final Requirements` §2 names them under "System Logic", and they are the
+spine of the product rather than diagram decoration:
+
+| Relation | Document | State |
+|---|---|---|
+| **«include»** behavioural logging → anonymisation | "Student PII is automatically stripped before any data is saved or processed" | **Built and fails closed.** `buildAnonymousPayload` redacts every child at the school, and `findLeaks` re-checks the assembled payload and refuses the call rather than send. `anonymised_input` stores exactly what left, so the claim is a query rather than a promise. |
+| **«extend»** AI strategy request → specialist review queue | "high-risk or low-confidence AI suggestions are manually validated by a human expert before being released" | **Built twice.** db/006 for a teacher's log; db/114 for a parent's home observation. It is the reason db/114 could not reuse `individual_ai_requests`, whose header says it has no review state because an individual has no specialist. |
+| **Commercial** Stripe Payment + Premium Reports | "bridge the gap between classroom functionality and business sustainability" | **Half.** Stripe checkout exists for courses. Premium Reports (FR7) do not, and the key is a placeholder. |
+
+### Built
+
+FR1 behaviour logging · FR2 timer (`useTimer`) · FR3 voice (`useSpeechToText`)
+· FR4 three AI strategies with names stripped · FR6 booking, the request half
+(db/115) · FR8 home observations · FR9 parent AI strategies (db/114) · FR10
+low-confidence queue (`specialist/ReviewQueue`) · FR11 private specialist notes
+(`specialist_session_notes`) · FR13 assignments and permissions
+(`schoolAdmin/People`) · FR14 safeguarding lock (db/010) · FR16 institutional
+KPI dashboard (db/014) · FR18 WWCC verification pipeline (db/013, db/048) ·
+FR19 revenue dashboards · FR20 AI thresholds and FR21 kill switch
+(`ai_controls`) · FR25 consent with revoke and audit (db/021) · FR26 in-app
+messaging (db/009, db/084) · NFR2 offline (`sw.ts`, `offlineQueue`) · NFR3
+mobile-first (audited 8 Sep) · NFR6 data in Sydney.
+
+### Contradicts the spec, deliberately — Joe should confirm rather than discover
+
+- [ ] **FR5 says "the student's First Name only". Parent screens show the full
+      name.** Reversed on Saurab's call on 4 September and recorded in
+      `parent/Dashboard.tsx`, which also names the cost: a screenshot shared in
+      a group chat now carries a surname. Thirteen call sites use
+      `fullName(child)`. The reasoning is sound — RLS never sends a parent
+      another family's row, so the short form was a display choice not a
+      protection — but it is a written requirement being knowingly overridden.
+- [ ] **FR8 says a "private" area for home observations; db/007 shares them
+      with assigned staff the moment they are written.** Deliberate and
+      documented, and the screen says so. Same shape: worth confirming.
+- [ ] **P03 says parents may DELETE their own notes; db/007 has no delete
+      policy**, on purpose — "observations are corrected rather than deleted".
+
+### Not built, in the order I would take them
+
+- [ ] **FR15 — Auto-share and Parent Invite toggles.** Nothing under any
+      spelling. Sharing is a per-log decision by a teacher today; there is no
+      school-level policy switch at all. Small, and it is an admin screen plus
+      one column.
+- [ ] **FR17 — a Country on each school to trigger local privacy law.** No
+      country column exists. Everything is implicitly Australian. Matters the
+      day a second jurisdiction appears, and is much cheaper before then.
+- [ ] **FR12 — a version-controlled library of proven strategies.** Specialists
+      review suggestions one at a time and nothing accumulates. Distinct from
+      the Library (articles) and the Academy (courses).
+- [ ] **FR7 / 1.5.2 — Parent Premium and the 3-month report.** Eleven named
+      sections. Blocked on price and a real Stripe key.
+- [ ] **FR23 — optional neurodevelopment profile.** Needs Joe on consent and
+      visibility before schema.
+- [ ] **FR24 — the parent half of SMART goals.** "Request specialist progress
+      review" is clearly a parent action and is missing; creating goals I would
+      argue against.
+- [ ] **FR22 — Development / Staging / Production switch.** One environment.
+- [ ] **NFR5 — sessions must time out after 20 minutes.** 2FA is enforced for
+      the four roles that need it; **no idle timeout exists anywhere.** This is
+      the only unmet requirement that is a security control rather than a
+      feature, and it is small.
+- [ ] **NFR4 — "WhatsApp notifications must not contain names; only a secure
+      link."** There is no WhatsApp integration at all, so the requirement is
+      vacuously satisfied and actually unbuilt. Email and push exist and both
+      already withhold names, which is the same protection by another route.
+- [ ] **NFR1 — strategies in under 3 seconds.** Never measured, and db/099's
+      escalation deliberately makes the slow path slower to make the answer
+      better. Worth measuring before claiming either way.
+- [ ] **NFR7 — architecture defined for webapp AND mobile app.** There is one
+      codebase, a PWA. No mobile-app scope is written down.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an
