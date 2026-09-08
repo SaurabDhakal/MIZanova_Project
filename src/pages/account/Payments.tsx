@@ -8,7 +8,6 @@ import {
   queryKeys,
 } from '../../lib/api'
 import { showToast } from '../../lib/toast'
-import SubscriptionSection from '../../components/SubscriptionSection'
 import Icon from '../../components/Icon'
 
 /**
@@ -27,6 +26,10 @@ import Icon from '../../components/Icon'
  * renewal they did not expect — so it is the worst thing to bury two thirds of
  * the way down a settings page.
  *
+ * WHAT IS LEFT ON IT, now that Subscription is its own sidebar screen:
+ * receipts, and a pointer to that screen. The subscription controls moved out
+ * rather than being copied, so there is one Subscribe button in the product.
+ *
  * INDIVIDUAL ONLY, because the other roles' money lives elsewhere and is a
  * different thing: a parent has Collab & Finance, a school admin has Invoices,
  * and a school is billed by agreement rather than by card. A tab here for them
@@ -41,12 +44,16 @@ export default function Payments() {
   /* ------------------------------------------------------------------
      COMING BACK FROM STRIPE.
      ------------------------------------------------------------------
-     Stripe sends people here after paying. The webhook is what makes the
-     subscription real and does not care what the browser did — but it can
-     arrive seconds later, and until it does this page would show the person
-     who just paid the same "there is nothing to subscribe to" card they saw
-     before. Asking the server to confirm the session closes that gap, exactly
-     as the Academy does for a course.
+     THE OLD RETURN ADDRESS, KEPT ON PURPOSE. `success_url` now points at
+     /individual/subscription, which is where the Subscribe button lives — but
+     a checkout session opened before that change still comes back here, and a
+     person who has just paid should not land on a page that says nothing about
+     it. Confirming the session makes the subscription real immediately rather
+     than whenever the webhook arrives, so the sidebar page they go to next is
+     already right.
+
+     Nothing about this is wasted if it never fires again: it is the same call
+     the new page makes, on the same session id.
 
      The parameter is cleared either way, so a refresh does not re-run it and a
      bookmarked URL does not confuse anybody a week later.
@@ -109,7 +116,41 @@ export default function Payments() {
 
   return (
     <div>
-      <SubscriptionSection />
+      {/* ------------------------------------------------------------------
+          THE SUBSCRIPTION IS NOT RENDERED HERE ANY MORE — IT IS A SCREEN.
+          ------------------------------------------------------------------
+          It is now `Subscription` in the sidebar, directly under Suggestions,
+          because that is the only screen it changes and because a price
+          reachable only from Settings is a price nobody finds.
+
+          A LINK RATHER THAN A SECOND <SubscriptionSection>. The component
+          would render perfectly well in both places, and that is the problem:
+          two Subscribe buttons and two Cancel buttons, on two screens, one of
+          which somebody is looking at while the other is stale. On the subject
+          of money there is one place to press.
+
+          The tab stays, and stays useful: receipts are what people come to a
+          Payments tab for at tax time.
+          ------------------------------------------------------------------ */}
+      <section className="rounded-card border border-border bg-card p-6 shadow-raised">
+        <div className="flex items-start gap-3">
+          <Icon name="ai" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-foreground">Subscription</h2>
+            <p className="mt-1 max-w-prose text-muted-foreground">
+              What it costs, what it changes and how to stop it are all on one
+              page &mdash; <b className="text-foreground">Subscription</b> in
+              the menu on the left.
+            </p>
+            <Link
+              to="/individual/subscription"
+              className="mt-4 inline-block rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
+            >
+              Go to your subscription
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* ------------------------------------------------------------------
           RECEIPTS ARE LINKED, NOT REPRINTED. The receipt screen exists, prints

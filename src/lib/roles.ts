@@ -363,6 +363,22 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
       { path: 'goals', label: 'My goals', icon: 'goals', milestone: 'M15' },
       { path: 'suggestions', label: 'Suggestions', icon: 'ai', milestone: 'M15' },
+      /*
+       * db/111. DIRECTLY UNDER SUGGESTIONS, WHICH IS THE ONLY SCREEN IT
+       * CHANGES. Subscribing moves `my_ai_tier()` to paid: a more capable
+       * model answers there, and the daily limit lifts. Nothing else about
+       * this account is different paid or free, so the item that leads to the
+       * price sits beside the thing being priced rather than at the bottom
+       * with the account admin.
+       *
+       * It had no nav item at all until now — the subscription lived on
+       * Settings › Payments, which is where somebody goes once they already
+       * know they pay for something. This role's people arrive the other way
+       * round: they meet the daily limit and want to know what lifting it
+       * costs. A product with a price should not make you open Settings to
+       * find it.
+       */
+      { path: 'subscription', label: 'Subscription', icon: 'finance', milestone: 'M15' },
       { path: 'book', label: 'Sessions', icon: 'schedule', milestone: 'M15' },
     ],
   },
