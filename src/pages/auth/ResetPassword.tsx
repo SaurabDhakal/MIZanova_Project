@@ -62,6 +62,17 @@ export default function ResetPassword() {
   }
 
   if (done) {
+    /*
+     * THE SECOND SENTENCE IS LOAD-BEARING AND IT IS TRUE. Measured against
+     * this project on 9 September 2026: changing the password kills every
+     * other session's refresh token outright and its existing access token is
+     * refused with a 403. Somebody resetting a password because a stranger had
+     * it really is locking that stranger out, and is entitled to be told so.
+     *
+     * It is asserted in tests/integration/sessionRevocation rather than
+     * trusted, because it is Supabase's behaviour rather than ours and this
+     * screen would go on claiming it after an upgrade that changed it.
+     */
     return (
       <AuthLayout title="Password changed">
         <div
@@ -70,8 +81,9 @@ export default function ResetPassword() {
         >
           <p className="font-semibold">Your new password is saved.</p>
           <p className="mt-2">
-            You are already signed in on this device. You will need the new
-            password anywhere else you use MiZanova.
+            You are still signed in here. Every other device has been signed
+            out, so anyone using this account elsewhere — including someone you
+            did not expect — needs the new password to get back in.
           </p>
         </div>
 

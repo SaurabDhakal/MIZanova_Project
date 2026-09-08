@@ -113,7 +113,10 @@ export default function Security() {
       setCurrentPassword('')
       setPassword('')
       setConfirmPassword('')
-      showToast('Password changed.')
+      // Says the second half out loud because it is the half that matters to
+      // somebody changing a password they think was stolen, and because this
+      // page spent a long time claiming the opposite.
+      showToast('Password changed, and every other device signed out.')
     },
   })
 
@@ -451,28 +454,42 @@ export default function Security() {
             Supabase's updateUser ignores it, so AuthProvider verifies it
             against a throwaway client first. Without that, anyone who found a
             signed-in laptop unattended could take the account over and lock its
-            owner out — and these are shared classroom machines. */}
+            owner out — and these are shared classroom machines.
+
+            THE SECOND SENTENCE USED TO SAY THE OPPOSITE: "Changing it here does
+            not sign you out of other devices." That was simply false, and it
+            was false in the direction that does harm — somebody changing a
+            password they believed was stolen was told, in passing, that the
+            thief stayed signed in, when Supabase had already thrown them out.
+            Measured 9 September 2026: the other session's refresh token is
+            dead and its access token is refused with a 403. Held down by
+            tests/integration/sessionRevocation. */}
         <p className="mt-3 max-w-prose text-xs text-muted-foreground">
           Your current password is checked before the change is made. Changing
-          it here does not sign you out of other devices.
+          it also signs you out on every other device, and leaves this one
+          alone.
         </p>
       </section>
 
       {/* ------------------------------------------------------------------
           MOVED HERE FROM THE ACCOUNT TAB, where it was one of nine sections.
-          It belongs beside the password and not merely because both are
-          security: the two were already finishing each other's sentences from
-          different tabs. This one said "changing your password does not do
-          this on its own"; the password section above says "changing it here
-          does not sign you out of other devices". Somebody reading either had
-          to go and find the other.
+          It belongs beside the password because the two were finishing each
+          other's sentences from different tabs.
+
+          WHAT THIS SECTION IS ACTUALLY FOR. Both this and the password section
+          above used to claim it was the ONLY way to end another session. It
+          never was — a password change has always done it — so the pair were
+          pointing at each other to describe a gap that did not exist. What is
+          left is the case this button genuinely suits: you left yourself
+          signed in somewhere and want it closed, without changing a password
+          you are perfectly happy with.
           ------------------------------------------------------------------ */}
       <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
         <h2 className="text-lg font-bold text-foreground">Other devices</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           Ends every other signed-in session and leaves this one alone. Worth
-          doing if you have left yourself signed in on a shared machine &mdash;
-          changing your password above does not do this on its own.
+          doing if you have left yourself signed in on a shared machine and do
+          not want to change your password as well.
         </p>
         <button
           type="button"

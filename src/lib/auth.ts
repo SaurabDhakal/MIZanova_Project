@@ -103,6 +103,9 @@ export type AuthValue = {
    * For the reset flow ONLY, where the person has just proved they can read
    * the account's mailbox and by definition cannot supply the old password.
    * Anywhere else, use `changePassword`.
+   *
+   * Supabase ends every other session on the account as part of this — proved
+   * in tests/integration/sessionRevocation, not assumed.
    */
   setNewPassword: (password: string) => Promise<void>
   /**
@@ -111,6 +114,8 @@ export type AuthValue = {
    * What this protects against is an unattended signed-in laptop: without the
    * check, anyone who walks up to one can take the account over permanently
    * and lock its owner out. These are shared classroom machines.
+   *
+   * Ends every other session too, on the same reasoning as `setNewPassword`.
    */
   changePassword: (
     currentPassword: string,
