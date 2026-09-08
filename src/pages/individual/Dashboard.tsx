@@ -617,7 +617,7 @@ export default function IndividualHome() {
                   either way.
                 </p>
                 <Link
-                  to="/account/payments"
+                  to="/individual/subscription"
                   className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
                 >
                   What you get &rarr;
@@ -643,7 +643,7 @@ export default function IndividualHome() {
                     : `The subscription is ${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every} and would give you the same thing, so there is nothing to pay for now.`}
                 </p>
                 <Link
-                  to="/account/payments"
+                  to="/individual/subscription"
                   className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
                 >
                   {hasLiveSubscription ? 'Manage it' : 'See the details'} &rarr;

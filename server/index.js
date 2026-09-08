@@ -1798,10 +1798,37 @@ app.post('/api/self-strategies', async (req, res) => {
       : Number(controls.free_daily_limit_per_user ?? 10)
 
     if (quota && quota.user_used >= userLimit) {
+      /*
+       * THE WAY OUT, BUT ONLY IF IT EXISTS — db/111.
+       *
+       * This sentence named one way to lift the limit, buying a course, and
+       * was written before the subscription was. Somebody who has just run out
+       * of suggestions is at the exact moment the subscription is for, and the
+       * message pointed past it.
+       *
+       * Read rather than assumed, because `is_offered` is false until Special
+       * Miles sets a price, and this codebase does not advertise something
+       * nobody can buy. Only asked on the request that is already failing, so
+       * it costs nothing in the ordinary case.
+       */
+      let subscribable = false
+      if (!paidTier) {
+        const { data: plan } = await admin
+          .from('individual_plan')
+          .select('is_offered')
+          .eq('id', 1)
+          .maybeSingle()
+        subscribable = Boolean(plan?.is_offered)
+      }
+
       return res.status(429).json({
         error: paidTier
           ? `You have used all ${userLimit} suggestions available in the last 24 hours. Nothing else on your account is affected.`
-          : `You have used all ${userLimit} free suggestions for today. They reset in 24 hours, and buying a course lifts the limit. Nothing else on your account is affected.`,
+          : `You have used all ${userLimit} free suggestions for today. They reset in 24 hours, and ${
+              subscribable
+                ? 'subscribing or buying a course lifts the limit — see Subscription in the menu'
+                : 'buying a course lifts the limit'
+            }. Nothing else on your account is affected.`,
       })
     }
 
@@ -3116,11 +3143,21 @@ app.post('/api/billing/subscribe', async (req, res) => {
       /* BACK TO WHERE THE SUBSCRIPTION ACTUALLY LIVES. This pointed at
          /account/profile, which was true until billing moved to its own
          Payments tab — so somebody who had just paid landed on a page with no
-         mention of a subscription anywhere on it. The session id travels so
-         the return can be confirmed immediately rather than waiting on the
-         webhook, exactly as the course and invoice paths do. */
-      success_url: `${origin}/account/payments?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/account/payments?cancelled=1`,
+         mention of a subscription anywhere on it. It has moved once more, for
+         the same reason and one step further: the subscription is now its own
+         sidebar screen, /individual/subscription, and Payments only links to
+         it. Land somebody back on the page they pressed the button on.
+
+         Only individuals can reach this route — the plan is theirs, and every
+         other role's money is invoiced rather than subscribed — so a path
+         inside /individual is safe to send everybody who gets this far.
+
+         The session id travels so the return can be confirmed immediately
+         rather than waiting on the webhook, exactly as the course and invoice
+         paths do. /account/payments still confirms a returning session too,
+         for anything opened before this changed. */
+      success_url: `${origin}/individual/subscription?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/individual/subscription?cancelled=1`,
     })
 
     return res.json({ url: session.url })
