@@ -178,14 +178,14 @@ function RenewalForm({
         <button
           type="submit"
           disabled={save.isPending}
-          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {save.isPending ? 'Saving…' : 'Record it'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+          className="min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -277,7 +277,7 @@ function CheckRow({ check }: { check: ScreeningRow }) {
           <button
             type="button"
             onClick={() => setRenewing(true)}
-            className="rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+            className="min-h-11 rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
           >
             Record a renewal
           </button>
@@ -289,7 +289,7 @@ function CheckRow({ check }: { check: ScreeningRow }) {
               type="button"
               disabled={remind.isPending}
               onClick={() => remind.mutate()}
-              className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
             >
               {remind.isPending ? 'Sending…' : 'Ask them to renew'}
             </button>
@@ -298,7 +298,7 @@ function CheckRow({ check }: { check: ScreeningRow }) {
             type="button"
             disabled={revoke.isPending}
             onClick={() => revoke.mutate()}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
           >
             No longer held
           </button>
@@ -500,7 +500,7 @@ export default function Screening() {
                   <button
                     type="button"
                     onClick={() => setAddingFor(person.email)}
-                    className="mt-3 rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                    className="min-h-11 mt-3 rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
                   >
                     Record their check
                   </button>

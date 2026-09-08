@@ -215,7 +215,7 @@ export default function ParentProgress() {
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground"
+          className="inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground"
         >
           Print or save as PDF
         </button>

@@ -166,7 +166,7 @@ function IncidentCard({
               type="button"
               onClick={() => acknowledge.mutate()}
               disabled={acknowledge.isPending || note.trim() === ''}
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {acknowledge.isPending ? 'Recording…' : 'Acknowledge'}
             </button>
@@ -248,7 +248,7 @@ export default function Safeguarding() {
             type="button"
             onClick={() => setTab(value)}
             aria-pressed={tab === value}
-            className={`rounded-btn px-4 py-2 text-sm font-semibold ${
+            className={`min-h-11 rounded-btn px-4 py-2 text-sm font-semibold ${
               tab === value
                 ? 'bg-primary text-primary-foreground'
                 : 'border border-border text-foreground'

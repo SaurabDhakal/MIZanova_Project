@@ -595,7 +595,7 @@ export default function Book() {
                       disabled={asked}
                       onClick={() => setSlot(t)}
                       aria-pressed={slot === t}
-                      className={`rounded-btn border px-3 py-2.5 text-center font-medium tabular-nums ${
+                      className={`min-h-11 rounded-btn border px-3 py-2.5 text-center font-medium tabular-nums ${
                         asked
                           ? 'border-border bg-background text-muted-foreground'
                           : slot === t
@@ -645,7 +645,7 @@ export default function Book() {
                 purpose,
               })
             }
-            className="mt-4 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="min-h-11 mt-4 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {ask.isPending ? 'Asking…' : `Ask for ${when(slot)}`}
           </button>

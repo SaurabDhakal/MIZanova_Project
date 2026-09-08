@@ -207,14 +207,28 @@ export default function AskForATimeSection({
           </div>
         )}
 
-        <button
-          type="button"
-          disabled={!specialistId || !slot || ask.isPending}
-          onClick={() => ask.mutate()}
-          className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-        >
-          {ask.isPending ? 'Asking…' : 'Ask for this time'}
-        </button>
+        {/* A GREYED BUTTON WITH NO REASON IS A DEAD END. It is disabled until
+            a specialist and a time are both chosen, which is right — but from
+            the outside that is indistinguishable from a button that does not
+            work. Saying which step is outstanding costs one line. */}
+        <div>
+          <button
+            type="button"
+            disabled={!specialistId || !slot || ask.isPending}
+            aria-describedby={!specialistId || !slot ? 'ask-blocked' : undefined}
+            onClick={() => ask.mutate()}
+            className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {ask.isPending ? 'Asking…' : 'Ask for this time'}
+          </button>
+          {(!specialistId || !slot) && (
+            <p id="ask-blocked" className="mt-2 text-sm text-muted-foreground">
+              {!specialistId
+                ? 'Choose a specialist first, then a time.'
+                : 'Choose a time and this will send.'}
+            </p>
+          )}
+        </div>
       </div>
     </section>
   )

@@ -174,7 +174,7 @@ export default function Library() {
                           window.open(url, '_blank', 'noopener'),
                         )
                       }}
-                      className="ml-auto rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+                      className="min-h-11 ml-auto rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
                     >
                       Open
                     </button>

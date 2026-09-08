@@ -136,7 +136,7 @@ export default function FamilyRequestsSection() {
                       onClick={() =>
                         answer.mutate({ id: r.id, decision: 'declined', note })
                       }
-                      className="inline-flex min-h-11 items-center rounded-btn bg-danger px-4 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       Send the decline
                     </button>

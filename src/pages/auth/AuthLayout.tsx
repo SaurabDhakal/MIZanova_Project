@@ -55,13 +55,13 @@ export default function AuthLayout({
           statement something you have to be signed in to find. */}
       <footer className="px-6 py-6 text-center text-xs text-muted-foreground">
         <nav aria-label="Footer" className="mb-2 flex justify-center gap-4">
-          <Link to="/privacy" className="hover:text-foreground hover:underline">
+          <Link to="/privacy" className="inline-flex min-h-6 items-center hover:text-foreground hover:underline">
             Privacy
           </Link>
-          <Link to="/help" className="hover:text-foreground hover:underline">
+          <Link to="/help" className="inline-flex min-h-6 items-center hover:text-foreground hover:underline">
             Help
           </Link>
-          <Link to="/security" className="hover:text-foreground hover:underline">
+          <Link to="/security" className="inline-flex min-h-6 items-center hover:text-foreground hover:underline">
             Security
           </Link>
         </nav>

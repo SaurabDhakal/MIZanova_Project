@@ -460,7 +460,7 @@ export default function Messenger({
                 type="button"
                 onClick={() => setUnreadOnly((current) => !current)}
                 aria-pressed={unreadOnly}
-                className={`rounded-btn border px-2.5 py-1.5 text-xs font-semibold ${
+                className={`min-h-11 rounded-btn border px-2.5 py-1.5 text-xs font-semibold ${
                   unreadOnly
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border text-muted-foreground'
@@ -473,7 +473,7 @@ export default function Messenger({
                   type="button"
                   onClick={() => markAllRead.mutate()}
                   disabled={markAllRead.isPending}
-                  className="rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
+                  className="min-h-11 rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
                 >
                   {markAllRead.isPending ? 'Marking…' : 'Mark all read'}
                 </button>
@@ -485,7 +485,7 @@ export default function Messenger({
                     setConversationSearch('')
                     setUnreadOnly(false)
                   }}
-                  className="ml-auto rounded-btn px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-background"
+                  className="min-h-11 ml-auto rounded-btn px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-background"
                 >
                   Clear
                 </button>
@@ -666,7 +666,7 @@ export default function Messenger({
               <button
                 type="button"
                 onClick={() => setActiveId(null)}
-                className="rounded-btn border border-border px-3 py-1.5 text-sm font-medium lg:hidden"
+                className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-medium lg:hidden"
               >
                 ← Back
               </button>
@@ -823,7 +823,7 @@ export default function Messenger({
                 <button
                   type="submit"
                   disabled={send.isPending || !canSend}
-                  className="rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   {send.isPending ? 'Sending…' : 'Send'}
                 </button>
@@ -849,7 +849,7 @@ export default function Messenger({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={attachments.length >= 5}
-                  className="inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
+                  className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
                 >
                   <Icon name="resources" className="h-4 w-4" />
                   Photo or file
@@ -860,7 +860,7 @@ export default function Messenger({
                     <button
                       type="button"
                       onClick={speech.listening ? speech.stop : speech.start}
-                      className={`inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
+                      className={`min-h-11 inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
                         speech.listening
                           ? 'border-danger bg-danger-subtle text-danger-foreground'
                           : 'border-border'
@@ -892,7 +892,7 @@ export default function Messenger({
                   <button
                     type="button"
                     onClick={recording ? stopVoiceNote : () => void startVoiceNote()}
-                    className={`inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
+                    className={`min-h-11 inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
                       recording
                         ? 'border-danger bg-danger-subtle text-danger-foreground'
                         : 'border-border'

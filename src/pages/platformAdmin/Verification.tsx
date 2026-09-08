@@ -334,14 +334,14 @@ export default function Verification() {
                         type="button"
                         onClick={() => resetMfa.mutate(person.id)}
                         disabled={resetMfa.isPending}
-                        className="rounded-btn bg-danger-strong px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-danger-strong px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {resetMfa.isPending ? 'Clearing…' : 'Yes, clear it'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingReset(null)}
-                        className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                        className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                       >
                         Cancel
                       </button>
@@ -356,7 +356,7 @@ export default function Verification() {
                     <button
                       type="button"
                       onClick={() => setConfirmingReset(person.id)}
-                      className="rounded-btn border border-danger px-3 py-2 text-sm font-medium text-danger-foreground"
+                      className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-medium text-danger-foreground"
                     >
                       Reset 2FA
                     </button>
@@ -369,7 +369,7 @@ export default function Verification() {
                     verify.mutate({ id: person.id, verified: false })
                   }
                   disabled={verify.isPending}
-                  className="rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
+                  className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
                 >
                   Withdraw verification
                 </button>

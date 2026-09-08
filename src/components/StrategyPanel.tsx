@@ -189,7 +189,7 @@ export default function StrategyPanel({
               type="button"
               onClick={() => generate.mutate()}
               disabled={generate.isPending}
-              className="mt-3 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+              className="min-h-11 mt-3 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
             >
               {generate.isPending ? 'Thinking…' : 'Ask for new suggestions'}
             </button>
@@ -199,7 +199,7 @@ export default function StrategyPanel({
             type="button"
             onClick={() => generate.mutate()}
             disabled={generate.isPending}
-            className="rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-1.5">
               <Icon name="ai" className="h-4 w-4" />
@@ -284,7 +284,7 @@ export default function StrategyPanel({
                   feedback.mutate({ strategyId: strategy.id, action: 'applied' })
                 }
                 disabled={feedback.isPending}
-                className="inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 <Icon name="tick" className="h-4 w-4" />
                 Applied
@@ -298,7 +298,7 @@ export default function StrategyPanel({
                   })
                 }
                 disabled={feedback.isPending}
-                className="inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background disabled:opacity-60"
+                className="min-h-11 inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background disabled:opacity-60"
               >
                 <Icon name="cross" className="h-4 w-4" />
                 Not useful
@@ -307,7 +307,7 @@ export default function StrategyPanel({
                 type="button"
                 onClick={() => flag.mutate(strategy.id)}
                 disabled={flag.isPending}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+                className="min-h-11 ml-auto inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
               >
                 <Icon name="flag" className="h-4 w-4" />
                 {flag.isPending ? 'Sending…' : 'Flag'}

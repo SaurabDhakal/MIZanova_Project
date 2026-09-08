@@ -24,8 +24,8 @@ export default function PublicLayout({
 }) {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive
-      ? 'font-semibold text-primary'
-      : 'text-foreground hover:underline'
+      ? 'inline-flex min-h-11 items-center font-semibold text-primary'
+      : 'inline-flex min-h-11 items-center text-foreground hover:underline'
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -70,7 +70,7 @@ export default function PublicLayout({
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
-            <Link to="/login" className="font-semibold text-primary hover:underline">
+            <Link to="/login" className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline">
               Log in
             </Link>
             {/* MATCHES THE HOMEPAGE, WHICH FIXED THIS AND LEFT EVERY OTHER

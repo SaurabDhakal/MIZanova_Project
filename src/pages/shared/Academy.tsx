@@ -333,7 +333,7 @@ export default function Academy() {
                           void enrolments.refetch()
                           void completions.refetch()
                         }}
-                        className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                        className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
                       >
                         Try again
                       </button>
@@ -345,7 +345,7 @@ export default function Academy() {
                         type="button"
                         disabled={buy.isPending || total === 0}
                         onClick={() => buy.mutate(course.id)}
-                        className="rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {total === 0
                           ? 'Not ready yet'
@@ -358,7 +358,7 @@ export default function Academy() {
                         type="button"
                         disabled={enrol.isPending || total === 0}
                         onClick={() => enrol.mutate(course.id)}
-                        className="rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {total === 0 ? 'Not ready yet' : 'Start this course'}
                       </button>
@@ -378,8 +378,8 @@ export default function Academy() {
                         onClick={() => setOpen(isOpen ? null : course.id)}
                         className={
                           isOpen
-                            ? 'rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground'
-                            : 'rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground'
+                            ? 'inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground'
+                            : 'inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground'
                         }
                       >
                         {isOpen
@@ -496,7 +496,7 @@ export default function Academy() {
                               onClick={() =>
                                 tick.mutate({ e: enrolment.id, m: m.id })
                               }
-                              className="mt-3 block rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-60"
+                              className="min-h-11 mt-3 block rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-60"
                             >
                               Mark as done
                             </button>

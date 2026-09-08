@@ -159,7 +159,7 @@ export default function IepAgreement({
               type="button"
               disabled={confirm.isPending}
               onClick={() => confirm.mutate()}
-              className="mt-3 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               {confirm.isPending ? 'Recording…' : 'I agree to this plan'}
             </button>

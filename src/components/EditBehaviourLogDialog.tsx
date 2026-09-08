@@ -131,7 +131,7 @@ function CorrectionForm({
                 type="button"
                 aria-pressed={behaviour === t}
                 onClick={() => setBehaviour(t)}
-                className={`rounded-btn border px-3 py-1.5 text-sm font-semibold ${
+                className={`min-h-11 rounded-btn border px-3 py-1.5 text-sm font-semibold ${
                   behaviour === t
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border bg-card text-foreground'
@@ -154,7 +154,7 @@ function CorrectionForm({
                 type="button"
                 aria-pressed={intensity === i}
                 onClick={() => setIntensity(i)}
-                className={`rounded-btn border px-3 py-1.5 text-sm font-semibold ${
+                className={`min-h-11 rounded-btn border px-3 py-1.5 text-sm font-semibold ${
                   intensity === i
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border bg-card text-foreground'
@@ -192,14 +192,14 @@ function CorrectionForm({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+            className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={save.isPending}
-            className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {save.isPending ? 'Saving…' : 'Save the correction'}
           </button>
@@ -283,7 +283,7 @@ export default function EditBehaviourLogDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
               >
                 Close
               </button>

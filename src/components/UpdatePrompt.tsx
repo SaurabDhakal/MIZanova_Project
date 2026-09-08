@@ -51,14 +51,14 @@ export default function UpdatePrompt() {
         <button
           type="button"
           onClick={() => void applyUpdate()}
-          className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
         >
           Reload now
         </button>
         <button
           type="button"
           onClick={dismissUpdate}
-          className="rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
+          className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
         >
           Later
         </button>

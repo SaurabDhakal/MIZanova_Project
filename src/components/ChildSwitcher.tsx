@@ -53,7 +53,7 @@ export default function ChildSwitcher({
               type="button"
               aria-selected={active}
               onClick={() => onSelect(option.id)}
-              className={`rounded-btn border px-4 py-2 text-sm font-semibold ${
+              className={`inline-flex min-h-11 items-center rounded-btn border px-4 py-2 text-sm font-semibold ${
                 active
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border bg-card text-foreground'

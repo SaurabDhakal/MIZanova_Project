@@ -118,7 +118,7 @@ export default function WorkingHoursSection({
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="shrink-0 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+              className="min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
             >
               Change them
             </button>
@@ -136,7 +136,7 @@ export default function WorkingHoursSection({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="shrink-0 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+            className="min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
           >
             Done
           </button>
@@ -203,7 +203,7 @@ export default function WorkingHoursSection({
               id="av-day"
               value={weekday}
               onChange={(e) => setWeekday(Number(e.target.value))}
-              className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+              className="mt-1 min-h-11 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
             >
               {[...WEEKDAYS.slice(1), WEEKDAYS[0]].map((label) => (
                 <option key={label} value={WEEKDAYS.indexOf(label)}>
@@ -221,7 +221,7 @@ export default function WorkingHoursSection({
               type="time"
               value={startsAt}
               onChange={(e) => setStartsAt(e.target.value)}
-              className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+              className="mt-1 min-h-11 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
             />
           </div>
           <div>
@@ -233,7 +233,7 @@ export default function WorkingHoursSection({
               type="time"
               value={endsAt}
               onChange={(e) => setEndsAt(e.target.value)}
-              className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+              className="mt-1 min-h-11 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
             />
           </div>
           <button
@@ -242,7 +242,7 @@ export default function WorkingHoursSection({
             onClick={() =>
               add.mutate({ specialistId, weekday, startsAt, endsAt })
             }
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {add.isPending ? 'Adding…' : 'Add hours'}
           </button>

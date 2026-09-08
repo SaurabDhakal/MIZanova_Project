@@ -156,7 +156,7 @@ export default function AiGovernance() {
               { onSuccess: () => setSwitchReason('') },
             )
           }
-          className={`mt-3 rounded-btn px-4 py-2.5 font-semibold disabled:opacity-50 ${
+          className={`min-h-11 mt-3 rounded-btn px-4 py-2.5 font-semibold disabled:opacity-50 ${
             current.ai_enabled
               ? 'border border-danger text-danger-foreground'
               : 'bg-success-strong text-white'
@@ -479,7 +479,7 @@ function UsageSection() {
                 )
                 setEditing(true)
               }}
-              className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+              className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
             >
               Change the limits
             </button>
@@ -568,7 +568,7 @@ function UsageSection() {
               <button
                 type="submit"
                 disabled={save.isPending}
-                className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {save.isPending ? 'Saving…' : 'Change the limits'}
               </button>
@@ -578,7 +578,7 @@ function UsageSection() {
                   setEditing(false)
                   setError(null)
                 }}
-                className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
               >
                 Cancel
               </button>

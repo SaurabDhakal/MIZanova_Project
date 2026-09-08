@@ -427,7 +427,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
                     both are notes on an open conversation rather than the end
                     of one.
                   */
-                  className={`rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                  className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                     decision.value === 'approved'
                       ? 'bg-primary text-primary-foreground'
                       : decision.value === 'declined'

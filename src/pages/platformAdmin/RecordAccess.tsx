@@ -216,7 +216,7 @@ export default function RecordAccess() {
             type="button"
             onClick={() => void exportCsv()}
             disabled={events.data.total === 0}
-            className="rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Export the full record
           </button>

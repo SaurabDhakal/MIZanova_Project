@@ -218,14 +218,14 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           disabled={create.isPending}
-          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {create.isPending ? 'Creating…' : 'Create as draft'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -284,7 +284,7 @@ export default function Articles() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
           >
             New
           </button>
@@ -344,7 +344,7 @@ export default function Articles() {
                           ? 'Confirm the people in it agreed first.'
                           : undefined
                       }
-                      className={`rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                      className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                         a.is_published
                           ? 'border border-border bg-card text-foreground'
                           : 'bg-primary text-primary-foreground'
@@ -357,7 +357,7 @@ export default function Articles() {
                         type="button"
                         disabled={remove.isPending}
                         onClick={() => remove.mutate(a.id)}
-                        className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                       >
                         Delete
                       </button>

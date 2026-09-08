@@ -743,6 +743,52 @@ page is: 750px folded, 1258 expanded.
 
 ---
 
+## 2e. The UI audit, measured — 8 September 2026
+
+Run in the page across all seven roles at 1280px and 375px: tap targets,
+computed contrast, text size, horizontal overflow, heading structure,
+accessible names. Everything below is a measured number.
+
+### Fixed
+
+- [x] ~~Four AA contrast failures.~~ `bg-danger` + `text-danger-foreground`
+      on four destructive buttons (2.21:1), `muted-foreground` on
+      `primary-subtle` (4.33:1, the tint under every selected row), the two
+      brand colours used as small caps on Landing (4.46 and 3.34:1), and
+      today's number on the calendar (4.33:1).
+- [x] ~~`--text-xs` was 12px across 340 call sites.~~ 13px now, set on the
+      token. `PageNote` — the paragraph saying what a screen will not claim —
+      was the smallest text in the product and is `text-sm`.
+- [x] ~~231 buttons, 9 selects and every text input under 44px.~~ Selects and
+      inputs by one base rule each.
+- [x] ~~`contrast-check` reported PASS while a pair was failing.~~ It knew
+      `primary on primary-subtle` and not `muted-foreground on
+      primary-subtle`. Five pairs added, including both brand inks.
+
+### Not fixed, and why
+
+- [ ] **Fourteen screens drop their own `<h1>` while loading.** They return
+      `<LoadingCards>` / `<ErrorState>` / `<EmptyState>` before rendering
+      `<PageHeader>`, so the heading arrives with the data and pushes the page
+      down — and an empty or failed screen has no title at all. Seen on
+      educator and specialist Messages with a fresh account. The files:
+      `parent/Appointments`, `shared/Academy`, `shared/Library`,
+      `student/MyGoals`, `educator/Messages`, `specialist/Messages` and eight
+      under `platformAdmin/`. Left because it is fourteen files of restructure
+      on the morning of a demo, not because it is small.
+- [ ] **Tertiary text links measure 19-24px.** WCAG 2.2 AA asks 24, not 44 —
+      44 is AAA. The ones under 24 are fixed. Making the rest 44 would lengthen
+      the pages Saurab asked to shorten, so they are left compliant.
+- [ ] **Heading level skips h1 -> h3** on `/for-schools`, `/security`,
+      platform-admin Enquiries and Applications, school-admin People.
+- [ ] **FullCalendar's prev/next carry `aria-pressed` on a non-toggle.** The
+      library's own markup; `buttonHints` already gives them a name.
+- [ ] **The Library still carries "articultion exrecise"** — two spelling
+      mistakes, visible to every user who opens it. Section 4 has said so
+      since before this audit.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

@@ -42,6 +42,17 @@
   --color-brand-navy: #1b3a6b;
   --color-brand-blue: #2b7fa8;
   --color-brand-green: #38a123;
+  /* THE LOGO COLOURS ARE SHAPES, NOT TEXT — the same rule the status tokens
+     below state, and the same mistake. Measured as small caps on white the
+     brand blue is 4.46:1 and the brand green 3.34:1, and both are used for the
+     eyebrow labels on the Landing page, the individual dashboard and
+     Suggestions. These are the ink versions: near enough to read as the same
+     colour, dark enough to be read at all. Dark enough for the TINTED panels
+     too, which is a second round: the first pair passed on white and the
+     landing page puts one of these eyebrows on primary-subtle, where 4.10:1
+     is not a pass. 4.74:1 and 5.11:1 on the tint, 5.78:1 and 6.23:1 on white. */
+  --color-brand-blue-ink: #256d8a;
+  --color-brand-green-ink: #266f17;
   /* SAURAB'S CANVA VALUE, adopted 8 August so the code and the brand source are
      one number rather than two nearly-identical ones. It was #57a52f.
 
@@ -98,8 +109,15 @@
   --color-foreground: #0f172a; /* headings and body text */
   /* Darkened from #64748b, which measured 4.46:1 on the page background —
      just under the 4.5 AA needs, and this token is used for nearly every
-     piece of helper text in the product. */
-  --color-muted-foreground: #5f6d7e;
+     piece of helper text in the product.
+
+     DARKENED A SECOND TIME, 8 September, for the same reason --color-primary
+     was: #5f6d7e passed on white and measured 4.33:1 on --color-primary-subtle,
+     which is the background of every selected row, tinted stat tile and
+     highlighted card in the product. Helper text on those was failing AA on
+     the parent home, the individual home and Receipts. Darkening the token
+     clears all of them at once — 4.80:1 on the tint, 5.85:1 on white. */
+  --color-muted-foreground: #586678;
 
   /* --- Status ----------------------------------------------------------- */
   /* IMPORTANT: the mid-tone status colours below are for SHAPES — icons,
@@ -180,6 +198,17 @@
   --text-section--letter-spacing: -0.005em;
   --text-section--font-weight: 600;
 
+  /* THE SMALL-TEXT FLOOR IS 13px, NOT 12.
+     Tailwind's `text-xs` is 12px and the product used it 340 times — for
+     timestamps, badges, meta lines and, until this pass, whole explanatory
+     paragraphs. Measured across the parent screens it was the single most
+     common defect on every page. Raising the token lifts all 340 at once
+     without touching a line of markup, and 1px does not move any layout that
+     was not already fragile. Anything that genuinely needs to be smaller can
+     still say so; nothing did. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
+
   /* POSITIVE tracking, because this is used small and uppercase — where
      letters need air rather than tightening. */
   --text-caption: 0.75rem;
@@ -225,6 +254,28 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* EVERY SELECT IS A 44px TARGET, WHEREVER IT IS.
+     Measured across the five roles on 8 September, dropdowns came out between
+     38px and 42px on nine screens — the year filter, the invite role, the
+     message-student picker, the working-hours day — because each was written
+     with its own padding and none of them reached the size the buttons beside
+     them already had. One rule is the honest fix: a select is a control, and
+     the size of a control is not a per-screen decision. */
+  select {
+    min-height: 2.75rem;
+  }
+
+  /* The same for text fields, and for the same reason — the audit found the
+     Library title, the Library description and the audit-log search all at
+     42px. The excluded types are the ones a height would damage: a checkbox
+     and a radio are drawn by the browser, a range is a track, and a file input
+     is a button the page does not control. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+      [type='file']
+    ):not([type='hidden']) {
+    min-height: 2.75rem;
   }
 
   /* Accessibility, not decoration. Teachers and specialists navigate this app
@@ -340,11 +391,15 @@ select:not([aria-invalid='true']) {
   color: var(--color-foreground);
 }
 
+/* 44px, like every other control in the app. FullCalendar's own padding gave
+   these 35px, so the one toolbar a parent uses on a phone was the one set of
+   buttons too small to hit reliably. */
 .mizanova-calendar .fc .fc-button {
   border-radius: var(--radius-btn);
   font-weight: 600;
   font-size: 0.875rem;
-  padding: 0.4rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
   box-shadow: none;
 }
 
@@ -390,9 +445,19 @@ select:not([aria-invalid='true']) {
   text-decoration: none;
 }
 
+/* TODAY'S NUMBER IS THE ONE EVERYBODY LOOKS FOR, and it was the only text on
+   the calendar failing AA: muted grey on FullCalendar's pale-blue today cell
+   measured 4.33:1 against a 4.5 floor. The full-strength foreground clears it
+   and makes today read as today. */
+.mizanova-calendar .fc .fc-day-today .fc-daygrid-day-number {
+  color: var(--color-foreground);
+}
+
+/* 13px, not 12. These are the labels that say WHEN, which is the question the
+   screen exists to answer, and they were the smallest text on it. */
 .mizanova-calendar .fc .fc-timegrid-slot-label-cushion {
   color: var(--color-muted-foreground);
-  font-size: var(--text-caption);
+  font-size: 0.8125rem;
 }
 
 /* --- Events, coloured by what the appointment IS ------------------------- */
@@ -514,7 +579,7 @@ select:not([aria-invalid='true']) {
 
 .mizanova-calendar .fc-event-time,
 .mizanova-calendar .fc-event-title {
-  font-size: var(--text-caption);
+  font-size: 0.8125rem;
   line-height: 1.25;
 }
 

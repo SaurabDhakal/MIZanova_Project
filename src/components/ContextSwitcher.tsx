@@ -106,7 +106,7 @@ export default function ContextSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="max-w-52 rounded-btn border border-border px-3 py-2 text-left text-sm hover:bg-background"
+        className="min-h-11 max-w-52 rounded-btn border border-border px-3 py-2 text-left text-sm hover:bg-background"
       >
         <span className="block truncate font-semibold text-foreground">
           {current.organisation_name}

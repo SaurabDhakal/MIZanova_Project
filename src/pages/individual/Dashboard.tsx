@@ -299,7 +299,7 @@ export default function IndividualHome() {
         {nextThing && (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-card p-4">
             <div className="min-w-0">
-              <p className="text-xs font-bold tracking-wider text-brand-green uppercase">
+              <p className="text-xs font-bold tracking-wider text-brand-green-ink uppercase">
                 {nextThing.eyebrow}
               </p>
               {/* Two lines rather than one truncated. Somebody's own words for

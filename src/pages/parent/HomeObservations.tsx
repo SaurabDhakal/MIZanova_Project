@@ -317,7 +317,7 @@ export default function HomeObservations() {
               <button
                 type="submit"
                 disabled={create.isPending || update.isPending}
-                className="flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {editingId
                   ? update.isPending
@@ -333,7 +333,7 @@ export default function HomeObservations() {
                   setEditingId(null)
                   setOpen(false)
                 }}
-                className="rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
+                className="min-h-11 rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
               >
                 Cancel
               </button>

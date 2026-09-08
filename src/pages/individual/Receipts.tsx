@@ -301,7 +301,7 @@ export default function Receipts() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="mt-4 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
+                  className="min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
                 >
                   <Icon name="invoices" className="h-4 w-4 shrink-0" />
                   Print or save as PDF

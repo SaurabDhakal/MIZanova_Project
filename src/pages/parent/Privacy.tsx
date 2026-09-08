@@ -200,14 +200,14 @@ export default function Privacy() {
                                 onSuccess: () => setConfirming(null),
                               })
                             }}
-                            className="rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+                            className="min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
                           >
                             {busy ? 'Withdrawing…' : 'Yes, withdraw consent'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirming(null)}
-                            className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                            className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
                           >
                             Keep it
                           </button>
@@ -217,7 +217,7 @@ export default function Privacy() {
                       <button
                         type="button"
                         onClick={() => setConfirming(type)}
-                        className="rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground"
+                        className="inline-flex min-h-11 items-center rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground"
                       >
                         Withdraw consent
                       </button>
@@ -233,7 +233,7 @@ export default function Privacy() {
                         type="button"
                         disabled={busy}
                         onClick={() => grant.mutate(type)}
-                        className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {busy ? 'Saving…' : 'I give consent'}
                       </button>

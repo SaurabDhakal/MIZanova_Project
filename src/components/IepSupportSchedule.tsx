@@ -197,7 +197,7 @@ export default function IepSupportSchedule({ planId }: { planId: string }) {
                           type="button"
                           disabled={remove.isPending}
                           onClick={() => remove.mutate(s.id)}
-                          className="rounded-btn border border-border px-2 py-1 text-xs font-semibold text-foreground disabled:opacity-60"
+                          className="min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-foreground disabled:opacity-60"
                         >
                           Remove
                         </button>
@@ -317,7 +317,7 @@ export default function IepSupportSchedule({ planId }: { planId: string }) {
         <button
           type="submit"
           disabled={add.isPending}
-          className="mt-4 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {add.isPending ? 'Adding…' : 'Add to the schedule'}
         </button>

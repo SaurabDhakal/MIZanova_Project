@@ -510,7 +510,7 @@ export default function Billing() {
                               voidInvoice.reset()
                               setVoiding(invoice)
                             }}
-                            className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                            className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
                           >
                             Void
                           </button>

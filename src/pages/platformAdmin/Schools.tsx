@@ -519,7 +519,7 @@ export default function Schools() {
                               setStatus.reset()
                               setClosing(school)
                             }}
-                            className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                            className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
                           >
                             Close
                           </button>
