@@ -60,11 +60,11 @@ let newcomer: Actor
 beforeAll(async () => {
   world = await buildWorld()
   newcomer = await makeActor('parent', world.runId, 'newcomer', null, false)
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 90_000)
+}, 120_000)
 
 async function issueInvitation(
   email: string,

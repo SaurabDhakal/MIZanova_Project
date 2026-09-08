@@ -60,7 +60,7 @@ beforeAll(async () => {
     .from('students')
     .update({ profile_id: studentB.id })
     .eq('id', world.childB)
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
@@ -74,7 +74,7 @@ afterAll(async () => {
     .update({ profile_id: null })
     .in('id', [world.childA, world.childB])
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 async function grantPortalConsent(studentId: string) {
   const { error } = await admin.from('consents').insert({

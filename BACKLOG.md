@@ -816,6 +816,175 @@ accessible names. Everything below is a measured number.
 
 ---
 
+## 2f. Production-readiness audit — 8 September 2026
+
+Structural and security sweep run against the live schema and the running
+API, not against the source. 85 tables and views probed as an anonymous
+visitor; all 33 API routes probed with no credentials and with a forged
+bearer token claiming `service_role`.
+
+### Critical
+
+- None found. No object leaked a row to an anonymous caller except the two
+  public price lists, which are deliberate and were confirmed to carry
+  neither `stripe_price_id` nor course bodies. No API route answered 2xx to
+  a forged token except `/api/health` and `/api/push/key`, both public by
+  design. RLS is enabled on all 67 tables, every `security definer`
+  function pins its `search_path`, and every table has a primary key.
+
+### High
+
+- [x] ~~Nine objects answered an anonymous caller with `[]` instead of
+      refusing.** `iep_plans` (5 real children's plans), `iep_goals`,
+      `iep_goal_reviews`, `iep_plan_confirmations`, `iep_plan_participants`,
+      `iep_support_sessions`, `iep_support_totals`, `platform_invoices`,
+      `platform_subscriptions`. Nothing leaks — every policy is
+      `to authenticated`, so RLS filters them to nothing. But RLS is doing it
+      ALONE: the other 74 objects refuse at the grant, before a policy is
+      consulted. Root cause is the default db/072 already named — "Supabase's
+      defaults grant the full set on anything new in `public`" — and the IEP
+      scripts, db/054 to db/057, contain no `revoke` at all. **db/119 written,
+      NOT YET APPLIED.** `scripts/security-check.mjs` now enumerates every
+      object from PostgREST's own schema document and fails on `[]`, so this
+      cannot recur silently. **db/119 APPLIED 8 September and verified:**
+      all nine now answer `401` with Postgres error `42501`, insufficient
+      privilege — a refusal at the grant, before a policy is consulted, which
+      is the same two-layer defence the other 74 objects have. The two public
+      price lists still answer 200. `security-check.mjs` reports
+      "85 objects — every one refused, or public on purpose" and exits 0.
+
+### Medium
+
+- [x] ~~`/api/screening/:id/remind` returned PostgREST's own error text to an
+      unauthenticated caller.~~ Probed with a forged bearer it answered
+      `400 {"error":"JWT cryptographic operation failed"}` — wrong status for
+      a rejected credential, and an internal string naming the failure. It now
+      calls `auth.getUser()` first, like `/api/strategies`, and answers `401`
+      with a safe message; the database's complaint is logged, not returned.
+      Verified against the running server.
+- [x] ~~23 other routes return a raw `error.message` to the client.~~ The
+      fourteen that answered **500** now go through one `dbFailed` helper that
+      logs the real error and returns "Something went wrong at our end." None
+      was reachable unauthenticated, so this is hardening rather than a
+      breach — written as one helper because fourteen copies of a decision is
+      fourteen chances to make it differently. Re-probed the surface with a
+      forged bearer afterwards: **0 internal strings, 2 expected 2xx.**
+      Nine sites returning 400/422 are left alone deliberately — several
+      carry crafted messages the interface shows to the person.
+- [x] ~~`bookable_specialists` has no `security_invoker`.~~ **I was wrong to
+      call this a defect.** It is a deliberate curated projection, and db/104
+      argues the case at length: "Opening `profiles` to individuals with a
+      policy would have been the smaller diff and the wrong one: a policy
+      admits ROWS, and the columns nobody should see would come with them."
+      With `security_invoker` on, the view would inherit `profiles` RLS and
+      return nothing to the individual it exists for — the missing setting is
+      the mechanism, not an oversight. Same shape as `individual_plan_public`.
+
+      The one real gap is that the view does not say so at its own
+      definition, which is why an audit reads it as an accident. Worth a
+      comment on the `create view`, not a migration.
+
+### Verified by driving it
+
+- [x] **The horizontal sweep — an account with no school against every
+      child-scoped table.** `tests/rls/authorization-matrix.test.ts`, 22
+      tests, 8 seconds, one account. The other 38 suites are vertical, one
+      per feature; "can an individual read a behaviour log" belongs to no
+      feature and so was asked nowhere.
+
+      **The first version broke the suite and is worth recording.** It built
+      a specialist world plus a student and an individual — eleven actors —
+      and printed a full role-by-table matrix. Better evidence, and it took
+      the full run from 456s to 927s with three unrelated files failing
+      inside `signInWithRetry`: Supabase's free tier refusing the burst.
+      `world.ts` had already written that down about a smaller increase.
+      Redesigned to need no world at all — an individual should see nothing
+      whether or not a fixture exists, and running against the real database
+      (44 students, 200+ logs, 35 consents) is a stronger claim than running
+      against three students somebody just made.
+
+      It also asserts that the zeroes are not vacuous: the account is signed
+      in and reads the public price list, and the tables it saw nothing in
+      are confirmed non-empty through the service key. Without that, a
+      broken sign-in would pass every test in the file — the same fault the
+      AI quota check, the health endpoint and the CI secret step each had
+      once.
+
+      The full ten-actor matrix was captured once as evidence before the
+      redesign: `unverifiedEducator`, `unverifiedSpecialist`, `student` and
+      `individual` all saw **zero rows in all sixteen tables**; each guardian
+      saw exactly their own child; `guardianOfB` saw none of childA's five
+      care-team rows.
+- [x] **The payment webhook is forgery-proof.** `npm run webhook-check`:
+      unsigned refused, forged signature refused, signature computed over
+      other bytes refused, correctly signed accepted. It marks invoices paid,
+      so an unsigned request would be a public URL that clears anyone's bill.
+- [ ] **Email and push are NOT verified.** `npm run mail-check <address>` and
+      `npm run push-check <address>` both send a real message to a real
+      person, which is not mine to trigger. Run them yourself before trusting
+      invitations — as of 28 August the production mail key was returning
+      `401: API key is invalid`, and invitations are how a school onboards.
+
+- [x] **The suite was flaky, and the config already said why.**
+      `vitest.config.ts` sets `hookTimeout: 120_000` and explains it: nine
+      actors at up to six seconds each of `signInWithRetry` sleep is 54s of
+      pure waiting before any network time, so "60 seconds was not enough
+      either". **Twenty-eight files then overrode it with 90s, and
+      `student-visibility` with 60s — the exact value the comment says
+      failed.**
+
+      It showed up as two different-looking failures on two consecutive full
+      runs: five test failures in `student-account`, then a hook failure in
+      `context` with all 575 tests passing. Different file each time, and
+      both passed in isolation — the signature of a timeout, not a defect.
+      Every file that failed builds a nine-actor specialist world behind a
+      90-second hook.
+
+      55 hooks across 28 files raised to the global floor. **Full run after:
+      39 files, 575 tests, all passing, 451s** — back to the baseline from
+      927s at its worst. Nothing about the product changed; the suite was
+      lying about it.
+
+### Low / cosmetic
+
+- [x] ~~db/120 written, not applied.~~ **Applied 8 September and verified:** After db/119 the anonymous grant count
+      fell from 91 to 14, and all fourteen sit on the two deliberately public
+      price lists — SELECT, which is intended, plus INSERT, UPDATE, DELETE,
+      TRUNCATE, REFERENCES and TRIGGER, which are not. Those writes fail today
+      because both views compute or filter, but that is db/072's "query's shape
+      protecting it rather than a decision". The anonymous grant count is now
+      **2** — `SELECT` on `course_catalogue` and `individual_plan_public`,
+      and nothing else on anything. 91 → 14 → 2.
+
+- [x] ~~20 routes validate the request body before authenticating.~~ **Not
+      worth fixing, and the first assessment was too generous to itself.**
+      The claim was that it "lets an unauthenticated caller map the input
+      schema" — but those field names ship in the browser bundle, because
+      the frontend calls these routes with them. Nothing is learned that
+      `view-source` does not already give away, so the information leak is
+      zero and twenty route edits would buy nothing.
+
+      What DID matter in that finding was the status code — a rejected
+      credential answering 400 instead of 401 — and that was only ever
+      true on `/api/screening/:id/remind`, which is fixed.
+- [ ] **30 foreign keys have no supporting index.** Slow cascades and joins;
+      invisible until a table grows.
+- [x] ~~`scripts/tmp-ghost.mjs` and `scripts/tmp-race.mjs` are committed
+      scratch files.~~ Removed. Both created real auth users in the shared
+      database from hardcoded credentials and were referenced by nothing.
+      Checked first: neither left an account behind — 35 auth users, and the
+      only test accounts are the two documented demos plus the probe below.
+- [ ] **`zz-nfr1-probe@example.invalid` will not delete.** Supabase answers
+      `500 AuthRetryableFetchError` every time, including after its MFA
+      factor was removed — seven attempts across two sittings, while the
+      identical cleanup worked for another account the same day. It is
+      neutralised: no memberships, no student assignments, no factor, role
+      downgraded to parent, no school, unverified, renamed "DELETE ME". It
+      can reach no child. **Remove it from the Supabase dashboard —
+      Authentication → Users.**
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an

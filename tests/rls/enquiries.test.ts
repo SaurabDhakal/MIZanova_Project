@@ -54,7 +54,7 @@ beforeAll(async () => {
 
   if (error) throw new Error(`Could not seed an enquiry: ${error.message}`)
   enquiryId = data.id
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   // destroyWorld does not know about this table — these rows belong to nobody,
@@ -63,7 +63,7 @@ afterAll(async () => {
     await admin.from('enquiries').delete().like('contact_email', `%${world.runId}%`)
     await destroyWorld(world)
   }
-}, 90_000)
+}, 120_000)
 
 // ===========================================================================
 // Nobody writes this table from a browser

@@ -35,13 +35,13 @@ beforeAll(async () => {
     .single()
   if (error) throw new Error(error.message)
   fileId = data.id as string
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
   await admin.from('library_files').delete().like('title', `%${world.runId}`)
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('reading', () => {
   test('a parent can see a published file', async () => {

@@ -25,7 +25,7 @@ const token = () => {
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
@@ -36,7 +36,7 @@ afterAll(async () => {
     .update({ profile_id: null })
     .in('id', [world.childA, world.childB])
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('what an invitation may now grant', () => {
   test('a student, naming the child it is for', async () => {

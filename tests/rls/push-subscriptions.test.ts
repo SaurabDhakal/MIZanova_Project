@@ -75,7 +75,7 @@ beforeAll(async () => {
     true,
     'student',
   )
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) {
@@ -92,7 +92,7 @@ afterAll(async () => {
       ])
     await destroyWorld(world)
   }
-}, 60_000)
+}, 120_000)
 
 /** All six roles that meet the switch, and the id each should be tied to. */
 function everyone() {
