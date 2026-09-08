@@ -71,7 +71,7 @@ export default function Toasts() {
                 toast.action!.run()
                 dismissToast(toast.id)
               }}
-              className={`shrink-0 rounded-btn border px-3 py-1 text-sm font-semibold ${
+              className={`min-h-11 shrink-0 rounded-btn border px-3 py-1 text-sm font-semibold ${
                 toast.tone === 'error'
                   ? 'border-danger text-danger-foreground'
                   : 'border-success text-success-foreground'
@@ -84,7 +84,7 @@ export default function Toasts() {
             type="button"
             onClick={() => dismissToast(toast.id)}
             aria-label="Dismiss"
-            className={`shrink-0 rounded-btn px-2 py-1 text-sm font-semibold ${
+            className={`min-h-11 shrink-0 rounded-btn px-2 py-1 text-sm font-semibold ${
               toast.tone === 'error'
                 ? 'text-danger-foreground'
                 : 'text-success-foreground'

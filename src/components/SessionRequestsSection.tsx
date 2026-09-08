@@ -122,7 +122,7 @@ export default function SessionRequestsSection() {
                     onClick={() =>
                       answer.mutate({ id: b.id, status: 'declined', note })
                     }
-                    className="rounded-btn bg-danger px-4 py-2 font-semibold text-danger-foreground disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2 font-semibold text-white disabled:opacity-50"
                   >
                     Decline
                   </button>
@@ -132,7 +132,7 @@ export default function SessionRequestsSection() {
                       setAnswering(null)
                       setNote('')
                     }}
-                    className="rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
+                    className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
                   >
                     Back
                   </button>
@@ -146,7 +146,7 @@ export default function SessionRequestsSection() {
                   onClick={() =>
                     answer.mutate({ id: b.id, status: 'accepted', note: '' })
                   }
-                  className="rounded-btn bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-btn bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   Accept
                 </button>
@@ -156,7 +156,7 @@ export default function SessionRequestsSection() {
                     setAnswering(b.id)
                     setNote('')
                   }}
-                  className="rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
+                  className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
                 >
                   Decline&hellip;
                 </button>

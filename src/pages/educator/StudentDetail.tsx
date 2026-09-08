@@ -199,7 +199,7 @@ export default function StudentDetail() {
             <button
               type="button"
               onClick={() => setLogging(true)}
-              className="shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+              className="min-h-11 shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
             >
               Log behaviour
             </button>

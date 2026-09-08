@@ -198,7 +198,7 @@ function ReviewCard({ strategy }: { strategy: PendingStrategyRow }) {
               review.mutate('approved')
             }}
             disabled={review.isPending}
-            className="rounded-btn bg-success-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-success-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
           >
             {review.isPending && showSent ? 'Releasing…' : 'Release to teacher'}
           </button>
@@ -209,7 +209,7 @@ function ReviewCard({ strategy }: { strategy: PendingStrategyRow }) {
               review.mutate('rejected')
             }}
             disabled={review.isPending}
-            className="rounded-btn border border-danger px-4 py-2.5 font-semibold text-danger-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn border border-danger px-4 py-2.5 font-semibold text-danger-foreground disabled:opacity-60"
           >
             Reject
           </button>

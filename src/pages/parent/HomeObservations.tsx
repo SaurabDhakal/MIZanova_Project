@@ -5,11 +5,15 @@ import {
   createHomeObservation,
   updateHomeObservation,
   fetchHomeObservations,
+  fetchHomeStrategies,
   queryKeys,
   type ObservationCategory,
 } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { downloadCsv, toCsv } from '../../lib/csv'
+import { observationCategoryStyle } from '../../lib/observationCategories'
+import { toLocalDateValue, todayLocal } from '../../lib/localTime'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import FormField from '../../components/FormField'
@@ -30,11 +34,10 @@ import { OBSERVATION_CATEGORIES } from '../../lib/observationCategories'
  */
 
 export default function HomeObservations() {
+  const { profile } = useAuth()
   const queryClient = useQueryClient()
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -55,13 +58,23 @@ export default function HomeObservations() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [category, setCategory] = useState<ObservationCategory>('social_emotional')
-  const [observedOn, setObservedOn] = useState(
-    () => new Date().toISOString().slice(0, 10),
-  )
+  const [observedOn, setObservedOn] = useState(todayLocal)
 
   const observations = useQuery({
     queryKey: queryKeys.homeObservations(child?.id ?? ''),
     queryFn: () => fetchHomeObservations(child!.id),
+    enabled: Boolean(child),
+  })
+
+  /*
+   * The answers the family has already had — db/114. One query for the child
+   * rather than one per observation, and no status filter: the guardian policy
+   * returns only settled suggestions, so the rule that decides what is read is
+   * not restated here where it could drift from the database.
+   */
+  const answers = useQuery({
+    queryKey: queryKeys.homeStrategies(child?.id ?? ''),
+    queryFn: () => fetchHomeStrategies(child!.id),
     enabled: Boolean(child),
   })
 
@@ -104,6 +117,49 @@ export default function HomeObservations() {
       })
     },
   })
+
+  /*
+   * P03 — "an Export button must allow parents to save these notes as a PDF or
+   * CSV file". CSV, because these are rows: a date, a category and two pieces
+   * of text per observation, which is a spreadsheet's shape and not a
+   * document's. The Progress report is the one that prints.
+   *
+   * Built from what is already on screen rather than a fresh query, so what
+   * downloads is exactly what the family can see — RLS decided that once and
+   * this does not get a second opinion. It exports the WHOLE history, not the
+   * filtered view: an export that silently obeys a search box is the fault
+   * db/068 was written to fix on the audit log.
+   *
+   * Author included, because both guardians write here and a file with no
+   * names in it loses which of them said what the moment it leaves the
+   * product.
+   */
+  function exportObservations() {
+    const rows = (observations.data ?? []).map((o) => [
+      o.observed_on,
+      observationCategoryStyle(o.category).label,
+      o.title,
+      o.body,
+      o.author?.full_name ?? '',
+      /*
+       * NOT `created_at.slice(0, 10)`. That is the UTC date, and this file
+       * already carries the fix for the same mistake on the form above — an
+       * observation written at 05:15 in Sydney exported as "written on" the
+       * previous day, in the first export I checked. `observed_on` is a date
+       * column and needs no conversion; `created_at` is a timestamptz and
+       * does.
+       */
+      toLocalDateValue(new Date(o.created_at)),
+    ])
+    const csv = toCsv(
+      ['Happened on', 'Category', 'What happened', 'Details', 'Written by', 'Written on'],
+      rows,
+    )
+    downloadCsv(
+      `mizanova-home-observations-${child!.first_name.toLowerCase()}-${todayLocal()}.csv`,
+      csv,
+    )
+  }
 
   if (childrenPending) return <LoadingCards count={2} />
 
@@ -154,7 +210,6 @@ export default function HomeObservations() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {/* --- Prompt / form ------------------------------------------------- */}
@@ -254,7 +309,7 @@ export default function HomeObservations() {
               label="When did it happen?"
               type="date"
               value={observedOn}
-              max={new Date().toISOString().slice(0, 10)}
+              max={todayLocal()}
               onChange={(e) => setObservedOn(e.target.value)}
             />
 
@@ -262,7 +317,7 @@ export default function HomeObservations() {
               <button
                 type="submit"
                 disabled={create.isPending || update.isPending}
-                className="flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {editingId
                   ? update.isPending
@@ -278,7 +333,7 @@ export default function HomeObservations() {
                   setEditingId(null)
                   setOpen(false)
                 }}
-                className="rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
+                className="min-h-11 rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
               >
                 Cancel
               </button>
@@ -294,9 +349,23 @@ export default function HomeObservations() {
       </div>
 
       {/* --- History -------------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-        Observation history
-      </h2>
+      <div className="mt-10 mb-3 flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold text-foreground">
+          Observation history
+        </h2>
+        {/* Absent rather than disabled when there is nothing to export. A
+            greyed-out button is a control that looks authoritative and does
+            nothing, which is the thing this product keeps refusing to draw. */}
+        {(observations.data ?? []).length > 0 && (
+          <button
+            type="button"
+            onClick={exportObservations}
+            className="ml-auto inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
+          >
+            Export as a spreadsheet
+          </button>
+        )}
+      </div>
 
       {observations.isPending && <LoadingCards count={2} />}
       {observations.isError && (
@@ -335,6 +404,8 @@ export default function HomeObservations() {
           ) : (
             <HomeObservationList
               observations={visible}
+              viewerId={profile?.id}
+              answers={answers.data ?? []}
               onEdit={(o) => {
                 setEditingId(o.id)
                 setTitle(o.title)

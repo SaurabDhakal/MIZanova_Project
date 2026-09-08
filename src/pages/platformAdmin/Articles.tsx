@@ -218,14 +218,14 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           disabled={create.isPending}
-          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {create.isPending ? 'Creating…' : 'Create as draft'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -272,24 +272,42 @@ export default function Articles() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
-  if (articles.isPending) return <LoadingCards count={3} />
-  if (articles.isError) return <ErrorState message={articles.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. Every state below used to return before reaching it. */
+  const header = (
+    <PageHeader
+      title="Articles"
+      lead="Short reads and case studies, and who each one is written for."
+      actions={
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
+          New
+        </button>
+      }
+    />
+  )
+
+  if (articles.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (articles.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={articles.error.message} />
+      </>
+    )
 
   return (
     <div>
-      <PageHeader
-        title="Articles"
-        lead="Short reads and case studies, and who each one is written for."
-        actions={
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-          >
-            New
-          </button>
-        }
-      />
+      {header}
 
       {creating && <NewArticleForm onDone={() => setCreating(false)} />}
 
@@ -344,7 +362,7 @@ export default function Articles() {
                           ? 'Confirm the people in it agreed first.'
                           : undefined
                       }
-                      className={`rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                      className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                         a.is_published
                           ? 'border border-border bg-card text-foreground'
                           : 'bg-primary text-primary-foreground'
@@ -357,7 +375,7 @@ export default function Articles() {
                         type="button"
                         disabled={remove.isPending}
                         onClick={() => remove.mutate(a.id)}
-                        className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                       >
                         Delete
                       </button>

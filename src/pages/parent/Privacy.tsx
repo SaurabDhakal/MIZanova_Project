@@ -11,7 +11,6 @@ import {
 } from '../../lib/api'
 import { CONSENT_COPY, CONSENT_ORDER } from '../../lib/consent'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import { fullName } from '../../lib/displayName'
@@ -43,9 +42,7 @@ function formatDate(iso: string): string {
 export default function Privacy() {
   const queryClient = useQueryClient()
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -128,7 +125,6 @@ export default function Privacy() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {consents.isPending && <LoadingCards count={3} />}
@@ -204,14 +200,14 @@ export default function Privacy() {
                                 onSuccess: () => setConfirming(null),
                               })
                             }}
-                            className="rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+                            className="min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
                           >
                             {busy ? 'Withdrawing…' : 'Yes, withdraw consent'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirming(null)}
-                            className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                            className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
                           >
                             Keep it
                           </button>
@@ -221,7 +217,7 @@ export default function Privacy() {
                       <button
                         type="button"
                         onClick={() => setConfirming(type)}
-                        className="rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground"
+                        className="inline-flex min-h-11 items-center rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground"
                       >
                         Withdraw consent
                       </button>
@@ -237,7 +233,7 @@ export default function Privacy() {
                         type="button"
                         disabled={busy}
                         onClick={() => grant.mutate(type)}
-                        className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {busy ? 'Saving…' : 'I give consent'}
                       </button>

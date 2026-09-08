@@ -444,3 +444,118 @@ export async function generateSelfStrategies(payload, namesToRemove, model = MOD
     model: response.model,
   }
 }
+
+
+export const HOME_PROMPT_VERSION = 'home-v1'
+
+const HOME_SYSTEM_PROMPT = `You suggest things a parent or carer in Australia could try at home with their own neurodiverse child.
+
+WHO IS ASKING
+A parent has written up something that happened at home — a meltdown at bath time, a morning that fell apart, a good week they want more of. They are not a clinician and they are not asking for a classroom. They are tired, they were there, and they know this child better than you ever will.
+
+The child's school can read what they wrote and can read what you answer. A specialist may review anything you are unsure about before the family sees it. So unlike somebody asking about themselves, there IS a professional in the loop here — say plainly when something needs one, rather than steering around it.
+
+WHAT YOU PRODUCE
+Up to THREE practical things they could try at home, each with a short "why this works" rationale. Written to the parent as "you", about the child as "they".
+
+Three rather than the two an adult asking about themselves gets, because a parent is choosing what fits a household you cannot see — siblings, shift work, one bathroom — and a single suggestion that does not fit their week leaves them with nothing. If only one or two are worth giving, give one or two.
+
+HOME IS NOT A CLASSROOM
+Do not suggest anything that assumes a teacher, a teaching assistant, a visual timetable on a wall, a quiet corner, a break card, or a class routine. A home has a kitchen, a bathroom, a bedtime, other people who live there, and no roster. Suggestions must survive a Tuesday evening.
+
+HARD LIMITS
+- You are NEVER diagnostic. Do not name, suggest, hint at, or rule out any condition, including when the parent names one themselves. Respond to what happened, not to a label.
+- No clinical or medical advice. Nothing about medication, dosage, therapy types, or whether to seek assessment. If that is what is needed, say it is a conversation for their GP or the school's specialist, and leave it there.
+- Never imply the child is naughty, manipulative, or choosing this, and never imply the parent caused it or is not trying hard enough. A parent writing this up at 9pm has already had a long day.
+- Never suggest anything punitive, anything that withholds food, sleep, comfort or contact, and nothing that relies on the parent being able to physically manage the child.
+- Never invent detail they did not give. If what they wrote is thin, keep the suggestions general and say so in the rationale.
+- Plain language. No jargon, no therapy-speak, nothing that reads like a worksheet.
+
+CONFIDENCE
+Score each suggestion on this scale, on its own merits. Use the whole range.
+
+  0.90-1.00  Well-established everyday practice that fits directly what they described.
+  0.70-0.89  Sound, with minor uncertainty about how well it fits this child.
+  0.50-0.69  Plausible, but it depends on things about the household you were not told.
+  0.00-0.49  Speculative. You are guessing.
+
+Score honestly. A suggestion below the bar is not thrown away here — it goes to the child's specialist, who decides whether the family sees it. Inflating a score to get something shown takes that check away.
+
+TWO SEPARATE JUDGEMENTS — do not confuse them
+1. risk_flag is about THE CHILD OR THE FAMILY. Set it true if what they wrote suggests the child may be at risk of harm, that somebody at home is in crisis, or that abuse is being described. When in doubt, flag it. This does NOT withhold your suggestions — a family having a hard time still deserves the practical help they asked for, and the screen shows them where to find a human as well.
+2. safety_concern is about ONE SUGGESTION. Set it true only if that specific suggestion could go wrong without a professional involved. Use it for real risk rather than ordinary caution.`
+
+/**
+ * Generate strategies for a parent about their own child at home — db/114.
+ *
+ * The third of these, and the reason it is not one of the other two: the
+ * classroom generator writes to a teacher about a room full of children, and
+ * the self generator writes to an adult about themselves with nobody reviewing
+ * it. A parent is neither. They are writing about somebody else, at home, and
+ * there IS a professional who can be asked — which changes both what may be
+ * suggested and what happens to a suggestion that falls short.
+ *
+ * @param {{ text: string, redactions: number, category?: string|null }} payload
+ * @param {string[]} namesToRemove  same list, for the final leak assertion
+ */
+export async function generateHomeStrategies(payload, namesToRemove, model = MODEL) {
+  // The same last check as the other two. The name being removed here is a
+  // child's, which is the strictest case in the product.
+  const leaks = findLeaks(JSON.stringify(payload), namesToRemove)
+  if (leaks.length > 0) {
+    throw new AnonymisationError(`Refusing to call the AI: ${leaks.join('; ')}`)
+  }
+
+  const request = {
+    model,
+    max_tokens: 16000,
+    system: HOME_SYSTEM_PROMPT,
+    output_config: outputConfigFor(model, SELF_STRATEGY_SCHEMA),
+    messages: [
+      {
+        role: 'user',
+        content: [
+          'A parent has written this about something that happened at home:',
+          '',
+          payload.text,
+          ...(payload.category
+            ? ['', `They filed it under: ${payload.category}`]
+            : []),
+          '',
+          'Suggest up to three things they could try at home.',
+        ].join('\n'),
+      },
+    ],
+  }
+
+  const response = await createMessage(client, request)
+
+  if (response.stop_reason === 'refusal') {
+    // The school wording, unlike generateSelfStrategies — here there really is
+    // a specialist attached to this child, so pointing at one is not sending
+    // somebody to a person who does not exist.
+    throw new RefusalError(
+      'The AI would not answer this one. Your child’s specialist can be asked directly — send them a message from the Messages screen.',
+    )
+  }
+
+  const text = response.content.find((block) => block.type === 'text')?.text
+  if (!text) throw new Error('The AI returned no text content.')
+
+  const parsed = JSON.parse(text)
+
+  return {
+    /* Three, matching the prompt, and capped here as well so a model that
+       returns four cannot put a fourth on a family's screen. */
+    strategies: (parsed.strategies ?? []).slice(0, 3).map((s) => ({
+      title: String(s.title ?? '').slice(0, 200),
+      body: String(s.body ?? ''),
+      rationale: Array.isArray(s.rationale) ? s.rationale.map(String) : [],
+      confidence: Math.min(1, Math.max(0, Number(s.confidence) || 0)),
+      safetyConcern: Boolean(s.safety_concern),
+    })),
+    riskFlag: Boolean(parsed.risk_flag),
+    riskReason: String(parsed.risk_reason ?? ''),
+    model: response.model,
+  }
+}

@@ -193,7 +193,7 @@ export default function PushNotificationsSection() {
                 type="button"
                 disabled={busy || subscribed.isPending}
                 onClick={() => (isOn ? turnOff.mutate() : turnOn.mutate())}
-                className={`rounded-btn px-4 py-2.5 font-semibold disabled:opacity-60 ${
+                className={`min-h-11 rounded-btn px-4 py-2.5 font-semibold disabled:opacity-60 ${
                   isOn
                     ? 'border border-border bg-card text-foreground'
                     : 'bg-primary text-primary-foreground'

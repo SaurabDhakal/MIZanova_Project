@@ -47,7 +47,7 @@ export default function SignedFileLink({
       type="button"
       onClick={() => void open()}
       disabled={busy}
-      className="rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-primary disabled:opacity-60"
+      className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-primary disabled:opacity-60"
     >
       {busy ? 'Opening…' : label}
     </button>

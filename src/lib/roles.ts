@@ -221,7 +221,11 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
       { path: 'link-child', label: 'Link a child', icon: 'link', group: 'Your account', milestone: 'M7' },
       { path: 'privacy', label: 'Privacy & Consent', icon: 'privacy', group: 'Your account', milestone: 'M7' },
-      { path: 'finance', label: 'Collab & Finance', icon: 'finance', group: 'Your account', milestone: 'M11' },
+      /* "Collab & Finance" in the design, and the screen has never had a
+         collaboration half — it is invoices from the school and what has been
+         paid, and its own heading says "Finance". A nav item promising
+         something the page does not contain sends people looking for it. */
+      { path: 'finance', label: 'Finance', icon: 'finance', group: 'Your account', milestone: 'M11' },
       // db/079. Reading, as opposed to the Academy's doing.
       { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
     ],
@@ -236,6 +240,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: '', label: 'Command Centre', icon: 'dashboard', milestone: 'M10' },
       { path: 'caseload', label: 'Caseload', icon: 'caseload', group: 'Your work', milestone: 'M10' },
       { path: 'review-queue', label: 'Review Queue', icon: 'review', group: 'Your work', milestone: 'M6' },
+      // db/118. FR12's library, and the net E02 asks for under the AI.
+      { path: 'evidence', label: 'Evidence Database', icon: 'review', group: 'Your work', milestone: 'M6' },
       { path: 'schedule', label: 'Schedule', icon: 'schedule', group: 'Your work', milestone: 'M10' },
       // A specialist could always be MESSAGED — start_message_thread puts any
       // two of a child's care team in a thread — and until now had no screen to

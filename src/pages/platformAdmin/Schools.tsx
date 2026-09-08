@@ -169,8 +169,32 @@ export default function Schools() {
     queryFn: fetchAllSchoolKpis,
   })
 
-  if (schools.isPending) return <LoadingCards count={2} />
-  if (schools.isError) return <ErrorState message={schools.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Schools"
+      lead="Every school using MiZanova, and who is answering their safeguarding queue."
+    />
+  )
+
+  if (schools.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={2} />
+      </>
+    )
+  if (schools.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={schools.error.message} />
+      </>
+    )
 
   const statsFor = (schoolId: string) =>
     (kpis.data ?? []).find((k) => k.school_id === schoolId)
@@ -195,10 +219,7 @@ export default function Schools() {
 
   return (
     <div>
-      <PageHeader
-        title="Schools"
-        lead="Every school using MiZanova, and who is answering their safeguarding queue."
-      />
+      {header}
 
       {/*
         THE SAFEGUARDING TILE WAS THE FABRICATED ZERO AGAIN, IN THE WORST PLACE.
@@ -519,7 +540,7 @@ export default function Schools() {
                               setStatus.reset()
                               setClosing(school)
                             }}
-                            className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                            className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
                           >
                             Close
                           </button>

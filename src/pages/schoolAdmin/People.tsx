@@ -70,9 +70,11 @@ function PersonCard({
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="font-bold text-foreground">
+        {/* h2, for the reason given in Applications.tsx: the page title is
+            the only heading above these. */}
+        <h2 className="font-bold text-foreground">
           {person.full_name || 'Unnamed'}
-        </h3>
+        </h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold ${ROLE_STYLE[person.role] ?? 'bg-background text-muted-foreground'}`}
         >

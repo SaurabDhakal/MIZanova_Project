@@ -1,6 +1,5 @@
 import Messenger from '../../components/Messenger'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import { fullName } from '../../lib/displayName'
@@ -10,7 +9,7 @@ import { fullName } from '../../lib/displayName'
  * Text only in v1.
  */
 export default function ParentMessages() {
-  const { children, child, selectChild, isPending, isError, error } =
+  const { child, isPending, isError, error } =
     useSelectedChild()
 
   if (isPending) return <LoadingCards count={2} />
@@ -54,7 +53,6 @@ export default function ParentMessages() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       <Messenger studentId={child.id} />

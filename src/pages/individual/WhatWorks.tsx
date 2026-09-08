@@ -369,7 +369,7 @@ export default function WhatWorks() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="print-hide mt-6 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+              className="min-h-11 print-hide mt-6 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
             >
               <Icon name="resources" className="h-4 w-4 shrink-0" />
               Print or save as PDF
@@ -401,7 +401,7 @@ function Remove({
     <button
       type="button"
       onClick={() => onToggle(id)}
-      className="print-hide mt-0.5 shrink-0 rounded-btn border border-border bg-background p-1.5 text-muted-foreground hover:text-foreground"
+      className="min-h-11 print-hide mt-0.5 shrink-0 rounded-btn border border-border bg-background p-1.5 text-muted-foreground hover:text-foreground"
       aria-label={out ? 'Put this back in' : 'Leave this out'}
       title={out ? 'Put this back in' : 'Leave this out'}
     >

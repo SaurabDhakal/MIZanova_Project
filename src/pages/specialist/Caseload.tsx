@@ -8,6 +8,7 @@ import {
   type StudentRow,
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import GoalReviewQueue from '../../components/GoalReviewQueue'
 
 /**
  * The specialist's caseload.
@@ -177,6 +178,11 @@ export default function Caseload() {
           ))}
         </ul>
       )}
+
+      {/* db/117. On Caseload rather than Schedule because a goal review is
+          about a child, and the Schedule is about time. It renders nothing
+          when nobody has asked. */}
+      <GoalReviewQueue />
     </div>
   )
 }

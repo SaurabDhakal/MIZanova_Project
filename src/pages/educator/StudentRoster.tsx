@@ -325,7 +325,7 @@ export default function StudentRoster() {
                   setAttention('')
                   setSortBy('name')
                 }}
-                className="rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
+                className="min-h-11 rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
               >
                 Clear filters
               </button>

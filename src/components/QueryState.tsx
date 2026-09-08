@@ -58,7 +58,7 @@ export function ErrorState({
         <button
           type="button"
           onClick={onRetry}
-          className={`mt-3 rounded-btn border px-3 py-2 text-sm font-semibold ${
+          className={`min-h-11 mt-3 rounded-btn border px-3 py-2 text-sm font-semibold ${
             offline
               ? 'border-warning text-warning-foreground'
               : 'border-danger text-danger-foreground'

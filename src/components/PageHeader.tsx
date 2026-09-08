@@ -113,7 +113,12 @@ export function PageNote({
       <summary className="cursor-pointer text-sm font-medium text-primary">
         {summary}
       </summary>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground lg:columns-2 lg:gap-10">
+      {/* `text-sm`, not `text-xs`. This is the paragraph that says what the
+          screen will not claim — the honest half of the page — and it was set
+          smaller than anything else on it. The two columns above already keep
+          the measure short, so the only thing 12px was buying was a paragraph
+          people could not comfortably read. */}
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground lg:columns-2 lg:gap-10">
         {children}
       </p>
     </details>

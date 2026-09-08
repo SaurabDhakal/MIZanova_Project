@@ -10,7 +10,6 @@ import {
 import { ROLE_CONFIG } from '../../lib/roles'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import { fullName } from '../../lib/displayName'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import NoChildYet from '../../components/NoChildYet'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 
@@ -105,9 +104,7 @@ function Unknown({ why }: { why: string }) {
 
 export default function AboutChild() {
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -169,7 +166,6 @@ export default function AboutChild() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
       {/* --- Their details ------------------------------------------------- */}
       <h2 className="mt-8 mb-2 text-lg font-semibold text-foreground">

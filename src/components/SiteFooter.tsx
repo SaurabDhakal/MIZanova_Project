@@ -95,7 +95,7 @@ export default function SiteFooter() {
                   <li key={link.to}>
                     <Link
                       to={link.to}
-                      className="text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
+                      className="inline-flex min-h-6 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
                     >
                       {link.label}
                     </Link>
@@ -117,13 +117,13 @@ export default function SiteFooter() {
           <div className="ml-auto flex flex-wrap gap-5">
             <Link
               to="/login"
-              className="text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
+              className="inline-flex min-h-6 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
             >
               Log in
             </Link>
             <Link
               to="/signup"
-              className="text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
+              className="inline-flex min-h-6 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
             >
               How to join
             </Link>

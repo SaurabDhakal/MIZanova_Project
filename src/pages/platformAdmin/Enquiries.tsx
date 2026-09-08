@@ -86,7 +86,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-lg font-bold text-foreground">{title}</h3>
+        <h2 className="text-lg font-bold text-foreground">{title}</h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold uppercase ${STATUS_STYLE[enquiry.status]}`}
         >
@@ -240,7 +240,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
               onClick={() =>
                 update.mutate({ status: NEXT_STEP[enquiry.status]! })
               }
-              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               {update.isPending
                 ? 'Saving…'
@@ -253,7 +253,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
               type="button"
               disabled={update.isPending}
               onClick={() => update.mutate({ status: 'declined' })}
-              className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
             >
               Decline
             </button>

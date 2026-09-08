@@ -393,7 +393,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             setPage(0)
           }}
           aria-pressed={!filtered}
-          className={`rounded-btn px-2.5 py-1 text-xs font-semibold ${
+          className={`min-h-11 rounded-btn px-2.5 py-1 text-xs font-semibold ${
             !filtered
               ? 'bg-primary text-primary-foreground'
               : 'border border-border text-muted-foreground hover:bg-background'
@@ -409,7 +409,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
               type="button"
               onClick={() => toggle(kind)}
               aria-pressed={on}
-              className={`rounded-btn px-2.5 py-1 text-xs font-semibold ${
+              className={`min-h-11 rounded-btn px-2.5 py-1 text-xs font-semibold ${
                 on
                   ? 'bg-primary text-primary-foreground'
                   : 'border border-border text-muted-foreground hover:bg-background'
@@ -502,7 +502,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             type="button"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Newer
           </button>
@@ -510,7 +510,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             type="button"
             disabled={!timeline.data.hasMore}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Older
           </button>

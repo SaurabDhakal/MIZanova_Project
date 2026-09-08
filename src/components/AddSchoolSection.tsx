@@ -145,7 +145,7 @@ export default function AddSchoolSection({
           <button
             type="button"
             onClick={() => setCreated(null)}
-            className="rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
+            className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
           >
             Add another school
           </button>
@@ -159,7 +159,7 @@ export default function AddSchoolSection({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-6 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+        className="min-h-11 mt-6 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
       >
         <Icon name="schools" className="h-5 w-5" />
         Add a school
@@ -325,14 +325,14 @@ export default function AddSchoolSection({
           <button
             type="submit"
             disabled={add.isPending}
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {add.isPending ? 'Adding…' : 'Add school'}
           </button>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+            className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
           >
             Cancel
           </button>

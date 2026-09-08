@@ -145,24 +145,75 @@ export default function AuthProvider({
 
   const loadProfile = useCallback(
     async (id: string, stillWanted: () => boolean) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(
-          'id, school_id, role, first_name, last_name, full_name, email, is_verified, avatar_path',
-        )
-        .eq('id', id)
-        .single()
+      /*
+       * TWO ATTEMPTS, AND THE SECOND EMPTY ANSWER IS THE TRUTH.
+       *
+       * A loop rather than a recursive call: `useCallback` cannot reference
+       * itself, and the lint rule that says so is right — a function that
+       * re-enters itself through a hook is a closure over whichever render
+       * happened to define it.
+       */
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(
+            'id, school_id, role, first_name, last_name, full_name, email, is_verified, avatar_path',
+          )
+          .eq('id', id)
+          .single()
 
-      if (!stillWanted()) return
-      if (error) {
-        // Two very different causes, and neither should blank the screen:
-        // the signup trigger did not run (no profile row exists), or there
-        // is simply no network. The cached profile below covers the second.
+        if (!stillWanted()) return
+
+        if (!error) {
+          setProfileRow(data as Profile)
+          writeCachedProfile(data as Profile)
+          return
+        }
+
+        /*
+         * THREE CAUSES, AND ONE OF THEM MUST END THE SESSION.
+         *
+         * PGRST116 is PostgREST for "that returned no rows", and from
+         * `.single()` on a primary key it means the profile is gone. A network
+         * failure and a signup trigger that has not committed carry other
+         * codes, or none.
+         *
+         * All three used to fall through to the cached profile below, so an
+         * account DELETED while signed in kept a working shell until its token
+         * expired: a school admin removed seconds earlier still rendered the
+         * whole Command Centre, every figure reading 0, Safeguarding saying
+         * "Nothing outstanding". Nothing leaked — every policy denies once the
+         * row is gone, which is why the numbers were zero — but that is the
+         * calmest sentence in the product at the moment the truth is "you no
+         * longer have an account".
+         *
+         * WHY TIME AND NOT THE CACHE. The first fix signed out only when a
+         * cached profile existed, on the reasoning that a cache meant a
+         * previously working account. That is wrong in the case it was written
+         * for: a deleted session in a browser with no cache — a fresh device,
+         * cleared storage — then neither signs out NOR loads, and the app sits
+         * on "Loading your profile…" for ever. Caught by using it; the page
+         * after the cleanup did exactly that.
+         *
+         * A trigger that has not committed resolves in a moment. A deleted
+         * account never does. So ask twice.
+         */
+        if (error.code === 'PGRST116') {
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1500))
+            continue
+          }
+          clearCachedProfile()
+          setProfileRow(null)
+          void supabase.auth.signOut().catch(() => {})
+          return
+        }
+
+        // Anything else is a network problem. The cached profile covers it and
+        // must not be thrown away.
         console.error('Could not load profile:', error.message)
         return
       }
-      setProfileRow(data as Profile)
-      writeCachedProfile(data as Profile)
     },
     [],
   )

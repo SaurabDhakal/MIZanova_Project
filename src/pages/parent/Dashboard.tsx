@@ -6,6 +6,7 @@ import {
   fetchGoals,
   fetchHomeObservations,
   fetchSharedLogs,
+  fetchStrategiesForStudent,
   queryKeys,
   type BehaviourType,
 } from '../../lib/api'
@@ -15,6 +16,7 @@ import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
+import SharedStrategies from '../../components/SharedStrategies'
 
 /**
  * Parent home — docs/Figma Pages Design/Parent Home Dashboard.png.
@@ -103,6 +105,25 @@ export default function ParentDashboard() {
     enabled: Boolean(child),
   })
 
+  /*
+   * THE ADVICE THAT GOES WITH THE UPDATE — db/113.
+   *
+   * One query for the whole child rather than one per update: RLS returns a
+   * guardian only the settled strategies on logs a teacher shared, so the
+   * filtering that matters is not written here and cannot be forgotten here.
+   * Grouped by log below.
+   *
+   * Its failure is deliberately quiet. An update with no advice under it is
+   * the ordinary case — most shared logs have none — so an error banner would
+   * be reporting an absence that is usually correct anyway. The incident
+   * itself is what the family came for and it renders either way.
+   */
+  const strategies = useQuery({
+    queryKey: queryKeys.studentStrategies(child?.id ?? ''),
+    queryFn: () => fetchStrategiesForStudent(child!.id),
+    enabled: Boolean(child),
+  })
+
   if (isPending) return <LoadingCards count={2} />
   if (isError) return <ErrorState message={error?.message ?? 'Unknown error'} />
 
@@ -126,8 +147,23 @@ export default function ParentDashboard() {
    * in full, so the rest expand here rather than living behind a link that
    * does not exist.
    */
-  const visibleShared = showAllShared ? shared : shared.slice(0, SHARED_SHOWN)
-  const hiddenShared = shared.length - visibleShared.length
+  /*
+   * THE NEWEST UPDATE WAS ON THIS PAGE TWICE. It is the hero card at the top
+   * — "Update from school · 21 Aug" — and it was also the first row of the
+   * list below, with the same notes and, since db/113, the same three
+   * strategies underneath both. On a child with real history that was around
+   * a thousand pixels of exact duplicate before a family reached anything new.
+   *
+   * The list starts after it. `rest` is the honest name: the hero is not
+   * "recent updates", it is the latest one, and everything under the heading
+   * is the rest of them.
+   */
+  const rest = shared.slice(1)
+  const visibleShared = showAllShared ? rest : rest.slice(0, SHARED_SHOWN)
+  const hiddenShared = rest.length - visibleShared.length
+
+  const adviceFor = (logId: string) =>
+    (strategies.data ?? []).filter((s) => s.behaviour_log_id === logId)
 
   /*
    * "Now" comes from the fetch rather than from render — `Date.now()` here is
@@ -169,6 +205,7 @@ export default function ParentDashboard() {
           {latest.notes && (
             <p className="mt-2 text-foreground">{latest.notes}</p>
           )}
+          <SharedStrategies strategies={adviceFor(latest.id)} />
         </div>
       ) : (
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
@@ -219,7 +256,7 @@ export default function ParentDashboard() {
                 family when one moves. The link is where that is said. */}
             <Link
               to="/parent/appointments"
-              className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
             >
               All appointments →
             </Link>
@@ -289,7 +326,7 @@ export default function ParentDashboard() {
                 </p>
                 <Link
                   to="/parent/goals"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
                   View goals →
                 </Link>
@@ -331,7 +368,13 @@ export default function ParentDashboard() {
 
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Your home observations
+            {/* NOT "your". The query is every observation from home for this
+                child, which for a family with two guardians includes the ones
+                the other one wrote — so a parent who had written nothing was
+                told they had one. The count is the useful figure and the list
+                below names each author; it was only the word that was
+                untrue. */}
+            Observations from home
           </p>
           <p className="mt-2 text-4xl font-bold text-foreground">
             {observations.isSuccess ? observations.data.length : '—'}
@@ -343,7 +386,7 @@ export default function ParentDashboard() {
           )}
           <Link
             to="/parent/observations"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            className="mt-3 inline-block rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
           >
             Log an observation
           </Link>
@@ -385,6 +428,7 @@ export default function ParentDashboard() {
               {log.notes && (
                 <p className="mt-2 text-foreground">{log.notes}</p>
               )}
+              <SharedStrategies strategies={adviceFor(log.id)} />
             </li>
           ))}
         </ul>
@@ -400,7 +444,7 @@ export default function ParentDashboard() {
         </button>
       )}
 
-      {showAllShared && shared.length > SHARED_SHOWN && (
+      {showAllShared && rest.length > SHARED_SHOWN && (
         <button
           type="button"
           onClick={() => setShowAllShared(false)}

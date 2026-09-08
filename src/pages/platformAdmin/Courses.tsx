@@ -13,6 +13,7 @@ import {
   type Course,
   type CourseEngagement,
 } from '../../lib/api'
+import { csvCell } from '../../lib/csv'
 import { ROLE_CONFIG, ROLES, type Role } from '../../lib/roles'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
@@ -153,14 +154,14 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           disabled={create.isPending}
-          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {create.isPending ? 'Creating…' : 'Create as draft'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -322,14 +323,14 @@ function ModuleEditor({ course }: { course: Course }) {
                     <button
                       type="submit"
                       disabled={save.isPending}
-                      className="rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                      className="min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                     >
                       {save.isPending ? 'Saving…' : 'Save'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditing(null)}
-                      className="rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+                      className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
                     >
                       Cancel
                     </button>
@@ -393,7 +394,7 @@ function ModuleEditor({ course }: { course: Course }) {
           <button
             type="submit"
             disabled={add.isPending}
-            className="justify-self-start rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+            className="min-h-11 justify-self-start rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
           >
             {add.isPending ? 'Adding…' : 'Add module'}
           </button>
@@ -446,7 +447,7 @@ function PriceControl({ course }: { course: Course }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="mt-1 text-xs font-semibold text-primary hover:underline"
+        className="mt-1 inline-flex min-h-6 items-center text-xs font-semibold text-primary hover:underline"
       >
         {course.price_cents === null ? 'Set a price' : 'Change the price'}
       </button>
@@ -490,7 +491,7 @@ function PriceControl({ course }: { course: Course }) {
         type="button"
         disabled={save.isPending}
         onClick={() => save.mutate(null)}
-        className="rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+        className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
       >
         Make it free
       </button>
@@ -532,7 +533,9 @@ function Engagement() {
   })
 
   function exportCsv(data: CourseEngagement[]) {
-    const esc = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`
+    // Was a local escaper that quoted correctly and did not guard against
+    // formula injection — see src/lib/csv.ts. Same shape, one import.
+    const esc = csvCell
     const csv = [
       ['Course', 'State', 'Audiences', 'Modules', 'Enrolled', 'Finished', 'Finished %'].join(','),
       ...data.map((r) =>
@@ -595,7 +598,7 @@ function Engagement() {
         <button
           type="button"
           onClick={() => exportCsv(rows.data)}
-          className="ml-auto rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
+          className="min-h-11 ml-auto rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
         >
           Export as CSV
         </button>
@@ -675,24 +678,42 @@ export default function Courses() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
-  if (courses.isPending) return <LoadingCards count={3} />
-  if (courses.isError) return <ErrorState message={courses.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. Every state below used to return before reaching it. */
+  const header = (
+    <PageHeader
+      title="Courses"
+      lead="The Academy — what Special Miles publishes, and who it is for."
+      actions={
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
+          New course
+        </button>
+      }
+    />
+  )
+
+  if (courses.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (courses.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={courses.error.message} />
+      </>
+    )
 
   return (
     <div>
-      <PageHeader
-        title="Courses"
-        lead="The Academy — what Special Miles publishes, and who it is for."
-        actions={
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-          >
-            New course
-          </button>
-        }
-      />
+      {header}
 
       {creating && <NewCourseForm onDone={() => setCreating(false)} />}
 
@@ -746,7 +767,7 @@ export default function Courses() {
                   <button
                     type="button"
                     onClick={() => setOpen(open === course.id ? null : course.id)}
-                    className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                    className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                   >
                     {open === course.id ? 'Hide modules' : 'Modules'}
                   </button>

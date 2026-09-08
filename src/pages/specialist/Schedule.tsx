@@ -17,6 +17,7 @@ import AppointmentPanel from '../../components/AppointmentPanel'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import WorkingHoursSection from '../../components/WorkingHoursSection'
 import SessionRequestsSection from '../../components/SessionRequestsSection'
+import FamilyRequestsSection from '../../components/FamilyRequestsSection'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -213,6 +214,7 @@ export default function Schedule() {
           ordinary day this costs the page no height.
           ------------------------------------------------------------------ */}
       <SessionRequestsSection />
+      <FamilyRequestsSection />
 
       {/* --- The calendar --------------------------------------------------- */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -225,7 +227,7 @@ export default function Schedule() {
           onClick={() =>
             setBookingStart((current) => (current ? null : nextHalfHour()))
           }
-          className="ml-auto rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          className="ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
         >
           {bookingStart ? 'Close' : '+ Book'}
         </button>

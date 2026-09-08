@@ -108,16 +108,43 @@ export default function Verification() {
     },
   })
 
-  if (waiting.isPending || verified.isPending) return <LoadingCards count={3} />
-  if (waiting.isError) return <ErrorState message={waiting.error.message} />
-  if (verified.isError) return <ErrorState message={verified.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Staff verification"
+      lead="Staff waiting to be trusted with student records."
+    />
+  )
+
+  if (waiting.isPending || verified.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (waiting.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={waiting.error.message} />
+      </>
+    )
+  if (verified.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={verified.error.message} />
+      </>
+    )
 
   return (
     <div>
-      <PageHeader
-        title="Staff verification"
-        lead="Staff waiting to be trusted with student records."
-      />
+      {header}
 
       <div
         className="mb-6 rounded-card border border-warning bg-warning-subtle p-4"
@@ -334,14 +361,14 @@ export default function Verification() {
                         type="button"
                         onClick={() => resetMfa.mutate(person.id)}
                         disabled={resetMfa.isPending}
-                        className="rounded-btn bg-danger-strong px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-danger-strong px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {resetMfa.isPending ? 'Clearing…' : 'Yes, clear it'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingReset(null)}
-                        className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                        className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                       >
                         Cancel
                       </button>
@@ -356,7 +383,7 @@ export default function Verification() {
                     <button
                       type="button"
                       onClick={() => setConfirmingReset(person.id)}
-                      className="rounded-btn border border-danger px-3 py-2 text-sm font-medium text-danger-foreground"
+                      className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-medium text-danger-foreground"
                     >
                       Reset 2FA
                     </button>
@@ -369,7 +396,7 @@ export default function Verification() {
                     verify.mutate({ id: person.id, verified: false })
                   }
                   disabled={verify.isPending}
-                  className="rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
+                  className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
                 >
                   Withdraw verification
                 </button>
