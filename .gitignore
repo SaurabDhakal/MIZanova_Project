@@ -50,3 +50,12 @@ backups/
 # They simply never enter git. Delete the folder from THIS repo whenever you
 # want the disk space back — the originals live in the other one.
 docs/
+
+# Scratch space for one-off probes and audit scripts. Ignored because a
+# `git add -A` during an audit committed one on 8 September, the same day the
+# audit removed two other scratch scripts for creating real accounts from
+# hardcoded passwords. Naming a fault does not stop you repeating it; a rule
+# does.
+scripts/.tmp/
+public/__audit.js
+public/__judge.js
