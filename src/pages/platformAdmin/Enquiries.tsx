@@ -86,7 +86,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-lg font-bold text-foreground">{title}</h3>
+        <h2 className="text-lg font-bold text-foreground">{title}</h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold uppercase ${STATUS_STYLE[enquiry.status]}`}
         >

@@ -86,7 +86,11 @@ export function CardGrid({
           <span className="inline-flex rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
             <Icon name={card.icon} className="h-6 w-6" />
           </span>
-          <h3 className="mt-4 font-bold text-foreground">{card.title}</h3>
+          {/* h2, not h3. Both pages using this put the grid directly under
+              the page title with no heading between, so an h3 skipped a level
+              — and the cards are peers of the <Section> blocks below them,
+              which are h2. */}
+          <h2 className="mt-4 font-bold text-foreground">{card.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{card.body}</p>
         </li>
       ))}
