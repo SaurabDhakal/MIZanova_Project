@@ -49,6 +49,15 @@ function getConstructor(): RecognitionConstructor | undefined {
 }
 
 /**
+ * Whether this browser can dictate at all, without holding a recognition
+ * object to ask. A form showing one shared disclosure for several dictatable
+ * fields has to know before it renders any of them — see DictationNotice.
+ */
+export function speechToTextSupported(): boolean {
+  return getConstructor() !== undefined
+}
+
+/**
  * ONE MICROPHONE, SO ONE DICTATION AT A TIME.
  *
  * Each caller gets its own recognition object, and nothing in the Web Speech
