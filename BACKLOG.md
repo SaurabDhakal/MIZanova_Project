@@ -886,6 +886,14 @@ bearer token claiming `service_role`.
 
 ### Low / cosmetic
 
+- [ ] **db/120 written, not applied.** After db/119 the anonymous grant count
+      fell from 91 to 14, and all fourteen sit on the two deliberately public
+      price lists — SELECT, which is intended, plus INSERT, UPDATE, DELETE,
+      TRUNCATE, REFERENCES and TRIGGER, which are not. Those writes fail today
+      because both views compute or filter, but that is db/072's "query's shape
+      protecting it rather than a decision". Housekeeping; nothing is exposed
+      while it waits.
+
 - [ ] **20 routes validate the request body before authenticating.** A forged
       token gets `400 "invoiceId is required"` rather than `401`, which lets
       an unauthenticated caller map the input schema. No route reached data.
