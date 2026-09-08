@@ -4520,6 +4520,29 @@ app.post('/api/screening/:id/remind', async (req, res) => {
   try {
     const userClient = clientForUser(bearer)
 
+    /*
+     * WHO IS THIS, BEFORE ANYTHING ELSE — the idiom /api/strategies uses.
+     *
+     * This route used to go straight to the query, so a caller holding a
+     * malformed token got the database's own complaint back: probed on 8
+     * September with a forged bearer, it answered
+     *
+     *     400  {"error":"JWT cryptographic operation failed"}
+     *
+     * Two faults in one line. A rejected token is 401, not 400 — 400 says
+     * "your request was wrong" to somebody whose request was fine and whose
+     * credentials were not. And the text is PostgREST's, not ours: internal
+     * error strings name tables, columns and constraints, and this is the
+     * only route in the file that handed one to an unauthenticated caller.
+     */
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
     // Read through the view so the days-remaining arithmetic and the wording
     // in the email come from the same place as the screen — db/048 exists so
     // that a screen calling something "expiring" and an email calling it
@@ -4531,8 +4554,12 @@ app.post('/api/screening/:id/remind', async (req, res) => {
       .maybeSingle()
 
     if (error) {
+      // Logged in full, reported in general: the reader of this response is
+      // not necessarily entitled to know why the database said no.
       console.error('Reading a check failed:', error.message)
-      return res.status(400).json({ error: error.message })
+      return res
+        .status(500)
+        .json({ error: 'That check could not be read. Try again in a moment.' })
     }
     if (!check) {
       return res.status(404).json({ error: 'That check is not available.' })

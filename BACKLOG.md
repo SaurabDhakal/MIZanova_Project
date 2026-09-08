@@ -816,6 +816,69 @@ accessible names. Everything below is a measured number.
 
 ---
 
+## 2f. Production-readiness audit — 8 September 2026
+
+Structural and security sweep run against the live schema and the running
+API, not against the source. 85 tables and views probed as an anonymous
+visitor; all 33 API routes probed with no credentials and with a forged
+bearer token claiming `service_role`.
+
+### Critical
+
+- None found. No object leaked a row to an anonymous caller except the two
+  public price lists, which are deliberate and were confirmed to carry
+  neither `stripe_price_id` nor course bodies. No API route answered 2xx to
+  a forged token except `/api/health` and `/api/push/key`, both public by
+  design. RLS is enabled on all 67 tables, every `security definer`
+  function pins its `search_path`, and every table has a primary key.
+
+### High
+
+- [ ] **Nine objects answered an anonymous caller with `[]` instead of
+      refusing.** `iep_plans` (5 real children's plans), `iep_goals`,
+      `iep_goal_reviews`, `iep_plan_confirmations`, `iep_plan_participants`,
+      `iep_support_sessions`, `iep_support_totals`, `platform_invoices`,
+      `platform_subscriptions`. Nothing leaks — every policy is
+      `to authenticated`, so RLS filters them to nothing. But RLS is doing it
+      ALONE: the other 74 objects refuse at the grant, before a policy is
+      consulted. Root cause is the default db/072 already named — "Supabase's
+      defaults grant the full set on anything new in `public`" — and the IEP
+      scripts, db/054 to db/057, contain no `revoke` at all. **db/119 written,
+      NOT YET APPLIED.** `scripts/security-check.mjs` now enumerates every
+      object from PostgREST's own schema document and fails on `[]`, so this
+      cannot recur silently; it will stay red until db/119 is run.
+
+### Medium
+
+- [x] ~~`/api/screening/:id/remind` returned PostgREST's own error text to an
+      unauthenticated caller.~~ Probed with a forged bearer it answered
+      `400 {"error":"JWT cryptographic operation failed"}` — wrong status for
+      a rejected credential, and an internal string naming the failure. It now
+      calls `auth.getUser()` first, like `/api/strategies`, and answers `401`
+      with a safe message; the database's complaint is logged, not returned.
+      Verified against the running server.
+- [ ] **23 other routes return a raw `error.message` to the client.** Same
+      class as the one above, none of them yet shown to leak anything an
+      anonymous caller can reach. Worth one shared helper that logs in full
+      and answers in general, rather than 23 edits.
+- [ ] **`bookable_specialists` has no `security_invoker`,** so it reads
+      `profiles` as its owner and bypasses RLS. It exposes only name, avatar
+      and a count, and db/104 intends specialists to be discoverable — but
+      that is a widening by omission rather than by decision, which is exactly
+      what db/055 was written about.
+
+### Low / cosmetic
+
+- [ ] **20 routes validate the request body before authenticating.** A forged
+      token gets `400 "invoiceId is required"` rather than `401`, which lets
+      an unauthenticated caller map the input schema. No route reached data.
+- [ ] **30 foreign keys have no supporting index.** Slow cascades and joins;
+      invisible until a table grows.
+- [ ] **`scripts/tmp-ghost.mjs` and `scripts/tmp-race.mjs`** are committed
+      scratch files.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an
