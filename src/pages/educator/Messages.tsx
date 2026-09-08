@@ -24,27 +24,56 @@ export default function EducatorMessages() {
   })
   const [studentId, setStudentId] = useState<string>('')
 
-  if (students.isPending) return <LoadingCards count={2} />
-  if (students.isError) return <ErrorState message={students.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. This screen was the clearest case of it: a member of staff
+     with no students assigned met a page that said "No students assigned to
+     you yet" and carried no title at all, so nothing on it said where they
+     were. */
+  const header = (
+    <header className="mb-6">
+      <h1 className="text-title text-foreground">Messages</h1>
+      <p className="mt-1 text-muted-foreground">
+        {/* "and staff", because they are already in this list. A teacher's
+            inbox here carries threads with the school administrator, the
+            specialist on a child's caseload and other educators — the two
+            other roles with this screen both say so, and only this one
+            claimed it was families alone. */}
+        Conversations with families and staff about the students you support.
+      </p>
+      <EducatorSchoolContext />
+    </header>
+  )
+
+  if (students.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={2} />
+      </>
+    )
+  if (students.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={students.error.message} />
+      </>
+    )
 
   if (students.data.length === 0) {
     return (
-      <EmptyState
-        title="No students assigned to you yet"
-        detail="Messaging is organised around a student, so it becomes available once you are assigned to one."
-      />
+      <>
+        {header}
+        <EmptyState
+          title="No students assigned to you yet"
+          detail="Messaging is organised around a student, so it becomes available once you are assigned to one."
+        />
+      </>
     )
   }
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Messages</h1>
-        <p className="mt-1 text-muted-foreground">
-          Conversations with families about the students you support.
-        </p>
-        <EducatorSchoolContext />
-      </header>
+      {header}
 
       <div className="mb-5">
         <label

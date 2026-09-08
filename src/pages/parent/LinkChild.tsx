@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { redeemGuardianCode } from '../../lib/api'
 import { useMyChildren } from '../../hooks/useMyChildren'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Link a child — db/037, replacing `Link Your Children Page.jpg`.
@@ -64,7 +65,7 @@ export default function LinkChild() {
           </p>
           <ul className="mt-1 text-sm text-muted-foreground">
             {children.map((child) => (
-              <li key={child.id}>{child.display_name}</li>
+              <li key={child.id}>{fullName(child)}</li>
             ))}
           </ul>
         </div>

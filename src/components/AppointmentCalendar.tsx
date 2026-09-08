@@ -1,11 +1,11 @@
 import { useMemo, useRef } from 'react'
 import FullCalendar from '@fullcalendar/react'
+import enAu from '@fullcalendar/core/locales/en-au'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, EventInput } from '@fullcalendar/core'
 import type { DateClickArg } from '@fullcalendar/interaction'
-import type { AppointmentRow } from '../lib/api'
 
 /**
  * The schedule, as month, week or day.
@@ -27,20 +27,50 @@ const DAY_END_HOUR = 18
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-export default function AppointmentCalendar({
+/**
+ * The least this calendar needs to draw something.
+ *
+ * `AppointmentRow` satisfies it, and so does the family's narrower view —
+ * db/073 gives a guardian no `specialist_id`, because which clinician is on the
+ * roster is not a family's business. It is optional here for that reason, and
+ * its only use is greying out a colleague's booking, which a parent has none
+ * of.
+ */
+export type CalendarAppointment = {
+  id: string
+  student_id: string
+  starts_at: string
+  duration_minutes: number
+  status: string
+  specialist_id?: string
+}
+
+/** The three views the toolbar offers, so a screen can choose where to open. */
+export type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
+
+export default function AppointmentCalendar<T extends CalendarAppointment>({
   appointments,
   nameOf,
   currentUserId,
   selectedId,
   onSelect,
   onPickSlot,
+  initialView = 'timeGridWeek',
+  allDay = false,
 }: {
-  appointments: AppointmentRow[]
+  appointments: T[]
   nameOf: (studentId: string) => string
   /** Marks the ones this person did not book, so a clash is explicable. */
   currentUserId: string | null
   selectedId: string | null
-  onSelect: (appointment: AppointmentRow) => void
+  /**
+   * BOTH HANDLERS ARE OPTIONAL, and that is what makes this readable by a
+   * family. A parent may select nothing and book nothing — db/073 gives them
+   * SELECT and no more — so leaving these out removes the click affordances
+   * rather than wiring them to something that would be refused. A calendar that
+   * invites a press it cannot honour is worse than one that does not invite it.
+   */
+  onSelect?: (appointment: T) => void
   /**
    * Clicking empty space offers to book at that time.
    *
@@ -50,7 +80,24 @@ export default function AppointmentCalendar({
    * looks like is the booking screen's business, not this component's, so the
    * fact is reported rather than guessed at here.
    */
-  onPickSlot: (start: Date, hasTime: boolean) => void
+  onPickSlot?: (start: Date, hasTime: boolean) => void
+  /**
+   * Where the calendar opens. A week of hours is right for a clinician's day
+   * and wrong for everybody else: a family has a booking a fortnight, and a
+   * teacher's goal dates are spread across a term, so both open on the month
+   * and would otherwise land on a week with nothing in it.
+   */
+  initialView?: CalendarView
+  /**
+   * The events carry a date and no clock time.
+   *
+   * A GOAL IS NOT AN APPOINTMENT, AND THE GRID MUST NOT PRETEND IT IS. A target
+   * date says which day, never which hour, so drawing one at a time would
+   * invent a fact — and at midnight, which is the hour a teacher is least
+   * likely to be teaching. All-day events sit in the strip above the grid
+   * instead, where a date is all they claim to be.
+   */
+  allDay?: boolean
 }) {
   const calendarRef = useRef<FullCalendar | null>(null)
 
@@ -63,7 +110,13 @@ export default function AppointmentCalendar({
           id: a.id,
           title: nameOf(a.student_id),
           start,
-          end: new Date(start.getTime() + a.duration_minutes * 60_000),
+          allDay,
+          // No end when there is no duration to give it one. Passing
+          // start + 0ms produces a zero-length event, which FullCalendar
+          // renders as a sliver you cannot click.
+          end: allDay
+            ? undefined
+            : new Date(start.getTime() + a.duration_minutes * 60_000),
           classNames: [
             `fc-appointment--${a.status}`,
             ...(mine ? [] : ['fc-appointment--colleague']),
@@ -72,7 +125,7 @@ export default function AppointmentCalendar({
           extendedProps: { appointment: a },
         }
       }),
-    [appointments, nameOf, currentUserId, selectedId],
+    [appointments, nameOf, currentUserId, selectedId, allDay],
   )
 
   /*
@@ -81,6 +134,12 @@ export default function AppointmentCalendar({
    * still gets an ordinary school day rather than a single hour.
    */
   const { minHour, maxHour } = useMemo(() => {
+    /*
+     * All-day events are midnight to the Date constructor, so measuring them
+     * would open the grid at 00:00 and show a teacher seven empty night hours
+     * before the school day starts.
+     */
+    if (allDay) return { minHour: DAY_START_HOUR, maxHour: DAY_END_HOUR }
     const starts = appointments.map((a) => new Date(a.starts_at).getHours())
     const ends = appointments.map((a) => {
       const end = new Date(
@@ -92,14 +151,14 @@ export default function AppointmentCalendar({
       minHour: Math.max(0, Math.min(DAY_START_HOUR, ...starts)),
       maxHour: Math.min(24, Math.max(DAY_END_HOUR, ...ends)),
     }
-  }, [appointments])
+  }, [appointments, allDay])
 
   return (
     <div className="mizanova-calendar rounded-card border border-border bg-card shadow-raised p-3">
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
+        initialView={initialView}
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
@@ -111,12 +170,36 @@ export default function AppointmentCalendar({
           week: 'Week',
           day: 'Day',
         }}
+        /* THE ARROWS HAD NO NAME. FullCalendar draws prev and next as an icon
+           span with `role="img"` and nothing else, so a screen reader on the
+           specialist's Schedule met two buttons it could only describe as
+           "button". `buttonHints` is the library's own hook for this and it
+           becomes the aria-label; `$0` is substituted with the unit currently
+           in view, so it reads "Previous week" on the week view and "Previous
+           month" on the month one rather than a fixed word that is wrong two
+           views out of three. */
+        buttonHints={{
+          prev: 'Previous $0',
+          next: 'Next $0',
+          today: 'This $0',
+        }}
         // Monday. Australian school weeks do not start on Sunday.
         firstDay={1}
-        allDaySlot={false}
+        allDaySlot={allDay}
         nowIndicator
-        height="auto"
+        /* IT WAS TALLER THAN THE WINDOW, SO NOTHING IN IT COULD BE SEEN AT
+           ONCE. `height="auto"` makes the calendar as tall as its content: a
+           single 7:30pm booking anywhere in the loaded set widens the day to
+           7am–9pm, and 28 half-hour rows came to 1099px inside a 698px
+           viewport. The page scrolled instead of the grid, so the toolbar and
+           the day headers scrolled away with it, and the red now-indicator —
+           which only draws inside the visible hours — was never where anybody
+           was looking. A real height gives FullCalendar its own scroller: the
+           header stays put and `scrollTime` opens the day at the school
+           morning rather than at whatever hour the widening reached. */
+        height="70vh"
         expandRows
+        scrollTime="08:00:00"
         slotMinTime={`${pad(minHour)}:00:00`}
         slotMaxTime={`${pad(maxHour)}:00:00`}
         slotDuration="00:30:00"
@@ -128,6 +211,35 @@ export default function AppointmentCalendar({
          * to read who it is with beats the block being exactly to scale.
          */
         eventMinHeight={34}
+        /* DATES WERE COMING OUT AMERICAN. No `locale` is set, so FullCalendar
+           falls back to en-US and the week header read "Mon 9/7" — which an
+           Australian reads as 9 July and the calendar means as 7 September.
+           Everything else in this product is en-AU ("6 September 2026",
+           "Tue, 25 Aug"), so the one screen where a misread date sends
+           somebody to a child's appointment on the wrong day was the one
+           screen disagreeing.
+
+           Named months rather than `locale="en-au"`: 7/9 is still ambiguous to
+           half the people who might read it, and "Mon 7 Sep" is ambiguous to
+           nobody. */
+        /* The locale sets the ORDER — en-AU puts the day before the month,
+           so this reads "Mon, 7 Sep" the way the rest of the product writes
+           dates, rather than "Mon, Sep 7". The explicit format above still
+           does the important half: a named month cannot be misread whichever
+           side it falls on. */
+        locale={enAu}
+        dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
+        /* THE MONTH VIEW HAS NO DATES TO PUT IN ITS HEADER. Week and day views
+           give each column a real date, so "Mon, 7 Sep" above it is true. A
+           month grid's header names the seven weekdays for five different
+           weeks at once, and FullCalendar has to date them from an arbitrary
+           reference week — so asking for a day and a month printed "Mon, 5 Jan"
+           across a September calendar, with the Sunday column reading 4 Jan
+           after Saturday's 10th. The format above was written for the week
+           header and applied to every view; only the month one needs the
+           weekday on its own. */
+        views={{ dayGridMonth: { dayHeaderFormat: { weekday: 'short' } } }}
+        titleFormat={{ day: 'numeric', month: 'long', year: 'numeric' }}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         slotLabelFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         // Month view renders timed events as a dot plus bare text by default,
@@ -136,10 +248,19 @@ export default function AppointmentCalendar({
         eventDisplay="block"
         dayMaxEvents={3}
         events={events}
-        eventClick={(arg: EventClickArg) =>
-          onSelect(arg.event.extendedProps.appointment as AppointmentRow)
+        /* Undefined rather than a no-op, so FullCalendar does not add the
+           pointer cursor and hover state for a click that does nothing. */
+        eventClick={
+          onSelect
+            ? (arg: EventClickArg) =>
+                onSelect(arg.event.extendedProps.appointment as T)
+            : undefined
         }
-        dateClick={(arg: DateClickArg) => onPickSlot(arg.date, !arg.allDay)}
+        dateClick={
+          onPickSlot
+            ? (arg: DateClickArg) => onPickSlot(arg.date, !arg.allDay)
+            : undefined
+        }
       />
     </div>
   )

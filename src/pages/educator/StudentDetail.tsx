@@ -199,7 +199,7 @@ export default function StudentDetail() {
             <button
               type="button"
               onClick={() => setLogging(true)}
-              className="shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+              className="min-h-11 shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
             >
               Log behaviour
             </button>
@@ -250,6 +250,11 @@ export default function StudentDetail() {
           scrolling past. */}
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
         <div className="space-y-5">
+          {/* The timeline leads, because a student record is opened to find out
+              what has been happening. Goals sit under it — but the timeline now
+              shows a recent window with a control to go further back, so
+              "Working towards" is reachable rather than nine screens down. It
+              was at 6,594px on a child with a long history before that cap. */}
           <StudentTimeline studentId={studentId} />
           <GoalsSection studentId={studentId} />
         </div>

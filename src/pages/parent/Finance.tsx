@@ -12,6 +12,7 @@ import {
 import { useMyChildren } from '../../hooks/useMyChildren'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import { showToast } from '../../lib/toast'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Collab & Finance — docs/Figma Pages Design/Parent Collab & Finance.png.
@@ -102,7 +103,10 @@ export default function Finance() {
   if (invoices.isError) return <ErrorState message={invoices.error.message} />
 
   const nameFor = (studentId: string) =>
-    children.find((c) => c.id === studentId)?.display_name ?? 'your child'
+    (() => {
+      const c = children.find((x) => x.id === studentId)
+      return c ? fullName(c) : 'your child'
+    })()
 
   const payable = invoices.data.filter((i) => i.status === 'open')
   const paid = invoices.data.filter((i) => i.status === 'paid')
@@ -217,7 +221,7 @@ export default function Finance() {
                       type="button"
                       onClick={() => pay.mutate(invoice.id)}
                       disabled={pay.isPending}
-                      className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                      className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                     >
                       {pay.isPending ? 'Opening…' : 'Pay'}
                     </button>

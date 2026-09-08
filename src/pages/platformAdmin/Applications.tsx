@@ -11,7 +11,9 @@ import {
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import QueueTabs from '../../components/QueueTabs'
+import PageHeader from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
+import { screeningValidity } from '../../lib/screeningValidity'
 
 /**
  * Gate 1 review — `09-Onboarding-and-Tenancy.md` §5.
@@ -109,8 +111,19 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
       ? (application.profession_other ?? 'Other')
       : PROFESSIONS[application.profession]
 
-  const expired =
-    application.wwcc_expiry && new Date(application.wwcc_expiry) < new Date()
+  /*
+   * THE LOGIC LIVES IN src/lib/screeningValidity.ts SO IT CAN BE TESTED.
+   *
+   * db/047 refuses any edit to what an applicant claimed — "an application
+   * records what somebody claimed" — so an application with a lapsed check
+   * cannot be manufactured on a running database to look at. Inline here it
+   * could only be reasoned about, and reasoning about it is exactly what
+   * produced the bug: this asked whether a NUMBER existed, printed "EXPIRED"
+   * beside it in red, and enabled Approve anyway.
+   */
+  const validity = screeningValidity(application)
+  // Kept for the badge below, which labels the WWCC line specifically.
+  const expired = validity.wwccExpired
 
   /*
    * APPROVING WITHOUT A SCREENING NUMBER IS THE ONE MISTAKE THIS SCREEN MUST
@@ -131,14 +144,19 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
    * trusted staff, and the thing being prevented here is a tired reviewer at
    * the end of a queue, not an attacker.
    */
-  const screened = Boolean(
-    application.wwcc_number || application.ndis_screening_number,
-  )
+  const screened = validity.approvable
 
   /** Said once, in words, above the buttons they apply to. */
   const blockedReasons = [
+    // Said as two different sentences, because they are two different problems
+    // and "ask them for it" is the wrong instruction for a lapsed check.
+    // Two different problems, so two different sentences: "ask them for it" is
+    // the wrong instruction to send somebody whose check has simply lapsed.
     !screened &&
+      !validity.allExpired &&
       'Approving needs a WWCC or NDIS screening number on file — ask them for it.',
+    validity.allExpired &&
+      'Every check on file has expired. Approving would record a clearance that is no longer valid — ask for the current one.',
     !note.trim() &&
       'Declining or asking for more needs a note, because it is sent to them.',
   ].filter((reason): reason is string => typeof reason === 'string')
@@ -146,9 +164,11 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-lg font-bold text-foreground">
+        {/* h2: the page title is the only heading above these, so an h3 was
+            skipping a level. Each application IS a top-level section here. */}
+        <h2 className="text-lg font-bold text-foreground">
           {application.full_name}
-        </h3>
+        </h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold uppercase ${STATUS_STYLE[application.status]}`}
         >
@@ -409,7 +429,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
                     both are notes on an open conversation rather than the end
                     of one.
                   */
-                  className={`rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                  className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                     decision.value === 'approved'
                       ? 'bg-primary text-primary-foreground'
                       : decision.value === 'declined'
@@ -456,16 +476,10 @@ export default function Applications() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Specialist applications
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Practitioners asking to join MiZanova. Nobody here
-          has an account — approving admits them, and a school engaging them is
-          what creates one.
-        </p>
-      </header>
+      <PageHeader
+        title="Specialist applications"
+        lead="Practitioners asking to join MiZanova. Nobody here has an account — approving admits them, and a school engaging them is what creates one."
+      />
 
       <QueueTabs
         name="application-status"

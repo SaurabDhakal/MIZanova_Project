@@ -25,6 +25,7 @@ export default function StrategyPanel({
   studentId,
   strategies,
   status,
+  statusUnknown = false,
 }: {
   logId: string
   studentId: string
@@ -34,6 +35,9 @@ export default function StrategyPanel({
    * a teacher. Undefined while it loads.
    */
   status?: LogStrategyStatus
+  /** True when the status query FAILED, which `status === undefined` cannot
+   *  distinguish from "still loading" on its own. */
+  statusUnknown?: boolean
 }) {
   const queryClient = useQueryClient()
   const [notice, setNotice] = useState<string | null>(null)
@@ -128,6 +132,27 @@ export default function StrategyPanel({
     const pending = status?.pending ?? 0
     const rejected = status?.rejected ?? 0
 
+    /*
+     * A FAILED STATUS QUERY IS NOT "NOTHING HAPPENED".
+     *
+     * Both counts fall to 0 when the query fails, which sends this straight to
+     * the bare Generate button — recreating precisely the confusion the comment
+     * above describes: a teacher whose suggestions were held or rejected sees
+     * no sign of it, presses the button, and is told to wait for a specialist
+     * who may have already decided.
+     */
+    if (statusUnknown) {
+      return (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-sm text-warning-foreground">
+            Whether earlier suggestions are with a specialist could not be
+            checked. Asking for a fresh set may duplicate a request that is
+            already waiting.
+          </p>
+        </div>
+      )
+    }
+
     return (
       <div className="mt-3 border-t border-border pt-3">
         {pending > 0 ? (
@@ -164,7 +189,7 @@ export default function StrategyPanel({
               type="button"
               onClick={() => generate.mutate()}
               disabled={generate.isPending}
-              className="mt-3 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+              className="min-h-11 mt-3 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
             >
               {generate.isPending ? 'Thinking…' : 'Ask for new suggestions'}
             </button>
@@ -174,7 +199,7 @@ export default function StrategyPanel({
             type="button"
             onClick={() => generate.mutate()}
             disabled={generate.isPending}
-            className="rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-1.5">
               <Icon name="ai" className="h-4 w-4" />
@@ -259,7 +284,7 @@ export default function StrategyPanel({
                   feedback.mutate({ strategyId: strategy.id, action: 'applied' })
                 }
                 disabled={feedback.isPending}
-                className="inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 <Icon name="tick" className="h-4 w-4" />
                 Applied
@@ -273,7 +298,7 @@ export default function StrategyPanel({
                   })
                 }
                 disabled={feedback.isPending}
-                className="inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background disabled:opacity-60"
+                className="min-h-11 inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background disabled:opacity-60"
               >
                 <Icon name="cross" className="h-4 w-4" />
                 Not useful
@@ -282,7 +307,7 @@ export default function StrategyPanel({
                 type="button"
                 onClick={() => flag.mutate(strategy.id)}
                 disabled={flag.isPending}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+                className="min-h-11 ml-auto inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
               >
                 <Icon name="flag" className="h-4 w-4" />
                 {flag.isPending ? 'Sending…' : 'Flag'}

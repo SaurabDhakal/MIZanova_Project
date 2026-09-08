@@ -78,7 +78,7 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2.5 rounded-btn py-1.5 pr-2 pl-1.5 hover:bg-background"
+        className="min-h-11 flex items-center gap-2.5 rounded-btn py-1.5 pr-2 pl-1.5 hover:bg-background"
       >
         <Avatar
           id={profile.id}
@@ -104,8 +104,11 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
           which is where somebody actually goes to check which account they are
           signed in as. Hidden below sm, where the avatar alone carries it.
         */}
+        {/* WITHOUT A ROLE, THEIR NAME. The trigger has to say something, and
+            for somebody who holds one role and cannot switch, their own name
+            is more use than a category they did not pick. */}
         <span className="hidden text-sm font-medium text-foreground sm:block">
-          {roleLabel}
+          {roleLabel || name}
         </span>
         <Icon
           name="chevronDown"
@@ -142,9 +145,14 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
               <div className="min-w-0">
                 <p className="truncate font-semibold text-foreground">{name}</p>
                 <p className="text-xs break-all text-muted-foreground">{profile.email}</p>
-                <p className="mt-1 inline-flex rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
-                  {roleLabel}
-                </p>
+                {/* The chip tells a member of staff which hat is on, because
+                    they can hold several. One role and no switcher makes it a
+                    label for its own sake. */}
+                {roleLabel && (
+                  <p className="mt-1 inline-flex rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
+                    {roleLabel}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -166,6 +174,48 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
             >
               <Icon name="lock" className="h-4 w-4 text-muted-foreground" />
               Password and sign-in
+            </NavLink>
+
+            {/* THE ONLY WAY TO REACH ANYBODY FROM INSIDE THE APP.
+                /help has existed since the public site was built and was
+                linked from nowhere once you signed in — not the nav, not the
+                shell, not here. An individual who has just paid $49 for a
+                course that did not appear had no route to a human at all, and
+                neither did a teacher with a question. It is one line, and it
+                was missing from every role rather than one. */}
+            {/* RECEIPTS LIVE IN THE ACCOUNT, NOT THE MAIN NAV.
+                They had a nav slot beside the courses, which put "what have I
+                paid" at the same level as "what am I learning" — and for
+                everybody who has paid nothing, that is a permanent link to an
+                empty page. Billing belongs where somebody goes looking for it.
+                Individuals only: no other role has a receipt to read. */}
+            {profile.role === 'individual' && (
+              <NavLink
+                to="/individual/receipts"
+                role="menuitem"
+                onClick={close}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
+              >
+                <Icon name="invoices" className="h-4 w-4 text-muted-foreground" />
+                Payments and receipts
+              </NavLink>
+            )}
+
+            {/* /account/help, NOT /help. The public page renders the marketing
+                header, whose logo goes to `/`, and `/` sends a signed-in person
+                to their own dashboard — so this item walked people out of the
+                application and stranded them on the home screen with Settings
+                gone. The in-app Help tab was built to fix precisely that, and
+                this link was never repointed at it, which left the dropdown
+                doing the exact thing the tab exists to prevent. */}
+            <NavLink
+              to="/account/help"
+              role="menuitem"
+              onClick={close}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
+            >
+              <Icon name="hand" className="h-4 w-4 text-muted-foreground" />
+              Help and contact
             </NavLink>
 
             <div className="border-t border-border p-1.5">

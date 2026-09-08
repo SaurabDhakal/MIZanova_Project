@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  fetchAppointmentsForChild,
   fetchGoals,
   fetchHomeObservations,
   fetchSharedLogs,
+  fetchStrategiesForStudent,
   queryKeys,
   type BehaviourType,
 } from '../../lib/api'
@@ -11,7 +14,9 @@ import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
+import SharedStrategies from '../../components/SharedStrategies'
 
 /**
  * Parent home — docs/Figma Pages Design/Parent Home Dashboard.png.
@@ -19,12 +24,21 @@ import NoChildYet from '../../components/NoChildYet'
  * Mobile-first (NFR3): a parent reads this on a phone, often standing up.
  * Single column by default, widening on larger screens.
  *
- * The child is referred to by `display_name` throughout. For a parent's OWN
- * child that is a design choice rather than a protection — they obviously know
- * their child's surname. The protection is Row-Level Security, which means a
- * parent never receives a row about anyone else's child in the first place.
- * Using the short form here keeps the two consistent and means a screenshot of
- * this page, shared in a group chat, carries no surname.
+ * The child is named in full here, which REVERSES what this comment used to
+ * describe. It said the short form "Ethan M." was a design choice rather than a
+ * protection — the protection being Row-Level Security, which never sends a
+ * parent a row about anyone else's child — and that was right. Saurab's call on
+ * 4 September 2026 was that a parent should read their own child's name.
+ *
+ * ONE THING WAS TRADED AWAY AND IS WORTH REMEMBERING. The old comment gave a
+ * second reason for the short form: a screenshot of this page, shared in a group
+ * chat, carried no surname. That is now false. It is a real cost, it was a
+ * deliberate choice to accept it, and it is recorded here rather than lost —
+ * because the next person to find a surname in a shared screenshot should find
+ * this paragraph rather than a bug report.
+ *
+ * `fullName()` is used only on parent screens. Staff screens keep display_name:
+ * a roster is many families at once, which is the case it exists for.
  */
 
 const TYPE_LABEL: Record<BehaviourType, string> = {
@@ -47,10 +61,19 @@ function relativeDay(iso: string): string {
   return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
 }
 
+/* Updates drawn before "See more". Enough to be a week of school, few enough
+   that a phone screen still reaches what is under them. */
+const SHARED_SHOWN = 5
+
 export default function ParentDashboard() {
   const { profile } = useAuth()
   const { children, child, selectChild, isPending, isError, error } =
     useSelectedChild()
+
+  /* Declared with the other hooks, above the early returns below — a hook after
+     a conditional return runs in a different order on the render where the
+     return fires. */
+  const [showAllShared, setShowAllShared] = useState(false)
 
   const logs = useQuery({
     queryKey: queryKeys.sharedLogs(child?.id ?? ''),
@@ -64,9 +87,40 @@ export default function ParentDashboard() {
     enabled: Boolean(child),
   })
 
+  /*
+   * WHAT IS COMING, not only what happened. Every other block on this page
+   * reports the past — an update shared yesterday, goals set last term, counts.
+   * The question a family actually opens this page with is when their child is
+   * next being seen, and db/073 made that answerable for the first time.
+   */
+  const appointments = useQuery({
+    queryKey: queryKeys.appointmentsForChild(child?.id ?? ''),
+    queryFn: () => fetchAppointmentsForChild(child!.id),
+    enabled: Boolean(child),
+  })
+
   const goals = useQuery({
     queryKey: queryKeys.goals(child?.id ?? ''),
     queryFn: () => fetchGoals(child!.id),
+    enabled: Boolean(child),
+  })
+
+  /*
+   * THE ADVICE THAT GOES WITH THE UPDATE — db/113.
+   *
+   * One query for the whole child rather than one per update: RLS returns a
+   * guardian only the settled strategies on logs a teacher shared, so the
+   * filtering that matters is not written here and cannot be forgotten here.
+   * Grouped by log below.
+   *
+   * Its failure is deliberately quiet. An update with no advice under it is
+   * the ordinary case — most shared logs have none — so an error banner would
+   * be reporting an absence that is usually correct anyway. The incident
+   * itself is what the family came for and it renders either way.
+   */
+  const strategies = useQuery({
+    queryKey: queryKeys.studentStrategies(child?.id ?? ''),
+    queryFn: () => fetchStrategiesForStudent(child!.id),
     enabled: Boolean(child),
   })
 
@@ -80,6 +134,49 @@ export default function ParentDashboard() {
   }
 
   const shared = logs.data ?? []
+
+  /*
+   * A RECENT WINDOW, BECAUSE THIS IS A PHONE SCREEN.
+   *
+   * `fetchSharedLogs` has no limit and this list had no slice, so a family a
+   * year into the product opened their home screen to every update a teacher
+   * had ever shared — on the one screen whose own note says "a parent reads
+   * this on a phone, often standing up".
+   *
+   * There is nowhere else to send them: no parent screen lists shared updates
+   * in full, so the rest expand here rather than living behind a link that
+   * does not exist.
+   */
+  /*
+   * THE NEWEST UPDATE WAS ON THIS PAGE TWICE. It is the hero card at the top
+   * — "Update from school · 21 Aug" — and it was also the first row of the
+   * list below, with the same notes and, since db/113, the same three
+   * strategies underneath both. On a child with real history that was around
+   * a thousand pixels of exact duplicate before a family reached anything new.
+   *
+   * The list starts after it. `rest` is the honest name: the hero is not
+   * "recent updates", it is the latest one, and everything under the heading
+   * is the rest of them.
+   */
+  const rest = shared.slice(1)
+  const visibleShared = showAllShared ? rest : rest.slice(0, SHARED_SHOWN)
+  const hiddenShared = rest.length - visibleShared.length
+
+  const adviceFor = (logId: string) =>
+    (strategies.data ?? []).filter((s) => s.behaviour_log_id === logId)
+
+  /*
+   * "Now" comes from the fetch rather than from render — `Date.now()` here is
+   * impure, and a value frozen at mount leaves a page open overnight still
+   * calling yesterday's session upcoming.
+   */
+  const nextAppointment = (appointments.data ?? [])
+    .filter(
+      (a) =>
+        a.status === 'scheduled' &&
+        new Date(a.starts_at).getTime() >= appointments.dataUpdatedAt,
+    )
+    .sort((a, b) => (a.starts_at < b.starts_at ? -1 : 1))[0]
   const latest = shared[0]
 
   return (
@@ -89,7 +186,7 @@ export default function ParentDashboard() {
           Welcome back{profile?.first_name ? `, ${profile.first_name}` : ''} 👋
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Here is the latest on {child.display_name}.
+          Here is the latest on {withFullStop(fullName(child))}
         </p>
       </header>
 
@@ -108,6 +205,7 @@ export default function ParentDashboard() {
           {latest.notes && (
             <p className="mt-2 text-foreground">{latest.notes}</p>
           )}
+          <SharedStrategies strategies={adviceFor(latest.id)} />
         </div>
       ) : (
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
@@ -119,6 +217,51 @@ export default function ParentDashboard() {
             do, they appear here.
           </p>
         </div>
+      )}
+
+      {/* --- Coming up ------------------------------------------------------ */}
+      {appointments.isError ? (
+        /* Not silence. A family told nothing is booked, when the truth is that
+           the lookup failed, plans around an appointment that exists. */
+        <div className="mt-4 rounded-card border border-border bg-card shadow-raised p-5">
+          <p className="text-sm text-muted-foreground">
+            Appointments could not be loaded, so this is unknown rather than
+            empty. Nothing has been cancelled.
+          </p>
+        </div>
+      ) : (
+        nextAppointment && (
+          <div className="mt-4 rounded-card border border-border bg-card shadow-raised p-5">
+            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Coming up
+            </p>
+            <p className="mt-1 font-semibold text-foreground">
+              {nextAppointment.purpose || 'Specialist session'}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {new Date(nextAppointment.starts_at).toLocaleString('en-AU', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
+              {' · '}
+              {nextAppointment.duration_minutes} minutes
+              {nextAppointment.profiles?.full_name
+                ? ` · with ${nextAppointment.profiles.full_name}`
+                : ''}
+            </p>
+            {/* A time on a dashboard reads as a promise, and nothing emails a
+                family when one moves. The link is where that is said. */}
+            <Link
+              to="/parent/appointments"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+            >
+              All appointments →
+            </Link>
+          </div>
+        )
       )}
 
       {/* --- Counts -------------------------------------------------------- */}
@@ -183,7 +326,7 @@ export default function ParentDashboard() {
                 </p>
                 <Link
                   to="/parent/goals"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
                   View goals →
                 </Link>
@@ -225,7 +368,13 @@ export default function ParentDashboard() {
 
         <div className="rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Your home observations
+            {/* NOT "your". The query is every observation from home for this
+                child, which for a family with two guardians includes the ones
+                the other one wrote — so a parent who had written nothing was
+                told they had one. The count is the useful figure and the list
+                below names each author; it was only the word that was
+                untrue. */}
+            Observations from home
           </p>
           <p className="mt-2 text-4xl font-bold text-foreground">
             {observations.isSuccess ? observations.data.length : '—'}
@@ -237,7 +386,7 @@ export default function ParentDashboard() {
           )}
           <Link
             to="/parent/observations"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            className="mt-3 inline-block rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
           >
             Log an observation
           </Link>
@@ -260,7 +409,7 @@ export default function ParentDashboard() {
 
       {shared.length > 0 && (
         <ul className="space-y-3">
-          {shared.map((log) => (
+          {visibleShared.map((log) => (
             <li
               key={log.id}
               className="rounded-card border border-border bg-card shadow-raised p-4"
@@ -279,9 +428,30 @@ export default function ParentDashboard() {
               {log.notes && (
                 <p className="mt-2 text-foreground">{log.notes}</p>
               )}
+              <SharedStrategies strategies={adviceFor(log.id)} />
             </li>
           ))}
         </ul>
+      )}
+
+      {hiddenShared > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAllShared(true)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+        >
+          See {hiddenShared} earlier update{hiddenShared === 1 ? '' : 's'}
+        </button>
+      )}
+
+      {showAllShared && rest.length > SHARED_SHOWN && (
+        <button
+          type="button"
+          onClick={() => setShowAllShared(false)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+        >
+          Show fewer
+        </button>
       )}
     </div>
   )

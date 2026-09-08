@@ -8,21 +8,31 @@ import {
   type GoalRow,
 } from '../../lib/api'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { GOAL_CATEGORY_LABEL } from '../../lib/goalCategories'
 import { observationCategoryStyle } from '../../lib/observationCategories'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SessionsSection from '../../components/SessionsSection'
+import { fullName } from '../../lib/displayName'
 
 /**
  * Progress Highlights - docs/Figma Pages Design/Parent Progress Highlights.png.
  *
  * The design shows skill percentages against IEP goals, and a list of recent
  * breakthroughs. Both are built here from data that already exists: skill
- * progress is the goals grouped by category with the percentage the database
- * computes from ticked milestones, and highlights are milestones that were
- * actually completed plus what the family themselves wrote.
+ * progress is the goals grouped by category with `progress_percent`, and
+ * highlights are milestones that were actually completed plus what the family
+ * themselves wrote.
+ *
+ * THAT PERCENTAGE HAS TWO DIFFERENT MEANINGS, and this screen used to state
+ * only one of them. db/008 maintains it by trigger when a goal has milestones
+ * — done over total — and leaves it to be typed by hand when it has none. The
+ * schema says so in as many words. This page told families it came "from the
+ * steps your child's teachers have ticked off" either way, and at the time of
+ * writing 56 of the 57 goals in the product had no milestones at all. So on the
+ * screen a parent uses to judge how their child is going, a teacher's estimate
+ * was being presented as a count. The copy now follows the branch it already
+ * had to make.
  *
  * TWO THINGS FROM THE DESIGN ARE DELIBERATELY ABSENT.
  *
@@ -34,6 +44,18 @@ import SessionsSection from '../../components/SessionsSection'
  *
  * There is no "Download Report" button. PDF export is a later milestone, and a
  * button that does nothing is a promise broken every time it is pressed.
+ *
+ * THE LAST SECTION IS NOT "HIGHLIGHTS" AND WAS CALLED THAT UNTIL 8 SEPTEMBER.
+ * It draws two things: milestones a teacher has ticked off, which are good
+ * news by definition, and every home observation the family has written, which
+ * are not. The first real one under that heading read "Bath time falls apart
+ * every night" — a nightly fight, filed under "Recent highlights", above a
+ * closing line promising "things that went well".
+ *
+ * There is no sentiment on an observation to filter by, and inventing one
+ * would be the product deciding which of a family's evenings counted as
+ * progress. So the heading changed instead: it says what is actually in the
+ * list.
  */
 
 type Highlight = {
@@ -63,8 +85,12 @@ function formatDate(iso: string): string {
 }
 
 export default function ParentProgress() {
-  const { children, child, selectChild, isPending: childrenPending } =
-    useSelectedChild()
+  const {
+    child,
+    isPending: childrenPending,
+    isError: childrenError,
+    error: childrenErrorObject,
+  } = useSelectedChild()
 
   const goals = useQuery({
     queryKey: queryKeys.goals(child?.id ?? ''),
@@ -79,6 +105,30 @@ export default function ParentProgress() {
   })
 
   if (childrenPending) return <LoadingCards count={3} />
+
+  /*
+   * A FAILED LOOKUP IS NOT AN EMPTY ONE.
+   *
+   * `isError` was dropped from the destructure above, so a children query that
+   * FAILED left `child` undefined and fell straight through to NoChildYet —
+   * which tells a family "Your account is set up. No child is linked to it
+   * yet" and hands them a Link a child button.
+   *
+   * That is a confident false statement about their own child, made to the
+   * person least able to check it, and it sends them back through a linking
+   * flow they have already completed. Five of the seven parent screens did
+   * this.
+   */
+  if (childrenError) {
+    return (
+      <ErrorState
+        message={
+          childrenErrorObject?.message ??
+          'Your children could not be loaded. This is a problem reaching the server, not a change to who is linked to your account.'
+        }
+      />
+    )
+  }
 
   if (!child) {
     return (
@@ -121,17 +171,56 @@ export default function ParentProgress() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Progress highlights
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          How {child.display_name} is tracking against the goals the school has
-          set, and what has gone well recently.
+      {/*
+        ON PAPER ONLY. A screen tells you whose report this is through the child
+        switcher, the sidebar and the account menu — none of which print. Without
+        this block a printed page is a list of goals belonging to nobody, which
+        is worse than useless in the folder somebody brings to a meeting.
+
+        The date is when it was PRINTED, said plainly, because a progress report
+        with no date gets read a year later as if it were current.
+      */}
+      <div className="print-only mb-6 border-b border-border pb-4">
+        <p className="text-sm font-semibold tracking-wide uppercase">
+          MiZanova — progress report
         </p>
+        <h1 className="mt-1 text-2xl font-bold">{fullName(child)}</h1>
+        <p className="mt-1 text-sm">
+          Printed {new Date().toLocaleDateString('en-AU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </p>
+      </div>
+
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-title text-foreground">
+            Progress highlights
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            How {fullName(child)} is tracking against the goals the school has
+            set, and what has gone well recently.
+          </p>
+        </div>
+
+        {/*
+          THE BROWSER'S PRINT DIALOG, AND THE LABEL SAYS SO. Every platform's
+          dialog offers "Save as PDF", so this produces a real PDF with
+          selectable text — but it is one step, not none, and a button promising
+          a download that instead opens a dialog is a small lie. See the note on
+          @media print in index.css for why there is no PDF library here.
+        */}
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground"
+        >
+          Print or save as PDF
+        </button>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {/* --- Skill progress ------------------------------------------------ */}
@@ -193,7 +282,7 @@ export default function ParentProgress() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {goal.goal_milestones.length > 0
                           ? `${done} of ${goal.goal_milestones.length} steps complete`
-                          : 'No steps recorded yet'}
+                          : 'Set by the teacher · no steps recorded yet'}
                         {goal.target_date &&
                           ` · target ${new Date(goal.target_date).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`}
                       </p>
@@ -207,8 +296,10 @@ export default function ParentProgress() {
       )}
 
       <p className="mt-3 text-sm text-muted-foreground">
-        Percentages come from the steps your child&rsquo;s teachers have ticked
-        off — the same figures they see.{' '}
+        Where a goal has steps, the percentage is how many have been ticked
+        off — the same figure the teacher sees. Where it has none, it is the
+        teacher&rsquo;s own assessment of how it is going, not a count of
+        anything.{' '}
         <Link
           to="/parent/goals"
           className="font-medium text-primary hover:underline"
@@ -229,10 +320,35 @@ export default function ParentProgress() {
 
       {/* --- Recent highlights ---------------------------------------------- */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-        Recent highlights
+        Lately
       </h2>
 
-      {highlights.length === 0 ? (
+      {/*
+        A FAILED OBSERVATIONS QUERY IS NOT AN EMPTY ONE, AND THE EMPTY STATE
+        BELOW SAYS SO IN THE WORST POSSIBLE WORDS.
+
+        `highlights` is completed goal steps plus `observations.data ?? []`.
+        When that query failed it contributed nothing, and a family with no
+        completed steps yet was told "Nothing to show yet — completed goal
+        steps appear here, alongside the observations you share from home."
+        That is a confident false statement AND a quiet implication that they
+        have not written anything, made to the one person who knows they have.
+
+        The same fault as the five parent screens db/052 era fixed. `goals` on
+        this page was already guarded; this query was missed.
+      */}
+      {observations.isError && (
+        <p
+          role="alert"
+          className="mb-3 rounded-card border border-warning bg-warning-subtle p-4 text-sm text-warning-foreground"
+        >
+          <b>What you have shared from home could not be loaded.</b> Anything
+          you wrote is missing from this list rather than absent from it. The
+          completed goal steps are unaffected.
+        </p>
+      )}
+
+      {highlights.length === 0 && !observations.isError ? (
         <EmptyState
           title="Nothing to show yet"
           detail="Completed goal steps appear here, alongside the observations you share from home."
@@ -263,7 +379,9 @@ export default function ParentProgress() {
       )}
 
       <p className="mt-4 max-w-prose text-xs text-muted-foreground">
-        This page shows goal progress and things that went well. It does not
+        This page shows goal progress, what the school has shared, and what you
+        have written from home — the hard evenings as well as the good ones. It
+        does not
         show a behaviour trend chart: you only see the behaviour logs a teacher
         has chosen to share with you, so a chart drawn from them could look like
         improvement when it only means fewer were shared. Ask your child&rsquo;s

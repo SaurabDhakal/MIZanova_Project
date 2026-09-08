@@ -71,8 +71,32 @@ export default function GlobalOverview() {
     queryFn: () => fetchSystemEvents(20),
   })
 
-  if (staff.isPending) return <LoadingCards count={3} />
-  if (staff.isError) return <ErrorState message={staff.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Global overview"
+      lead="What needs Special Miles today, across every school."
+    />
+  )
+
+  if (staff.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (staff.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={staff.error.message} />
+      </>
+    )
 
   const awaiting = staff.data.filter((p) => !p.is_verified)
 
@@ -107,6 +131,21 @@ export default function GlobalOverview() {
   const unscreenedCount = unscreened.isSuccess ? unscreened.data.length : 0
 
   /*
+   * ONE LIST OF WHAT A PERSON DID, read by the chart AND the table below it.
+   *
+   * They used to disagree. The chart skipped rows with no actor; the table took
+   * `slice(0, 6)` of everything. So the same screen showed a chart captioned
+   * "actions taken by a person" beside six rows of which four were
+   * `RLS Storage Probe` created by the test suite — and a footnote explaining
+   * the chart's filter sat directly under the table that ignored it.
+   *
+   * On the screen headed "what needs Special Miles today", a row created by CI
+   * is the opposite of the answer. Everything, including those rows, is on the
+   * Audit Log, which can now be paged and filtered to find them.
+   */
+  const byPeople = (audit.data ?? []).filter((e) => e.profiles?.full_name)
+
+  /*
    * FOURTEEN DAYS, AND ONLY WHAT A PERSON DID.
    *
    * Audit rows written by the test suite and by the server carry no actor —
@@ -128,8 +167,7 @@ export default function GlobalOverview() {
       frame.push({ date: d, count: 0 })
     }
     const first = frame[0].date.getTime()
-    for (const e of audit.data ?? []) {
-      if (!e.profiles?.full_name) continue
+    for (const e of byPeople) {
       const when = new Date(e.occurred_at)
       const day = Math.floor((when.getTime() - first) / 86_400_000)
       if (day >= 0 && day < frame.length) frame[day].count += 1
@@ -139,10 +177,7 @@ export default function GlobalOverview() {
 
   return (
     <div>
-      <PageHeader
-        title="Global overview"
-        lead="What needs Special Miles today, across every school."
-      />
+      {header}
 
       {/* A LAPSED CHECK GOES ABOVE EVERY STATISTIC ON THIS PAGE.
           The screening list is its own screen, and a screen nobody opens is
@@ -203,7 +238,7 @@ export default function GlobalOverview() {
           </p>
           <Link
             to="/platform-admin/screening"
-            className="mt-3 inline-block rounded-btn bg-danger px-4 py-2.5 font-semibold text-white"
+            className="mt-3 inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white"
           >
             Open screening
           </Link>
@@ -245,11 +280,42 @@ export default function GlobalOverview() {
           every payment from now on is taken by Stripe and never recorded. The
           server cannot tell them apart; a person can, once. */}
       {(() => {
-        const serious = (systemEvents.data ?? []).filter(
-          (e) =>
-            e.reviewed_at === null &&
-            (e.severity === 'critical' || e.severity === 'warning'),
-        )
+        /*
+         * THE FAULT THE NOTE ABOVE DESCRIBES, ON THE PANEL IT DESCRIBES.
+         *
+         * This read `(systemEvents.data ?? []).filter(...)` and returned null
+         * at zero — so a failed query and a healthy platform drew exactly the
+         * same thing: nothing. `screening` and `unscreened` were given
+         * `isError` branches for precisely this reason a few lines up; the
+         * events query, which is what actually raises the alarm, was missed.
+         *
+         * A silent panel now means the check ran and found nothing.
+         */
+        if (systemEvents.isError) {
+          return (
+            <div
+              role="alert"
+              className="mb-6 rounded-card border border-warning bg-warning-subtle p-5"
+            >
+              <p className="font-bold text-warning-foreground">
+                Recent problems could not be read
+              </p>
+              <p className="mt-1 max-w-prose text-sm text-foreground">
+                This panel is quiet because the check failed, not because
+                nothing is wrong. Reload the page; if it keeps failing, treat
+                that as the problem.
+              </p>
+            </div>
+          )
+        }
+
+        const serious = systemEvents.isSuccess
+          ? systemEvents.data.filter(
+              (e) =>
+                e.reviewed_at === null &&
+                (e.severity === 'critical' || e.severity === 'warning'),
+            )
+          : []
         if (serious.length === 0) return null
 
         return (
@@ -345,13 +411,32 @@ export default function GlobalOverview() {
         rather than two implementations that drift.
       */}
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {/*
+          COUNTED BY THE DATABASE, NOT BY FILTERING THE FETCHED ROWS.
+
+          This tile used to read `awaiting.length`, which is
+          `fetchAllStaff().filter(p => !p.is_verified)`. That query asks for
+          rows with no range, so PostgREST caps it at its default 1000 and the
+          figure quietly becomes "unverified staff among the first thousand".
+
+          The bell already counts this properly — `staffAwaitingVerification`
+          in fetchWorkQueue, with `head: true` — so the two would have
+          disagreed on any platform big enough to matter, which is exactly what
+          the note above says cannot happen. The list of names below still
+          comes from the fetched rows, because showing eight of them does not
+          need all of them.
+        */}
         <StatTile
           label="Awaiting verification"
-          value={staff.isSuccess ? awaiting.length : undefined}
+          value={queue.data?.staffAwaitingVerification ?? undefined}
           icon="verification"
-          tone={awaiting.length > 0 ? 'warning' : 'default'}
+          tone={
+            (queue.data?.staffAwaitingVerification ?? 0) > 0
+              ? 'warning'
+              : 'default'
+          }
           hint={
-            awaiting.length > 0 ? (
+            (queue.data?.staffAwaitingVerification ?? 0) > 0 ? (
               <Link
                 to="/platform-admin/verification"
                 className="font-semibold text-primary hover:underline"
@@ -370,9 +455,26 @@ export default function GlobalOverview() {
           icon="lock"
           tone={mfa.isSuccess && withoutMfa.length > 0 ? 'warning' : 'default'}
           hint={
-            mfa.isError
-              ? 'Could not check 2FA enrolment — this is unknown, not zero.'
-              : 'Required for their role, so they are locked out until they enrol.'
+            mfa.isError ? (
+              'Could not check 2FA enrolment — this is unknown, not zero.'
+            ) : withoutMfa.length > 0 ? (
+              /*
+                THE ONLY TILE THAT NAMED A PROBLEM AND OFFERED NO WAY TO IT.
+                Every other one here routes to the screen that resolves it.
+                Staff Verification already carries a 2FA column and the reset
+                action, so the destination existed the whole time — it simply
+                was not linked, which on a dashboard means the number is a
+                complaint rather than a task.
+              */
+              <Link
+                to="/platform-admin/verification"
+                className="font-semibold text-primary hover:underline"
+              >
+                Locked out until they enrol. See who →
+              </Link>
+            ) : (
+              'Everyone whose role requires it has enrolled.'
+            )
           }
         />
 
@@ -405,7 +507,13 @@ export default function GlobalOverview() {
                 to="/platform-admin/enquiries"
                 className="font-semibold text-primary hover:underline"
               >
-                A school asked to talk to us. Reply →
+                {/* Agrees with the number above it. It read "A school asked to
+                    talk to us" beneath a tile showing 3, which is the sort of
+                    thing that makes a reader distrust the number rather than
+                    the sentence. */}
+                {(queue.data?.newEnquiries ?? 0) === 1
+                  ? 'A school asked to talk to us. Reply →'
+                  : `${queue.data?.newEnquiries} schools asked to talk to us. Reply →`}
               </Link>
             ) : (
               'Nobody is waiting on a reply.'
@@ -424,7 +532,9 @@ export default function GlobalOverview() {
                 to="/platform-admin/applications"
                 className="font-semibold text-primary hover:underline"
               >
-                Nobody has opened these yet. Review →
+                {(queue.data?.newApplications ?? 0) === 1
+                  ? 'Nobody has opened this yet. Review →'
+                  : 'Nobody has opened these yet. Review →'}
               </Link>
             ) : (
               'Nothing waiting on a decision.'
@@ -476,7 +586,7 @@ export default function GlobalOverview() {
                 </div>
                 <Link
                   to="/platform-admin/verification"
-                  className="mt-2 inline-block rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground sm:mt-0 sm:ml-auto"
+                  className="mt-2 inline-flex min-h-11 items-center rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground sm:mt-0 sm:ml-auto"
                 >
                   Verify
                 </Link>
@@ -518,7 +628,7 @@ export default function GlobalOverview() {
       </h2>
       {audit.isPending ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (audit.data?.length ?? 0) === 0 ? (
+      ) : byPeople.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nothing recorded yet. Verifications, AI control changes and 2FA resets
           all appear here.
@@ -542,7 +652,7 @@ export default function GlobalOverview() {
               </tr>
             </thead>
             <tbody>
-              {audit.data!.slice(0, 6).map((event) => (
+              {byPeople.slice(0, 6).map((event) => (
                 <tr key={event.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-2.5 whitespace-nowrap tabular-nums text-muted-foreground">
                     {new Date(event.occurred_at).toLocaleString('en-AU', {
@@ -588,10 +698,11 @@ export default function GlobalOverview() {
         server itself is not running, nothing appears here — an empty list means
         nothing was reported, not that everything is working. Confirming the
         server is alive needs something outside it to check{' '}
-        <code>/api/health</code>, which nothing does yet. The activity chart
-        counts only actions taken by a person: the test suite and the server
-        write audit rows with no signed-in user, and on this database those
-        outnumber the real ones several times over.
+        <code>/api/health</code>, which nothing does yet. The chart and the
+        table above it both count only what a person did: the test suite and the
+        server write audit rows with no signed-in user, and on this database
+        those outnumber the real ones several times over. Everything, those rows
+        included, is on the Audit Log, which can be filtered and paged.
       </PageNote>
     </div>
   )

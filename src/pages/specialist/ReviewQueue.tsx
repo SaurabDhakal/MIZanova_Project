@@ -4,8 +4,10 @@ import {
   fetchPendingStrategies,
   queryKeys,
   reviewStrategy,
+  undoReview,
   type PendingStrategyRow,
 } from '../../lib/api'
+import { showToast } from '../../lib/toast'
 import { EmptyState, ErrorState } from '../../components/QueryState'
 
 /**
@@ -35,11 +37,53 @@ function ReviewCard({ strategy }: { strategy: PendingStrategyRow }) {
   const [note, setNote] = useState('')
   const [showSent, setShowSent] = useState(false)
 
+  /* ------------------------------------------------------------------
+     ACTED ON IMMEDIATELY, WITH A WAY BACK.
+     ------------------------------------------------------------------
+     Both buttons used to fire straight into the mutation with nothing between
+     the click and the consequence, and "Release to teacher" is the one that
+     matters: it puts AI advice in front of somebody who will act on it with a
+     child, which is the exact thing this queue exists to gate.
+
+     A confirmation was the obvious fix and the wrong one. This screen is
+     twenty items deep and working through it is the specialist's job — a
+     prompt answered twenty times in a row stops being read by about the
+     fourth, so it would train the reflex it is meant to interrupt while
+     doubling the clicks on their main task.
+
+     So the decision still lands on one press, and the toast carries the way
+     back. `undoReview` returns the strategy to the queue and clears the
+     reviewer fields; what it cannot do is unsee a suggestion a teacher has
+     already opened, which is why the message says what happened rather than
+     asking whether it should.
+     ------------------------------------------------------------------ */
+  const undo = useMutation({
+    mutationFn: () => undoReview(strategy.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.pendingStrategies,
+      })
+      showToast('Back in the queue.')
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
   const review = useMutation({
     mutationFn: (decision: 'approved' | 'rejected') =>
       reviewStrategy(strategy.id, decision, note),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.pendingStrategies }),
+    onSuccess: async (_data, decision) => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.pendingStrategies,
+      })
+      showToast(
+        decision === 'approved'
+          ? 'Released. The teacher can see it now.'
+          : 'Rejected. It will not reach a classroom.',
+        'success',
+        { label: 'Undo', run: () => undo.mutate() },
+      )
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
   })
 
   const log = strategy.behaviour_logs
@@ -154,7 +198,7 @@ function ReviewCard({ strategy }: { strategy: PendingStrategyRow }) {
               review.mutate('approved')
             }}
             disabled={review.isPending}
-            className="rounded-btn bg-success-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-success-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
           >
             {review.isPending && showSent ? 'Releasing…' : 'Release to teacher'}
           </button>
@@ -165,7 +209,7 @@ function ReviewCard({ strategy }: { strategy: PendingStrategyRow }) {
               review.mutate('rejected')
             }}
             disabled={review.isPending}
-            className="rounded-btn border border-danger px-4 py-2.5 font-semibold text-danger-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn border border-danger px-4 py-2.5 font-semibold text-danger-foreground disabled:opacity-60"
           >
             Reject
           </button>

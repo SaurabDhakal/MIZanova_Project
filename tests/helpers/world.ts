@@ -23,7 +23,14 @@ export const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
 })
 
 /** A client that is nobody until it signs in. Each actor gets its own. */
-function anonClient(): SupabaseClient {
+/**
+ * A client with the publishable key and nobody signed in.
+ *
+ * Exported for db/111's suite, which has to assert that the public price list
+ * really is readable signed OUT — the whole point of a definer view granted to
+ * `anon`. Every other suite reaches it through an Actor.
+ */
+export function anonClient(): SupabaseClient {
   return createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
@@ -91,7 +98,19 @@ export async function makeActor(
    * admins are made by running SQL deliberately, so the tests make them the
    * same way rather than pretending signup can.
    */
-  promoteTo?: 'school_admin' | 'platform_admin',
+  /*
+   * 'student' joins these for the same reason the other two are here: db/074
+   * adds the role, and `handle_new_user` accepts only the three self-signup
+   * roles — a child does not sign themselves up, the school links the account.
+   */
+  /*
+   * 'individual' joins them for db/111's suite: an account with no school that
+   * signs itself up. It takes the same path as the others — the role is set
+   * with the service key rather than claimed in signup metadata — and gets no
+   * membership, because an individual belongs to no organisation. That is the
+   * whole point of the role.
+   */
+  promoteTo?: 'school_admin' | 'platform_admin' | 'student' | 'individual',
 ): Promise<Actor> {
   const email = `rls-${runId}-${label}@mizanova-test.invalid`
   const password = randomBytes(18).toString('base64url')

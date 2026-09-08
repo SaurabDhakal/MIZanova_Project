@@ -197,7 +197,7 @@ export default function Directory() {
             type="button"
             onClick={() => setTab(value)}
             aria-pressed={tab === value}
-            className={`rounded-btn px-4 py-2 text-sm font-semibold ${
+            className={`min-h-11 rounded-btn px-4 py-2 text-sm font-semibold ${
               tab === value
                 ? 'bg-primary text-primary-foreground'
                 : 'border border-border text-foreground'
@@ -445,7 +445,7 @@ export default function Directory() {
               type="button"
               disabled={!studentId || !profileId || assign.isPending}
               onClick={() => assign.mutate()}
-              className="mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               {assign.isPending ? 'Granting…' : 'Grant access'}
             </button>
@@ -561,7 +561,7 @@ export default function Directory() {
               type="button"
               disabled={!studentId || !guardianId || link.isPending}
               onClick={() => link.mutate()}
-              className="mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               {link.isPending ? 'Connecting…' : 'Connect guardian'}
             </button>
@@ -655,7 +655,32 @@ export default function Directory() {
                           Guardians
                         </p>
                         {(() => {
-                          const theirs = (guardians.data ?? []).filter(
+                          /*
+                           * "NO GUARDIAN CONNECTED" IS A CLAIM, SO IT WAITS
+                           * FOR AN ANSWER.
+                           *
+                           * This filtered `guardians.data ?? []`, so a failed
+                           * lookup — and every render before the first one
+                           * returned — produced an empty list and printed, in
+                           * warning colour, that this child's family cannot
+                           * see anything. About every child in the school at
+                           * once, to the one person who would act on it by
+                           * re-inviting families that are already connected.
+                           *
+                           * Same fault as the five parent screens that told a
+                           * family "no child is linked to your account" when
+                           * the query had merely failed, pointed the other way.
+                           */
+                          if (!guardians.isSuccess) {
+                            return (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {guardians.isError
+                                  ? 'Could not be loaded, so this is unknown rather than none.'
+                                  : 'Loading…'}
+                              </p>
+                            )
+                          }
+                          const theirs = guardians.data.filter(
                             (g) => g.student_id === student.id,
                           )
                           if (theirs.length === 0) {

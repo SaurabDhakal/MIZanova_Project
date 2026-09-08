@@ -141,13 +141,138 @@ describe('and no more than that', () => {
     expect([...actual].sort()).toEqual([...expected].sort())
   })
 
-  test('one parent still cannot see another', async () => {
+  /*
+   * REWRITTEN FOR db/085, AND IT ASSERTS MORE THAN IT USED TO.
+   *
+   * This read "one parent still cannot see another" and expected a family to
+   * see nobody but themselves, which was true when no policy said otherwise.
+   * db/085 added one: a guardian may read the profile of another guardian OF
+   * THE SAME CHILD, so that "About your child" can name everybody who can open
+   * the record instead of counting them.
+   *
+   * `unattached` is a second guardian of ChildA, so guardianOfA must now see
+   * them — that is the feature. guardianOfB is a guardian of ChildB and must
+   * still be invisible, which is the part worth testing: the difference
+   * between "a parent may see co-guardians" and "a parent may see parents" is
+   * the whole of the rule, and only the second half is a leak.
+   */
+  test('a parent sees co-guardians of their own child, and no other parent', async () => {
     const { data } = await world.guardianOfA.db
       .from('profiles')
       .select('id')
       .eq('role', 'parent')
 
-    // Only themselves, through profiles_select_own.
-    expect((data ?? []).map((p) => p.id)).toEqual([world.guardianOfA.id])
+    const visible = new Set((data ?? []).map((p) => p.id))
+
+    // Themselves, through profiles_select_own.
+    expect(visible.has(world.guardianOfA.id)).toBe(true)
+    // The other guardian of ChildA, through db/085.
+    expect(visible.has(unattached.id)).toBe(true)
+    // A guardian of a different child. Nothing links them, and nothing should.
+    expect(visible.has(world.guardianOfB.id)).toBe(false)
+    // And nobody else at all.
+    expect(visible.size).toBe(2)
+  })
+})
+
+/*
+ * ---------------------------------------------------------------------------
+ * A PARENT MAY CORRECT THEIR OWN NOTE. THE SCHOOL MAY NOT.
+ * ---------------------------------------------------------------------------
+ * db/007 states it plainly: "Authors may correct their own. Staff may not edit
+ * what a parent wrote — altering someone else's account of their own child is
+ * not a power the school should have."
+ *
+ * The policy had never been exercised by anything. No screen offered the
+ * correction until now, and no test asserted the refusal, so the sentence
+ * above was a comment rather than a guarantee. The second test is the one that
+ * matters: an educator who can READ the observation, and can edit plenty of
+ * other records about the same child, must not be able to touch this one.
+ */
+describe('who may correct a home observation — db/007', () => {
+  let observationId: string
+
+  beforeAll(async () => {
+    const { data, error } = await admin
+      .from('home_observations')
+      .insert({
+        student_id: world.childA,
+        logged_by: world.guardianOfA.id,
+        title: 'Slept badly',
+        body: 'Awake from three. Original wording.',
+        category: 'social_emotional',
+        observed_on: '2026-08-20',
+      })
+      .select('id')
+      .single()
+    if (error) throw new Error(error.message)
+    observationId = data.id
+  })
+
+  async function bodyOnRecord() {
+    const { data } = await admin
+      .from('home_observations')
+      .select('body')
+      .eq('id', observationId)
+      .single()
+    return data?.body ?? null
+  }
+
+  test('the parent who wrote it can', async () => {
+    const { data, error } = await world.guardianOfA.db
+      .from('home_observations')
+      .update({ body: 'Awake from three. Settled after a story.' })
+      .eq('id', observationId)
+      .select('id')
+
+    expect(error).toBeNull()
+    // The row came back, which is what assertChanged in the app reads.
+    expect(data).toHaveLength(1)
+    expect(await bodyOnRecord()).toBe('Awake from three. Settled after a story.')
+  })
+
+  test('a teacher who can read it cannot change it', async () => {
+    const before = await bodyOnRecord()
+
+    const { data, error } = await world.verifiedEducator.db
+      .from('home_observations')
+      .update({ body: 'Rewritten by the school.' })
+      .eq('id', observationId)
+      .select('id')
+
+    // No error — RLS filters the row out rather than refusing, which is why
+    // the app calls assertChanged on an empty array.
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+    expect(await bodyOnRecord()).toBe(before)
+  })
+
+  test('nor can another parent', async () => {
+    const { data } = await world.guardianOfB.db
+      .from('home_observations')
+      .update({ body: 'Rewritten by somebody else’s parent.' })
+      .eq('id', observationId)
+      .select('id')
+
+    expect(data ?? []).toEqual([])
+  })
+
+  test('and nobody can delete it — db/007 writes no delete policy', async () => {
+    await world.guardianOfA.db
+      .from('home_observations')
+      .delete()
+      .eq('id', observationId)
+    await world.verifiedEducator.db
+      .from('home_observations')
+      .delete()
+      .eq('id', observationId)
+
+    // An observation the school has read, and may have acted on, is corrected
+    // rather than made to disappear.
+    const { data } = await admin
+      .from('home_observations')
+      .select('id')
+      .eq('id', observationId)
+    expect(data).toHaveLength(1)
   })
 })

@@ -154,13 +154,13 @@ export default function DesignTokens() {
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           type="button"
-          className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
         >
           Log behaviour
         </button>
         <button
           type="button"
-          className="rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:bg-background"
+          className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:bg-background"
         >
           View details
         </button>

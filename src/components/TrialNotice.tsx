@@ -30,6 +30,20 @@ export default function TrialNotice() {
     enabled: Boolean(profile?.school_id) && profile?.role !== 'platform_admin',
   })
 
+  /*
+   * A FAILED LOOKUP HIDES THIS, AND THAT IS THE RIGHT BEHAVIOUR HERE.
+   *
+   * Everywhere else in this project, treating a failed query as "nothing" is
+   * the bug — a count of 0 that means "could not check" has been fixed seven
+   * times. This is the exception, and the difference is what the thing says: a
+   * NOTICE that might be wrong is worse than one that is briefly absent. Saying
+   * "we could not check your status" in the sidebar of every page, on every
+   * blip, would be noise nobody can act on, and the banner returns on the next
+   * load.
+   *
+   * Left as it is deliberately, and written down so it is not "fixed" later by
+   * somebody sweeping for this pattern — which is exactly what happened today.
+   */
   const mine = schools.data?.find((s) => s.id === profile?.school_id)
   if (mine?.status !== 'trial') return null
 

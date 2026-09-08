@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   queryKeys,
@@ -8,11 +8,13 @@ import {
 } from '../lib/api'
 import { saveBehaviourLog } from '../lib/offlineQueue'
 import { showToast } from '../lib/toast'
+import { withFullStop } from '../lib/displayName'
 import { useAuth } from '../lib/auth'
 import Icon from './Icon'
 import { type IconName } from '../lib/icons'
 import { formatDuration, useTimer } from '../hooks/useTimer'
 import { useSpeechToText } from '../hooks/useSpeechToText'
+import { useModalDialog } from '../hooks/useModalDialog'
 
 /**
  * Quick Log — docs/Figma Pages Design/Behaviour Logging Model.png.
@@ -92,7 +94,7 @@ export default function BehaviourLogModal({
   // to a teacher who had chosen both.
   const { session } = useAuth()
   const queryClient = useQueryClient()
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dialogRef = useModalDialog(onClose)
 
   const timer = useTimer()
   const [behaviour, setBehaviour] = useState<BehaviourType | null>(null)
@@ -111,9 +113,6 @@ export default function BehaviourLogModal({
     setNotes((current) => (current ? `${current} ${text}` : text))
   })
 
-  useEffect(() => {
-    dialogRef.current?.showModal()
-  }, [])
 
   const save = useMutation({
     // WITHOUT THIS, OFFLINE LOGGING CANNOT WORK.
@@ -188,7 +187,7 @@ export default function BehaviourLogModal({
       // The modal closes on success, so without this the whole interaction
       // ends in silence and the teacher has to go looking for the log to
       // believe it worked.
-      showToast(`Log saved for ${student.display_name}.`)
+      showToast(`Log saved for ${withFullStop(student.display_name)}`)
       close()
     },
   })
@@ -281,7 +280,7 @@ export default function BehaviourLogModal({
               <button
                 type="button"
                 onClick={timer.reset}
-                className="rounded-btn border border-border bg-card px-3 py-2 text-sm font-medium"
+                className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-medium"
               >
                 Clear
               </button>
@@ -295,7 +294,7 @@ export default function BehaviourLogModal({
                     ? timer.stop
                     : timer.resume
               }
-              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               {!timer.started ? 'Start' : timer.running ? 'Stop' : 'Resume'}
             </button>
@@ -528,7 +527,7 @@ export default function BehaviourLogModal({
             <button
               type="button"
               onClick={close}
-              className="flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
+              className="min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
             >
               Done
             </button>
@@ -537,7 +536,7 @@ export default function BehaviourLogModal({
               <button
                 type="button"
                 onClick={close}
-                className="flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
+                className="min-h-11 flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
               >
                 Discard
               </button>
@@ -545,7 +544,7 @@ export default function BehaviourLogModal({
                 type="button"
                 onClick={() => save.mutate()}
                 disabled={!canSave}
-                className="flex-[2] rounded-btn bg-success-strong px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 flex-[2] rounded-btn bg-success-strong px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {save.isPending ? 'Saving…' : 'Save log'}
               </button>

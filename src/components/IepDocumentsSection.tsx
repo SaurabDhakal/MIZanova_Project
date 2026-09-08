@@ -112,7 +112,7 @@ export default function IepDocumentsSection({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ml-auto rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
+            className="ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
           >
             + Register a document
           </button>
@@ -208,7 +208,7 @@ export default function IepDocumentsSection({
             <button
               type="submit"
               disabled={create.isPending}
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {create.isPending
                 ? file
@@ -219,7 +219,7 @@ export default function IepDocumentsSection({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+              className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
             >
               Cancel
             </button>

@@ -64,6 +64,14 @@ type Item = {
 }
 
 /** `1 thing` / `2 things`, without an "(s)" anywhere in the product. */
+/*
+ * `plural` covers the LABEL. The details beside them were fixed strings, and
+ * two of them disagreed with the number they sat under: "1 specialist
+ * application — Nobody has opened THESE yet", and "3 new enquiries — A SCHOOL
+ * asked to talk to us". A caption that contradicts its own figure makes a
+ * reader distrust the figure rather than the sentence, and the same pair of
+ * mistakes existed on Global Overview, which has its own copy of this text.
+ */
 function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`
 }
@@ -107,14 +115,17 @@ function itemsFor(queue: WorkQueue, basePath: string) {
   add(queue.newApplications, (n) => ({
     key: 'applications',
     label: `${plural(n, 'specialist application', 'specialist applications')}`,
-    detail: 'Nobody has opened these yet',
+    detail: n === 1 ? 'Nobody has opened this yet' : 'Nobody has opened these yet',
     to: `${basePath}/applications`,
   }))
 
   add(queue.newEnquiries, (n) => ({
     key: 'enquiries',
     label: `${plural(n, 'new enquiry', 'new enquiries')}`,
-    detail: 'A school asked to talk to us and has had no reply',
+    detail:
+      n === 1
+        ? 'A school asked to talk to us and has had no reply'
+        : 'Schools asked to talk to us and have had no reply',
     to: `${basePath}/enquiries`,
   }))
 
@@ -134,6 +145,26 @@ function itemsFor(queue: WorkQueue, basePath: string) {
     urgent: true,
   }))
 
+  /* db/105. The only line an individual ever sees, and it clears when they
+     open the screen it points at — which is the test every line here has to
+     pass. */
+  add(queue.sessionAnswers, (n) => ({
+    key: 'session-answers',
+    label: `${plural(n, 'session request', 'session requests')} answered`,
+    detail: 'A specialist has replied',
+    to: `${basePath}/book`,
+  }))
+
+  /* db/106. "To look at", never "overdue" — nothing on this account is owed
+     to anybody, and a bell that implies otherwise would undo the care taken
+     over the wording on the screen it points at. */
+  add(queue.goalsToLookAt, (n) => ({
+    key: 'goals-to-look-at',
+    label: `${plural(n, 'goal', 'goals')} to look at`,
+    detail: 'Nobody has asked how these are going',
+    to: `${basePath}/goals`,
+  }))
+
   add(queue.unreadThreads, (n) => ({
     key: 'messages',
     label: `${plural(n, 'conversation', 'conversations')} unread`,
@@ -146,6 +177,32 @@ function itemsFor(queue: WorkQueue, basePath: string) {
     label: `${plural(n, 'invoice', 'invoices')} to pay`,
     detail: 'Issued and not settled yet',
     to: `${basePath}/finance`,
+  }))
+
+  /*
+   * db/072's two sides, and they are different questions.
+   *
+   * A platform admin is owed money nobody has chased — so this counts only
+   * invoices PAST their due date, because one issued this morning is not work.
+   *
+   * A school admin owes it — so theirs counts every issued invoice, because
+   * "you have one to pay" is the prompt that prevents the overdue one, and
+   * waiting until it is late would be withholding it.
+   */
+  add(queue.platformInvoicesOverdue, (n) => ({
+    key: 'platform-invoices-overdue',
+    label: `${plural(n, 'school invoice', 'school invoices')} past ${n === 1 ? 'its' : 'their'} due date`,
+    detail: 'Issued to a school and not paid by the date on it',
+    to: `${basePath}/subscriptions`,
+  }))
+
+  add(queue.platformInvoicesToPay, (n) => ({
+    key: 'platform-invoices-to-pay',
+    label: `${plural(n, 'invoice', 'invoices')} from Special Miles`,
+    detail: 'Issued to your school and not settled yet',
+    // Settings, not this role's basePath: what a school pays Special Miles
+    // lives on Settings > School, beside the rest of that relationship.
+    to: '/account/school',
   }))
 
   return { items, unreadable }
@@ -237,8 +294,8 @@ export default function NotificationBell({
         {!isPending && (count > 0 || cannotTell) && (
           <span
             aria-hidden="true"
-            className={`absolute top-1.5 right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold text-white ${
-              anyUrgent || cannotTell ? 'bg-danger' : 'bg-primary'
+            className={`absolute top-1.5 right-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] leading-none font-bold text-white ${
+              anyUrgent || cannotTell ? 'bg-danger-strong' : 'bg-primary'
             }`}
           >
             {/* A queue we could not read is shown as a question, never as a

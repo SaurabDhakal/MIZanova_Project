@@ -68,6 +68,47 @@ const PROTECTED_TABLES = [
   // db/059. When a child is seen by a therapist is health information, so an
   // appointment is no less sensitive than the session it becomes.
   'specialist_appointments',
+  // db/111. What somebody pays and when it renews. `individual_plan` is the
+  // company's own pricing configuration including the Stripe id; the
+  // subscriptions table is a person's billing state. Neither is anonymous
+  // business — and note that the PUBLIC half of the plan is a separate view,
+  // checked below, so a mistake that exposed the table itself would not be
+  // caught by the view still behaving.
+  'individual_plan',
+  'individual_subscriptions',
+  // db/094, db/101, db/110. An individual's private writing: what they asked
+  // the AI about themselves, what it answered, what they are working on and
+  // how each week went. Nobody but them reads these, not even a platform
+  // admin — so nothing at all should come back without a session.
+  'individual_ai_requests',
+  'individual_ai_suggestions',
+  'individual_goals',
+  'individual_goal_checkins',
+  // db/114. A family's account of what happened at home and what the AI said
+  // back. Neither table has an insert policy and neither should answer an
+  // anonymous reader at all — the request carries the observation's words and
+  // the strategies carry advice about a named child's difficulties.
+  'home_ai_requests',
+  'home_ai_strategies',
+]
+
+/*
+ * DELIBERATELY READABLE WITHOUT SIGNING IN — and therefore worth asserting.
+ *
+ * db/111 grants this view to `anon` on purpose: a pricing page is read by
+ * people who do not have accounts, and a shop that hides its prices until you
+ * register is not protecting anything. db/098 did the same for the course
+ * catalogue.
+ *
+ * Listed here rather than left untested because "open on purpose" and "open by
+ * accident" look identical from the outside. If a later change revokes this,
+ * the public pricing page silently loses its figures and nothing else
+ * complains; if a later change widens it to carry the Stripe id, that is a
+ * different kind of mistake. Both are caught by naming what is expected.
+ */
+const PUBLIC_VIEWS = [
+  { name: 'course_catalogue', mustNotCarry: ['body', 'video_url'] },
+  { name: 'individual_plan_public', mustNotCarry: ['stripe_price_id'] },
 ]
 
 let failures = 0
@@ -89,6 +130,39 @@ for (const table of PROTECTED_TABLES) {
   }
   if (rows !== null && rows > 0) fail(`${table} returned ${rows} rows to an anonymous caller`)
   else console.log(`  ok  ${table.padEnd(18)} ${res.status} — no data`)
+}
+
+/* The other half of the same question: the things that SHOULD answer, do —
+   and still do not carry what they were built to withhold. */
+console.log('\nDeliberately public — must answer, and must not leak')
+for (const view of PUBLIC_VIEWS) {
+  // The same raw fetch the loop above uses, so this is testing the same door.
+  const res = await fetch(`${url}/rest/v1/${view.name}?select=*&limit=1`, {
+    headers: H,
+  })
+  const text = await res.text()
+  let rows = null
+  try {
+    const parsed = JSON.parse(text)
+    if (Array.isArray(parsed)) rows = parsed
+  } catch {
+    /* not a row array — it refused, which for these views is the failure */
+  }
+  if (rows === null) {
+    fail(
+      `${view.name} should be readable signed out and returned ${res.status}: ${text.slice(0, 90)}`,
+    )
+    continue
+  }
+  const row = rows[0]
+  const leaked = row ? view.mustNotCarry.filter((c) => Object.hasOwn(row, c)) : []
+  if (leaked.length > 0) {
+    fail(`${view.name} exposes ${leaked.join(', ')} to anybody holding the publishable key`)
+  } else {
+    console.log(
+      `  ok  ${view.name.padEnd(24)} readable, carries no ${view.mustNotCarry.join('/')}`,
+    )
+  }
 }
 
 console.log('\nAnonymous write attempts — must all be refused')

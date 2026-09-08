@@ -9,6 +9,7 @@ import {
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
+import { csvCell } from '../../lib/csv'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Pagination from '../../components/Pagination'
@@ -94,8 +95,27 @@ export default function RecordAccess() {
   })
   const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
 
-  if (events.isPending) return <LoadingCards count={2} />
-  if (events.isError) return <ErrorState message={events.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. The export button IS: it reads `events.data.total`, which does
+     not exist yet in the two states below, so it is left out of them rather
+     than rendered against a value that is not there. */
+  const TITLE = 'Record access'
+  const LEAD = "Who has opened children's records, across every school."
+
+  if (events.isPending)
+    return (
+      <>
+        <PageHeader title={TITLE} lead={LEAD} />
+        <LoadingCards count={2} />
+      </>
+    )
+  if (events.isError)
+    return (
+      <>
+        <PageHeader title={TITLE} lead={LEAD} />
+        <ErrorState message={events.error.message} />
+      </>
+    )
 
   const describe = (actorId: string) => {
     const person = staff.data?.find((p) => p.id === actorId)
@@ -144,7 +164,9 @@ export default function RecordAccess() {
   async function exportCsv() {
     try {
       const all = await fetchAllStudentAccessEvents(buildFilters())
-      const esc = (v: string) => `"${String(v).replaceAll('"', '""')}"`
+      // Was a local escaper that quoted correctly and did not guard against
+      // formula injection — see src/lib/csv.ts. Same shape, one import.
+      const esc = csvCell
       const csv = [
         ['When', 'Who', 'Role', 'School', 'Child', 'What'].join(','),
         ...all.rows.map((e) => {
@@ -206,14 +228,14 @@ export default function RecordAccess() {
   return (
     <div>
       <PageHeader
-        title="Record access"
-        lead="Who has opened children's records, across every school."
+        title={TITLE}
+        lead={LEAD}
         actions={
           <button
             type="button"
             onClick={() => void exportCsv()}
             disabled={events.data.total === 0}
-            className="rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Export the full record
           </button>

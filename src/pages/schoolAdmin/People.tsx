@@ -11,6 +11,7 @@ import Pagination from '../../components/Pagination'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import StudentAccountsSection from '../../components/StudentAccountsSection'
 
 /**
  * Everyone connected to this school, on one page.
@@ -69,9 +70,11 @@ function PersonCard({
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="font-bold text-foreground">
+        {/* h2, for the reason given in Applications.tsx: the page title is
+            the only heading above these. */}
+        <h2 className="font-bold text-foreground">
           {person.full_name || 'Unnamed'}
-        </h3>
+        </h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold ${ROLE_STYLE[person.role] ?? 'bg-background text-muted-foreground'}`}
         >
@@ -337,6 +340,10 @@ export default function People() {
         connects them. Nothing on this page is a score or an activity count:
         everything shown is a fact the system actually holds.
       </p>
+
+      {/* db/076. Students are people at this school too, and until now the only
+          way to give one an account was to write SQL. */}
+      <StudentAccountsSection />
     </div>
   )
 }

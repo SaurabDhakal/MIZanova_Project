@@ -188,7 +188,7 @@ export default function InviteStaffSection({
           <button
             type="submit"
             disabled={create.isPending}
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {create.isPending ? 'Creating…' : 'Create invitation'}
           </button>
@@ -245,7 +245,7 @@ export default function InviteStaffSection({
                   .then(() => showToast('Link copied.'))
                   .catch(() => showToast('Could not copy — select it and copy manually.'))
               }}
-              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               Copy
             </button>
@@ -258,12 +258,26 @@ export default function InviteStaffSection({
       {invitations.isSuccess && invitations.data.length === 0 && (
         <EmptyState
           title="No invitations yet"
-          detail="Invited staff appear here with whether they have accepted."
+          detail="Invitations appear here with whether they have been accepted."
         />
       )}
 
       {invitations.isSuccess && invitations.data.length > 0 && (
-        <ul className="space-y-2">
+        <>
+          {/* HEADED SEPARATELY, because this list is not only staff.
+              `fetchInvitations` returns every invitation the school has issued,
+              and a STUDENT invitation is created on the People screen — so one
+              can appear here, under a section titled "Invite staff", beside
+              educators and specialists.
+
+              Filtering it out would be worse: this is the only screen that
+              lists a pending invitation or offers Withdraw, so a student's
+              invitation would then be visible and cancellable nowhere. The
+              list is right; the heading above it was doing the misleading. */}
+          <h3 className="mt-6 mb-2 text-sm font-semibold text-foreground">
+            Invitations sent
+          </h3>
+          <ul className="space-y-2">
           {invitations.data.map((invitation) => {
             const status = statusOf(invitation)
             return (
@@ -301,7 +315,8 @@ export default function InviteStaffSection({
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </>
       )}
     </section>
   )

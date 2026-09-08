@@ -206,7 +206,7 @@ export default function IepPlans() {
                   setConfirmingFrom(latest.id)
                   create.mutate(latest.id)
                 }}
-                className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {create.isPending && confirmingFrom === latest.id
                   ? 'Creating…'
@@ -219,7 +219,7 @@ export default function IepPlans() {
                   setConfirmingFrom('none')
                   create.mutate(null)
                 }}
-                className="rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:bg-background disabled:opacity-60"
+                className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:bg-background disabled:opacity-60"
               >
                 {create.isPending && confirmingFrom === 'none'
                   ? 'Creating…'
@@ -238,7 +238,7 @@ export default function IepPlans() {
               type="button"
               disabled={create.isPending}
               onClick={() => create.mutate(null)}
-              className="mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {create.isPending ? 'Creating…' : 'Start the first plan'}
             </button>

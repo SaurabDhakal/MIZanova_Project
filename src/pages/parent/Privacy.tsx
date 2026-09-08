@@ -11,9 +11,9 @@ import {
 } from '../../lib/api'
 import { CONSENT_COPY, CONSENT_ORDER } from '../../lib/consent'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
+import { fullName } from '../../lib/displayName'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-AU', {
@@ -41,8 +41,12 @@ function formatDate(iso: string): string {
  */
 export default function Privacy() {
   const queryClient = useQueryClient()
-  const { children, child, selectChild, isPending: childrenPending } =
-    useSelectedChild()
+  const {
+    child,
+    isPending: childrenPending,
+    isError: childrenError,
+    error: childrenErrorObject,
+  } = useSelectedChild()
 
   const consents = useQuery({
     queryKey: queryKeys.consents(child?.id ?? ''),
@@ -70,6 +74,30 @@ export default function Privacy() {
 
   if (childrenPending) return <LoadingCards count={2} />
 
+  /*
+   * A FAILED LOOKUP IS NOT AN EMPTY ONE.
+   *
+   * `isError` was dropped from the destructure above, so a children query that
+   * FAILED left `child` undefined and fell straight through to NoChildYet —
+   * which tells a family "Your account is set up. No child is linked to it
+   * yet" and hands them a Link a child button.
+   *
+   * That is a confident false statement about their own child, made to the
+   * person least able to check it, and it sends them back through a linking
+   * flow they have already completed. Five of the seven parent screens did
+   * this.
+   */
+  if (childrenError) {
+    return (
+      <ErrorState
+        message={
+          childrenErrorObject?.message ??
+          'Your children could not be loaded. This is a problem reaching the server, not a change to who is linked to your account.'
+        }
+      />
+    )
+  }
+
   if (!child) {
     return (
       <NoChildYet thing="Your privacy and consent choices" />
@@ -92,12 +120,11 @@ export default function Privacy() {
           Privacy &amp; Consent
         </h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
-          What you have agreed to for {child.display_name}, and how to change
+          What you have agreed to for {fullName(child)}, and how to change
           it. You can withdraw any of these at any time.
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       {consents.isPending && <LoadingCards count={3} />}
@@ -173,14 +200,14 @@ export default function Privacy() {
                                 onSuccess: () => setConfirming(null),
                               })
                             }}
-                            className="rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+                            className="min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
                           >
                             {busy ? 'Withdrawing…' : 'Yes, withdraw consent'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirming(null)}
-                            className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                            className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
                           >
                             Keep it
                           </button>
@@ -190,7 +217,7 @@ export default function Privacy() {
                       <button
                         type="button"
                         onClick={() => setConfirming(type)}
-                        className="rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground"
+                        className="inline-flex min-h-11 items-center rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground"
                       >
                         Withdraw consent
                       </button>
@@ -206,7 +233,7 @@ export default function Privacy() {
                         type="button"
                         disabled={busy}
                         onClick={() => grant.mutate(type)}
-                        className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {busy ? 'Saving…' : 'I give consent'}
                       </button>

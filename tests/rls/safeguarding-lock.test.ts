@@ -227,3 +227,169 @@ describe('after acknowledgement — the lock', () => {
     expect(data?.length).toBe(1)
   })
 })
+
+/*
+ * ---------------------------------------------------------------------------
+ * THE SHAPE THE SCREEN DEPENDS ON
+ * ---------------------------------------------------------------------------
+ * The tests above prove the RULE: an author cannot reword an acknowledged log.
+ * They prove it by reading the row back with the service key, which is the
+ * right way to test a policy and the wrong way to test a screen.
+ *
+ * `updateBehaviourLog` in src/lib/api.ts cannot read the row back — it is the
+ * author, and the author is precisely who the policy has stopped. All it has
+ * is what PostgREST hands back from `.update(...).select('id')`, and it calls
+ * `assertChanged` on that to decide whether to tell somebody their correction
+ * saved.
+ *
+ * So the question these two ask is narrower than the ones above, and nothing
+ * else in the suite asks it: WHAT COMES BACK. If a filtered update returned
+ * the row anyway — because the SELECT policy still lets the author read it —
+ * `assertChanged` would see one row, raise nothing, and the dialog would
+ * report a correction that never happened. That is the original fault in its
+ * purest form, and the guard against it would be decorative.
+ */
+describe('what a refused correction returns — src/lib/api.ts depends on this', () => {
+  test('zero rows, and no error, which is what assertChanged reads', async () => {
+    const { data, error } = await world.verifiedEducator.db
+      .from('behaviour_logs')
+      .update({ notes: 'A correction the author is no longer allowed to make.' })
+      .eq('id', logId)
+      .select('id')
+
+    // No error is the trap; the empty array is the only signal there is.
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+  })
+
+  test('and the author can still READ the log they may not change', async () => {
+    // The reason the test above is not obvious. The author is not shut out of
+    // the record — only out of writing it — so "I can see it" and "my update
+    // returned nothing" are true at the same time. A guard written on the
+    // assumption that a refused write means an unreadable row would be wrong.
+    const { data } = await world.verifiedEducator.db
+      .from('behaviour_logs')
+      .select('id, notes')
+      .eq('id', logId)
+
+    expect(data?.length).toBe(1)
+  })
+
+  test('an allowed correction returns the row, so assertChanged stays quiet', async () => {
+    const { data, error } = await world.schoolAdmin.db
+      .from('behaviour_logs')
+      .update({ notes: 'Corrected by the administrator, who may.' })
+      .eq('id', logId)
+      .select('id')
+
+    expect(error).toBeNull()
+    expect(data?.length).toBe(1)
+    expect(await noteOnRecord()).toBe('Corrected by the administrator, who may.')
+  })
+})
+
+/*
+ * ---------------------------------------------------------------------------
+ * A CORRECTION IS AUDITED, AND THE AUDIT DOES NOT REPEAT THE NOTE
+ * ---------------------------------------------------------------------------
+ * Making logs correctable put a new kind of row into the governance trail, so
+ * the trail's own rule has to hold for it: db/065 wrote the FULL previous note
+ * into `admin_audit_events.detail`, and db/069 replaced that function so it
+ * writes `note_fingerprint(old.notes)` instead — a length and a hash — because
+ * a staff observation about a child is not governance metadata and a school
+ * admin reading an audit screen has no reason to be shown one.
+ *
+ * That fix lives in a `create or replace` of a function db/065 also defines.
+ * Anyone reproducing this trigger from db/065 — the file it was first written
+ * in, and the obvious one to open — reinstates the leak silently, with every
+ * existing test still green. This project has done exactly that three times
+ * with three different functions.
+ *
+ * So this asserts the shape of the detail, not just that a row appeared.
+ */
+describe('correcting a log is audited without repeating what it said', () => {
+  test('an edit writes one behaviour_log.edited event', async () => {
+    const { data } = await admin
+      .from('admin_audit_events')
+      .select('action, detail, subject_id')
+      .eq('subject_id', logId)
+      .eq('action', 'behaviour_log.edited')
+
+    // The administrator's correction above is the edit being audited here.
+    expect((data ?? []).length).toBeGreaterThan(0)
+  })
+
+  test('the detail fingerprints the old note instead of quoting it', async () => {
+    const { data } = await admin
+      .from('admin_audit_events')
+      .select('detail')
+      .eq('subject_id', logId)
+      .eq('action', 'behaviour_log.edited')
+
+    const details = (data ?? []).map((r) => r.detail as string)
+    const withNotes = details.filter((d) => d.includes('Previous notes:'))
+
+    expect(withNotes.length).toBeGreaterThan(0)
+    for (const d of withNotes) {
+      // 'N characters, sha256 <16 hex>' — db/069's shape.
+      expect(d).toMatch(/Previous notes: (empty|\d+ characters, sha256 [0-9a-f]{16})/)
+      // And the words themselves must not be there. These are the note bodies
+      // this file has written through the tests above.
+      expect(d).not.toContain('Original wording')
+      expect(d).not.toContain('Corrected wording')
+      expect(d).not.toContain('no longer allowed')
+    }
+  })
+})
+
+/*
+ * ---------------------------------------------------------------------------
+ * THE COUNT IS INDEPENDENT OF THE WINDOW
+ * ---------------------------------------------------------------------------
+ * `fetchSafeguardingQueue` returns a Page: `rows` is a deliberate window onto
+ * the queue and `total` is how many incidents are actually in it. The screen
+ * prints `total` and, when the window is smaller, says so.
+ *
+ * That only holds if PostgREST's exact count ignores the range — which is the
+ * documented behaviour and also the entire reason the fix works. If a future
+ * change made the count reflect the returned rows instead, the screen would go
+ * straight back to reporting the size of the page as the size of the queue,
+ * quietly, and the manual check that caught it the first time only worked
+ * because the numbers were small enough to compare by eye.
+ *
+ * Asserted with a range of one row rather than by inserting two hundred
+ * incidents: the mechanism is what matters, and this needs no fixture.
+ */
+describe('the safeguarding queue counts past the end of its page', () => {
+  test('an exact count is not narrowed by the range', async () => {
+    const { data, error, count } = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact' })
+      .eq('is_risk_flagged', true)
+      .range(0, 0)
+
+    expect(error).toBeNull()
+    // One row asked for, one row back — the window.
+    expect(data?.length).toBe(1)
+    // And a count that describes the queue, not the window.
+    expect(count).not.toBeNull()
+    expect(count!).toBeGreaterThan(0)
+    expect(count!).toBeGreaterThanOrEqual(data!.length)
+  })
+
+  test('and the count matches an independent head-only count', async () => {
+    const windowed = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact' })
+      .eq('is_risk_flagged', true)
+      .range(0, 0)
+
+    const headOnly = await admin
+      .from('behaviour_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_risk_flagged', true)
+
+    // Two different ways of asking, so neither is marking its own homework.
+    expect(windowed.count).toBe(headOnly.count)
+  })
+})

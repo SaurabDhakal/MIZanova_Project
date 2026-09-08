@@ -125,6 +125,35 @@ export default function Messenger({
   studentId: string | null
 }) {
   const { profile } = useAuth()
+
+  /*
+   * WHICH NAME A THREAD IS LABELLED WITH, AND WHY IT IS DECIDED HERE.
+   *
+   * This component is shared by four roles, and `display_name` — "Arlo K." —
+   * is right for three of them: a staff inbox is many households at once, and
+   * the Library article to families says the short form exists "so that a
+   * list, a chart, or a screenshot shared in a staff meeting cannot carry
+   * somebody else's surname out of the room".
+   *
+   * The same article states the other half of the rule: "a parent reads their
+   * own child's full name on their own screens". Every other parent screen
+   * followed that after Saurab's call on 4 September; this one did not, so a
+   * family read "about Arlo K." on the one screen where the short form
+   * protects nobody — RLS has already decided they see only their own child.
+   *
+   * Read off the role rather than passed in, because a prop is a thing a
+   * future call site can forget, and the answer is never ambiguous: a parent
+   * is by construction reading their own family.
+   */
+  const namesInFull = profile?.role === 'parent'
+  const childName = (
+    student: { display_name: string; first_name: string; last_name: string } | null,
+  ) =>
+    student
+      ? namesInFull
+        ? `${student.first_name} ${student.last_name}`
+        : student.display_name
+      : ''
   const queryClient = useQueryClient()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -431,7 +460,7 @@ export default function Messenger({
                 type="button"
                 onClick={() => setUnreadOnly((current) => !current)}
                 aria-pressed={unreadOnly}
-                className={`rounded-btn border px-2.5 py-1.5 text-xs font-semibold ${
+                className={`min-h-11 rounded-btn border px-2.5 py-1.5 text-xs font-semibold ${
                   unreadOnly
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border text-muted-foreground'
@@ -444,7 +473,7 @@ export default function Messenger({
                   type="button"
                   onClick={() => markAllRead.mutate()}
                   disabled={markAllRead.isPending}
-                  className="rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
+                  className="min-h-11 rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
                 >
                   {markAllRead.isPending ? 'Marking…' : 'Mark all read'}
                 </button>
@@ -456,7 +485,7 @@ export default function Messenger({
                     setConversationSearch('')
                     setUnreadOnly(false)
                   }}
-                  className="ml-auto rounded-btn px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-background"
+                  className="min-h-11 ml-auto rounded-btn px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-background"
                 >
                   Clear
                 </button>
@@ -483,26 +512,47 @@ export default function Messenger({
             </div>
           )}
 
-        {visibleThreads.length === 0 && canStartWith.length === 0 && (
-          !(
-            educatorInbox &&
-            studentThreads.length > 0 &&
-            (normalisedSearch || unreadOnly)
-          ) && (
-            <EmptyState
-              title={
-                studentId
-                  ? 'No conversations about this student yet'
-                  : 'No conversations yet'
-              }
-              detail={
-                studentId
-                  ? 'Start one below, or choose a different student.'
-                  : 'Conversations become available once staff are assigned and guardians are linked.'
-              }
-            />
-          )
+        {/*
+          THE EMPTY STATE EXPLAINS THE ABSENCE, SO IT MUST KNOW THE CAUSE.
+
+          `canStartWith` filters `careTeam.data ?? []`, so a failed lookup made
+          it empty and — with no threads to show — printed "Conversations
+          become available once staff are assigned and guardians are linked."
+          That is not a neutral emptiness; it names a reason, and the reason
+          would have been invented. Existing conversations are unaffected by
+          that lookup, which is worth saying so nobody assumes the whole screen
+          is broken.
+        */}
+        {careTeam.isError && visibleThreads.length === 0 && (
+          <p className="rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
+            Who you can start a conversation with could not be loaded, so this
+            is unknown rather than nobody. Conversations you already have are
+            not affected.
+          </p>
         )}
+
+        {!careTeam.isError &&
+          visibleThreads.length === 0 &&
+          canStartWith.length === 0 && (
+            !(
+              educatorInbox &&
+              studentThreads.length > 0 &&
+              (normalisedSearch || unreadOnly)
+            ) && (
+              <EmptyState
+                title={
+                  studentId
+                    ? 'No conversations about this student yet'
+                    : 'No conversations yet'
+                }
+                detail={
+                  studentId
+                    ? 'Start one below, or choose a different student.'
+                    : 'Conversations become available once staff are assigned and guardians are linked.'
+                }
+              />
+            )
+          )}
 
         {visibleThreads.length > 0 && (
           <ul className="overflow-hidden rounded-card border border-border bg-card shadow-raised">
@@ -538,7 +588,7 @@ export default function Messenger({
                     <p className="text-xs font-medium text-primary">
                       {person ? ROLE_CONFIG[person.role].label : ''}
                       {thread.students?.display_name &&
-                        ` · about ${thread.students.display_name}`}
+                        ` · about ${childName(thread.students)}`}
                     </p>
                     <div className="mt-1 flex items-center gap-2">
                       <p className="line-clamp-2 min-w-0 flex-1 text-sm text-muted-foreground">
@@ -616,7 +666,7 @@ export default function Messenger({
               <button
                 type="button"
                 onClick={() => setActiveId(null)}
-                className="rounded-btn border border-border px-3 py-1.5 text-sm font-medium lg:hidden"
+                className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-medium lg:hidden"
               >
                 ← Back
               </button>
@@ -627,7 +677,7 @@ export default function Messenger({
                 <p className="text-xs font-medium text-primary">
                   {activeWith ? ROLE_CONFIG[activeWith.role].label : ''}
                   {active.students?.display_name &&
-                    ` · about ${active.students.display_name}`}
+                    ` · about ${childName(active.students)}`}
                 </p>
               </div>
             </header>
@@ -773,14 +823,18 @@ export default function Messenger({
                 <button
                   type="submit"
                   disabled={send.isPending || !canSend}
-                  className="rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   {send.isPending ? 'Sending…' : 'Send'}
                 </button>
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {/* sr-only hides it from sight, NOT from a screen reader —
+                    it stays in the tab order, so without a name it is
+                    announced as an unlabelled file field. */}
                 <input
+                  aria-label="Attach files to this message"
                   ref={fileInputRef}
                   type="file"
                   multiple
@@ -795,7 +849,7 @@ export default function Messenger({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={attachments.length >= 5}
-                  className="inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
+                  className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
                 >
                   <Icon name="resources" className="h-4 w-4" />
                   Photo or file
@@ -806,7 +860,7 @@ export default function Messenger({
                     <button
                       type="button"
                       onClick={speech.listening ? speech.stop : speech.start}
-                      className={`inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
+                      className={`min-h-11 inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
                         speech.listening
                           ? 'border-danger bg-danger-subtle text-danger-foreground'
                           : 'border-border'
@@ -838,7 +892,7 @@ export default function Messenger({
                   <button
                     type="button"
                     onClick={recording ? stopVoiceNote : () => void startVoiceNote()}
-                    className={`inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
+                    className={`min-h-11 inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
                       recording
                         ? 'border-danger bg-danger-subtle text-danger-foreground'
                         : 'border-border'

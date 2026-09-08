@@ -85,13 +85,42 @@ export default function PageHeader({
  *
  * The rule and the inset are what make it read as a footnote rather than as
  * content somebody forgot to format.
+ *
+ * ---------------------------------------------------------------------------
+ * AND IT IS A <details> NOW, FOR THE REASON NotBuiltYet ALREADY GAVE
+ * ---------------------------------------------------------------------------
+ * That component made this exact move and wrote down why: the note "was a
+ * full-width card", and folding it "does not cost one word of the claim —
+ * the summary still says what it is, it is still one keystroke away, and
+ * <details> is natively accessible".
+ *
+ * The same argument applies here and was never applied. Ten screens end in one
+ * of these, and on several of them the last thing a person meets is a
+ * paragraph of small grey type they have already read. Nothing is deleted,
+ * nothing is softened, and every word is one click away — it simply stops
+ * being the loudest thing at the bottom of every page in the product.
  */
-export function PageNote({ children }: { children: ReactNode }) {
+export function PageNote({
+  children,
+  summary = 'How this page works, and what it will not claim',
+}: {
+  children: ReactNode
+  /** Override where "how this page works" is the wrong description. */
+  summary?: string
+}) {
   return (
-    <aside className="mt-10 rounded-card border border-border bg-background/60 px-5 py-4">
-      <p className="text-xs leading-relaxed text-muted-foreground lg:columns-2 lg:gap-10">
+    <details className="mt-10 rounded-card border border-border bg-background/60 px-5 py-4">
+      <summary className="cursor-pointer text-sm font-medium text-primary">
+        {summary}
+      </summary>
+      {/* `text-sm`, not `text-xs`. This is the paragraph that says what the
+          screen will not claim — the honest half of the page — and it was set
+          smaller than anything else on it. The two columns above already keep
+          the measure short, so the only thing 12px was buying was a paragraph
+          people could not comfortably read. */}
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground lg:columns-2 lg:gap-10">
         {children}
       </p>
-    </aside>
+    </details>
   )
 }

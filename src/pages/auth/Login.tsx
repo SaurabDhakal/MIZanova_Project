@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
 import FormField from '../../components/FormField'
 import Spinner from '../../components/Spinner'
+import AuthLayout from './AuthLayout'
 
 /**
  * Sign-in page, built from `docs/Figma Pages Design/Login Page.png`.
@@ -18,6 +19,17 @@ import Spinner from '../../components/Spinner'
  * 2. The Google and Microsoft buttons are omitted for now. They need OAuth
  *    providers configured in Supabase; a button that looks real and does
  *    nothing is worse than no button.
+ *
+ * ---------------------------------------------------------------------------
+ * IT USES AuthLayout, AND WAS THE LAST PAGE THAT DID NOT
+ * ---------------------------------------------------------------------------
+ * AuthLayout was extracted once four copies of this frame existed. Login kept
+ * its own, and drifted: a plain text wordmark instead of Joe's mark, and no
+ * link home, on the one screen every single person sees first. Seven other
+ * signed-out pages had the logo; this one had the word.
+ *
+ * That is the cost of a hand-maintained copy, and it is exactly what the
+ * layout's own header comment predicted would happen.
  */
 export default function Login() {
   const { signIn, session, profile, loading } = useAuth()
@@ -86,21 +98,11 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border bg-card px-6 py-4">
-        <p className="text-xl font-bold text-primary">MiZanova</p>
-      </header>
-
-      <main className="flex flex-1 items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-card border border-border bg-card shadow-raised p-8">
-          <h1 className="text-center text-3xl font-bold text-foreground">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-center text-muted-foreground">
-            Sign in to continue supporting your students.
-          </p>
-
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Sign in to continue supporting your students."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {error && (
               // role="alert" makes a screen reader announce this the moment it
               // appears, instead of the user wondering why nothing happened.
@@ -174,24 +176,18 @@ export default function Login() {
             >
               {submitting ? 'Signing in…' : 'Sign in'}
             </button>
-          </form>
+      </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {/* Not "Create an account" any more: /signup no longer creates
-                one. An account comes from an invitation, a code, or Special
-                Miles setting up a school, so the link asks the question this
-                person actually has. */}
-            Don’t have an account?{' '}
-            <Link to="/signup" className="font-semibold text-primary hover:underline">
-              How do I get one?
-            </Link>
-          </p>
-        </div>
-      </main>
-
-      <footer className="px-6 py-4 text-center text-xs text-muted-foreground">
-        © 2026 MiZanova · Special Miles · Data hosted in Australia
-      </footer>
-    </div>
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        {/* Not "Create an account" any more: /signup no longer creates
+            one. An account comes from an invitation, a code, or Special
+            Miles setting up a school, so the link asks the question this
+            person actually has. */}
+        Don’t have an account?{' '}
+        <Link to="/signup" className="font-semibold text-primary hover:underline">
+          How do I get one?
+        </Link>
+      </p>
+    </AuthLayout>
   )
 }

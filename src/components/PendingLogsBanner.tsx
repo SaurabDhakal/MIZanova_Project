@@ -54,7 +54,7 @@ export default function PendingLogsBanner() {
             type="button"
             onClick={() => void sync()}
             disabled={isSyncing}
-            className="mt-3 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {isSyncing ? 'Sending…' : 'Try sending now'}
           </button>
@@ -85,7 +85,7 @@ export default function PendingLogsBanner() {
                 <button
                   type="button"
                   onClick={() => discardFromQueue(log.clientRef)}
-                  className="mt-1 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                  className="min-h-11 mt-1 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
                 >
                   Discard this log
                 </button>

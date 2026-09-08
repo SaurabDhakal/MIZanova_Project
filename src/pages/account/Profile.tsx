@@ -3,7 +3,6 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   avatarUrl,
   removeMyAvatar,
-  signOutOtherSessions,
   updateMyName,
   uploadMyAvatar,
 } from '../../lib/api'
@@ -11,6 +10,9 @@ import { useAuth, type Profile as ProfileRow } from '../../lib/auth'
 import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
+import PushNotificationsSection from '../../components/PushNotificationsSection'
+import NotBuiltYet from '../../components/NotBuiltYet'
+import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 
 /**
  * The Account tab — who this account is, and the facts about it you cannot
@@ -71,6 +73,32 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   )
 }
 
+/**
+ * Closing an account — db/096, and only for an individual.
+ *
+ * ForIndividuals.tsx has promised "an account you can close" since the page
+ * shipped, with nothing behind it. This is the thing behind it.
+ *
+ * WHY NO OTHER ROLE SEES THIS. An individual is the only one whose departure
+ * harms nobody: no school holds their record, no child depends on their
+ * guardianship, no roster loses a teacher. The server refuses the other roles
+ * outright, so hiding the section is a courtesy rather than the control.
+ *
+ * THE CONSEQUENCES ARE COUNTED, NOT DESCRIBED. ConfirmDestructive asks for
+ * "facts counted from the database, not adjectives", and the three queries
+ * that produce them are the same ones the Academy, the suggestions screen and
+ * the receipts list already run. Somebody about to delete two years of reading
+ * should be told it is two years, not warned that this "cannot be undone".
+ */
+/**
+ * Taking your record away — pairs with closing the account, deliberately.
+ *
+ * It sits immediately above the red box because that is the order somebody
+ * actually needs these in: a person about to delete two years of their own
+ * writing should be offered a copy of it in the same breath, not left to
+ * discover afterwards that it is gone. Offering the export only on some other
+ * screen would be technically complete and practically useless.
+ */
 export default function Profile() {
   const { profile } = useAuth()
   if (!profile) return <ErrorState message="Your profile could not be read." />
@@ -101,6 +129,33 @@ const VERIFIED_ROLES = ['educator', 'specialist', 'school_admin']
 
 function ProfileForm({ profile }: { profile: ProfileRow }) {
   const { refreshProfile, session, mfaEnrolment, changeEmail } = useAuth()
+
+  /*
+   * SOME OF THIS SCREEN IS ADDRESSED TO SCHOOL STAFF AND SOME PEOPLE HERE HAVE
+   * NO SCHOOL. An individual (db/088) has no colleagues, gets no invitations
+   * and has never seen a classroom machine — three sentences below told them
+   * otherwise, which reads as having wandered into somebody else's product on
+   * the one screen that is meant to be about them.
+   */
+  /*
+   * STAFF, NOT "NOT AN INDIVIDUAL".
+   *
+   * This was `role !== 'individual'`, which made a parent and a student staff
+   * — so a parent read that their photo is "how you appear to colleagues and
+   * families", having no colleagues, and that their email is where invitations
+   * go. Every parent account in the database carries `school_id` null, so they
+   * are not in a school in any sense the rest of the product uses either.
+   *
+   * Three groups, because there are three answers: somebody who works at a
+   * school, somebody whose child attends one, and somebody with no school at
+   * all.
+   */
+  const isStaff =
+    profile !== null &&
+    ['educator', 'specialist', 'school_admin', 'platform_admin'].includes(
+      profile.role,
+    )
+  const hasAChild = profile?.role === 'parent'
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [firstName, setFirstName] = useState(profile.first_name ?? '')
@@ -134,7 +189,6 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
     mutationFn: () => changeEmail(emailPassword, email.trim()),
     onSuccess: () => setEmailPassword(''),
   })
-  const signOutOthers = useMutation({ mutationFn: signOutOtherSessions })
 
   /*
    * CHECKED HERE AS WELL AS IN THE BUCKET, and that is not duplication. The
@@ -179,7 +233,11 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             <div>
               <h2 className="text-lg font-bold text-foreground">Your details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                How you appear to colleagues and families on every screen.
+                {isStaff
+                  ? 'How you appear to colleagues and families on every screen.'
+                  : hasAChild
+                    ? 'How you appear to the staff working with your child.'
+                    : 'Your name and picture, as they appear on your own screens.'}
               </p>
             </div>
             {/* The action sits in the card header, as the design has it —
@@ -219,7 +277,22 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
                     <Pill tone="warn">Awaiting verification</Pill>
                   ))}
                 {mfaEnrolment === 'enrolled' && <Pill tone="good">✓ 2FA on</Pill>}
-                {mfaEnrolment === 'none' && <Pill tone="warn">2FA required</Pill>}
+                {/* REQUIRED OF FOUR ROLES, NOT OF EVERYONE. This warned anybody
+                    without an authenticator, so a family — for whom two-factor
+                    is deliberately optional, because locking them out of the
+                    daily summary over a changed phone does more harm than the
+                    risk it removes — was told their account was short of
+                    something it is not. The Security screen two clicks away
+                    says "Off · Set up an authenticator app" and offers it as a
+                    choice, which is the accurate version.
+
+                    No pill at all when it is optional and absent: "Two-factor:
+                    Not set up" already appears in the details below, stated as
+                    a fact rather than as a warning about nothing. */}
+                {mfaEnrolment === 'none' &&
+                  MFA_REQUIRED_ROLES.includes(profile.role) && (
+                    <Pill tone="warn">2FA required</Pill>
+                  )}
               </div>
             </div>
 
@@ -258,8 +331,11 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           </div>
 
           <p className="mt-2 text-xs text-muted-foreground">
-            PNG, JPEG or WebP, up to 2 MB. Anyone signed in can see it,
-            including families — that is what it is for.
+            {isStaff
+              ? 'PNG, JPEG or WebP, up to 2 MB. Anyone signed in can see it, including families — that is what it is for.'
+              : hasAChild
+                ? 'PNG, JPEG or WebP, up to 2 MB. Your child’s teachers and specialists can see it, and so can anyone else at home on this record.'
+                : 'PNG, JPEG or WebP, up to 2 MB. Nobody shares this account, so this is for the corner of your own screen.'}
           </p>
           {(photoError || upload.isError || removePhoto.isError) && (
             <p role="alert" className="mt-2 text-sm font-medium text-danger-foreground">
@@ -306,7 +382,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
         <section className={card}>
           <h2 className="text-lg font-bold text-foreground">Email address</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            What you sign in with, and where invitations and password resets go.
+            {isStaff
+              ? 'What you sign in with, and where invitations and password resets go.'
+              : 'What you sign in with, and where a password reset would be sent.'}
           </p>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -418,43 +496,42 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           </div>
         </section>
 
-        <section className={card}>
-          <h2 className="text-lg font-bold text-foreground">Other devices</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ends every other signed-in session and leaves this one alone. Worth
-            doing if you have left yourself signed in on a classroom machine —
-            changing your password does not do this on its own.
-          </p>
-          <button
-            type="button"
-            onClick={() => signOutOthers.mutate()}
-            disabled={signOutOthers.isPending}
-            className="mt-4 min-h-11 rounded-btn border border-border px-4 font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
-          >
-            {signOutOthers.isPending ? 'Signing out…' : 'Sign out everywhere else'}
-          </button>
-          {signOutOthers.isError && (
-            <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
-              {signOutOthers.error.message}
-            </p>
-          )}
-          {signOutOthers.isSuccess && (
-            <p className="mt-3 text-sm font-medium text-success-foreground">
-              Every other session has been signed out.
-            </p>
-          )}
-        </section>
+        <PushNotificationsSection />
 
-        <section className="rounded-card border border-border bg-background p-6">
-          <h2 className="font-semibold text-foreground">Not built yet</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The design also shows clinical preferences, caseload settings, a
-            per-user audit log and notification switches. None of those have
-            anything behind them — MiZanova sends no notifications at all — so
-            they are absent rather than drawn as controls that would change
-            nothing.
+        {/* CLINICAL PREFERENCES AND CASELOADS ARE NOT AN INDIVIDUAL'S WORDS.
+            The first paragraph is about a staff design, and it was shown to
+            everybody — so somebody with no school and no caseload was told
+            which staff features were missing from their own settings page.
+            The paragraph below it is about notifications and is true for
+            everyone, so only the first is narrowed. */}
+        <NotBuiltYet>
+          {profile?.role !== 'individual' && (
+            <p>
+              The design also shows clinical preferences, caseload settings and
+              a per-user audit log. None of those have anything behind them, so
+              they are absent rather than drawn as controls that would change
+              nothing.
+            </p>
+          )}
+          <p>
+            {/* This paragraph used to end "MiZanova sends no notifications at
+                all", which stopped being true with db/081. A note about what
+                is missing has to be maintained as carefully as the features,
+                or it becomes the most confident wrong sentence on the page. */}
+            Notification switches were on that list until the section above
+            them existed. What is still missing there is email: the server can
+            send it, but nothing yet sends a digest of what is waiting.
           </p>
-        </section>
+        </NotBuiltYet>
+
+        {/* LAST ON THE PAGE, AND ONLY FOR THE ROLE THAT CAN USE IT. Every
+            other role is refused by the server, so showing them a red box
+            they cannot act on would be a dead control. */}
+        {/* The subscription, the summary document, the export and closing
+            the account all used to sit here, making this nine sections deep
+            and four unrelated questions long. They are now two tabs of their
+            own: Payments, and Your data. What is left is who you are and how
+            you sign in, which is what a page called Account should hold. */}
       </div>
     </div>
   )

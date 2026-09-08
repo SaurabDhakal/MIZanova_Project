@@ -9,11 +9,13 @@ import {
   startEnrolment,
   type EnrolmentStart,
 } from '../../lib/mfa'
+import { signOutOtherSessions } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
 import { ErrorState } from '../../components/QueryState'
 import Spinner from '../../components/Spinner'
 import FormField from '../../components/FormField'
+import NotBuiltYet from '../../components/NotBuiltYet'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -35,7 +37,7 @@ import { showToast } from '../../lib/toast'
  * The note at the bottom says what is missing rather than pretending.
  */
 export default function Security() {
-  const { profile, changePassword: changePasswordFn } = useAuth()
+  const { session, profile, changePassword: changePasswordFn } = useAuth()
   const queryClient = useQueryClient()
 
   const [enrolment, setEnrolment] = useState<EnrolmentStart | null>(null)
@@ -47,12 +49,16 @@ export default function Security() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
+  /* Both keyed on the person. They share the key shape with AuthProvider, so
+     enrolling here still lifts the requirement there without either component
+     knowing about the other — invalidateQueries matches by prefix, so the
+     calls below need no change. */
   const factors = useQuery({
-    queryKey: ['mfa-factors'],
+    queryKey: ['mfa-factors', session?.user.id ?? null],
     queryFn: listTotpFactors,
   })
   const remaining = useQuery({
-    queryKey: ['recovery-codes-remaining'],
+    queryKey: ['recovery-codes-remaining', session?.user.id ?? null],
     queryFn: recoveryCodesRemaining,
   })
 
@@ -60,6 +66,7 @@ export default function Security() {
   const mandatory =
     profile !== null && MFA_REQUIRED_ROLES.includes(profile.role)
 
+  const signOutOthers = useMutation({ mutationFn: signOutOtherSessions })
   const begin = useMutation({
     mutationFn: startEnrolment,
     onSuccess: (started) => setEnrolment(started),
@@ -167,14 +174,14 @@ export default function Security() {
                 void navigator.clipboard.writeText(freshCodes.join('\n'))
                 showToast('Recovery codes copied.')
               }}
-              className="rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
             >
               Copy all
             </button>
             <button
               type="button"
               onClick={() => setFreshCodes(null)}
-              className="rounded-btn border border-warning px-4 py-2.5 text-sm font-semibold text-warning-foreground"
+              className="min-h-11 rounded-btn border border-warning px-4 py-2.5 text-sm font-semibold text-warning-foreground"
             >
               I have saved them
             </button>
@@ -254,7 +261,7 @@ export default function Security() {
                 type="button"
                 onClick={() => regenerate.mutate()}
                 disabled={regenerate.isPending}
-                className="rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
               >
                 {regenerate.isPending
                   ? 'Generating…'
@@ -266,7 +273,7 @@ export default function Security() {
                   type="button"
                   onClick={() => remove.mutate(active.id)}
                   disabled={remove.isPending}
-                  className="rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                  className="min-h-11 rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                 >
                   {remove.isPending ? 'Removing…' : 'Turn off'}
                 </button>
@@ -292,7 +299,7 @@ export default function Security() {
               type="button"
               onClick={() => begin.mutate()}
               disabled={begin.isPending}
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {begin.isPending ? 'Preparing…' : 'Set up an authenticator app'}
             </button>
@@ -363,7 +370,7 @@ export default function Security() {
                 type="button"
                 onClick={() => confirm.mutate()}
                 disabled={confirm.isPending || code.trim().length < 6}
-                className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {confirm.isPending ? 'Checking…' : 'Turn on'}
               </button>
@@ -373,7 +380,7 @@ export default function Security() {
                   setEnrolment(null)
                   setCode('')
                 }}
-                className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
               >
                 Cancel
               </button>
@@ -434,7 +441,7 @@ export default function Security() {
           <button
             type="submit"
             disabled={changePassword.isPending}
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {changePassword.isPending ? 'Saving…' : 'Update password'}
           </button>
@@ -451,19 +458,83 @@ export default function Security() {
         </p>
       </section>
 
-      {/* --- What this page does not do ------------------------------------- */}
-      <section className="mt-6 rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">Not built yet</h2>
+      {/* ------------------------------------------------------------------
+          MOVED HERE FROM THE ACCOUNT TAB, where it was one of nine sections.
+          It belongs beside the password and not merely because both are
+          security: the two were already finishing each other's sentences from
+          different tabs. This one said "changing your password does not do
+          this on its own"; the password section above says "changing it here
+          does not sign you out of other devices". Somebody reading either had
+          to go and find the other.
+          ------------------------------------------------------------------ */}
+      <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
+        <h2 className="text-lg font-bold text-foreground">Other devices</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          The design for this screen also shows SMS codes, a 20-minute
-          auto-lock, re-verification before sensitive actions, alerts on
-          sign-in from a new device, a list of active sessions, and a sign-in
-          history. None of those exist yet, so they are not shown as switches
-          here — a control that looks authoritative and changes nothing is
+          Ends every other signed-in session and leaves this one alone. Worth
+          doing if you have left yourself signed in on a shared machine &mdash;
+          changing your password above does not do this on its own.
+        </p>
+        <button
+          type="button"
+          onClick={() => signOutOthers.mutate()}
+          disabled={signOutOthers.isPending}
+          className="mt-4 min-h-11 rounded-btn border border-border px-4 font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+        >
+          {signOutOthers.isPending ? 'Signing out…' : 'Sign out everywhere else'}
+        </button>
+        {signOutOthers.isError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+            {signOutOthers.error.message}
+          </p>
+        )}
+        {signOutOthers.isSuccess && (
+          <p className="mt-3 text-sm font-medium text-success-foreground">
+            Every other session has been signed out.
+          </p>
+        )}
+      </section>
+
+      {/* --- What this page does not do -------------------------------------
+          RE-VERIFICATION CAME OFF THIS LIST BECAUSE IT GOT BUILT. It was named
+          here as missing while the password was already being re-checked
+          before a password change (just above), before an email change on the
+          Account tab, and server-side before an account is closed — which is
+          the most sensitive action in the product. A list of absences has to be
+          maintained as carefully as the features, or it becomes the most
+          confident wrong sentence on the page; this one was telling people a
+          protection they had was not there. */}
+      <NotBuiltYet>
+        <p>
+          The design for this screen also shows SMS codes, alerts on sign-in
+          from a new device, a list of active sessions, and a sign-in history.
+          None of those exist yet, so they are not shown as switches here
+          &mdash; a control that looks authoritative and changes nothing is
           worse than an admission on a page about whether your account is
           protected.
         </p>
-      </section>
+        {/* The 20-minute auto-lock was on that list until 8 September and is
+            now real, which is why it has left it. It is not a switch because
+            there is nothing to choose: it applies to the four roles that can
+            open a child's record and it cannot be turned off. */}
+        {/* `mandatory` above is the same four roles `IdleTimeout` locks, which
+            is not a coincidence worth hiding: both come from
+            MFA_REQUIRED_ROLES, so the page cannot describe a protection the
+            account does not have. */}
+        {mandatory && (
+          <p>
+            This account <em>is</em> signed out after twenty minutes of
+            inactivity, with a minute&rsquo;s warning first so nothing you are
+            part-way through is lost. It is not a setting: it applies to every
+            account that can open a child&rsquo;s record.
+          </p>
+        )}
+        <p>
+          Re-verification before sensitive actions <em>is</em> here, and is not
+          a switch because there is nothing to turn on: your password is asked
+          for again before it is changed, before your email address is changed,
+          and before your account is closed.
+        </p>
+      </NotBuiltYet>
     </div>
   )
 }

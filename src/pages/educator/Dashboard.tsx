@@ -412,9 +412,15 @@ export default function EducatorDashboard() {
                 </div>
 
                 <p className="mt-4 text-sm text-muted-foreground">
-                  {count === 0
-                    ? 'No logs yet'
-                    : `${count} log${count === 1 ? '' : 's'} recorded`}
+                  {/* "No logs yet" is a claim, and `count` falls to 0 when the
+                      logs query fails — so a failure printed it on every card
+                      at once, telling a teacher they had never recorded
+                      anything for their whole class. */}
+                  {logs.isError
+                    ? 'Logs could not be counted'
+                    : count === 0
+                      ? 'No logs yet'
+                      : `${count} log${count === 1 ? '' : 's'} recorded`}
                 </p>
 
                 {/* An icon, not an emoji. Every other glyph in this product is

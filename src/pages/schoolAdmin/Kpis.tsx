@@ -297,7 +297,17 @@ export default function Kpis() {
         AI oversight
       </h2>
 
-      {!a || a.strategies_total === 0 ? (
+      {ai.isError ? (
+        /* This page opens by promising that nothing on it is "stored,
+           estimated or projected" — and then said "No AI suggestions
+           generated yet" whenever the query failed, because `!a` is true for
+           a failure as much as for a genuinely empty result. A page that
+           makes that promise cannot afford to guess. */
+        <EmptyState
+          title="These figures could not be read"
+          detail="This is unknown rather than none. Nothing here has been estimated to fill the gap."
+        />
+      ) : !a || a.strategies_total === 0 ? (
         <EmptyState
           title="No AI suggestions generated yet"
           detail="Figures appear once teachers start requesting classroom strategies."

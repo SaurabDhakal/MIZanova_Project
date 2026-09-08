@@ -1,0 +1,31 @@
+-- ---------------------------------------------------------------------------
+-- 088 — A role for somebody who belongs to no school
+-- ---------------------------------------------------------------------------
+-- Joe's brief names five customer segments. Two of them — "Families and
+-- individuals" and "Students" buying directly — have had nowhere to exist:
+-- signing up produces a `parent`, and the parent application immediately asks
+-- for a code issued by a school. An adult who is themselves neurodivergent, or
+-- a parent with no child at a subscribing school, arrives at a dead end.
+--
+-- db/044 saw this coming and folded them into `parent`, with the note:
+-- "Families and individuals buy programs directly; this is a real customer
+-- segment, not a loophole." That was the right call while there was one place
+-- to put them. It is the wrong one now, because the two people want different
+-- things: a parent of a child at a school wants that child's day, and an
+-- individual wants the Academy.
+--
+-- ---------------------------------------------------------------------------
+-- THIS FILE ADDS ONE ENUM VALUE AND NOTHING ELSE, WHICH IS NOT TIDINESS
+-- ---------------------------------------------------------------------------
+-- `alter type ... add value` cannot be followed by a USE of that value in the
+-- same transaction — Postgres raises "unsafe use of new value". scripts/
+-- apply-db.mjs sends each file's whole body as a single query, and a
+-- multi-statement simple query runs inside an implicit transaction. So a file
+-- that added the value and then wrote 'individual' into a policy, a default or
+-- an array literal would fail on the second statement.
+--
+-- Everything that uses the value is therefore in db/089. Splitting them is the
+-- only thing that makes both files runnable.
+-- ---------------------------------------------------------------------------
+
+alter type public.user_role add value if not exists 'individual';

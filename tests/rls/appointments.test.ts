@@ -117,15 +117,44 @@ describe('who may book', () => {
 })
 
 describe('who may see one', () => {
-  test('a guardian of the child cannot', async () => {
-    const { data } = await world.guardianOfA.db
+  /*
+   * THIS ASSERTED THE OPPOSITE UNTIL db/073, AND THE REASON IS WORTH KEEPING.
+   *
+   * It read: "Deliberate, and the same boundary db/028 draws. Telling a family
+   * when their child is seen is a good feature and a different one — it needs a
+   * decision about who promises the time."
+   *
+   * That decision has now been made rather than overruled. A family may see the
+   * list, and the promise problem is answered in three places: the screen is
+   * read only, every card says times are confirmed by the school, and a booking
+   * edited after it was made says so — so a parent who looked last week can
+   * tell that this one moved. Nothing emails them yet, which the screen also
+   * says.
+   *
+   * The write side did NOT move. A guardian still cannot book, change or cancel
+   * anything, and that is asserted below.
+   */
+  test('a guardian of the child can see it — db/073', async () => {
+    const { data, error } = await world.guardianOfA.db
       .from('specialist_appointments')
-      .select('id')
+      .select('id, student_id')
 
-    // Deliberate, and the same boundary db/028 draws. Telling a family when
-    // their child is seen is a good feature and a different one — it needs a
-    // decision about who promises the time.
-    expect(data ?? []).toHaveLength(0)
+    expect(error).toBeNull()
+    expect(data?.length).toBeGreaterThan(0)
+    expect(data?.every((r) => r.student_id === world.childA)).toBe(true)
+  })
+
+  test('a guardian still cannot book one', async () => {
+    const { error } = await world.guardianOfA.db
+      .from('specialist_appointments')
+      .insert({
+        student_id: world.childA,
+        specialist_id: world.specialist.id,
+        starts_at: at(1500),
+      })
+
+    // Seeing is a read. Booking is a claim on somebody else's working day.
+    expect(error).not.toBeNull()
   })
 
   test('a school administrator cannot', async () => {

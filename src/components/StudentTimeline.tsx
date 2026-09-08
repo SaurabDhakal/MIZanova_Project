@@ -21,6 +21,7 @@ import { ErrorState } from './QueryState'
 import Icon, { type IconName } from './Icon'
 import Spinner from './Spinner'
 import StrategyPanel from './StrategyPanel'
+import EditBehaviourLogDialog from './EditBehaviourLogDialog'
 
 /**
  * One child's story, in date order.
@@ -40,6 +41,11 @@ import StrategyPanel from './StrategyPanel'
  * apply, so the flag pill renders only where the answer is genuinely `true` and
  * never says "not flagged" about a parent's note.
  */
+
+/* How many entries are drawn before "See more". Small enough that whatever
+   sits below the timeline stays reachable, large enough to be a day or two of
+   activity rather than a teaser. */
+const INITIAL_ROWS = 5
 
 const KINDS: TimelineKind[] = [
   'behaviour',
@@ -145,6 +151,7 @@ function Entry({
   studentId,
   strategies,
   status,
+  statusUnknown,
   onShare,
   sharing,
 }: {
@@ -152,10 +159,15 @@ function Entry({
   studentId: string
   strategies: StrategyRow[]
   status?: LogStrategyStatus
+  /* `status` is undefined both while it loads and when the query failed, and
+     StrategyPanel treats undefined as "nothing pending, nothing rejected".
+     This tells the two apart. */
+  statusUnknown: boolean
   onShare: (id: string, shared: boolean) => void
   sharing: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
   const time = timeLabel(row.occurred_at)
   const actionable = row.kind === 'behaviour'
 
@@ -246,12 +258,38 @@ function Entry({
                 </span>
               </label>
 
+              {/*
+                CORRECTING THE OBSERVATION — db/010 allowed it and nothing
+                offered it. Shown to everyone who can see the log rather than
+                only its author: a school administrator may correct any of
+                them, and the dialog says which rule applies once it has read
+                the record. Hiding it here would have meant guessing at the
+                acknowledgement state from a timeline row that does not carry
+                it.
+              */}
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="mt-3 text-sm font-semibold text-primary hover:underline"
+              >
+                Correct this observation
+              </button>
+
+              {editing && (
+                <EditBehaviourLogDialog
+                  logId={row.source_id}
+                  studentId={studentId}
+                  onClose={() => setEditing(false)}
+                />
+              )}
+
               <div className="mt-3">
                 <StrategyPanel
                   logId={row.source_id}
                   studentId={studentId}
                   strategies={strategies}
                   status={status}
+                  statusUnknown={statusUnknown}
                 />
               </div>
             </div>
@@ -265,6 +303,7 @@ function Entry({
 export default function StudentTimeline({ studentId }: { studentId: string }) {
   const [kinds, setKinds] = useState<TimelineKind[]>([])
   const [page, setPage] = useState(0)
+  const [showAll, setShowAll] = useState(false)
   const queryClient = useQueryClient()
 
   const timeline = useQuery({
@@ -308,10 +347,25 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
   const rows = timeline.data?.rows ?? []
   const filtered = kinds.length > 0
 
+  /*
+   * A RECENT WINDOW, NOT THE WHOLE PAGE.
+   *
+   * The query already pages at 20, and 20 entries — several of them expandable
+   * into strategies — is still long enough to push everything below the
+   * timeline off the screen. On a child with a full page, "Working towards"
+   * started at 6,594px: nine and a half screens down.
+   *
+   * So the page is fetched as before and the first few are drawn, with the
+   * rest one press away. Newer/Older still move between pages; this only
+   * decides how much of the current one is on screen at once.
+   */
+  const visible = showAll ? rows : rows.slice(0, INITIAL_ROWS)
+  const hidden = rows.length - visible.length
+
   /* Group by day so the reader sees "Friday" once rather than on every row —
      the thing a stack of separate sections could never do. */
   const days: { label: string; rows: TimelineRow[] }[] = []
-  for (const row of rows) {
+  for (const row of visible) {
     const label = dayLabel(row.occurred_at)
     const last = days[days.length - 1]
     if (last && last.label === label) last.rows.push(row)
@@ -339,7 +393,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             setPage(0)
           }}
           aria-pressed={!filtered}
-          className={`rounded-btn px-2.5 py-1 text-xs font-semibold ${
+          className={`min-h-11 rounded-btn px-2.5 py-1 text-xs font-semibold ${
             !filtered
               ? 'bg-primary text-primary-foreground'
               : 'border border-border text-muted-foreground hover:bg-background'
@@ -355,7 +409,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
               type="button"
               onClick={() => toggle(kind)}
               aria-pressed={on}
-              className={`rounded-btn px-2.5 py-1 text-xs font-semibold ${
+              className={`min-h-11 rounded-btn px-2.5 py-1 text-xs font-semibold ${
                 on
                   ? 'bg-primary text-primary-foreground'
                   : 'border border-border text-muted-foreground hover:bg-background'
@@ -411,6 +465,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
                   (s) => s.behaviour_log_id === row.source_id,
                 )}
                 status={(strategyStatus.data ?? {})[row.source_id]}
+                statusUnknown={strategyStatus.isError}
                 onShare={(id, shared) => share.mutate({ id, shared })}
                 sharing={share.isPending}
               />
@@ -419,13 +474,35 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
         </div>
       ))}
 
+      {/* Says how many are hidden rather than just "more", because the useful
+          question at the bottom of a timeline is whether it is worth opening. */}
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+        >
+          See {hidden} more on this page
+        </button>
+      )}
+
+      {showAll && rows.length > INITIAL_ROWS && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+        >
+          Show fewer
+        </button>
+      )}
+
       {timeline.isSuccess && (timeline.data.hasMore || page > 0) && (
         <div className="mt-5 flex items-center gap-3">
           <button
             type="button"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Newer
           </button>
@@ -433,7 +510,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             type="button"
             disabled={!timeline.data.hasMore}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Older
           </button>

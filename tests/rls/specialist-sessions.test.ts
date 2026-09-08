@@ -477,3 +477,94 @@ describe('verification gates the clinical record too', () => {
     expect(data ?? []).toEqual([])
   })
 })
+
+/*
+ * ---------------------------------------------------------------------------
+ * WRITING AND REVISING THE CLINICAL NOTE
+ * ---------------------------------------------------------------------------
+ * db/028: "Written and revised only by the specialist who ran the session. A
+ * colleague on the same caseload may read a clinical note; rewriting one is
+ * different."
+ *
+ * The read side of that sentence has always been tested. The write side never
+ * was, because nothing wrote one after the session was created — `createSession`
+ * inserts the note once and, when that insert fails, tells the specialist to
+ * "open the session and add them again", which was impossible. `saveSessionNotes`
+ * exists now, so the policy it leans on is worth pinning.
+ */
+describe('who may write the clinical note — db/028', () => {
+  test('the specialist who ran the session can revise it', async () => {
+    const { data, error } = await world.specialist.db
+      .from('specialist_session_notes')
+      .upsert(
+        { session_id: sessionId, notes: 'Revised after re-reading the video.' },
+        { onConflict: 'session_id' },
+      )
+      .select('session_id')
+
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+
+    const { data: back } = await admin
+      .from('specialist_session_notes')
+      .select('notes')
+      .eq('session_id', sessionId)
+      .single()
+    expect(back?.notes).toBe('Revised after re-reading the video.')
+  })
+
+  test('and can add one to a session that has none — the recovery path', async () => {
+    // createSession's own error message promises this: the session saves, the
+    // note does not, "open the session and add them again".
+    const { data: bare } = await admin
+      .from('specialist_sessions')
+      .insert({
+        student_id: world.childA,
+        specialist_id: world.specialist.id,
+        session_date: '2026-08-24',
+        duration_minutes: 30,
+      })
+      .select('id')
+      .single()
+
+    const { data, error } = await world.specialist.db
+      .from('specialist_session_notes')
+      .upsert(
+        { session_id: bare!.id, notes: 'Added after the first save failed.' },
+        { onConflict: 'session_id' },
+      )
+      .select('session_id')
+
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+
+    await admin.from('specialist_sessions').delete().eq('id', bare!.id)
+  })
+
+  test('another specialist cannot rewrite it, though they may read it', async () => {
+    const before = await admin
+      .from('specialist_session_notes')
+      .select('notes')
+      .eq('session_id', sessionId)
+      .single()
+
+    const { data } = await world.otherSpecialist.db
+      .from('specialist_session_notes')
+      .upsert(
+        { session_id: sessionId, notes: 'Rewritten by a colleague.' },
+        { onConflict: 'session_id' },
+      )
+      .select('session_id')
+
+    // This is the distinction db/028 draws, and the reason the app calls
+    // assertChanged: nothing is refused, nothing is changed.
+    expect(data ?? []).toEqual([])
+
+    const after = await admin
+      .from('specialist_session_notes')
+      .select('notes')
+      .eq('session_id', sessionId)
+      .single()
+    expect(after.data?.notes).toBe(before.data?.notes)
+  })
+})

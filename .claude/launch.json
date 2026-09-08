@@ -3,6 +3,9 @@
   "configurations": [
     {
       "name": "mizanova-project",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5273,
       "url": "http://localhost:5273"
     }
   ]

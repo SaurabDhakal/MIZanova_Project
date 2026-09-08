@@ -63,7 +63,15 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
 function byCurrency(rows: SchoolBillingTotals[]) {
   const out = new Map<
     string,
-    { collected: number; outstanding: number; overdue: number; overdueCents: number }
+    {
+      collected: number
+      outstanding: number
+      overdue: number
+      overdueCents: number
+      /* db/071 — see the Past due tile. */
+      noDueDate: number
+      noDueDateCents: number
+    }
   >()
 
   for (const row of rows) {
@@ -72,11 +80,15 @@ function byCurrency(rows: SchoolBillingTotals[]) {
       outstanding: 0,
       overdue: 0,
       overdueCents: 0,
+      noDueDate: 0,
+      noDueDateCents: 0,
     }
     at.collected += row.collected_cents
     at.outstanding += row.outstanding_cents
     at.overdue += row.overdue
     at.overdueCents += row.overdue_cents
+    at.noDueDate += row.no_due_date
+    at.noDueDateCents += row.no_due_date_cents
     out.set(row.currency, at)
   }
 
@@ -120,8 +132,32 @@ export default function Billing() {
     },
   })
 
-  if (totals.isPending) return <LoadingCards count={3} />
-  if (totals.isError) return <ErrorState message={totals.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Billing &amp; revenue"
+      lead="What every school has invoiced families, and what has been collected."
+    />
+  )
+
+  if (totals.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (totals.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={totals.error.message} />
+      </>
+    )
 
   const schoolName = (id: string) =>
     schools.data?.find((s) => s.id === id)?.name ?? 'Unknown school'
@@ -139,10 +175,7 @@ export default function Billing() {
 
   return (
     <div>
-      <PageHeader
-        title="Billing &amp; revenue"
-        lead="What every school has invoiced families, and what has been collected."
-      />
+      {header}
 
       {money.length === 0 ? (
         <EmptyState
@@ -196,6 +229,28 @@ export default function Billing() {
                   ? 'Nothing overdue'
                   : `${sums.overdue} invoice${sums.overdue === 1 ? '' : 's'}, part of outstanding`}
               </p>
+
+              {/*
+                THE MONEY THAT CAN NEVER BE LATE — db/071.
+
+                `due_date` is nullable and the overdue figure skips nulls, which
+                is arithmetically right and quietly incomplete: an issued
+                invoice with no due date sits in outstanding for ever and can
+                never appear above, however long it goes unpaid.
+
+                Shown only when there is some, and kept OUT of the headline
+                number rather than folded into it. Calling an invoice late when
+                nobody set a date would be inventing a deadline, and this figure
+                is the one somebody quotes in an email to a school.
+              */}
+              {sums.noDueDate > 0 && (
+                <p className="mt-2 border-t border-border pt-2 text-sm text-warning-foreground">
+                  <span className="font-semibold">
+                    {formatMoney(sums.noDueDateCents, currency)}
+                  </span>{' '}
+                  more has no due date, so it can never show as overdue.
+                </p>
+              )}
             </div>
           </div>
         ))
@@ -208,7 +263,22 @@ export default function Billing() {
             By school
           </h2>
           <div className="overflow-x-auto rounded-card border border-border bg-card shadow-raised">
-            <table className="w-full min-w-[40rem] text-left">
+            {/*
+              The school name is the only column here holding words; the other
+              five hold a count or an amount. Without widths the browser sized
+              them by content and the name column lost, wrapping
+              "Parramatta West Primary School" until the row stood 128px tall
+              for six short values. Same fix as the Schools table.
+            */}
+            <table className="w-full min-w-[48rem] table-fixed text-left">
+              <colgroup>
+                <col className="w-[28%]" />
+                <col className="w-[12%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+              </colgroup>
               <caption className="sr-only">
                 Each school with what it has collected, what is outstanding and
                 what is past its due date
@@ -230,8 +300,12 @@ export default function Billing() {
                   <th scope="col" className="p-4 text-right text-sm font-semibold">
                     Overdue
                   </th>
+                  {/* "Actions", matching the invoices table below. A screen
+                      reader was announcing "Filter" over a cell whose contents
+                      read "See invoices" — the header named what the link does
+                      rather than what the column holds. */}
                   <th scope="col" className="p-4 text-sm font-semibold">
-                    <span className="sr-only">Filter</span>
+                    <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
@@ -457,7 +531,7 @@ export default function Billing() {
                               voidInvoice.reset()
                               setVoiding(invoice)
                             }}
-                            className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                            className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
                           >
                             Void
                           </button>

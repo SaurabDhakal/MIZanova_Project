@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import Spinner from './Spinner'
 import { ROLE_CONFIG, type Role } from '../lib/roles'
 import { useAuth } from '../lib/auth'
+import IdleTimeout from './IdleTimeout'
 import { titleFor } from '../lib/pageTitles'
 import Icon from './Icon'
 import Logo from './Logo'
@@ -160,7 +161,7 @@ export default function AppShell({ role }: { role: Role }) {
             {!collapsed && (
               <h2
                 id={`nav-${group.heading.replace(/\s+/g, '-')}`}
-                className="px-3 pb-1.5 text-xs font-semibold tracking-wider text-sidebar-muted uppercase"
+                className="px-3 pb-1.5 text-sm font-semibold tracking-wider text-sidebar-muted uppercase"
               >
                 {group.heading}
               </h2>
@@ -200,7 +201,7 @@ export default function AppShell({ role }: { role: Role }) {
           to="/account/profile"
           title={collapsed ? 'Settings' : undefined}
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-btn py-2 text-sm hover:bg-white/10 hover:text-sidebar-foreground ${
+            `flex min-h-11 items-center gap-3 rounded-btn py-2 text-sm hover:bg-white/10 hover:text-sidebar-foreground ${
               collapsed ? 'justify-center px-0' : 'px-3'
             } ${isActive ? 'text-sidebar-foreground' : 'text-sidebar-muted'}`
           }
@@ -212,7 +213,7 @@ export default function AppShell({ role }: { role: Role }) {
           type="button"
           onClick={() => setCollapsed((v) => !v)}
           aria-expanded={!collapsed}
-          className={`hidden w-full items-center gap-3 rounded-btn py-2 text-sm text-sidebar-muted hover:bg-white/10 hover:text-sidebar-foreground md:flex ${collapsed ? 'justify-center px-0' : 'px-3'}`}
+          className={`hidden min-h-11 w-full items-center gap-3 rounded-btn py-2 text-sm text-sidebar-muted hover:bg-white/10 hover:text-sidebar-foreground md:flex ${collapsed ? 'justify-center px-0' : 'px-3'}`}
         >
           <Icon
             name="collapse"
@@ -228,6 +229,10 @@ export default function AppShell({ role }: { role: Role }) {
 
   return (
     <div className="flex min-h-screen">
+      {/* NFR5. Renders nothing for the roles it does not apply to, and nothing
+          for the four it does until they have been idle for nineteen minutes —
+          so it costs a listener and a five-second interval, and no layout. */}
+      <IdleTimeout />
       {/* WCAG 2.4.1, Bypass Blocks. The sidebar repeats on every screen, so a
           keyboard user was tabbing through every nav item before reaching the
           page — on a roster of thirty students, on every single navigation.
@@ -279,10 +284,10 @@ export default function AppShell({ role }: { role: Role }) {
             the page title are all things you reach for mid-page. `z-10` so the
             page scrolls underneath rather than through it — the search results
             panel inside carries its own z-index within this context. */}
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:px-8">
+        <header className="print-hide sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card px-4 py-3 md:px-8">
           <button
             type="button"
-            className="rounded-btn border border-border px-3 py-2 text-sm font-medium md:hidden"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-medium md:hidden"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen(true)}
           >
@@ -323,7 +328,9 @@ export default function AppShell({ role }: { role: Role }) {
                 one, and every role's lines are counted from work that is really
                 waiting — see NotificationBell. */}
             <NotificationBell role={role} basePath={config.basePath} />
-            <AccountMenu roleLabel={config.label} />
+            {/* The label as this person should see it, not as they are catalogued.
+                `selfLabel` is only set where the two differ. */}
+            <AccountMenu roleLabel={config.selfLabel ?? config.label} />
           </div>
         </header>
 

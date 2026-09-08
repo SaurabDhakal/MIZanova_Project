@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { cloneElement, isValidElement, useId, useState } from 'react'
+import type { ReactElement } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import IepAgreement from '../../components/IepAgreement'
+import IepSupportSchedule from '../../components/IepSupportSchedule'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createIepGoalReview,
   IEP_OUTCOME_LABEL,
   IEP_STATUS_LABEL,
   addIepParticipant,
@@ -15,12 +19,17 @@ import {
   updateIepPlan,
   type IepGoalRow,
   type IepPlanDetail,
+  type IepReviewOutcome,
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import { showToast } from '../../lib/toast'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
+
+/* The four boxes on the paper form, taken from the labels rather than written
+   out again — a second list is where the two would start disagreeing. */
+const IEP_OUTCOMES = Object.keys(IEP_OUTCOME_LABEL) as IepReviewOutcome[]
 
 /**
  * The IEP/ILP form itself.
@@ -72,11 +81,50 @@ function Field({
   hint?: string
   children: React.ReactNode
 }) {
+  /*
+   * THE LABEL WAS A PARAGRAPH, SO THERE WAS NO LABEL.
+   *
+   * This rendered `<p>{label}</p>` above the control. It looked labelled and
+   * was not: nothing connected the words to the field, so a screen reader
+   * announced "edit text" with no name, and clicking the label focused
+   * nothing. Across the twelve fields of the plan editor — the longest form in
+   * the product, carrying a child's education plan.
+   *
+   * `FormField.tsx` has always done this correctly with `useId()`. This was a
+   * local shortcut that lost it, which is the easier mistake to make: the
+   * screen looks identical either way.
+   *
+   * The id is injected rather than asked for, so the twelve call sites do not
+   * change. Every one of them holds exactly one element — an input, a textarea,
+   * or the read-only paragraph the frozen plan shows instead — and cloning it
+   * to add `id` and `aria-describedby` is what lets the label point at it.
+   *
+   * The hint is a DESCRIPTION, not part of the name. Put inside the label it
+   * would be read out with every field: "Long term goal specific measurable
+   * achievable realistic timed". `aria-describedby` keeps it available without
+   * making it the field's name.
+   */
+  const id = useId()
+  const hintId = hint ? id + '-hint' : undefined
+
+  const control = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+        id,
+        'aria-describedby': hintId,
+      })
+    : children
+
   return (
     <div>
-      <p className="text-sm font-semibold text-foreground">{label}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      <div className="mt-1.5">{children}</div>
+      <label htmlFor={id} className="text-sm font-semibold text-foreground">
+        {label}
+      </label>
+      {hint && (
+        <p id={hintId} className="mt-0.5 text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      <div className="mt-1.5">{control}</div>
     </div>
   )
 }
@@ -204,14 +252,14 @@ function GoalCard({
               !form.short_term_goal.trim()
             }
             onClick={() => save.mutate()}
-            className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
+            className="min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
           >
             Cancel
           </button>
@@ -238,7 +286,7 @@ function GoalCard({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-background"
+              className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-background"
             >
               Edit
             </button>
@@ -246,7 +294,7 @@ function GoalCard({
               type="button"
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
-              className="rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+              className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
             >
               Remove
             </button>
@@ -284,7 +332,169 @@ function GoalCard({
           {latestReview.comment}
         </blockquote>
       )}
+
+      {/*
+        THE REVIEW IS THE ONE THING THE FREEZE LETS THROUGH.
+
+        db/054 stops the wording and the goals changing once a plan is agreed,
+        and deliberately keeps reviews open: "the review can still be recorded
+        — that is the entire purpose of the later meeting." So this appears on
+        an agreed plan, beside controls that have gone read-only.
+
+        Until now nothing wrote a review at all. The badge above and the
+        comment beside it — and the outcome families see on their own screen —
+        were all rendering a row that could never exist, so a plan could be
+        agreed, worked to for a year, and never recorded as met or not.
+      */}
+      {frozen && <RecordReview goalId={goal.id} onSaved={invalidate} />}
     </li>
+  )
+}
+
+// ---------------------------------------------------------------------------
+function RecordReview({
+  goalId,
+  onSaved,
+}: {
+  goalId: string
+  onSaved: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [outcome, setOutcome] = useState<IepReviewOutcome | null>(null)
+  const [comment, setComment] = useState('')
+  /* Defaulted to today because that is usually right, and editable because a
+     meeting is often typed up days later. */
+  const [reviewedOn, setReviewedOn] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  )
+  const [error, setError] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: () =>
+      createIepGoalReview({
+        goalId,
+        outcome: outcome!,
+        comment,
+        reviewedOn,
+      }),
+    onSuccess: () => {
+      onSaved()
+      setOpen(false)
+      setOutcome(null)
+      setComment('')
+      showToast('Review recorded.')
+    },
+    onError: (e) => setError(e.message),
+  })
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 text-sm font-semibold text-primary hover:underline"
+      >
+        Record a review of this goal
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="mt-4 rounded-card border border-border bg-background/60 p-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!outcome) return setError('Choose an outcome.')
+        setError(null)
+        save.mutate()
+      }}
+    >
+      {error && (
+        <p
+          role="alert"
+          className="mb-3 rounded-btn border border-danger bg-danger-subtle p-2 text-sm text-danger-foreground"
+        >
+          {error}
+        </p>
+      )}
+
+      <fieldset>
+        <legend className="text-sm font-medium text-foreground">
+          How did it go?
+        </legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {IEP_OUTCOMES.map((o) => (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={outcome === o}
+              onClick={() => setOutcome(o)}
+              className={`min-h-11 rounded-btn border px-3 py-1.5 text-sm font-semibold ${
+                outcome === o
+                  ? 'border-primary bg-primary-subtle text-primary'
+                  : 'border-border bg-card text-foreground'
+              }`}
+            >
+              {IEP_OUTCOME_LABEL[o]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+        <div>
+          <label
+            htmlFor={`reviewed-on-${goalId}`}
+            className="block text-sm font-medium text-foreground"
+          >
+            Date of the review
+          </label>
+          <input
+            id={`reviewed-on-${goalId}`}
+            type="date"
+            value={reviewedOn}
+            onChange={(e) => setReviewedOn(e.target.value)}
+            className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor={`review-comment-${goalId}`}
+            className="block text-sm font-medium text-foreground"
+          >
+            What happened
+          </label>
+          <input
+            id={`review-comment-${goalId}`}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Uses the break card most days without a prompt."
+            className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          />
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        The family sees this outcome against the goal on their own screen.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {save.isPending ? 'Saving…' : 'Record it'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -399,14 +609,14 @@ function AddGoal({
             !form.shortTerm.trim()
           }
           onClick={() => add.mutate()}
-          className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {add.isPending ? 'Adding…' : 'Add'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
+          className="min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
         >
           Cancel
         </button>
@@ -491,13 +701,21 @@ function Participants({
 
       {!frozen && (
         <div className="mt-2 flex flex-wrap gap-2">
+          {/*
+            A PLACEHOLDER IS NOT A NAME. It disappears the moment somebody
+            types, several screen readers ignore it outright, and these two
+            sit in a row with no visible label of their own — so without this
+            they were announced as "edit text, edit text".
+          */}
           <input
+            aria-label="Name of somebody involved in this plan"
             className={`${inputClass} max-w-52`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Name"
           />
           <input
+            aria-label="Their role"
             className={`${inputClass} max-w-52`}
             value={role}
             onChange={(e) => setRole(e.target.value)}
@@ -507,7 +725,7 @@ function Participants({
             type="button"
             disabled={!name.trim() || add.isPending}
             onClick={() => add.mutate()}
-            className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background disabled:opacity-60"
+            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background disabled:opacity-60"
           >
             Add
           </button>
@@ -773,7 +991,7 @@ export default function IepPlanEditor() {
               type="button"
               disabled={save.isPending || details === null}
               onClick={() => save.mutate()}
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {save.isPending ? 'Saving…' : 'Save plan details'}
             </button>
@@ -825,6 +1043,8 @@ export default function IepPlanEditor() {
         </div>
       )}
 
+      <IepSupportSchedule planId={planId} />
+
       {/* --- agreement ----------------------------------------------------- */}
       {!frozen && (
         <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
@@ -839,7 +1059,7 @@ export default function IepPlanEditor() {
               type="button"
               disabled={goals.length === 0}
               onClick={() => setConfirmingAgree(true)}
-              className="mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               Agree this plan
             </button>
@@ -867,14 +1087,14 @@ export default function IepPlanEditor() {
                   type="button"
                   disabled={agree.isPending}
                   onClick={() => agree.mutate()}
-                  className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
                   {agree.isPending ? 'Agreeing…' : 'Yes, agree this plan'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingAgree(false)}
-                  className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                  className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
                 >
                   Not yet
                 </button>
@@ -888,6 +1108,20 @@ export default function IepPlanEditor() {
               not a plan.
             </p>
           )}
+        </section>
+      )}
+
+      {/* --- who has personally agreed ------------------------------------- */}
+      {frozen && (
+        <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
+          <h2 className="text-section text-foreground">Agreement</h2>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            Marking a plan agreed records the school&rsquo;s decision. This
+            records the people who have said yes to it themselves — each person
+            can confirm only for their own account, so a family&rsquo;s
+            agreement cannot be added on their behalf.
+          </p>
+          <IepAgreement planId={planId} asGuardian={false} />
         </section>
       )}
     </div>

@@ -44,17 +44,26 @@ export default defineConfig({
       manifest: false,
       // Registered from React so the update prompt can be shown properly.
       injectRegister: null,
-      workbox: {
-        // Put the Workbox runtime INSIDE sw.js instead of a second file it
-        // pulls in with importScripts at startup.
-        //
-        // Without this the service worker is only alive while it happens to be
-        // running. The browser shuts idle workers down and restarts them on the
-        // next request — and a restart offline cannot fetch workbox-*.js, so
-        // importScripts throws and the worker dies before it can serve a single
-        // cached file. Offline then fails in a way that looks random, because
-        // it depends on whether the worker was already awake.
-        inlineWorkboxRuntime: true,
+
+      /*
+       * injectManifest, NOT generateSW, since push notifications arrived.
+       *
+       * A generated worker has no place to put a `push` listener. The usual
+       * answer is `workbox.importScripts`, which is precisely the thing the
+       * note on inlineWorkboxRuntime below was written to prevent: a worker
+       * restarted while offline cannot fetch a second script, so it dies
+       * before serving one cached file.
+       *
+       * So the worker is written out in src/sw.ts and bundled. Everything the
+       * generated one did is still there — precache, navigation fallback, no
+       * runtime caching, wait-to-activate — and inlineWorkboxRuntime is gone
+       * because bundling makes it meaningless: there is no second file left to
+       * import.
+       */
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         // svg included so the favicon does not 404 offline — it is a shipped
         // asset, and a console full of failures makes real ones harder to see.
         // `png` is here for the logo. The app is expected to open with the
@@ -62,10 +71,7 @@ export default defineConfig({
         // showing the fallback while the rest of the screen is fine — which
         // reads as a half-broken app rather than as an absent network.
         globPatterns: ['**/*.{js,css,html,woff2,svg,png}'],
-        // Deep links must work offline too. Without this, /educator/students
-        // opens from cache but /educator/students/<id> does not, because the
-        // browser asks the network for a URL that only React Router knows.
-        navigateFallback: 'index.html',
+        // (Deep-link fallback now lives in src/sw.ts, as a NavigationRoute.)
         // The bundle is over the default 2 MiB precache limit.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },

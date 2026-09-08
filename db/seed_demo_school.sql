@@ -141,7 +141,39 @@ on conflict (id) do nothing;
 
 
 -- ---------------------------------------------------------------------------
--- 4. AI strategies, spread across the routing threshold
+-- 4. The consent that has to exist before section 5 may
+-- ---------------------------------------------------------------------------
+-- THIS SECTION WAS MISSING AND ITS ABSENCE WAS VISIBLE TO FAMILIES.
+--
+-- The strategies below are written straight into the table, which is the one
+-- path that goes around the consent gate in server/index.js — that gate guards
+-- the generation ROUTE, and a seed does not use it. So the demo shipped 111
+-- strategies across 27 children whose Privacy & Consent screen said, correctly,
+-- "Not given". Nothing was broken, and it looked precisely like the product
+-- doing the one thing it promises never to do.
+--
+-- Dated a day before the child's first log so the order a reader reconstructs
+-- is the order the product actually requires: asked first, generated after.
+-- db/082 backfills the same rows for data seeded before this section existed.
+insert into public.consents
+  (id, student_id, consent_type, granted_at, policy_version, notes)
+select
+  md5('demo-consent-ai-' || s.id::text)::uuid,
+  s.id,
+  'ai_strategy_generation',
+  coalesce(
+    (select min(l.occurred_at) from public.behaviour_logs l where l.student_id = s.id),
+    now()
+  ) - interval '1 day',
+  'v1',
+  'Demo seed. Not a consent any family gave.'
+from public.students s
+where s.external_ref like 'DEMO-%'
+on conflict (id) do nothing;
+
+
+-- ---------------------------------------------------------------------------
+-- 5. AI strategies, spread across the routing threshold
 -- ---------------------------------------------------------------------------
 -- The confidence histogram on AI Governance exists to show whether the
 -- threshold is cutting the distribution somewhere sensible, and it cannot do
@@ -192,7 +224,7 @@ on conflict (id) do nothing;
 
 
 -- ---------------------------------------------------------------------------
--- 5. Goals
+-- 6. Goals
 -- ---------------------------------------------------------------------------
 -- Spread across every status so the parent and specialist screens show more
 -- than one state, including the two that are easy to forget: 'needs_review',
@@ -238,7 +270,7 @@ where (n + g) % 2 = 0
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- 6. Screening checks, one in each state the report can tell apart
+-- 7. Screening checks, one in each state the report can tell apart
 -- ---------------------------------------------------------------------------
 -- The Screening page has never had a row in it, so nobody has seen what it
 -- does — including the part that matters most. db/051 distinguishes four

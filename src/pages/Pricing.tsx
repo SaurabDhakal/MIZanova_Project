@@ -1,10 +1,23 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import PublicLayout from '../components/PublicLayout'
-import type { EnquiryPlan } from '../lib/api'
+import {
+  fetchCourseCatalogue,
+  fetchIndividualPlan,
+  formatMoney,
+  queryKeys,
+  type EnquiryPlan,
+} from '../lib/api'
 
 /**
  * Pricing — docs/Untitled (4)/P-005 Pricing.jpg and P-005 Pricing (Parents View).jpg.
+ *
+ * THE SCHOOL FIGURES ALSO LIVE IN src/lib/plans.ts, which Subscriptions reads
+ * when a platform admin records what a school agreed. They were only here, so
+ * that screen had nothing to compare a typed rate against and the first
+ * agreement it recorded contradicted this page. Keep the two in step: this page
+ * is what a customer is shown, and that screen is what they are charged.
  *
  * Every figure here is copied from those designs. Nothing is estimated,
  * averaged or rounded, because a price is a statement to a customer and
@@ -213,9 +226,39 @@ function PlanCard({ plan }: { plan: Plan }) {
   )
 }
 
+type Audience = 'schools' | 'montessori' | 'families' | 'individual'
+
+const AUDIENCE_LABELS: Record<Audience, string> = {
+  schools: 'For schools',
+  montessori: 'Montessori & early years',
+  families: 'For families',
+  individual: 'For myself',
+}
+
 export default function Pricing() {
-  const [audience, setAudience] = useState<'schools' | 'families'>('schools')
-  const plans = audience === 'schools' ? SCHOOL_PLANS : FAMILY_PLANS
+  const [audience, setAudience] = useState<Audience>('schools')
+
+  /*
+   * Fetched whichever tab is showing, and that is deliberate. It is one small
+   * read of published titles and prices, and having it already in hand means
+   * the individuals tab does not flash "Loading the current prices" at
+   * somebody who has just clicked onto it.
+   */
+  const catalogue = useQuery({
+    queryKey: queryKeys.courseCatalogue,
+    queryFn: fetchCourseCatalogue,
+  })
+  /* The subscription — db/111. Same reasoning as the catalogue above: read
+     from the database rather than typed here, so the page and the thing that
+     charges cannot drift. Signed-out readable through a definer view. */
+  const plan = useQuery({
+    queryKey: queryKeys.individualPlan,
+    queryFn: fetchIndividualPlan,
+  })
+  const forIndividuals = (catalogue.data ?? []).filter((c) =>
+    c.audiences.includes('individual'),
+  )
+  const allFree = forIndividuals.every((c) => c.price_cents === null)
 
   return (
     <PublicLayout
@@ -226,8 +269,8 @@ export default function Pricing() {
           keys move between them, which two styled buttons would not do. */}
       <fieldset className="mb-10 flex justify-center">
         <legend className="sr-only">Show pricing for</legend>
-        <div className="inline-flex rounded-btn border border-border bg-card p-1">
-          {(['schools', 'families'] as const).map((value) => (
+        <div className="inline-flex flex-wrap justify-center rounded-btn border border-border bg-card p-1">
+          {(Object.keys(AUDIENCE_LABELS) as Audience[]).map((value) => (
             <label
               key={value}
               className={`cursor-pointer rounded-btn px-5 py-2 text-sm font-semibold ${
@@ -244,66 +287,422 @@ export default function Pricing() {
                 onChange={() => setAudience(value)}
                 className="sr-only"
               />
-              {value === 'schools' ? 'For schools' : 'For families'}
+              {AUDIENCE_LABELS[value]}
             </label>
           ))}
         </div>
       </fieldset>
 
       <h2 className="text-center text-title text-foreground">
-        {audience === 'schools' ? 'School subscriptions' : 'Family plans'}
+        {audience === 'schools'
+          ? 'School subscriptions'
+          : audience === 'montessori'
+            ? 'Montessori centres and early years'
+            : audience === 'individual'
+              ? 'Working on this yourself'
+              : 'Family plans'}
       </h2>
       <p className="mt-1 mb-8 text-center text-muted-foreground">
         {audience === 'schools'
           ? 'Annual contracts. Pilot programmes available.'
-          : 'Monthly or annual. No hidden costs.'}
+          : audience === 'montessori'
+            ? 'Quoted per centre, because a centre is not sized like a school.'
+            : audience === 'individual'
+              ? 'A free account, and courses bought one at a time.'
+              : 'Reached through your school today. Nothing to pay.'}
       </p>
 
-      {/* SAID BEFORE THE PRICES, NOT AFTER THEM. Family subscriptions have
-          prices on this page because the client's design has prices, but there
-          is nothing to buy yet — a parent reaches MiZanova through their
-          child's school. Letting somebody read three cards and press a button
-          before mentioning that would make the button the thing that broke the
-          news. The buttons say "Tell me when this opens" for the same reason. */}
-      {audience === 'families' && (
-        <p className="mx-auto mb-8 max-w-2xl rounded-btn border border-border bg-card px-4 py-3 text-center text-sm text-muted-foreground">
-          <strong className="font-semibold text-foreground">
-            Family plans are not open yet.
-          </strong>{' '}
-          Today, families reach MiZanova through their child&rsquo;s school,
-          which costs them nothing. Leave your details and we will tell you when
-          these open.
-        </p>
+      {audience === 'schools' && (
+        <ul className="grid gap-6 lg:grid-cols-3">
+          {SCHOOL_PLANS.map((plan) => (
+            <PlanCard key={plan.name} plan={plan} />
+          ))}
+        </ul>
       )}
 
-      <ul className="grid gap-6 lg:grid-cols-3">
-        {plans.map((plan) => (
-          <PlanCard key={plan.name} plan={plan} />
-        ))}
-      </ul>
+      {/* ---------------------------------------------------------------
+          MONTESSORI — A PANEL, NOT A PRICE TABLE, AND THAT IS THE HONEST
+          SHAPE.
 
-      {audience === 'families' && (
-        <>
-          <h2 className="mt-14 text-center text-title text-foreground">
-            Optional add-ons
-          </h2>
-          <ul className="mt-6 grid gap-6 md:grid-cols-3">
-            {ADD_ONS.map((addOn) => (
-              <li
-                key={addOn.name}
-                className="rounded-card border border-border bg-card shadow-raised p-5"
-              >
-                <h3 className="font-bold text-foreground">{addOn.name}</h3>
-                <p className="mt-1 font-semibold text-warning-foreground">
-                  {addOn.price}
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {addOn.detail}
-                </p>
+          The school bands are per student. docs/11 sets out why that ruler
+          does not fit: Montessori in Australia is substantially early
+          childhood, a centre is not sized like a primary school, and these
+          settings have no year levels to count children into. Three cards
+          with figures arrived at by analogy would be inventing a price.
+
+          So this says what is different, what is included, and asks for a
+          conversation — which is what Large schools already does, for the
+          same reason.
+          --------------------------------------------------------------- */}
+      {audience === 'montessori' && (
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-card border border-border bg-card p-6 shadow-raised sm:p-8">
+            <p className="text-3xl font-bold text-foreground">
+              Quoted per centre
+            </p>
+            <p className="mt-2 max-w-prose text-muted-foreground">
+              Everything a school gets, in the language your setting actually
+              uses. Tell us how many children you have and how your
+              environments are arranged, and we will price it against that
+              rather than against a student roll.
+            </p>
+
+            <div className="mt-6 grid gap-6 sm:grid-cols-2">
+              <div>
+                <h3 className="font-bold text-foreground">
+                  What changes for you
+                </h3>
+                <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                  <li>
+                    Guides and environments, not teachers and classes. The
+                    words on the screen match the ones in the room.
+                  </li>
+                  <li>
+                    Three-year mixed-age groupings &mdash; Casa, Lower
+                    Elementary, Upper Elementary &mdash; instead of year
+                    levels.
+                  </li>
+                  <li>
+                    Observations rather than behaviour incidents, which is
+                    closer to how you already record.
+                  </li>
+                  <li>
+                    Built for long day care, preschool and toddler programmes
+                    as well as school-age settings.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">
+                  What is the same
+                </h3>
+                <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                  <li>AI suggestions, with a specialist able to hold one back.</li>
+                  <li>Family accounts included at no extra cost.</li>
+                  <li>Safeguarding queue and acknowledgement times.</li>
+                  <li>Staff verification and the compliance dashboard.</li>
+                  <li>Records held in Sydney, never leaving Australia.</li>
+                </ul>
+              </div>
+            </div>
+
+            <Link
+              to="/enquiry?plan=montessori"
+              className="mt-8 inline-block rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
+            >
+              Talk to us about your centre
+            </Link>
+          </div>
+
+          {/* SAID PLAINLY RATHER THAN LEFT AS A GAP. A page that simply had
+              no number where the others have three reads as an oversight. */}
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            There is no published figure here yet because the school bands are
+            priced per student, and that is the wrong measure for a centre. We
+            would rather quote you than round you into somebody else&rsquo;s
+            band.
+          </p>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------
+          INDIVIDUALS — THE ONLY CUSTOMER ON THIS PAGE WHO CAN BUY
+          SOMETHING TODAY, AND THE ONLY ONE WHO HAD NO TAB.
+
+          THE PRICES ARE READ, NOT PRINTED. Every other section here carries
+          figures copied from the client's designs. An individual's prices are
+          not a published list at all: they are `courses.price_cents`, set on
+          the Courses screen, and the checkout charges from that column. So
+          this section reads the same column rather than keeping a second copy
+          of it — which is the fault plans.ts exists to have ended.
+
+          Today every course is free and the page says so plainly. The day
+          Special Miles prices one, it appears here with no code change.
+          --------------------------------------------------------------- */}
+      {audience === 'individual' && (
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-card border border-border bg-card p-6 shadow-raised">
+            <h3 className="font-bold text-foreground">
+              The account itself is free, and stays free
+            </h3>
+            <ul className="mt-3 space-y-2 text-muted-foreground">
+              <li>
+                Reading from Special Miles, including everything about how your
+                information is handled.
               </li>
+              <li>
+                Suggestions for your own situation, written for you rather than
+                about you. There is a daily limit so one person cannot use up
+                the day for everybody, and you are told plainly if you reach
+                it.
+              </li>
+              <li>
+                A record of what you have read and where you got to, which
+                nobody else can see &mdash; not a school, not Special Miles.
+              </li>
+              <li>
+                Closing the account, whenever you like, from the account page.
+              </li>
+            </ul>
+            <p className="mt-4 text-sm text-muted-foreground">
+              No card is asked for and no trial is running.
+            </p>
+          </div>
+
+          {/* --- what a course costs, read from the database ------------- */}
+          <h3 className="mt-10 font-semibold text-foreground">Courses</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bought one at a time. You read the first part of any course free,
+            then decide &mdash; and a course you have paid for stays yours even
+            if it later stops being offered to anybody else.
+          </p>
+
+          {catalogue.isPending && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Loading the current prices&hellip;
+            </p>
+          )}
+
+          {catalogue.isError && (
+            <p className="mt-4 text-sm text-danger-foreground">
+              The current prices could not be loaded, so none are shown rather
+              than shown wrongly. {catalogue.error.message}
+            </p>
+          )}
+
+          {catalogue.isSuccess && forIndividuals.length === 0 && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              There are no courses for individuals published yet.
+            </p>
+          )}
+
+          {forIndividuals.length > 0 && (
+            <dl className="mt-4 divide-y divide-border rounded-card border border-border bg-background">
+              {forIndividuals.map((course) => (
+                <div
+                  key={course.id}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+                >
+                  <dt className="font-medium text-foreground">
+                    {course.title}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {course.modules} part{course.modules === 1 ? '' : 's'}
+                    </span>
+                  </dt>
+                  <dd className="text-sm font-semibold text-foreground">
+                    {course.price_cents === null
+                      ? 'Free'
+                      : formatMoney(course.price_cents, course.currency)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {allFree && forIndividuals.length > 0 && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Every course is free at the moment. If that changes, the price is
+              on the course before you start it &mdash; nothing here begins
+              charging you quietly.
+            </p>
+          )}
+
+          <Link
+            to="/signup?as=individual"
+            className="mt-6 inline-block rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
+          >
+            Create my account
+          </Link>
+
+          {/* ------------------------------------------------------------
+              THE SUBSCRIPTION — db/111, read from the database, never typed.
+              ------------------------------------------------------------
+              `individual_plan_public` is a definer view granted to `anon` for
+              db/098's reason: a pricing page is read by people who are not
+              signed in, and a shop that hides its prices until you have an
+              account is not protecting anything.
+
+              WHEN THERE IS NO PRICE THIS SAYS SO AND SHOWS NO BUTTON. A
+              "Subscribe" control that fails on press is the fault this
+              codebase keeps finding in itself, and a figure invented to fill
+              the space would be the fabricated ABN again.
+              ------------------------------------------------------------ */}
+          <h3 className="mt-12 font-semibold text-foreground">
+            A subscription
+          </h3>
+
+          {plan.isPending && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Loading&hellip;
+            </p>
+          )}
+
+          {/* The catalogue above does exactly this, and for the same reason: a
+              heading with nothing under it reads as a broken page, and a price
+              that failed to load must not be replaced by a guess. */}
+          {plan.isError && (
+            <p className="mt-1 max-w-prose text-sm text-danger-foreground">
+              Whether there is a subscription could not be loaded, so nothing is
+              shown rather than shown wrongly. {plan.error.message}
+            </p>
+          )}
+
+          {plan.isSuccess && !plan.data?.is_offered && (
+            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+              There is not one yet. Special Miles has not settled a price, and
+              nothing here will print one nobody has agreed to. Everything
+              described above is free and stays free; if a subscription is
+              offered it appears here with the figure on it, and it would
+              change how many suggestions you can ask for in a day rather than
+              whether you can use MiZanova.
+            </p>
+          )}
+
+          {plan.isSuccess &&
+            plan.data?.is_offered &&
+            plan.data.price_cents !== null && (
+              <div className="mt-3 rounded-card border border-border bg-card p-6 shadow-raised">
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <h4 className="font-bold text-foreground">
+                    {plan.data.name}
+                  </h4>
+                  <p className="text-2xl font-bold tabular-nums text-foreground">
+                    {formatMoney(plan.data.price_cents, plan.data.currency)}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {' '}
+                      / {plan.data.bill_every === 'year' ? 'year' : 'month'}
+                    </span>
+                  </p>
+                </div>
+                {plan.data.trial_days && (
+                  <p className="mt-1 text-sm font-semibold text-primary">
+                    Free for the first {plan.data.trial_days} days.
+                  </p>
+                )}
+                <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  <li>
+                    Suggestions answered by the more capable model &mdash; the
+                    one that does not give up on the hard questions.
+                  </li>
+                  <li>
+                    More suggestions a day than the free account allows.
+                  </li>
+                  <li>
+                    Everything else is identical, and cancelling leaves you with
+                    what you paid for until the period ends.
+                  </li>
+                </ul>
+                <Link
+                  to="/signup"
+                  className="mt-5 inline-block rounded-btn bg-primary px-5 py-3 font-semibold text-primary-foreground"
+                >
+                  {plan.data.trial_days
+                    ? 'Start the free trial'
+                    : 'Make an account'}
+                </Link>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  You subscribe from your account page once you are signed in.
+                  Payment is taken by Stripe; MiZanova never sees your card.
+                </p>
+              </div>
+            )}
+
+          {/* --- what is not built, said before it is asked for ---------- */}
+          <h3 className="mt-12 font-semibold text-foreground">
+            One-to-one sessions
+          </h3>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            You can ask a verified specialist for forty-five minutes, and they
+            accept or decline. What does not exist is a price: Special Miles
+            has not set one, so nothing is charged and nobody will ask you for
+            a card. When there is a figure it will be here, and asking will
+            still be asking &mdash; a specialist&rsquo;s afternoon is not
+            something you buy off a shelf.
+          </p>
+          <Link
+            to="/enquiry?plan=individual"
+            className="mt-4 inline-block rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground"
+          >
+            Tell me when this opens
+          </Link>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------
+          FAMILIES — DELIBERATELY THE SMALLEST SECTION ON THE PAGE.
+
+          It used to be two full plan cards and a three-card add-on grid:
+          more surface than the schools it sits beside, for something nobody
+          can buy. A family reaches MiZanova through their child's school and
+          pays nothing, so the useful answer is one short one.
+
+          The client's published figures are all still here, as a compact
+          list rather than a sales layout. Deleting them would lose real
+          numbers from the P-005 design; displaying them as three-column
+          cards oversells something that is not open.
+          --------------------------------------------------------------- */}
+      {audience === 'families' && (
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-card border border-border bg-card p-6 shadow-raised">
+            <h3 className="font-bold text-foreground">
+              Right now, families pay nothing
+            </h3>
+            <p className="mt-2 text-muted-foreground">
+              You reach MiZanova through your child&rsquo;s school, and your
+              account is included in what the school pays. There is no family
+              plan to buy and no card to enter.
+            </p>
+            <Link
+              to="/for-parents"
+              className="mt-4 inline-block font-semibold text-primary hover:underline"
+            >
+              What families get &rarr;
+            </Link>
+          </div>
+
+          <h3 className="mt-10 font-semibold text-foreground">
+            What is planned, and not open
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Direct family subscriptions are designed but not built. These are
+            the advertised figures, kept here so they are not lost &mdash; not
+            an offer.
+          </p>
+          <dl className="mt-4 divide-y divide-border rounded-card border border-border bg-background">
+            {FAMILY_PLANS.map((plan) => (
+              <div
+                key={plan.name}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+              >
+                <dt className="font-medium text-foreground">
+                  {plan.name}
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {plan.subtitle}
+                  </span>
+                </dt>
+                <dd className="text-sm text-muted-foreground">
+                  {plan.price} {plan.period}
+                </dd>
+              </div>
             ))}
-          </ul>
-        </>
+            {ADD_ONS.map((addOn) => (
+              <div
+                key={addOn.name}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+              >
+                <dt className="font-medium text-foreground">{addOn.name}</dt>
+                <dd className="text-sm text-muted-foreground">{addOn.price}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <Link
+            to="/enquiry?kind=family"
+            className="mt-6 inline-block rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground"
+          >
+            Tell me when this opens
+          </Link>
+        </div>
       )}
 
       {/* --- What this page cannot yet promise ----------------------------- */}
@@ -311,10 +710,16 @@ export default function Pricing() {
         <h2 className="font-semibold text-foreground">
           Before you choose a plan
         </h2>
+        {/* THE SCHOOL SENTENCE WAS SHOWN TO EVERYBODY, including somebody on
+            the "For myself" tab who has no school and is not creating one.
+            The true half — that nothing on this page charges you — holds for
+            all four audiences and is the half worth keeping. */}
         <p className="mt-2 text-sm text-muted-foreground">
-          Creating an account is free and does not charge you. Paid plans are
-          not yet connected to billing, so choosing one here signs you up and
-          nothing more — no card is taken and no plan is applied.
+          Nothing on this page takes a payment. No card is entered here and no
+          plan is applied.{' '}
+          {audience === 'individual'
+            ? 'You make an account first, and anything with a price on it is paid for from inside it, with the figure shown before you decide.'
+            : 'Every button here starts a conversation — a school account is created by Special Miles, because creating one means creating the thing every account at that school hangs off.'}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
           The design for this page also carries a list of frequently asked

@@ -112,6 +112,17 @@ const ACTIONS: Record<string, AuditActionStyle> = {
     label: 'Routing threshold changed',
     className: 'bg-primary-subtle text-primary',
   },
+  /*
+   * db/078. Named separately from the threshold because it is a different kind
+   * of decision: the threshold trades caution against review work, this one
+   * decides how much money can be spent in a day. Before db/078 a limit change
+   * was not recorded at all, and would have appeared here as a threshold
+   * change — a true-looking entry describing something that did not happen.
+   */
+  'ai.limit_changed': {
+    label: 'AI daily limit changed',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
 
   // db/066. A school correcting its own name, suburb, state, timezone or ABN.
   'school.details_changed': {
