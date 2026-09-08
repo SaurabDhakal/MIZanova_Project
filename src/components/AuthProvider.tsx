@@ -525,7 +525,17 @@ export default function AuthProvider({
    * Supabase then mails the NEW address and changes nothing until that link is
    * opened. Worth also turning on "Secure email change" in the dashboard,
    * which additionally mails the OLD address — so a change made behind
-   * somebody's back is at least visible to them.
+   * somebody's back is at least visible to them. With that setting on there
+   * are TWO links and BOTH must be opened; the address does not move on the
+   * first one, which reads exactly like the mail not working.
+   *
+   * `emailRedirectTo` for the same reason as requestPasswordReset above: with
+   * no redirect the link lands on whatever Site URL the dashboard holds, which
+   * on this project is not necessarily where the person is working, and they
+   * arrive somewhere general with nothing saying the change went through. Back
+   * to the profile screen, which shows the address it now is. Must be allowed
+   * under Authentication → URL Configuration → Redirect URLs, or Supabase
+   * silently falls back to the Site URL.
    */
   const changeEmail = useCallback(
     async (currentPassword: string, newEmail: string) => {
@@ -556,7 +566,10 @@ export default function AuthProvider({
         )
       }
 
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
+      const { error } = await supabase.auth.updateUser(
+        { email: newEmail.trim() },
+        { emailRedirectTo: `${window.location.origin}/account/profile` },
+      )
       if (error) throw error
     },
     [session],
