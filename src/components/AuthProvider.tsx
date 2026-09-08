@@ -454,6 +454,18 @@ export default function AuthProvider({
    * a recovery link, is the person who proved they can read that mailbox.
    * There is no "old password" argument because at that point they do not have
    * one to give.
+   *
+   * ENDING THE OTHER SESSIONS IS SUPABASE'S JOB, AND IT DOES IT. Measured on
+   * 9 September 2026 against this project: after `updateUser({ password })`
+   * another device's refresh token is dead and its already-minted access token
+   * is refused with a 403, with no `signOut` call of any kind. A belt-and-
+   * braces `signOut({ scope: 'others' })` was written here and removed again —
+   * it changed nothing, and its failure path told people their other devices
+   * were still signed in when they were not.
+   *
+   * tests/integration/sessionRevocation is what holds that behaviour down, so
+   * a Supabase upgrade that quietly changed it would fail rather than surprise
+   * somebody resetting a password they believe was stolen.
    */
   const setNewPassword = useCallback(async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password })
@@ -472,6 +484,9 @@ export default function AuthProvider({
    * code prompt for changing their own password. This second client is
    * configured never to persist or refresh anything, so it validates the
    * password and disappears without touching the real session.
+   *
+   * Supabase then ends every OTHER session by itself — see the note on
+   * `setNewPassword` above, and tests/integration/sessionRevocation.
    */
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {

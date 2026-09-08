@@ -184,6 +184,20 @@ reports a count, ask what it shows when the question could not be asked.
   test suite cannot create throwaway accounts, because it signs up at a reserved
   domain that can never receive mail. It must go back **ON** before this is used
   by real people, or anyone can register an address they do not own.
+
+  **The signup risk is not the worst one.** With confirmation off, changing the
+  address on an EXISTING account can also take effect with no link opened by
+  anybody. That address receives every future password reset, so whoever changes
+  it holds the account permanently and the real owner cannot start a recovery —
+  the address they would type is no longer on the account. The only thing in
+  front of that is the current-password prompt in `changeEmail`, which runs in
+  the browser and stops nobody who opens DevTools on an unattended signed-in
+  laptop. These are shared classroom machines.
+
+  `npm run auth-config-check` reads the live project and fails while this is
+  off. It is not in the `security-check` bundle yet, precisely because it fails
+  today and a check that always fails gets ignored — add it there in the same
+  change that turns the setting on.
 - **There are no seeded user accounts.** The first platform admin is made by
   signing up at `/signup` with a real address, then running TASK 4 in
   `db/admin_tasks.sql`. The signup trigger can only create a parent, deliberately

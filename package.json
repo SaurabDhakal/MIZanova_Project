@@ -12,6 +12,7 @@
     "server": "node --env-file=.env.local server/index.js",
     "apply-db": "node scripts/apply-db.mjs",
     "anonymisation-check": "node scripts/anonymisation-check.mjs",
+    "auth-config-check": "node scripts/auth-config-check.mjs",
     "bundle-secret-check": "node scripts/bundle-secret-check.mjs",
     "security-check": "node scripts/security-check.mjs && node scripts/anonymisation-check.mjs && node scripts/bundle-secret-check.mjs && node scripts/contrast-check.mjs",
     "preview": "vite preview",
