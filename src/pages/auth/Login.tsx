@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
+import { authRedirect } from '../../lib/supabase'
 import { pathForRole } from '../../lib/roles'
 import FormField from '../../components/FormField'
 import Spinner from '../../components/Spinner'
@@ -38,7 +39,21 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  /*
+   * SEEDED FROM THE URL, because arriving here is sometimes an answer rather
+   * than a starting point. A rejected link from an email — expired, already
+   * used, a confirmation for a change that is no longer pending — lands the
+   * person on this page with the reason in the fragment and nothing to read.
+   * They followed a link and got a login form: identical, from where they are
+   * standing, to the mail never having worked at all.
+   *
+   * A lazy initialiser rather than an effect: the value is fixed at module
+   * load (see lib/supabase), so there is nothing to react to, and an effect
+   * would flash the bare form first.
+   */
+  const [error, setError] = useState<string | null>(() =>
+    authRedirect.error ? `That link did not work: ${authRedirect.error}` : null,
+  )
   const [submitting, setSubmitting] = useState(false)
 
   if (loading) return <Spinner label="Checking your session" />

@@ -7,6 +7,7 @@ import {
   uploadMyAvatar,
 } from '../../lib/api'
 import { useAuth, type Profile as ProfileRow } from '../../lib/auth'
+import { authRedirect } from '../../lib/supabase'
 import { ROLE_CONFIG } from '../../lib/roles'
 import Avatar from '../../components/Avatar'
 import { ErrorState } from '../../components/QueryState'
@@ -387,6 +388,42 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
               : 'What you sign in with, and where a password reset would be sent.'}
           </p>
 
+          {/*
+            THE ARRIVAL, NOT THE DEPARTURE. This screen is where the link in
+            the confirmation email lands, and until now landing here said
+            nothing: the address in the field below had quietly become the new
+            one, and the only way to find out was to sign out and guess which
+            address still worked. Somebody did exactly that, and reasonably
+            concluded the mail was broken.
+
+            `message` is Supabase's own words, shown rather than rewritten,
+            because it is the "one down, one to go" of a secure email change
+            and only Supabase knows which half is outstanding. In this product
+            an email change is the only two-sided flow that produces one, so
+            reading it here is not as presumptuous as it looks.
+          */}
+          {(authRedirect.type === 'email_change' || authRedirect.message) && (
+            <div
+              role="status"
+              className="mt-4 rounded-card border border-success bg-success-subtle p-5 text-sm text-success-foreground"
+            >
+              {authRedirect.message ? (
+                <p className="font-medium">{authRedirect.message}</p>
+              ) : (
+                <>
+                  <p className="font-medium">
+                    Confirmed. Your email address is now {profile.email}.
+                  </p>
+                  <p className="mt-1">
+                    That is what you sign in with from now on. Your password and
+                    your authenticator app are unchanged — they belong to the
+                    account, not to the address.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-foreground">
@@ -444,10 +481,28 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
               {emailChange.error.message}
             </p>
           )}
+          {/*
+            SAYING BOTH INBOXES, because the alternative is a person who did
+            everything right and watched nothing happen. This said only "check
+            the new address for the confirmation link" — true when Supabase's
+            "Secure email change" is off, and half the story when it is on:
+            that setting mails the OLD address as well and moves nothing until
+            BOTH links are opened. Opening one and finding the address
+            unchanged is indistinguishable from a mail that never arrived.
+
+            Named inboxes rather than "your old address" because the old one is
+            about to stop being obvious, and this is the sentence somebody
+            reads an hour later while hunting for the second mail.
+          */}
           {emailChange.isSuccess && (
-            <p className="mt-3 text-sm font-medium text-success-foreground">
-              Check {email.trim()} for the confirmation link.
-            </p>
+            <div className="mt-3 space-y-1 text-sm font-medium text-success-foreground">
+              <p>A confirmation link is on its way to {email.trim()}.</p>
+              <p className="font-normal">
+                If one also arrives at {profile.email}, open that too — the
+                address only moves once every link sent has been opened. Until
+                then you keep signing in with {profile.email}.
+              </p>
+            </div>
           )}
         </section>
       </div>
