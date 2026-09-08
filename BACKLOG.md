@@ -886,6 +886,34 @@ bearer token claiming `service_role`.
 
 ### Verified by driving it
 
+- [x] **CI went red on main after #37 merged, and it was a real bug.**
+      `cleanupStrays()` chose SCHOOLS by the school's age and USERS by the
+      user's age. A world creates its school and then its accounts seconds
+      later, so for a window of seconds each hour the school is past the
+      one-hour cutoff and its members are not: the school is selected for
+      deletion, everybody attached to it is skipped, and db/060 refuses with
+      "This organisation still has N live staff membership(s)."
+
+      Three files died that way on the merge run (1, 2 and 4 memberships) and
+      `onboarding.test.ts:223` failed with a null school id as collateral,
+      because rows were removed from under a run still using them. The pull
+      request had been green an hour earlier — which is what makes this shape
+      expensive: it teaches everybody to re-run rather than to read.
+
+      Fixed by making the two halves agree by construction: anybody who
+      belongs to a school already chosen for deletion goes with it, whatever
+      their own age says. It never widens which SCHOOLS are targeted, so a
+      live run is still untouchable. `deleteUser` failures are also captured
+      now instead of dropped — they were the reason the school delete blamed
+      a membership, which is a true statement about the wrong thing.
+
+      `tests/rls/stray-cleanup.test.ts` manufactures the state — an old
+      school with a young member — because the real window is seconds wide
+      and opens an hour after a build. **Verified both ways:** with the fix
+      reverted it reproduces CI's exact message; with it restored it passes.
+
+
+
 - [x] **The horizontal sweep — an account with no school against every
       child-scoped table.** `tests/rls/authorization-matrix.test.ts`, 22
       tests, 8 seconds, one account. The other 38 suites are vertical, one
