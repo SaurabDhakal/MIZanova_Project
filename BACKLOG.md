@@ -767,20 +767,22 @@ accessible names. Everything below is a measured number.
 
 ### Not fixed, and why
 
-- [ ] **Fourteen screens drop their own `<h1>` while loading.** They return
-      `<LoadingCards>` / `<ErrorState>` / `<EmptyState>` before rendering
-      `<PageHeader>`, so the heading arrives with the data and pushes the page
-      down — and an empty or failed screen has no title at all. Seen on
-      educator and specialist Messages with a fresh account. The files:
-      `parent/Appointments`, `shared/Academy`, `shared/Library`,
-      `student/MyGoals`, `educator/Messages`, `specialist/Messages` and eight
-      under `platformAdmin/`. Left because it is fourteen files of restructure
-      on the morning of a demo, not because it is small.
+- [x] ~~Fourteen screens drop their own `<h1>` while loading.~~ Fixed the
+      same day, across sixteen files in the end — the two Messages screens
+      had no heading in ANY state, which is worse than the fourteen. The
+      heading is hoisted above the returns so every state renders it. Audit
+      log and Record access keep their export button OUT of the loading and
+      error states, because it reads `events.data.total`, which does not
+      exist yet. Proved by delaying Supabase 2.6s in the page and sampling
+      every 150ms: Library holds its h1 for all fifteen loading frames.
 - [ ] **Tertiary text links measure 19-24px.** WCAG 2.2 AA asks 24, not 44 —
       44 is AAA. The ones under 24 are fixed. Making the rest 44 would lengthen
       the pages Saurab asked to shorten, so they are left compliant.
-- [ ] **Heading level skips h1 -> h3** on `/for-schools`, `/security`,
-      platform-admin Enquiries and Applications, school-admin People.
+- [x] ~~Heading level skips h1 -> h3.~~ Fixed in all five. CardGrid was the
+      shared cause on the two public pages; the three admin screens each had
+      the page title as the only heading above a list of cards, so the cards
+      were top-level sections wearing the wrong tag. Verified in the page:
+      For schools, Security and Features read h1 then h2 throughout.
 - [ ] **FullCalendar's prev/next carry `aria-pressed` on a non-toggle.** The
       library's own markup; `buttonHints` already gives them a name.
 - [x] ~~The Library still carries "articultion exrecise".~~ It does not. The
