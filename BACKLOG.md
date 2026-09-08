@@ -884,19 +884,69 @@ bearer token claiming `service_role`.
       definition, which is why an audit reads it as an accident. Worth a
       comment on the `create view`, not a migration.
 
+### Verified by driving it
+
+- [x] **The horizontal sweep — an account with no school against every
+      child-scoped table.** `tests/rls/authorization-matrix.test.ts`, 22
+      tests, 8 seconds, one account. The other 38 suites are vertical, one
+      per feature; "can an individual read a behaviour log" belongs to no
+      feature and so was asked nowhere.
+
+      **The first version broke the suite and is worth recording.** It built
+      a specialist world plus a student and an individual — eleven actors —
+      and printed a full role-by-table matrix. Better evidence, and it took
+      the full run from 456s to 927s with three unrelated files failing
+      inside `signInWithRetry`: Supabase's free tier refusing the burst.
+      `world.ts` had already written that down about a smaller increase.
+      Redesigned to need no world at all — an individual should see nothing
+      whether or not a fixture exists, and running against the real database
+      (44 students, 200+ logs, 35 consents) is a stronger claim than running
+      against three students somebody just made.
+
+      It also asserts that the zeroes are not vacuous: the account is signed
+      in and reads the public price list, and the tables it saw nothing in
+      are confirmed non-empty through the service key. Without that, a
+      broken sign-in would pass every test in the file — the same fault the
+      AI quota check, the health endpoint and the CI secret step each had
+      once.
+
+      The full ten-actor matrix was captured once as evidence before the
+      redesign: `unverifiedEducator`, `unverifiedSpecialist`, `student` and
+      `individual` all saw **zero rows in all sixteen tables**; each guardian
+      saw exactly their own child; `guardianOfB` saw none of childA's five
+      care-team rows.
+- [x] **The payment webhook is forgery-proof.** `npm run webhook-check`:
+      unsigned refused, forged signature refused, signature computed over
+      other bytes refused, correctly signed accepted. It marks invoices paid,
+      so an unsigned request would be a public URL that clears anyone's bill.
+- [ ] **Email and push are NOT verified.** `npm run mail-check <address>` and
+      `npm run push-check <address>` both send a real message to a real
+      person, which is not mine to trigger. Run them yourself before trusting
+      invitations — as of 28 August the production mail key was returning
+      `401: API key is invalid`, and invitations are how a school onboards.
+
 ### Low / cosmetic
 
-- [ ] **db/120 written, not applied.** After db/119 the anonymous grant count
+- [x] ~~db/120 written, not applied.~~ **Applied 8 September and verified:** After db/119 the anonymous grant count
       fell from 91 to 14, and all fourteen sit on the two deliberately public
       price lists — SELECT, which is intended, plus INSERT, UPDATE, DELETE,
       TRUNCATE, REFERENCES and TRIGGER, which are not. Those writes fail today
       because both views compute or filter, but that is db/072's "query's shape
-      protecting it rather than a decision". Housekeeping; nothing is exposed
-      while it waits.
+      protecting it rather than a decision". The anonymous grant count is now
+      **2** — `SELECT` on `course_catalogue` and `individual_plan_public`,
+      and nothing else on anything. 91 → 14 → 2.
 
-- [ ] **20 routes validate the request body before authenticating.** A forged
-      token gets `400 "invoiceId is required"` rather than `401`, which lets
-      an unauthenticated caller map the input schema. No route reached data.
+- [x] ~~20 routes validate the request body before authenticating.~~ **Not
+      worth fixing, and the first assessment was too generous to itself.**
+      The claim was that it "lets an unauthenticated caller map the input
+      schema" — but those field names ship in the browser bundle, because
+      the frontend calls these routes with them. Nothing is learned that
+      `view-source` does not already give away, so the information leak is
+      zero and twenty route edits would buy nothing.
+
+      What DID matter in that finding was the status code — a rejected
+      credential answering 400 instead of 401 — and that was only ever
+      true on `/api/screening/:id/remind`, which is fixed.
 - [ ] **30 foreign keys have no supporting index.** Slow cascades and joins;
       invisible until a table grows.
 - [x] ~~`scripts/tmp-ghost.mjs` and `scripts/tmp-race.mjs` are committed
