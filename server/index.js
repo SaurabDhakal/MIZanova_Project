@@ -532,6 +532,76 @@ async function stripeKeyWorks() {
   return ok
 }
 
+/**
+ * Is the webhook secret a SECRET, or is it still the line from .env.example?
+ *
+ * This was `Boolean(process.env.STRIPE_WEBHOOK_SECRET)`, and on 8 Sep it
+ * reported `stripe_webhook_configured: true` for four hours while the value
+ * was the literal `whsec_xxxxxxxxxxxxxxxxxxxx` shipped in the template. Every
+ * real notification from Stripe was rejected for a bad signature throughout,
+ * and this endpoint said the payment system was complete.
+ *
+ * That is precisely the fault the note above `stripeKeyWorks` describes for
+ * the API key — a prefix test cannot tell a key from a shape — repeated one
+ * variable along, because the key learned the lesson and the secret did not.
+ *
+ * A webhook secret cannot be verified against Stripe: the only proof is a
+ * signed event arriving, which does not happen on demand. So this checks
+ * everything short of that and stops claiming the rest.
+ */
+function webhookSecretLooksReal(secret) {
+  if (!secret) return false
+  if (!secret.startsWith('whsec_')) return false
+  // The template's placeholder, and anything else padded out with x's.
+  if (/x{6,}/i.test(secret)) return false
+  return secret.length >= 32
+}
+
+/**
+ * Does the price the plan is selling actually exist at Stripe?
+ *
+ * THE CHECK THAT WOULD HAVE FOUND IT. `individual_plan.stripe_price_id` held
+ * `mk_1U0OBBHOcDQ5feVDjCMOefZr` — a plausible-looking id, of a price that had
+ * never existed, on an account with no products at all. Every attempt to
+ * subscribe died with `No such price`, the person got a toast, and health said
+ * `ok` because the KEY was fine. Nothing asked the question that mattered.
+ *
+ * Only meaningful when something is on sale. A plan that is switched off is
+ * not broken for having no price, so that reports true rather than dragging
+ * the whole endpoint into 'degraded' over a deliberate state.
+ *
+ * Cached on the same five-minute clock and for the same reason.
+ */
+let priceCheck = { at: 0, ok: false }
+
+async function subscriptionPriceResolves() {
+  if (Date.now() - priceCheck.at < STRIPE_CHECK_TTL_MS) return priceCheck.ok
+
+  let ok = false
+  try {
+    const { data: plan } = await admin
+      .from('individual_plan')
+      .select('stripe_price_id, is_offered')
+      .eq('id', 1)
+      .single()
+
+    if (!plan?.is_offered) {
+      ok = true
+    } else if (plan.stripe_price_id) {
+      const stripe = await getStripe()
+      if (stripe) {
+        const price = await stripe.prices.retrieve(plan.stripe_price_id)
+        // On sale means subscribable, so a one-off price is as wrong as none.
+        ok = price.active && price.type === 'recurring'
+      }
+    }
+  } catch {
+    ok = false
+  }
+  priceCheck = { at: Date.now(), ok }
+  return ok
+}
+
 app.get('/api/health', async (_req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY
   const checks = {
@@ -540,7 +610,10 @@ app.get('/api/health', async (_req, res) => {
     stripe_key_present: Boolean(stripeKey),
     stripe_key_looks_right: Boolean(stripeKey?.startsWith('sk_')),
     stripe_key_works: await stripeKeyWorks(),
-    stripe_webhook_configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+    stripe_webhook_configured: webhookSecretLooksReal(
+      process.env.STRIPE_WEBHOOK_SECRET,
+    ),
+    stripe_price_resolves: await subscriptionPriceResolves(),
   }
 
   try {
@@ -554,7 +627,10 @@ app.get('/api/health', async (_req, res) => {
   // payments cannot be recorded is the failure this endpoint exists to avoid.
   const healthy = checks.supabase && checks.anthropic
   const complete =
-    healthy && checks.stripe_key_works && checks.stripe_webhook_configured
+    healthy &&
+    checks.stripe_key_works &&
+    checks.stripe_webhook_configured &&
+    checks.stripe_price_resolves
 
   res.status(healthy ? 200 : 503).json({
     ok: healthy,
@@ -1006,6 +1082,27 @@ function whenInSydney(date) {
  * metadata. Later events are about a subscription that already has a row, so
  * the update must not null the column out — hence the conditional spread.
  */
+/**
+ * When the paid-for period ends — asked of the right object.
+ *
+ * Stripe moved `current_period_start` and `current_period_end` OFF the
+ * Subscription and onto its items in API version 2025-03-31. The pinned SDK is
+ * newer than that, so `sub.current_period_end` is not zero or wrong: it is
+ * absent. `seconds(undefined)` then returned null, and every row written since
+ * has carried a null renewal date without one line of error anywhere.
+ *
+ * It reads as "no renewal date yet" rather than as a fault, which is why it
+ * survived: the subscription screen simply showed nothing where a date goes,
+ * and the cancel confirmation fell back to "the period ends" — a sentence
+ * vague enough to look deliberate.
+ *
+ * The old path is kept as a fallback so pinning an older API version does not
+ * silently break it the other way.
+ */
+function periodEnd(sub) {
+  return sub?.current_period_end ?? sub?.items?.data?.[0]?.current_period_end ?? null
+}
+
 async function recordSubscription(sub, profileId = null) {
   try {
     const price = sub.items?.data?.[0]?.price
@@ -1041,7 +1138,7 @@ async function recordSubscription(sub, profileId = null) {
       stripe_subscription_id: sub.id,
       stripe_customer_id:
         typeof sub.customer === 'string' ? sub.customer : (sub.customer?.id ?? null),
-      current_period_end: seconds(sub.current_period_end),
+      current_period_end: seconds(periodEnd(sub)),
       trial_ends_at: seconds(sub.trial_end),
       cancel_at_period_end: Boolean(sub.cancel_at_period_end),
       /* db/111 has a check constraint tying these together: a canceled row
@@ -3126,11 +3223,41 @@ app.post('/api/billing/subscribe', async (req, res) => {
        type-checking it, and then threw ReferenceError on the first real
        request. It only surfaced by putting the plan on sale and pressing the
        button. */
+    /* ONE PERSON, ONE STRIPE CUSTOMER.
+     *
+     * `customer_email` alone makes Stripe create a NEW customer every time
+     * checkout is opened. Testing on 8 Sep produced cus_VDqST2…, cus_VDqUUM…
+     * and cus_VDqfAT… for one account inside twenty minutes, each holding one
+     * fragment of the same person's billing history.
+     *
+     * That is survivable in test mode and expensive in production: somebody
+     * who subscribes, cancels and comes back a year later arrives as a
+     * stranger, with their card, their receipts and their tax history filed
+     * under a customer nobody can reach from this row. Refunding them means
+     * finding which of four customers took the money.
+     *
+     * Any prior subscription of theirs carries the id, cancelled ones
+     * included — which is exactly the returning-customer case — so the most
+     * recent one is the right place to look. First-timers still fall back to
+     * the email, and Stripe makes the single customer they should have. */
+    const { data: priorCustomer } = await admin
+      .from('individual_subscriptions')
+      .select('stripe_customer_id')
+      .eq('profile_id', user.id)
+      .not('stripe_customer_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
     const origin = returnOrigin(req)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
-      customer_email: user.email ?? undefined,
+      /* Mutually exclusive at Stripe — sending both is an error, not a
+         preference, so this is one or the other and never a spread of both. */
+      ...(priorCustomer?.stripe_customer_id
+        ? { customer: priorCustomer.stripe_customer_id }
+        : { customer_email: user.email ?? undefined }),
       /* Stripe owns the trial. Passing the number rather than implementing a
          clock here means "14 days" means the same thing on the invoice, in the
          dashboard and on the screen. Null sends nothing, which is no trial. */
@@ -3289,8 +3416,8 @@ app.post('/api/billing/subscription/cancel', async (req, res) => {
 
     return res.json({
       cancelAtPeriodEnd: !resume,
-      endsAt: updated.current_period_end
-        ? new Date(updated.current_period_end * 1000).toISOString()
+      endsAt: periodEnd(updated)
+        ? new Date(periodEnd(updated) * 1000).toISOString()
         : null,
     })
   } catch (err) {
