@@ -834,7 +834,7 @@ bearer token claiming `service_role`.
 
 ### High
 
-- [ ] **Nine objects answered an anonymous caller with `[]` instead of
+- [x] ~~Nine objects answered an anonymous caller with `[]` instead of
       refusing.** `iep_plans` (5 real children's plans), `iep_goals`,
       `iep_goal_reviews`, `iep_plan_confirmations`, `iep_plan_participants`,
       `iep_support_sessions`, `iep_support_totals`, `platform_invoices`,
@@ -846,7 +846,12 @@ bearer token claiming `service_role`.
       scripts, db/054 to db/057, contain no `revoke` at all. **db/119 written,
       NOT YET APPLIED.** `scripts/security-check.mjs` now enumerates every
       object from PostgREST's own schema document and fails on `[]`, so this
-      cannot recur silently; it will stay red until db/119 is run.
+      cannot recur silently. **db/119 APPLIED 8 September and verified:**
+      all nine now answer `401` with Postgres error `42501`, insufficient
+      privilege — a refusal at the grant, before a policy is consulted, which
+      is the same two-layer defence the other 74 objects have. The two public
+      price lists still answer 200. `security-check.mjs` reports
+      "85 objects — every one refused, or public on purpose" and exits 0.
 
 ### Medium
 
@@ -857,10 +862,15 @@ bearer token claiming `service_role`.
       calls `auth.getUser()` first, like `/api/strategies`, and answers `401`
       with a safe message; the database's complaint is logged, not returned.
       Verified against the running server.
-- [ ] **23 other routes return a raw `error.message` to the client.** Same
-      class as the one above, none of them yet shown to leak anything an
-      anonymous caller can reach. Worth one shared helper that logs in full
-      and answers in general, rather than 23 edits.
+- [x] ~~23 other routes return a raw `error.message` to the client.~~ The
+      fourteen that answered **500** now go through one `dbFailed` helper that
+      logs the real error and returns "Something went wrong at our end." None
+      was reachable unauthenticated, so this is hardening rather than a
+      breach — written as one helper because fourteen copies of a decision is
+      fourteen chances to make it differently. Re-probed the surface with a
+      forged bearer afterwards: **0 internal strings, 2 expected 2xx.**
+      Nine sites returning 400/422 are left alone deliberately — several
+      carry crafted messages the interface shows to the person.
 - [ ] **`bookable_specialists` has no `security_invoker`,** so it reads
       `profiles` as its owner and bypasses RLS. It exposes only name, avatar
       and a count, and db/104 intends specialists to be discoverable — but

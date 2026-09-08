@@ -454,6 +454,34 @@ app.use(cors({ origin: CORS_ORIGINS }))
  * endpoint is what such a service would call.
  */
 /**
+ * A database error the caller is not entitled to read.
+ *
+ * ---------------------------------------------------------------------------
+ * LOG IN FULL, ANSWER IN GENERAL
+ * ---------------------------------------------------------------------------
+ * Fourteen routes handed PostgREST's own `error.message` straight to the
+ * browser. Those strings name tables, columns and constraints, and the one
+ * place it was reachable without signing in — /api/screening/:id/remind, found
+ * by probing with a forged bearer on 8 September — answered
+ * "JWT cryptographic operation failed" to a stranger.
+ *
+ * None of these fourteen is reachable unauthenticated, so this is hardening
+ * rather than a breach. It is written as one helper because fourteen copies of
+ * a decision is fourteen chances to make it differently, and because the next
+ * route should have somewhere obvious to reach for.
+ *
+ * The status stays 500: from the caller's side a failed read IS our fault, and
+ * a 400 would tell them to go and fix a request that was fine. `where` is for
+ * the log, never for the response.
+ */
+function dbFailed(res, where, error) {
+  console.error(`${where}:`, error?.message ?? error)
+  return res
+    .status(500)
+    .json({ error: 'Something went wrong at our end. Try again in a moment.' })
+}
+
+/**
  * Does the Stripe key actually work — asked of Stripe, not of the string.
  *
  * ---------------------------------------------------------------------------
@@ -652,7 +680,7 @@ app.post('/api/strategies', async (req, res) => {
       .eq('id', behaviourLogId)
       .maybeSingle()
 
-    if (logError) return res.status(500).json({ error: logError.message })
+    if (logError) return dbFailed(res, 'logError', logError)
     if (!log) {
       // Deliberately the same answer for "does not exist" and "not yours".
       return res.status(404).json({ error: 'Behaviour log not found.' })
@@ -841,7 +869,7 @@ app.post('/api/strategies', async (req, res) => {
       .insert(rows)
       .select('id, title, body, rationale, confidence, status, routing_reason')
 
-    if (insertError) return res.status(500).json({ error: insertError.message })
+    if (insertError) return dbFailed(res, 'insertError', insertError)
 
     /**
      * Record the request itself — db/026.
@@ -1945,7 +1973,7 @@ ${about.body}`, namesToRemove, '[ME]')
       .select('id, created_at, risk_flagged, withheld_count, withheld_reason, asked')
       .single()
 
-    if (requestError) return res.status(500).json({ error: requestError.message })
+    if (requestError) return dbFailed(res, 'requestError', requestError)
 
     let inserted = []
     if (shown.length > 0) {
@@ -1962,7 +1990,7 @@ ${about.body}`, namesToRemove, '[ME]')
         )
         .select('id, title, body, rationale, confidence')
 
-      if (insertError) return res.status(500).json({ error: insertError.message })
+      if (insertError) return dbFailed(res, 'insertError', insertError)
       inserted = data ?? []
     }
 
@@ -2087,7 +2115,7 @@ app.post('/api/home-strategies', async (req, res) => {
       .eq('id', observationId)
       .maybeSingle()
 
-    if (obsError) return res.status(500).json({ error: obsError.message })
+    if (obsError) return dbFailed(res, 'obsError', obsError)
     if (!observation) {
       return res.status(404).json({
         error: 'That observation could not be found on your account.',
@@ -2286,7 +2314,7 @@ app.post('/api/home-strategies', async (req, res) => {
       .select('id, created_at, risk_flagged, withheld_count, withheld_reason')
       .single()
 
-    if (requestError) return res.status(500).json({ error: requestError.message })
+    if (requestError) return dbFailed(res, 'requestError', requestError)
 
     let inserted = []
     if (rows.length > 0) {
@@ -2295,7 +2323,7 @@ app.post('/api/home-strategies', async (req, res) => {
         .insert(rows.map((r) => ({ ...r, request_id: request.id })))
         .select('id, title, body, rationale, confidence, status')
 
-      if (insertError) return res.status(500).json({ error: insertError.message })
+      if (insertError) return dbFailed(res, 'insertError', insertError)
       inserted = data ?? []
     }
 
@@ -2375,7 +2403,7 @@ app.get('/api/strategy-status/:studentId', async (req, res) => {
       .select('id')
       .eq('student_id', req.params.studentId)
 
-    if (logError) return res.status(500).json({ error: logError.message })
+    if (logError) return dbFailed(res, 'logError', logError)
     if (!logs || logs.length === 0) return res.json({ logs: {} })
 
     const { data: rows, error: rowError } = await admin
@@ -2386,7 +2414,7 @@ app.get('/api/strategy-status/:studentId', async (req, res) => {
         logs.map((l) => l.id),
       )
 
-    if (rowError) return res.status(500).json({ error: rowError.message })
+    if (rowError) return dbFailed(res, 'rowError', rowError)
 
     const byLog = {}
     for (const row of rows ?? []) {
@@ -2758,7 +2786,7 @@ app.post('/api/billing/checkout', async (req, res) => {
       .eq('id', invoiceId)
       .maybeSingle()
 
-    if (invoiceError) return res.status(500).json({ error: invoiceError.message })
+    if (invoiceError) return dbFailed(res, 'invoiceError', invoiceError)
     if (!invoice) return res.status(404).json({ error: 'Invoice not found.' })
 
     if (invoice.status === 'paid') {
@@ -2865,7 +2893,7 @@ app.post('/api/billing/course-checkout', async (req, res) => {
       .eq('id', courseId)
       .maybeSingle()
 
-    if (courseError) return res.status(500).json({ error: courseError.message })
+    if (courseError) return dbFailed(res, 'courseError', courseError)
     if (!course) return res.status(404).json({ error: 'Course not found.' })
     if (course.price_cents === null) {
       return res
@@ -2897,7 +2925,7 @@ app.post('/api/billing/course-checkout', async (req, res) => {
       .single()
 
     if (purchaseError) {
-      return res.status(500).json({ error: purchaseError.message })
+      return dbFailed(res, 'purchaseError', purchaseError)
     }
 
     /* Where to send them back to. Read from their profile rather than from the
@@ -4083,7 +4111,7 @@ app.post('/api/push/subscribe', async (req, res) => {
     { onConflict: 'endpoint' },
   )
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return dbFailed(res, 'error', error)
   return res.json({ subscribed: true })
 })
 
@@ -4108,7 +4136,7 @@ app.post('/api/push/unsubscribe', async (req, res) => {
     .eq('endpoint', endpoint)
     .eq('profile_id', user.id)
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return dbFailed(res, 'error', error)
   return res.json({ subscribed: false })
 })
 
