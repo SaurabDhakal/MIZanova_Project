@@ -8,6 +8,9 @@ import {
   type BehaviourType,
   type EvidenceStrategy,
 } from '../../lib/api'
+import DictatedTextarea, {
+  DictationNotice,
+} from '../../components/DictatedTextarea'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NotBuiltYet from '../../components/NotBuiltYet'
@@ -197,32 +200,43 @@ export default function Evidence() {
                 </select>
               </label>
 
-              <label className="block">
-                <span className="text-sm font-semibold text-foreground">
-                  What to try
-                </span>
-                <input
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Warn before transitions"
-                  className={field}
-                />
-              </label>
+              {/* Dictation on the three the form insists on, because a
+                  strategy is usually written up straight after the session it
+                  came out of. One disclosure for the group — see
+                  DictationNotice. */}
+              <DictationNotice>
+                <div className="space-y-4">
+                  <DictatedTextarea
+                    id="evidence-title"
+                    label="What to try"
+                    multiline={false}
+                    required
+                    value={title}
+                    onChange={setTitle}
+                    placeholder="Warn before transitions"
+                  />
 
-              <label className="block">
-                <span className="text-sm font-semibold text-foreground">
-                  How to do it
-                </span>
-                <textarea
-                  required
-                  rows={3}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Give a five-minute and a one-minute warning, using the same words each time."
-                  className={field}
-                />
-              </label>
+                  <DictatedTextarea
+                    id="evidence-body"
+                    label="How to do it"
+                    required
+                    value={body}
+                    onChange={setBody}
+                    placeholder="Give a five-minute and a one-minute warning, using the same words each time."
+                  />
+
+                  <DictatedTextarea
+                    id="evidence-provenance"
+                    label="Where this comes from"
+                    multiline={false}
+                    required
+                    value={provenance}
+                    onChange={setProvenance}
+                    placeholder="Practice guidance, NSW Department of Education, 2024"
+                    hint="Required. This is the sentence you would say if a parent asked why the school is doing this — a claim nobody can check is not evidence."
+                  />
+                </div>
+              </DictationNotice>
 
               <label className="block">
                 <span className="text-sm font-semibold text-foreground">
@@ -235,24 +249,6 @@ export default function Evidence() {
                   placeholder={'One reason per line.\nTurns an abrupt endpoint into a predictable countdown.'}
                   className={field}
                 />
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-foreground">
-                  Where this comes from
-                </span>
-                <input
-                  required
-                  value={provenance}
-                  onChange={(e) => setProvenance(e.target.value)}
-                  placeholder="Practice guidance, NSW Department of Education, 2024"
-                  className={field}
-                />
-                <span className="mt-1 block text-sm text-muted-foreground">
-                  Required. This is the sentence you would say if a parent asked
-                  why the school is doing this — a claim nobody can check is not
-                  evidence.
-                </span>
               </label>
 
               <div className="flex flex-wrap gap-2">

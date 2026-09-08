@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { useSpeechToText } from '../hooks/useSpeechToText'
+import { createContext, useContext, type ReactNode } from 'react'
+import { speechToTextSupported, useSpeechToText } from '../hooks/useSpeechToText'
 import Icon from './Icon'
 
 /**
@@ -33,13 +33,63 @@ import Icon from './Icon'
  * is worth knowing. For a clinical note about a named child it is a disclosure
  * the Australian Privacy Principles require us to make plainly — so it is
  * baked in, appears wherever the control does, and no caller can leave it off.
+ *
+ * A form with three dictatable fields printed it three times, which is how a
+ * disclosure stops being read. `DictationNotice` below moves it to one place
+ * per form. It can be moved; it cannot be removed.
+ *
+ * ---------------------------------------------------------------------------
+ * IT ALSO DRAWS A SINGLE-LINE INPUT, DESPITE THE NAME
+ * ---------------------------------------------------------------------------
+ * The evidence database needs dictation on two `<input>` fields and one
+ * textarea, and everything around the control — the label, the toggle, the
+ * live region, the error, the disclosure — is identical either way. The name
+ * is kept because five screens already import it and renaming a shared
+ * component while three people have work open buys a conflict for nothing.
  */
+
+/** Set by DictationNotice, so a field inside one does not repeat it. */
+const NoticeHandled = createContext(false)
+
+const control =
+  'mt-1.5 w-full rounded-btn border border-border bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground'
+
+/**
+ * Wraps a group of dictatable fields and carries their shared disclosure,
+ * printed once after the group. Fields outside one still carry their own.
+ */
+export function DictationNotice({ children }: { children: ReactNode }) {
+  return (
+    <NoticeHandled.Provider value={true}>
+      {children}
+      <DictationDisclosure />
+    </NoticeHandled.Provider>
+  )
+}
+
+function DictationDisclosure() {
+  return speechToTextSupported() ? (
+    <p className="text-xs text-muted-foreground">
+      Dictation is your browser&rsquo;s, not MiZanova&rsquo;s — in Chrome the
+      audio is sent to Google to be transcribed. Type instead if that is not
+      appropriate for what you are about to say.
+    </p>
+  ) : (
+    <p className="text-xs text-muted-foreground">
+      Dictation is not available in this browser. Typing works everywhere.
+    </p>
+  )
+}
+
 export default function DictatedTextarea({
   id,
   label,
   labelSuffix,
   hint,
   rows = 3,
+  multiline = true,
+  required,
+  placeholder,
   value,
   onChange,
 }: {
@@ -49,9 +99,14 @@ export default function DictatedTextarea({
   labelSuffix?: ReactNode
   hint?: ReactNode
   rows?: number
+  /** False draws an `<input>`. Everything around it is unchanged. */
+  multiline?: boolean
+  required?: boolean
+  placeholder?: string
   value: string
   onChange: (value: string) => void
 }) {
+  const noticeHandled = useContext(NoticeHandled)
   const speech = useSpeechToText((text) => {
     onChange(value ? `${value} ${text}` : text)
   })
@@ -87,13 +142,26 @@ export default function DictatedTextarea({
 
       {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
 
-      <textarea
-        id={id}
-        rows={rows}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-btn border border-border bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-      />
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={rows}
+          required={required}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={control}
+        />
+      ) : (
+        <input
+          id={id}
+          required={required}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={control}
+        />
+      )}
 
       {/* A live region, because the only other signal that dictation is running
           is the word on a button the person has just looked away from. */}
@@ -107,16 +175,10 @@ export default function DictatedTextarea({
         </p>
       )}
 
-      {speech.supported ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Dictation is your browser&rsquo;s, not MiZanova&rsquo;s — in Chrome the
-          audio is sent to Google to be transcribed. Type instead if that is not
-          appropriate for what you are about to say.
-        </p>
-      ) : (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Dictation is not available in this browser. Typing works everywhere.
-        </p>
+      {!noticeHandled && (
+        <div className="mt-1">
+          <DictationDisclosure />
+        </div>
       )}
     </div>
   )
