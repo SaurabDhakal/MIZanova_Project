@@ -221,7 +221,7 @@ export default function BehaviourLogModal({
           Measured before this change on a 694px-tall laptop: the form was
           1048px of content in a 590px box — 458px, 44% of it, below the fold —
           and "Save log" was among what you had to scroll to find. On the one
-          screen in this product whose promise is twenty seconds (NFR1).
+          screen in this product whose promise is twenty seconds (E01).
 
           The body scrolls; the actions do not. max-w-lg to max-w-2xl as well,
           so the four behaviour cards sit two-up without squeezing. */}

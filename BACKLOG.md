@@ -588,9 +588,34 @@ mobile-first (audited 8 Sep) · NFR6 data in Sydney.
       link."** There is no WhatsApp integration at all, so the requirement is
       vacuously satisfied and actually unbuilt. Email and push exist and both
       already withhold names, which is the same protection by another route.
-- [ ] **NFR1 — strategies in under 3 seconds.** Never measured, and db/099's
-      escalation deliberately makes the slow path slower to make the answer
-      better. Worth measuring before claiming either way.
+- [x] ~~NFR1 — strategies in under 3 seconds. Never measured.~~ **Measured 8
+      September, and it FAILS — by a factor of five.** Six consecutive
+      generations through `/api/strategies` against the live API, as a
+      verified educator on a child whose guardian had already consented:
+      15.8s, 16.5s, 15.8s, 15.9s, 18.1s, 19.7s. Median 16.5s, mean 17.0s.
+      **0 of 6 under three seconds.** The client document is unambiguous:
+      "NFR1 (Speed): AI strategies must be delivered in under 3 seconds."
+
+      It is not a bug and there is no quick fix. Every run used
+      `claude-opus-5` with `escalated=false` — a school account gets the
+      capable model on the first pass, which is what db/099 chose on
+      purpose because the cheap one "returns nothing on the cases that
+      matter". Three seconds and Opus are not both available. **That trade
+      is Joe's to make, and it belongs on a meeting agenda rather than in
+      a commit.** The options are: accept ~17s and restate NFR1; go back
+      to Haiku and accept weaker advice; or generate in the background so
+      the teacher never waits, which changes the screen rather than the
+      model.
+
+      Two things were fixed in passing. `ai_generation_events` records no
+      duration, so NFR1 was never answerable from the data — worth adding.
+      And the wait now SAYS it is working: sixteen silent seconds behind a
+      button reading "Thinking…" is indistinguishable from a frozen page,
+      and a teacher who presses again pays for two generations.
+
+      Also corrected: `BehaviourLogModal` and `useTimer` both cited NFR1
+      for the twenty-second logging promise. That is **E01**, an educator
+      user story. NFR1 is the three-second one.
 - [ ] **NFR7 — architecture defined for webapp AND mobile app.** There is one
       codebase, a PWA. No mobile-app scope is written down.
 
