@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import Logo from '../components/Logo'
+import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
 import Icon from '../components/Icon'
 import HeroDiagram from '../components/HeroDiagram'
@@ -33,12 +33,16 @@ import HeroDiagram from '../components/HeroDiagram'
  * ---------------------------------------------------------------------------
  * WHAT THIS PAGE WAS MISSING, AND WHY IT WAS EASY TO MISS
  * ---------------------------------------------------------------------------
- * This file carries its OWN nav rather than using PublicLayout's, because the
- * homepage has a different header treatment. That is a fair choice with one
- * consequence nobody noticed: a link added to PublicLayout does not appear
- * here. "For individuals" shipped with db/088, went into PublicLayout and the
- * footer, and was absent from the homepage — the one page most people see —
- * for its entire life so far.
+ * This file used to carry its OWN nav rather than using PublicLayout's,
+ * because the homepage has a different header treatment. That was a fair
+ * choice with one consequence nobody noticed: a link added to PublicLayout did
+ * not appear here. "For individuals" shipped with db/088, went into
+ * PublicLayout and the footer, and was absent from the homepage — the one page
+ * most people see — for its entire life until then.
+ *
+ * The header is SiteHeader now, for the same reason the footer is SiteFooter:
+ * two copies of one list drift, and the second thing they both got wrong was
+ * having no menu at all below 1024px.
  *
  * Montessori was missing for a different reason. `OrganisationKind` has
  * admitted 'montessori' since the tenancy work and AddSchoolSection has offered
@@ -118,73 +122,7 @@ export default function Landing() {
         Skip to content
       </a>
 
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-4">
-          <Logo />
-
-          {/* STAYS AT lg, WITH A TIGHTER GAP FOR THE SEVENTH ITEM.
-              Raising this to xl to stop the wrap would have taken the nav away
-              from everything between 1024 and 1280px instead — and there is no
-              mobile menu anywhere on this site, so a hidden nav is not hidden
-              behind anything. The header already wraps, which is a far better
-              outcome than disappearing.
-
-              The real gap is that below lg the only navigation is the footer.
-              That is a menu component, not a class name, and it is worth doing
-              properly rather than papering over here. */}
-          <nav aria-label="Main" className="hidden gap-4 lg:flex">
-            <Link to="/for-schools" className="text-foreground hover:underline">
-              For schools
-            </Link>
-            <Link to="/for-parents" className="text-foreground hover:underline">
-              For families
-            </Link>
-            <Link
-              to="/for-specialists"
-              className="text-foreground hover:underline"
-            >
-              For specialists
-            </Link>
-            <Link
-              to="/for-individuals"
-              className="text-foreground hover:underline"
-            >
-              For individuals
-            </Link>
-            <Link to="/pricing" className="text-foreground hover:underline">
-              Pricing
-            </Link>
-            <Link to="/features" className="text-foreground hover:underline">
-              Features
-            </Link>
-            <Link to="/about" className="text-foreground hover:underline">
-              About
-            </Link>
-          </nav>
-
-          <div className="ml-auto flex items-center gap-3">
-            {/* Padded to match the button beside it. As a bare link this was a
-                24px tap target — the bare minimum WCAG 2.2 allows, and small
-                for a thumb next to a 44px button it is meant to pair with. */}
-            <Link
-              to="/login"
-              className="rounded-btn px-3 py-2.5 font-semibold text-primary hover:underline"
-            >
-              Log in
-            </Link>
-            {/* NOT "Get started". /signup creates no account any more — it is
-                a signpost — so the old label promised something the next page
-                immediately takes away. Three identical buttons all saying it
-                was also the most templated thing on the page. */}
-            <Link
-              to="/enquiry"
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
-            >
-              Talk to us
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main id="main" tabIndex={-1} className="flex-1">
         {/* --- Hero ---------------------------------------------------------- */}
@@ -255,7 +193,7 @@ export default function Landing() {
         </section>
 
         {/* --- How it works -------------------------------------------------- */}
-        <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-20">
+        <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-12 md:py-20">
           {/* THE EYEBROW IS NOT ORNAMENT. Four sections in a row opened with a
               bare h2 and nothing to separate them but whitespace, so the page
               read as one long column. A small label above each heading gives
@@ -299,7 +237,7 @@ export default function Landing() {
         </section>
 
         {/* --- Who it is for ------------------------------------------------- */}
-        <section id="who-its-for" className="bg-card py-20">
+        <section id="who-its-for" className="bg-card py-12 md:py-20">
           <div className="mx-auto max-w-6xl px-6">
             <p className="text-xs font-bold tracking-wider text-brand-green-ink uppercase">
               Four ways in
@@ -333,9 +271,12 @@ export default function Landing() {
                   <p className="mt-2 text-muted-foreground">{audience.body}</p>
                   {/* Each of these pages existed and the homepage named them
                       without linking to them. */}
+                  {/* `inline-block` made this a 24px-tall target — the four
+                      links that carry this section, at half the height of every
+                      other control in the product. */}
                   <Link
                     to={audience.to}
-                    className="mt-3 inline-block font-semibold text-primary hover:underline"
+                    className="mt-2 inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
                   >
                     {audience.title} &rarr;
                   </Link>
@@ -356,7 +297,7 @@ export default function Landing() {
             homepage would be advertising markets nobody has agreed to enter —
             the same fault as printing an ABN we were never given.
             ------------------------------------------------------------------ */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
+        <section className="mx-auto max-w-6xl px-6 py-12 md:py-20">
           <div className="rounded-card border border-border bg-primary-subtle p-8 md:p-10">
             <div className="grid gap-8 md:grid-cols-2 md:items-center">
               <div>
@@ -421,7 +362,7 @@ export default function Landing() {
         </section>
 
         {/* --- Privacy ------------------------------------------------------- */}
-        <section id="privacy" className="bg-card py-20">
+        <section id="privacy" className="bg-card py-12 md:py-20">
           <div className="mx-auto max-w-6xl px-6">
             <p className="text-xs font-bold tracking-wider text-brand-green-ink uppercase">
               Privacy
@@ -444,9 +385,12 @@ export default function Landing() {
                 clinical tool.
               </p>
             </div>
+            {/* 44px, like the four above it and like every control in the
+                signed-in app. `inline-block` gives a link the height of its own
+                text, which is 24px. */}
             <Link
               to="/privacy"
-              className="mt-6 inline-block font-semibold text-primary hover:underline"
+              className="mt-5 inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
             >
               How your data is handled &rarr;
             </Link>
@@ -454,7 +398,7 @@ export default function Landing() {
         </section>
 
         {/* --- Closing call to action ---------------------------------------- */}
-        <section className="bg-primary py-20 text-center">
+        <section className="bg-primary py-12 md:py-20 text-center">
           <div className="mx-auto max-w-3xl px-6">
             <h2 className="text-3xl font-bold text-balance text-primary-foreground md:text-4xl">
               Ready to support every learner?
