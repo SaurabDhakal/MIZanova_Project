@@ -871,11 +871,18 @@ bearer token claiming `service_role`.
       forged bearer afterwards: **0 internal strings, 2 expected 2xx.**
       Nine sites returning 400/422 are left alone deliberately — several
       carry crafted messages the interface shows to the person.
-- [ ] **`bookable_specialists` has no `security_invoker`,** so it reads
-      `profiles` as its owner and bypasses RLS. It exposes only name, avatar
-      and a count, and db/104 intends specialists to be discoverable — but
-      that is a widening by omission rather than by decision, which is exactly
-      what db/055 was written about.
+- [x] ~~`bookable_specialists` has no `security_invoker`.~~ **I was wrong to
+      call this a defect.** It is a deliberate curated projection, and db/104
+      argues the case at length: "Opening `profiles` to individuals with a
+      policy would have been the smaller diff and the wrong one: a policy
+      admits ROWS, and the columns nobody should see would come with them."
+      With `security_invoker` on, the view would inherit `profiles` RLS and
+      return nothing to the individual it exists for — the missing setting is
+      the mechanism, not an oversight. Same shape as `individual_plan_public`.
+
+      The one real gap is that the view does not say so at its own
+      definition, which is why an audit reads it as an accident. Worth a
+      comment on the `create view`, not a migration.
 
 ### Low / cosmetic
 
@@ -884,8 +891,19 @@ bearer token claiming `service_role`.
       an unauthenticated caller map the input schema. No route reached data.
 - [ ] **30 foreign keys have no supporting index.** Slow cascades and joins;
       invisible until a table grows.
-- [ ] **`scripts/tmp-ghost.mjs` and `scripts/tmp-race.mjs`** are committed
-      scratch files.
+- [x] ~~`scripts/tmp-ghost.mjs` and `scripts/tmp-race.mjs` are committed
+      scratch files.~~ Removed. Both created real auth users in the shared
+      database from hardcoded credentials and were referenced by nothing.
+      Checked first: neither left an account behind — 35 auth users, and the
+      only test accounts are the two documented demos plus the probe below.
+- [ ] **`zz-nfr1-probe@example.invalid` will not delete.** Supabase answers
+      `500 AuthRetryableFetchError` every time, including after its MFA
+      factor was removed — seven attempts across two sittings, while the
+      identical cleanup worked for another account the same day. It is
+      neutralised: no memberships, no student assignments, no factor, role
+      downgraded to parent, no school, unverified, renamed "DELETE ME". It
+      can reach no child. **Remove it from the Supabase dashboard —
+      Authentication → Users.**
 
 ---
 
