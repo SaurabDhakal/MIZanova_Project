@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -20,6 +20,52 @@ import {
  * somewhere real: server/anonymise.js, the system prompt in server/claude.js,
  * and the pending_review routing in db/006_ai_strategies.sql.
  */
+
+/**
+ * What a teacher looks at while the model works.
+ *
+ * ---------------------------------------------------------------------------
+ * BECAUSE IT TAKES SIXTEEN SECONDS, NOT THREE
+ * ---------------------------------------------------------------------------
+ * Measured end to end on 8 September, six consecutive generations against the
+ * live API: 15.8s, 16.5s, 15.8s, 15.9s, 18.1s, 19.7s — median 16.5. NFR1 asks
+ * for under three. The cause is not a bug: `ai_controls.paid_model` is
+ * `claude-opus-5`, and db/099 chose the capable model on purpose because the
+ * cheap one "returns nothing on the cases that matter".
+ *
+ * That trade is Special Miles' to make. What is NOT defensible is a button
+ * that says "Thinking…" and then shows nothing at all for a quarter of a
+ * minute — on the one screen this product is built around. Sixteen silent
+ * seconds is indistinguishable from a frozen page, and a teacher who presses
+ * it twice pays for two generations.
+ *
+ * So this says what is happening, and counts. It makes no promise about how
+ * long: it names the usual range, and past it says so rather than pretending.
+ */
+function GeneratingNotice() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div
+      role="status"
+      className="mt-3 rounded-card border border-border bg-background/60 p-4"
+    >
+      <p className="font-semibold text-foreground">
+        Reading the observation
+        <span aria-hidden="true"> · {seconds}s</span>
+      </p>
+      <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+        {seconds < 20
+          ? 'The child’s name and details are stripped out before this leaves the school. It usually takes about fifteen to twenty seconds.'
+          : 'Longer than usual. It is still working — leave this open rather than pressing again, or you will be charged for two.'}
+      </p>
+    </div>
+  )
+}
 export default function StrategyPanel({
   logId,
   studentId,
@@ -207,6 +253,8 @@ export default function StrategyPanel({
             </span>
           </button>
         )}
+
+        {generate.isPending && <GeneratingNotice />}
 
         {generate.isError && (
           <p role="alert" className="mt-2 text-sm text-danger-foreground">

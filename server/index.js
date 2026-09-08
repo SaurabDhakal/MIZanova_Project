@@ -424,7 +424,20 @@ app.use(express.json({ limit: '64kb' }))
  * decides both where invitation links point and who may call the API, and those
  * two answers must not be allowed to disagree.
  */
-const DEV_ORIGINS = ['http://localhost:5273', 'http://127.0.0.1:5273', 'http://localhost:4273']
+/*
+ * `[::1]` is the same laptop as `127.0.0.1`, and on some machines it is the
+ * only one Vite offers: it binds IPv6 by default, so a browser pointed at
+ * http://[::1]:5273 gets the app and then cannot call this server. The
+ * preflight passes and the request itself fails, which reads as a broken API
+ * rather than a missing origin — found on 8 September, chasing a strategy
+ * panel that had hidden its own button because a status lookup "failed".
+ */
+const DEV_ORIGINS = [
+  'http://localhost:5273',
+  'http://127.0.0.1:5273',
+  'http://[::1]:5273',
+  'http://localhost:4273',
+]
 const CORS_ORIGINS = [...new Set([...DEV_ORIGINS, ...(APP_URL ? [APP_URL] : [])])]
 app.use(cors({ origin: CORS_ORIGINS }))
 

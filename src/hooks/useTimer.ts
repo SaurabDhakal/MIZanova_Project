@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * null`, which makes the generated `duration_seconds` null — the honest answer
  * to "how long did it last?" when nobody timed it.
  *
- * IT COSTS THE TWENTY-SECOND PATH NOTHING (NFR1). Duration was never required
+ * IT COSTS THE TWENTY-SECOND PATH NOTHING (E01). Duration was never required
  * to save a log; behaviour and intensity are. Making the timer opt-in removes a
  * field from the fast path rather than adding one to it.
  *
