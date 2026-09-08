@@ -164,9 +164,11 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-lg font-bold text-foreground">
+        {/* h2: the page title is the only heading above these, so an h3 was
+            skipping a level. Each application IS a top-level section here. */}
+        <h2 className="text-lg font-bold text-foreground">
           {application.full_name}
-        </h3>
+        </h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold uppercase ${STATUS_STYLE[application.status]}`}
         >
@@ -427,7 +429,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
                     both are notes on an open conversation rather than the end
                     of one.
                   */
-                  className={`rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                  className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                     decision.value === 'approved'
                       ? 'bg-primary text-primary-foreground'
                       : decision.value === 'declined'

@@ -134,7 +134,7 @@ export default function BookAppointmentForm({
       <button
         type="submit"
         disabled={book.isPending}
-        className="mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+        className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
       >
         {book.isPending ? 'Booking…' : 'Book appointment'}
       </button>

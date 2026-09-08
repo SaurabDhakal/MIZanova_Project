@@ -60,8 +60,32 @@ const STATUS_STYLE: Record<StudentGoal['status'], string> = {
 export default function MyGoals() {
   const goals = useQuery({ queryKey: queryKeys.myGoals, queryFn: fetchMyGoals })
 
-  if (goals.isPending) return <LoadingCards count={3} />
-  if (goals.isError) return <ErrorState message={goals.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="My goals"
+      lead="What you are working on at school, and how it is going."
+    />
+  )
+
+  if (goals.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (goals.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={goals.error.message} />
+      </>
+    )
 
   /*
    * Stopped goals are not shown. A young person reading a list of things that
@@ -75,10 +99,7 @@ export default function MyGoals() {
 
   return (
     <div>
-      <PageHeader
-        title="My goals"
-        lead="What you are working on at school, and how it is going."
-      />
+      {header}
 
       {live.length === 0 ? (
         <EmptyState

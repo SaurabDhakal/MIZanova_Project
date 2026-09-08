@@ -221,7 +221,7 @@ export default function Finance() {
                       type="button"
                       onClick={() => pay.mutate(invoice.id)}
                       disabled={pay.isPending}
-                      className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                      className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                     >
                       {pay.isPending ? 'Opening…' : 'Pay'}
                     </button>

@@ -114,14 +114,14 @@ function SessionNotes({ sessionId }: { sessionId: string }) {
             <button
               type="submit"
               disabled={save.isPending}
-              className="rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
             >
               {save.isPending ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+              className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
             >
               Cancel
             </button>
@@ -277,7 +277,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="ml-auto rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            className="min-h-11 ml-auto rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
             {open ? 'Cancel' : '+ Log session'}
           </button>
@@ -429,7 +429,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
           <button
             type="submit"
             disabled={save.isPending}
-            className="mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {save.isPending ? 'Saving…' : 'Save session'}
           </button>

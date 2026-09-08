@@ -21,6 +21,24 @@ export type Toast = {
   id: string
   message: string
   tone: ToastTone
+  /**
+   * One thing the person can do about what just happened.
+   *
+   * ---------------------------------------------------------------------------
+   * FOR WORK THAT COMES IN BATCHES, UNDO BEATS "ARE YOU SURE".
+   * ---------------------------------------------------------------------------
+   * A specialist works through a review queue twenty items at a time. Putting a
+   * confirmation on each decision doubles the clicks on the one task the screen
+   * exists for, and a prompt answered twenty times in a row stops being read by
+   * about the fourth. It trains the reflex it is meant to interrupt.
+   *
+   * Acting immediately and offering a way back costs nothing on the common path
+   * and is the only thing that helps on the rare one. The note above still
+   * holds — a toast disappears, so the thing it undoes must also be recoverable
+   * somewhere permanent, which for a review decision it is: the strategy row
+   * keeps its status and can be set back.
+   */
+  action?: { label: string; run: () => void }
 }
 
 /** How long a toast stays. Long enough to read a sentence twice. */
@@ -56,9 +74,16 @@ export function dismissToast(id: string): void {
   emit()
 }
 
-export function showToast(message: string, tone: ToastTone = 'success'): void {
+export function showToast(
+  message: string,
+  tone: ToastTone = 'success',
+  action?: Toast['action'],
+): void {
   const id = crypto.randomUUID()
-  toasts = [...toasts, { id, message, tone }]
+  toasts = [...toasts, { id, message, tone, action }]
   emit()
-  setTimeout(() => dismissToast(id), LIFETIME_MS)
+  /* An action needs longer than a sentence takes to read — you have to notice
+     the mistake first. Twelve seconds is about the time it takes to look back
+     at a list and realise the wrong row went. */
+  setTimeout(() => dismissToast(id), action ? 12_000 : LIFETIME_MS)
 }

@@ -362,7 +362,7 @@ export default function Schedule() {
                   setCategoryFilter('')
                   setDateFilter('')
                 }}
-                className="rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
+                className="min-h-11 rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
               >
                 Clear filters
               </button>
@@ -447,7 +447,7 @@ export default function Schedule() {
               setCategoryFilter('')
               setDateFilter('')
             }}
-            className="mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
           >
             Show all goals
           </button>

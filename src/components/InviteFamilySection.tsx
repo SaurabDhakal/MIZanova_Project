@@ -159,7 +159,7 @@ export default function InviteFamilySection() {
               <button
                 type="submit"
                 disabled={create.isPending}
-                className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {create.isPending ? 'Creating…' : 'Create code'}
               </button>
@@ -201,7 +201,7 @@ export default function InviteFamilySection() {
                   .then(() => showToast('Link copied.'))
                   .catch(() => showToast('Could not copy.'))
               }}
-              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               Copy sign-up link
             </button>

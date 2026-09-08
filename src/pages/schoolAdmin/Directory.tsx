@@ -197,7 +197,7 @@ export default function Directory() {
             type="button"
             onClick={() => setTab(value)}
             aria-pressed={tab === value}
-            className={`rounded-btn px-4 py-2 text-sm font-semibold ${
+            className={`min-h-11 rounded-btn px-4 py-2 text-sm font-semibold ${
               tab === value
                 ? 'bg-primary text-primary-foreground'
                 : 'border border-border text-foreground'
@@ -445,7 +445,7 @@ export default function Directory() {
               type="button"
               disabled={!studentId || !profileId || assign.isPending}
               onClick={() => assign.mutate()}
-              className="mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               {assign.isPending ? 'Granting…' : 'Grant access'}
             </button>
@@ -561,7 +561,7 @@ export default function Directory() {
               type="button"
               disabled={!studentId || !guardianId || link.isPending}
               onClick={() => link.mutate()}
-              className="mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               {link.isPending ? 'Connecting…' : 'Connect guardian'}
             </button>

@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import FullCalendar from '@fullcalendar/react'
+import enAu from '@fullcalendar/core/locales/en-au'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -169,12 +170,36 @@ export default function AppointmentCalendar<T extends CalendarAppointment>({
           week: 'Week',
           day: 'Day',
         }}
+        /* THE ARROWS HAD NO NAME. FullCalendar draws prev and next as an icon
+           span with `role="img"` and nothing else, so a screen reader on the
+           specialist's Schedule met two buttons it could only describe as
+           "button". `buttonHints` is the library's own hook for this and it
+           becomes the aria-label; `$0` is substituted with the unit currently
+           in view, so it reads "Previous week" on the week view and "Previous
+           month" on the month one rather than a fixed word that is wrong two
+           views out of three. */
+        buttonHints={{
+          prev: 'Previous $0',
+          next: 'Next $0',
+          today: 'This $0',
+        }}
         // Monday. Australian school weeks do not start on Sunday.
         firstDay={1}
         allDaySlot={allDay}
         nowIndicator
-        height="auto"
+        /* IT WAS TALLER THAN THE WINDOW, SO NOTHING IN IT COULD BE SEEN AT
+           ONCE. `height="auto"` makes the calendar as tall as its content: a
+           single 7:30pm booking anywhere in the loaded set widens the day to
+           7am–9pm, and 28 half-hour rows came to 1099px inside a 698px
+           viewport. The page scrolled instead of the grid, so the toolbar and
+           the day headers scrolled away with it, and the red now-indicator —
+           which only draws inside the visible hours — was never where anybody
+           was looking. A real height gives FullCalendar its own scroller: the
+           header stays put and `scrollTime` opens the day at the school
+           morning rather than at whatever hour the widening reached. */
+        height="70vh"
         expandRows
+        scrollTime="08:00:00"
         slotMinTime={`${pad(minHour)}:00:00`}
         slotMaxTime={`${pad(maxHour)}:00:00`}
         slotDuration="00:30:00"
@@ -186,6 +211,35 @@ export default function AppointmentCalendar<T extends CalendarAppointment>({
          * to read who it is with beats the block being exactly to scale.
          */
         eventMinHeight={34}
+        /* DATES WERE COMING OUT AMERICAN. No `locale` is set, so FullCalendar
+           falls back to en-US and the week header read "Mon 9/7" — which an
+           Australian reads as 9 July and the calendar means as 7 September.
+           Everything else in this product is en-AU ("6 September 2026",
+           "Tue, 25 Aug"), so the one screen where a misread date sends
+           somebody to a child's appointment on the wrong day was the one
+           screen disagreeing.
+
+           Named months rather than `locale="en-au"`: 7/9 is still ambiguous to
+           half the people who might read it, and "Mon 7 Sep" is ambiguous to
+           nobody. */
+        /* The locale sets the ORDER — en-AU puts the day before the month,
+           so this reads "Mon, 7 Sep" the way the rest of the product writes
+           dates, rather than "Mon, Sep 7". The explicit format above still
+           does the important half: a named month cannot be misread whichever
+           side it falls on. */
+        locale={enAu}
+        dayHeaderFormat={{ weekday: 'short', day: 'numeric', month: 'short' }}
+        /* THE MONTH VIEW HAS NO DATES TO PUT IN ITS HEADER. Week and day views
+           give each column a real date, so "Mon, 7 Sep" above it is true. A
+           month grid's header names the seven weekdays for five different
+           weeks at once, and FullCalendar has to date them from an arbitrary
+           reference week — so asking for a day and a month printed "Mon, 5 Jan"
+           across a September calendar, with the Sunday column reading 4 Jan
+           after Saturday's 10th. The format above was written for the week
+           header and applied to every view; only the month one needs the
+           weekday on its own. */
+        views={{ dayGridMonth: { dayHeaderFormat: { weekday: 'short' } } }}
+        titleFormat={{ day: 'numeric', month: 'long', year: 'numeric' }}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         slotLabelFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
         // Month view renders timed events as a dot plus bare text by default,

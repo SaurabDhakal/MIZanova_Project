@@ -183,7 +183,7 @@ export default function AddStudent() {
           <button
             type="submit"
             disabled={!valid || create.isPending}
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {create.isPending ? 'Adding…' : 'Add student'}
           </button>

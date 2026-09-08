@@ -39,7 +39,9 @@ import {
   RefusalError,
   generateStrategies,
   generateSelfStrategies,
+  generateHomeStrategies,
   SELF_PROMPT_VERSION,
+  HOME_PROMPT_VERSION,
 } from './claude.js'
 
 // 8887, not the conventional 8787 — see the note in vite.config.ts.
@@ -534,6 +536,82 @@ app.get('/api/health', async (_req, res) => {
  * sources of truth that can drift apart, and the one in JavaScript would be
  * the one nobody re-tests.
  */
+/**
+ * The curated answer, for when the model cannot give one — db/118, E02.
+ *
+ * Shaped exactly like a generated response so `StrategyPanel` renders either
+ * without knowing which it got, and marked `source: 'evidence'` so it can SAY
+ * which it got. A teacher handed advice in a crisis is entitled to know it
+ * came from a library rather than from a model reading their notes.
+ *
+ * The usage row is written with the same `source`, because A04 asks for "the
+ * ratio of AI-generated strategies versus Database-only usage" and without it
+ * that ratio cannot be computed at all.
+ */
+async function evidenceFallback(log, actorId) {
+  /*
+   * The school is looked up here rather than passed in. The first version took
+   * a `student` the caller had already fetched — and the kill-switch branch
+   * runs BEFORE that fetch, so it read a `const` in its temporal dead zone.
+   * Neither the linter nor `node --check` sees that; it throws at runtime, in
+   * the branch that only runs during a crisis, which is the worst possible
+   * place to find out.
+   */
+  const { data: student } = await admin
+    .from('students')
+    .select('school_id')
+    .eq('id', log.student_id)
+    .maybeSingle()
+
+  const { data: rows, error } = await admin
+    .from('evidence_strategies')
+    .select('id, title, body, rationale, provenance')
+    .eq('behaviour_type', log.behaviour_type)
+    .eq('is_current', true)
+    .is('retired_at', null)
+    .limit(3)
+
+  if (error) {
+    console.error('Evidence fallback failed:', error.message)
+    return { strategies: [] }
+  }
+
+  const strategies = (rows ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    body: r.body,
+    rationale: r.rationale ?? [],
+    /*
+     * No confidence score. A number here would be invented: these were written
+     * by a person and chosen by a specialist, and a made-up 0.9 beside them
+     * would put them on the same scale as something a model scored itself on.
+     */
+    confidence: null,
+    status: 'published',
+    provenance: r.provenance,
+  }))
+
+  if (strategies.length > 0) {
+    await admin.from('ai_generation_events').insert({
+      school_id: student?.school_id ?? null,
+      requested_by: actorId,
+      behaviour_log_id: log.id,
+      strategies_returned: strategies.length,
+      model: null,
+      source: 'evidence',
+    })
+  }
+
+  return {
+    strategies,
+    heldForReview: 0,
+    rejected: 0,
+    riskFlagged: false,
+    redactions: 0,
+    source: 'evidence',
+  }
+}
+
 app.post('/api/strategies', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
@@ -612,9 +690,21 @@ app.post('/api/strategies', async (req, res) => {
       .single()
 
     if (!controls?.ai_enabled) {
+      /*
+       * E02: "Strategies must fall back to the curated Evidence Database (DB)
+       * if AI is blocked or offline."
+       *
+       * This used to be a 503 and nothing else — so FR21's kill switch, the
+       * one Special Miles pulls during a crisis, left every teacher in every
+       * classroom with no strategies at all, at the moment they were most
+       * likely to need one. db/118 is the net that was missing.
+       */
+      const fallback = await evidenceFallback(log, user.id)
+      if (fallback.strategies.length > 0) return res.json(fallback)
+
       return res.status(503).json({
         error:
-          'AI suggestions are currently switched off by Special Miles. Contact your specialist for support.',
+          'AI suggestions are switched off at the moment, and the evidence library has nothing recorded for this behaviour yet. Your school specialist can help.',
       })
     }
 
@@ -947,7 +1037,7 @@ async function notifyAboutBooking(profileId, kind, { whenText, note }) {
   try {
     const { data: person } = await admin
       .from('profiles')
-      .select('email')
+      .select('email, role')
       .eq('id', profileId)
       .single()
 
@@ -970,7 +1060,23 @@ async function notifyAboutBooking(profileId, kind, { whenText, note }) {
     await sendToProfile(admin, profileId, {
       count: 1,
       where: null,
-      url: kind === 'requested' ? '/specialist/schedule' : '/individual/book',
+      /*
+       * THE DESTINATION FOLLOWS THE PERSON, NOT THE EVENT.
+       *
+       * This read `'/individual/book'` for every answered booking, which was
+       * right while individuals were the only people who could ask. db/115
+       * gave families the same ability, and a parent tapping that push would
+       * have been sent to a route `ProtectedRoute` allows to individuals
+       * only — bounced to their dashboard with no idea why, which is the
+       * failure BACKLOG already records under in-app links that strand
+       * people.
+       */
+      url:
+        kind === 'requested'
+          ? '/specialist/schedule'
+          : person?.role === 'parent'
+            ? '/parent/appointments'
+            : '/individual/book',
     })
   } catch (err) {
     // Recorded rather than raised, for the reason above.
@@ -1134,6 +1240,161 @@ app.post('/api/bookings/answer', async (req, res) => {
     return res.status(500).json({ error: 'Could not send that answer.' })
   }
 })
+
+/**
+ * A family asking their child's specialist for a time — db/115, FR6, P05.
+ *
+ * The same shape as `/api/bookings/request` above, against the other table.
+ * `individual_bookings` is for somebody with no school; this writes to
+ * `specialist_appointments`, because a parent's request is for a child and the
+ * row it wants to become is exactly the row a specialist would have created.
+ *
+ * The insert runs with the CALLER'S token, so db/115's policy decides all four
+ * of the things that matter — their own child, an assigned specialist, status
+ * 'requested' and nothing else. None of that is re-checked here, on purpose:
+ * a second copy of a rule is a second place for it to be wrong.
+ */
+app.post('/api/appointments/request', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { studentId, specialistId, startsAt, purpose } = req.body ?? {}
+  if (!studentId || !specialistId || !startsAt) {
+    return res.status(400).json({ error: 'A child, a specialist and a time are required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const starts = new Date(startsAt)
+    const ends = new Date(starts.getTime() + 45 * 60000)
+
+    const { data: appointment, error: insertError } = await userClient
+      .from('specialist_appointments')
+      .insert({
+        student_id: studentId,
+        specialist_id: specialistId,
+        starts_at: starts.toISOString(),
+        duration_minutes: 45,
+        ends_at: ends.toISOString(),
+        purpose: (purpose ?? '').trim() || null,
+        status: 'requested',
+      })
+      .select('id, starts_at')
+      .single()
+
+    if (insertError) {
+      /*
+       * The database refusing this is the normal case rather than a fault: a
+       * specialist who is not on the child's caseload, or a family that is not
+       * theirs. Its own message is about row-level security and means nothing
+       * to a parent.
+       */
+      return res.status(400).json({
+        error:
+          'That time could not be requested. It may have been taken, or that specialist may no longer be working with your child.',
+      })
+    }
+
+    /*
+     * THE SPECIALIST IS TOLD THE TIME AND NOTHING ELSE. `purpose` is what a
+     * family wrote about what they are finding hard, and db/103 made the same
+     * call for the same reason: that stays in the account where RLS governs
+     * who reads it, rather than travelling to an inbox.
+     */
+    void notifyAboutBooking(specialistId, 'requested', {
+      whenText: whenInSydney(starts),
+    })
+
+    return res.json({ id: appointment.id })
+  } catch (err) {
+    console.error('Appointment request failed:', err)
+    return res.status(500).json({ error: 'Could not ask for that time.' })
+  }
+})
+
+/**
+ * A specialist answering one — db/115.
+ *
+ * Accepting is an UPDATE to 'scheduled' rather than a new row, which is the
+ * whole reason this extends the appointments table instead of copying db/103:
+ * the request and the booking are the same appointment at two moments.
+ *
+ * db/059's update policy already allows exactly this person and no other, so
+ * again the check is the database's rather than a second copy here.
+ */
+app.post('/api/appointments/answer', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const { appointmentId, decision, note } = req.body ?? {}
+  if (!appointmentId || !['scheduled', 'declined'].includes(decision)) {
+    return res.status(400).json({ error: 'An appointment and a decision are required.' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    const { data: updated, error: updateError } = await userClient
+      .from('specialist_appointments')
+      .update({
+        status: decision,
+        cancelled_reason: decision === 'declined' ? (note ?? '').trim() || null : null,
+      })
+      .eq('id', appointmentId)
+      .eq('status', 'requested')
+      .select('id, student_id, starts_at, status')
+      .single()
+
+    if (updateError || !updated) {
+      /*
+       * A REFUSED UPDATE AND AN ALREADY-ANSWERED ONE LOOK IDENTICAL under RLS —
+       * both return no rows. The exclusion constraint is the third possibility
+       * and the likeliest here: two families can ask for the same half hour
+       * because a request reserves nothing, so the second acceptance is the
+       * one the database stops.
+       */
+      return res.status(409).json({
+        error:
+          'That could not be answered. Somebody may have answered it already, or you may have since agreed to something else at the same time.',
+      })
+    }
+
+    // Everybody at home, because either guardian may have asked and both are
+    // waiting on the answer.
+    const { data: guardians } = await admin
+      .from('student_guardians')
+      .select('profile_id')
+      .eq('student_id', updated.student_id)
+
+    for (const g of guardians ?? []) {
+      void notifyAboutBooking(g.profile_id, decision === 'scheduled' ? 'accepted' : 'declined', {
+        whenText: whenInSydney(new Date(updated.starts_at)),
+        note: decision === 'declined' ? (note ?? '').trim() || null : null,
+      })
+    }
+
+    return res.json({ id: updated.id, status: updated.status })
+  } catch (err) {
+    console.error('Appointment answer failed:', err)
+    return res.status(500).json({ error: 'Could not answer that request.' })
+  }
+})
+
 
 /**
  * POST /api/account/close  { password }
@@ -1757,6 +2018,311 @@ ${about.body}`, namesToRemove, '[ME]')
     return res.status(500).json({ error: 'Could not generate suggestions.' })
   }
 })
+
+/**
+ * Three things a family could try, from something that happened at home.
+ *
+ * db/114, FR9 and P06. The third generator and the third route, and the
+ * differences from the other two are the whole design:
+ *
+ * `/api/strategies` writes to a teacher about a classroom and routes anything
+ * unsure to a specialist. `/api/self-strategies` writes to an adult about
+ * themselves and has nowhere to route, so it discards what it cannot show.
+ * A parent is neither: writing about somebody else, at home, with a specialist
+ * attached to that child who CAN be asked.
+ *
+ * So nothing here is discarded. Everything under the bar — low confidence or
+ * flagged as needing a professional — is written as `pending_review` and waits
+ * for the child's specialist, which is exactly what FR9 asks for and what
+ * db/094's header says it could not do.
+ *
+ * THE SCHOOL'S BUDGET IS NOT TOUCHED. `p_school_id: null` on the quota call, on
+ * purpose: a family's private observation is not the school's spend, and
+ * letting it draw on the school's daily allowance would let somebody outside
+ * the building exhaust a classroom's quota. The per-user limit still applies
+ * and is the one that matters here.
+ */
+app.post('/api/home-strategies', async (req, res) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!token) return res.status(401).json({ error: 'Not signed in.' })
+
+  const observationId = String(req.body?.observationId ?? '').trim()
+  if (!observationId) {
+    return res.status(400).json({ error: 'Which observation?' })
+  }
+
+  try {
+    const userClient = clientForUser(token)
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Your session has expired.' })
+    }
+
+    /*
+     * READ THE OBSERVATION WITH THE CALLER'S TOKEN. RLS decides whether this
+     * person may see it at all, so a parent cannot ask for suggestions about
+     * another family's child by pasting an id — the row simply does not come
+     * back. This is the same reason the booking routes write with the caller's
+     * token rather than checking a guardian link by hand here.
+     */
+    const { data: observation, error: obsError } = await userClient
+      .from('home_observations')
+      .select('id, student_id, title, body, category, logged_by')
+      .eq('id', observationId)
+      .maybeSingle()
+
+    if (obsError) return res.status(500).json({ error: obsError.message })
+    if (!observation) {
+      return res.status(404).json({
+        error: 'That observation could not be found on your account.',
+      })
+    }
+
+    const { data: me } = await admin
+      .from('profiles')
+      .select('id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (me?.role !== 'parent') {
+      return res.status(403).json({
+        error:
+          'This is for families writing about their own child. Staff should use the behaviour log, where specialist review and consent already apply.',
+      })
+    }
+
+    // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
+    const { data: controls } = await admin
+      .from('ai_controls')
+      .select(
+        'ai_enabled, confidence_threshold, free_model, paid_model, free_confidence_threshold, free_daily_limit_per_user, daily_limit_per_user',
+      )
+      .eq('id', true)
+      .single()
+
+    if (!controls?.ai_enabled) {
+      return res.status(503).json({
+        error:
+          'Suggestions are switched off at the moment. Your observation has been saved and the school can still see it.',
+      })
+    }
+
+    // --- Already answered? -------------------------------------------------
+    // A second press must not spend a second generation. The teacher route
+    // makes the same check for the same reason.
+    const { data: existing } = await admin
+      .from('home_ai_requests')
+      .select('id')
+      .eq('observation_id', observation.id)
+      .maybeSingle()
+
+    if (existing) {
+      return res.json({ alreadyGenerated: true })
+    }
+
+    // --- Which tier, and therefore which model and which limits ------------
+    // db/099 through db/111. `my_ai_tier()` asks about the CALLER rather than
+    // their role, so a parent answers 'free' today and will answer 'paid' the
+    // day a family subscription exists, with nothing here to change.
+    const { data: tier } = await userClient.rpc('my_ai_tier')
+    const paidTier = tier === 'paid'
+    const firstModel = paidTier ? controls.paid_model : controls.free_model
+
+    const { data: quota } = await admin
+      .rpc('ai_quota_status', { p_school_id: null, p_actor_id: user.id })
+      .single()
+
+    const userLimit = paidTier
+      ? (quota?.user_limit ?? controls.daily_limit_per_user ?? 40)
+      : Number(controls.free_daily_limit_per_user ?? 10)
+
+    if (quota && quota.user_used >= userLimit) {
+      return res.status(429).json({
+        error: `That is ${userLimit} suggestions in the last twenty-four hours, which is the daily limit. Your observation is saved and the school can see it; try again tomorrow.`,
+      })
+    }
+
+    // --- Anonymise ---------------------------------------------------------
+    // Every child at the school, not only this one: a parent writing "he hit
+    // Maya at the park" would otherwise send a child this request has nothing
+    // to do with. The guardians' own names go too — the family is as entitled
+    // to that as the child is.
+    const { data: student } = await admin
+      .from('students')
+      .select('id, first_name, last_name, school_id')
+      .eq('id', observation.student_id)
+      .single()
+
+    const { data: roster } = await admin
+      .from('students')
+      .select('first_name, last_name')
+      .eq('school_id', student.school_id)
+
+    const { data: household } = await admin
+      .from('student_guardians')
+      .select('profiles ( first_name, last_name )')
+      .eq('student_id', observation.student_id)
+
+    const namesToRemove = [
+      ...(roster ?? []).flatMap((s) => [s.first_name, s.last_name]),
+      ...(household ?? []).flatMap((g) => [
+        g.profiles?.first_name,
+        g.profiles?.last_name,
+      ]),
+    ].filter(Boolean)
+
+    const { text: redacted, redactions } = redact(
+      `${observation.title}\n\n${observation.body}`,
+      namesToRemove,
+    )
+
+    const payload = {
+      text: redacted,
+      redactions,
+      category: observation.category ?? null,
+    }
+
+    // --- Generate, escalating when the cheap model comes back empty --------
+    // db/099's reasoning, unchanged: a family having a bad night should not
+    // get a worse model than one who has paid, and the escalation is rare
+    // enough to cost almost nothing.
+    const barFor = (model) =>
+      model === controls.paid_model
+        ? Number(controls.confidence_threshold ?? 0.7)
+        : Number(controls.free_confidence_threshold ?? 0.8)
+
+    const wouldShow = (r, model) =>
+      r.strategies.filter(
+        (s) => !s.safetyConcern && s.confidence >= barFor(model),
+      ).length
+
+    let result = await generateHomeStrategies(payload, namesToRemove, firstModel)
+    let escalated = false
+
+    const needsBetterModel =
+      firstModel !== controls.paid_model &&
+      (result.riskFlag || wouldShow(result, firstModel) === 0)
+
+    if (needsBetterModel) {
+      try {
+        result = await generateHomeStrategies(
+          payload,
+          namesToRemove,
+          controls.paid_model,
+        )
+        escalated = true
+      } catch (escalationError) {
+        console.error('Escalation failed, keeping the first answer:', escalationError)
+        recordEvent(
+          'warning',
+          'ai',
+          'escalation_failed',
+          'A risk-flagged home observation could not be re-run on the capable model. The first answer was kept.',
+        )
+      }
+    }
+
+    // --- Shown now, or waiting for the specialist --------------------------
+    // NOT withheld. This is the difference from db/094: the child has staff,
+    // so a suggestion under the bar has somebody to wait for rather than
+    // nowhere to go.
+    const answeredBy = escalated ? controls.paid_model : firstModel
+    const threshold = barFor(answeredBy)
+
+    const rows = result.strategies.map((s) => {
+      const held = s.safetyConcern || s.confidence < threshold
+      return {
+        title: s.title,
+        body: s.body,
+        rationale: s.rationale,
+        confidence: s.confidence,
+        status: held ? 'pending_review' : 'published',
+        routing_reason: !held
+          ? null
+          : s.safetyConcern
+            ? 'The model judged this needs somebody qualified involved before a family tries it.'
+            : `Confidence ${s.confidence.toFixed(2)} is below the ${threshold} bar for ${answeredBy}.`,
+      }
+    })
+
+    const heldCount = rows.filter((r) => r.status === 'pending_review').length
+
+    // --- Write it, with the service key ------------------------------------
+    // Neither table has an insert policy, so a browser cannot invent a
+    // suggestion and read it back as advice the school had settled.
+    const { data: request, error: requestError } = await admin
+      .from('home_ai_requests')
+      .insert({
+        observation_id: observation.id,
+        student_id: observation.student_id,
+        asked_by: user.id,
+        asked: redacted,
+        redaction_count: redactions,
+        risk_flagged: result.riskFlag,
+        withheld_count: heldCount,
+        withheld_reason:
+          heldCount === 0
+            ? null
+            : 'Waiting for your child’s specialist to look at it. You will see it here if they release it.',
+        model: result.model,
+        prompt_version: HOME_PROMPT_VERSION,
+      })
+      .select('id, created_at, risk_flagged, withheld_count, withheld_reason')
+      .single()
+
+    if (requestError) return res.status(500).json({ error: requestError.message })
+
+    let inserted = []
+    if (rows.length > 0) {
+      const { data, error: insertError } = await admin
+        .from('home_ai_strategies')
+        .insert(rows.map((r) => ({ ...r, request_id: request.id })))
+        .select('id, title, body, rationale, confidence, status')
+
+      if (insertError) return res.status(500).json({ error: insertError.message })
+      inserted = data ?? []
+    }
+
+    // --- The spend record --------------------------------------------------
+    // school_id null: see the note at the top of this route.
+    await admin.from('ai_generation_events').insert({
+      school_id: null,
+      requested_by: user.id,
+      home_observation_id: observation.id,
+      strategies_returned: inserted.length,
+      model: result.model,
+    })
+
+    res.json({
+      requestId: request.id,
+      // Only the settled ones. A held suggestion is invisible to the family by
+      // policy, and sending its text here would put it on their screen anyway.
+      strategies: inserted.filter((s) => s.status === 'published'),
+      heldForReview: heldCount,
+      heldReason: request.withheld_reason,
+      riskFlagged: result.riskFlag,
+      redactions,
+      escalated,
+    })
+  } catch (error) {
+    if (error instanceof AnonymisationError) {
+      console.error('Anonymisation refused a home observation:', error)
+      return res.status(500).json({
+        error:
+          'That could not be sent safely, so it was not sent at all. Your observation is saved and the school can see it.',
+      })
+    }
+    if (error instanceof RefusalError) {
+      return res.status(422).json({ error: error.message })
+    }
+    console.error('/api/home-strategies failed:', error)
+    res.status(500).json({ error: 'Suggestions could not be generated just now.' })
+  }
+})
+
 
 /**
  * GET /api/strategy-status/:studentId

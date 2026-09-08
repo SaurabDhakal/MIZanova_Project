@@ -8,9 +8,9 @@ import {
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import ChildSwitcher from '../../components/ChildSwitcher'
 import FamilyIepPlans from '../../components/FamilyIepPlans'
 import GoalCard from '../../components/GoalCard'
+import GoalReviewSection from '../../components/GoalReviewSection'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SignedFileLink from '../../components/SignedFileLink'
@@ -28,9 +28,7 @@ export default function GoalsAndIep() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const {
-    children,
     child,
-    selectChild,
     isPending: childrenPending,
     isError: childrenError,
     error: childrenErrorObject,
@@ -105,7 +103,6 @@ export default function GoalsAndIep() {
         </p>
       </header>
 
-      <ChildSwitcher children={children} child={child} onSelect={selectChild} />
 
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -152,6 +149,11 @@ export default function GoalsAndIep() {
           </ul>
         </>
       )}
+
+      {/* FR24's parent half — db/117. Below the goals it is about, and above
+          the plan, because asking about a goal is a smaller act than reading
+          the document the goal came from. */}
+      <GoalReviewSection studentId={child.id} goals={active} />
 
       <FamilyIepPlans studentId={child.id} />
 

@@ -201,14 +201,14 @@ function InvoiceForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
         >
           {pending ? 'Saving…' : submitLabel}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+          className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -322,7 +322,7 @@ export default function Invoices() {
             setCreating((v) => !v)
             setEditingId(null)
           }}
-          className="ml-auto rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+          className="min-h-11 ml-auto rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
         >
           {creating ? 'Cancel' : '+ New invoice'}
         </button>
@@ -444,7 +444,7 @@ export default function Invoices() {
                           setEditingId(invoice.id)
                           setCreating(false)
                         }}
-                        className="rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
+                        className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
                       >
                         Edit
                       </button>
@@ -454,7 +454,7 @@ export default function Invoices() {
                           changeStatus.mutate({ id: invoice.id, status: 'open' })
                         }
                         disabled={changeStatus.isPending}
-                        className="rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         Issue to family
                       </button>
@@ -486,7 +486,7 @@ export default function Invoices() {
                         changeStatus.mutate({ id: invoice.id, status: 'void' })
                       }
                       disabled={changeStatus.isPending}
-                      className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                      className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                     >
                       Cancel
                     </button>

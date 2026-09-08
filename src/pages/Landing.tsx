@@ -260,7 +260,7 @@ export default function Landing() {
               bare h2 and nothing to separate them but whitespace, so the page
               read as one long column. A small label above each heading gives
               the eye a place to land and says what kind of thing follows. */}
-          <p className="text-xs font-bold tracking-wider text-brand-blue uppercase">
+          <p className="text-xs font-bold tracking-wider text-brand-blue-ink uppercase">
             The sequence
           </p>
           <h2 className="mt-2 text-3xl font-bold text-balance text-foreground">
@@ -301,7 +301,7 @@ export default function Landing() {
         {/* --- Who it is for ------------------------------------------------- */}
         <section id="who-its-for" className="bg-card py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <p className="text-xs font-bold tracking-wider text-brand-green uppercase">
+            <p className="text-xs font-bold tracking-wider text-brand-green-ink uppercase">
               Four ways in
             </p>
             <h2 className="mt-2 text-3xl font-bold text-balance text-foreground">
@@ -360,7 +360,7 @@ export default function Landing() {
           <div className="rounded-card border border-border bg-primary-subtle p-8 md:p-10">
             <div className="grid gap-8 md:grid-cols-2 md:items-center">
               <div>
-                <p className="text-xs font-bold tracking-wider text-brand-blue uppercase">
+                <p className="text-xs font-bold tracking-wider text-brand-blue-ink uppercase">
                   Not only schools
                 </p>
                 <h2 className="mt-2 text-3xl font-bold text-balance text-foreground">
@@ -423,7 +423,7 @@ export default function Landing() {
         {/* --- Privacy ------------------------------------------------------- */}
         <section id="privacy" className="bg-card py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <p className="text-xs font-bold tracking-wider text-brand-green uppercase">
+            <p className="text-xs font-bold tracking-wider text-brand-green-ink uppercase">
               Privacy
             </p>
             <h2 className="mt-2 text-3xl font-bold text-balance text-foreground">

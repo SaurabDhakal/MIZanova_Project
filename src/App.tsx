@@ -171,6 +171,7 @@ const IepPlanEditor = lazy(() => import('./pages/shared/IepPlanEditor'))
 const SpecialistDashboard = lazy(() => import('./pages/specialist/Dashboard'))
 const Caseload = lazy(() => import('./pages/specialist/Caseload'))
 const ReviewQueue = lazy(() => import('./pages/specialist/ReviewQueue'))
+const Evidence = lazy(() => import('./pages/specialist/Evidence'))
 const SpecialistMessages = lazy(() => import('./pages/specialist/Messages'))
 const SpecialistSchedule = lazy(() => import('./pages/specialist/Schedule'))
 const Resources = lazy(() => import('./pages/specialist/Resources'))
@@ -262,6 +263,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'specialist:': <SpecialistDashboard />,
   'specialist:caseload': <Caseload />,
   'specialist:review-queue': <ReviewQueue />,
+  'specialist:evidence': <Evidence />,
   'specialist:messages': <SpecialistMessages />,
   'specialist:schedule': <SpecialistSchedule />,
   'specialist:resources': <Resources />,

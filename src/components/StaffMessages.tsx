@@ -55,19 +55,45 @@ export default function StaffMessages({
   })
   const [studentId, setStudentId] = useState<string>('')
 
-  if (students.isPending) return <LoadingCards count={2} />
-  if (students.isError) return <ErrorState message={students.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. This screen was the clearest case of it: a member of staff
+     with no students assigned met a page that said "No students assigned to
+     you yet" and carried no title at all, so nothing on it said where they
+     were. */
+  const header = (
+    <header className="mb-6">
+      <h1 className="text-title text-foreground">Messages</h1>
+      <p className="mt-1 text-muted-foreground">{subtitle}</p>
+    </header>
+  )
+
+  if (students.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={2} />
+      </>
+    )
+  if (students.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={students.error.message} />
+      </>
+    )
 
   if (students.data.length === 0) {
-    return <EmptyState title={emptyTitle} detail={emptyDetail} />
+    return (
+      <>
+        {header}
+        <EmptyState title={emptyTitle} detail={emptyDetail} />
+      </>
+    )
   }
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Messages</h1>
-        <p className="mt-1 text-muted-foreground">{subtitle}</p>
-      </header>
+      {header}
 
       {note && (
         <p className="mb-5 max-w-prose rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">

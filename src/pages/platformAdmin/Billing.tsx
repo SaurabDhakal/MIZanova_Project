@@ -132,8 +132,32 @@ export default function Billing() {
     },
   })
 
-  if (totals.isPending) return <LoadingCards count={3} />
-  if (totals.isError) return <ErrorState message={totals.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Billing &amp; revenue"
+      lead="What every school has invoiced families, and what has been collected."
+    />
+  )
+
+  if (totals.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (totals.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={totals.error.message} />
+      </>
+    )
 
   const schoolName = (id: string) =>
     schools.data?.find((s) => s.id === id)?.name ?? 'Unknown school'
@@ -151,10 +175,7 @@ export default function Billing() {
 
   return (
     <div>
-      <PageHeader
-        title="Billing &amp; revenue"
-        lead="What every school has invoiced families, and what has been collected."
-      />
+      {header}
 
       {money.length === 0 ? (
         <EmptyState
@@ -510,7 +531,7 @@ export default function Billing() {
                               voidInvoice.reset()
                               setVoiding(invoice)
                             }}
-                            className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
+                            className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground"
                           >
                             Void
                           </button>

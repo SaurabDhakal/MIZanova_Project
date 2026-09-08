@@ -8,6 +8,7 @@ import {
   type StudentRow,
 } from '../../lib/api'
 import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import GoalReviewQueue from '../../components/GoalReviewQueue'
 
 /**
  * The specialist's caseload.
@@ -80,10 +81,27 @@ function CaseloadCard({
           <p className="mt-1 text-title text-foreground">
             {goals.isSuccess ? active.length : '—'}
           </p>
-          {averageProgress !== null && (
+          {/* ZERO IS NOT THE SAME SENTENCE AS A PERCENTAGE. `progress_percent`
+              defaults to 0, so a goal that has been agreed and not yet worked
+              on reads as "0% average progress" — and a specialist scanning
+              thirteen children parses that as this one going nowhere. Ethan
+              Mitchell's goal is recorded `on_track` and shows 0%, which is the
+              screen contradicting the record, with the number in the more
+              prominent half.
+
+              The figure is true, so it is not hidden; it is said in words
+              that mean what the data means. Any other value is a real average
+              and is shown as one. */}
+          {averageProgress === 0 ? (
             <p className="text-xs text-muted-foreground">
-              {averageProgress}% average progress
+              No progress logged yet
             </p>
+          ) : (
+            averageProgress !== null && (
+              <p className="text-xs text-muted-foreground">
+                {averageProgress}% average progress
+              </p>
+            )
           )}
         </div>
         <div>
@@ -160,6 +178,11 @@ export default function Caseload() {
           ))}
         </ul>
       )}
+
+      {/* db/117. On Caseload rather than Schedule because a goal review is
+          about a child, and the Schedule is about time. It renders nothing
+          when nobody has asked. */}
+      <GoalReviewQueue />
     </div>
   )
 }

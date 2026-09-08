@@ -174,14 +174,14 @@ export default function Security() {
                 void navigator.clipboard.writeText(freshCodes.join('\n'))
                 showToast('Recovery codes copied.')
               }}
-              className="rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
             >
               Copy all
             </button>
             <button
               type="button"
               onClick={() => setFreshCodes(null)}
-              className="rounded-btn border border-warning px-4 py-2.5 text-sm font-semibold text-warning-foreground"
+              className="min-h-11 rounded-btn border border-warning px-4 py-2.5 text-sm font-semibold text-warning-foreground"
             >
               I have saved them
             </button>
@@ -261,7 +261,7 @@ export default function Security() {
                 type="button"
                 onClick={() => regenerate.mutate()}
                 disabled={regenerate.isPending}
-                className="rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
               >
                 {regenerate.isPending
                   ? 'Generating…'
@@ -273,7 +273,7 @@ export default function Security() {
                   type="button"
                   onClick={() => remove.mutate(active.id)}
                   disabled={remove.isPending}
-                  className="rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                  className="min-h-11 rounded-btn border border-danger px-4 py-2.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                 >
                   {remove.isPending ? 'Removing…' : 'Turn off'}
                 </button>
@@ -299,7 +299,7 @@ export default function Security() {
               type="button"
               onClick={() => begin.mutate()}
               disabled={begin.isPending}
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {begin.isPending ? 'Preparing…' : 'Set up an authenticator app'}
             </button>
@@ -370,7 +370,7 @@ export default function Security() {
                 type="button"
                 onClick={() => confirm.mutate()}
                 disabled={confirm.isPending || code.trim().length < 6}
-                className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {confirm.isPending ? 'Checking…' : 'Turn on'}
               </button>
@@ -380,7 +380,7 @@ export default function Security() {
                   setEnrolment(null)
                   setCode('')
                 }}
-                className="rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
               >
                 Cancel
               </button>
@@ -441,7 +441,7 @@ export default function Security() {
           <button
             type="submit"
             disabled={changePassword.isPending}
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {changePassword.isPending ? 'Saving…' : 'Update password'}
           </button>
@@ -505,13 +505,29 @@ export default function Security() {
           protection they had was not there. */}
       <NotBuiltYet>
         <p>
-          The design for this screen also shows SMS codes, a 20-minute
-          auto-lock, alerts on sign-in from a new device, a list of active
-          sessions, and a sign-in history. None of those exist yet, so they are
-          not shown as switches here &mdash; a control that looks authoritative
-          and changes nothing is worse than an admission on a page about
-          whether your account is protected.
+          The design for this screen also shows SMS codes, alerts on sign-in
+          from a new device, a list of active sessions, and a sign-in history.
+          None of those exist yet, so they are not shown as switches here
+          &mdash; a control that looks authoritative and changes nothing is
+          worse than an admission on a page about whether your account is
+          protected.
         </p>
+        {/* The 20-minute auto-lock was on that list until 8 September and is
+            now real, which is why it has left it. It is not a switch because
+            there is nothing to choose: it applies to the four roles that can
+            open a child's record and it cannot be turned off. */}
+        {/* `mandatory` above is the same four roles `IdleTimeout` locks, which
+            is not a coincidence worth hiding: both come from
+            MFA_REQUIRED_ROLES, so the page cannot describe a protection the
+            account does not have. */}
+        {mandatory && (
+          <p>
+            This account <em>is</em> signed out after twenty minutes of
+            inactivity, with a minute&rsquo;s warning first so nothing you are
+            part-way through is lost. It is not a setting: it applies to every
+            account that can open a child&rsquo;s record.
+          </p>
+        )}
         <p>
           Re-verification before sensitive actions <em>is</em> here, and is not
           a switch because there is nothing to turn on: your password is asked

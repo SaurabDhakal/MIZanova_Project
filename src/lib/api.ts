@@ -1014,6 +1014,145 @@ export async function fetchStrategyStatus(
  * the AI call — happens on the server, so nothing sensitive and no API key
  * passes through here.
  */
+// ---------------------------------------------------------------------------
+// The Evidence Database — db/118, FR12 and E02
+// ---------------------------------------------------------------------------
+
+export type EvidenceStrategy = {
+  id: string
+  lineage_id: string
+  version: number
+  is_current: boolean
+  behaviour_type: BehaviourType
+  title: string
+  body: string
+  rationale: string[]
+  provenance: string
+  created_at: string
+  retired_at: string | null
+  retired_reason: string | null
+}
+
+/** Everything current, for a specialist to manage or a screen to fall back on. */
+export async function fetchEvidenceStrategies(): Promise<EvidenceStrategy[]> {
+  const { data, error } = await supabase
+    .from('evidence_strategies')
+    .select(
+      'id, lineage_id, version, is_current, behaviour_type, title, body, rationale, provenance, created_at, retired_at, retired_reason',
+    )
+    .eq('is_current', true)
+    .order('behaviour_type')
+    .order('title')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as EvidenceStrategy[]
+}
+
+/** Every version of one lineage, oldest first — the "version-controlled" half. */
+export async function fetchEvidenceHistory(
+  lineageId: string,
+): Promise<EvidenceStrategy[]> {
+  const { data, error } = await supabase
+    .from('evidence_strategies')
+    .select(
+      'id, lineage_id, version, is_current, behaviour_type, title, body, rationale, provenance, created_at, retired_at, retired_reason',
+    )
+    .eq('lineage_id', lineageId)
+    .order('version')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as EvidenceStrategy[]
+}
+
+/**
+ * Add a strategy, or a new version of one — db/118.
+ *
+ * There is no update. Revising inserts a row in the same lineage and takes the
+ * previous one out of currency, which is what "version-controlled" means here:
+ * a strategy that changed after a teacher used it is still readable as the
+ * words they were given.
+ *
+ * The two writes are not a transaction, and the order is deliberate: the new
+ * row goes in FIRST and would collide with the partial unique index if
+ * anything went wrong, so a failure leaves the old version current rather than
+ * leaving the library with nothing live for that behaviour.
+ */
+export async function saveEvidenceStrategy(input: {
+  lineageId?: string
+  behaviourType: BehaviourType
+  title: string
+  body: string
+  rationale: string[]
+  provenance: string
+}): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const me = session.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  if (input.lineageId) {
+    const previous = await fetchEvidenceHistory(input.lineageId)
+    const current = previous.find((v) => v.is_current)
+    if (!current) throw new Error('That strategy has no current version to revise.')
+
+    // Retire the old one first so the partial index has room for the new.
+    const { data: freed, error: freeError } = await supabase
+      .from('evidence_strategies')
+      .update({ is_current: false })
+      .eq('id', current.id)
+      .select('id')
+    if (freeError) throw new Error(freeError.message)
+    assertChanged(freed, 'That revision')
+
+    const { error } = await supabase.from('evidence_strategies').insert({
+      lineage_id: input.lineageId,
+      version: current.version + 1,
+      behaviour_type: input.behaviourType,
+      title: input.title.trim(),
+      body: input.body.trim(),
+      rationale: input.rationale.filter((r) => r.trim()),
+      provenance: input.provenance.trim(),
+      created_by: me,
+    })
+    if (error) {
+      // Put the old one back rather than leaving the lineage with nothing
+      // current — a library that silently loses a strategy is worse than one
+      // that refuses an edit.
+      await supabase
+        .from('evidence_strategies')
+        .update({ is_current: true })
+        .eq('id', current.id)
+      throw new Error(error.message)
+    }
+    return
+  }
+
+  const { error } = await supabase.from('evidence_strategies').insert({
+    lineage_id: crypto.randomUUID(),
+    behaviour_type: input.behaviourType,
+    title: input.title.trim(),
+    body: input.body.trim(),
+    rationale: input.rationale.filter((r) => r.trim()),
+    provenance: input.provenance.trim(),
+    created_by: me,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Withdraw one from use. Not a delete — see db/118. */
+export async function retireEvidenceStrategy(
+  id: string,
+  reason: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('evidence_strategies')
+    .update({ retired_at: new Date().toISOString(), retired_reason: reason.trim() || null })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'That withdrawal')
+}
+
 export async function requestStrategies(
   behaviourLogId: string,
 ): Promise<StrategyResponse> {
@@ -1044,8 +1183,208 @@ export async function requestStrategies(
 }
 
 // ---------------------------------------------------------------------------
+// Asking a specialist to look at a goal — db/117, FR24
+// ---------------------------------------------------------------------------
+
+export type GoalReviewRequest = {
+  id: string
+  goal_id: string
+  student_id: string
+  note: string | null
+  status: 'open' | 'answered' | 'declined'
+  response: string | null
+  answered_at: string | null
+  created_at: string
+  goals: { title: string } | null
+  students: { first_name: string; last_name: string } | null
+}
+
+/** Every review request for one child — the family's side. */
+export async function fetchGoalReviewRequests(
+  studentId: string,
+): Promise<GoalReviewRequest[]> {
+  const { data, error } = await supabase
+    .from('goal_review_requests')
+    .select(
+      'id, goal_id, student_id, note, status, response, answered_at, created_at, ' +
+        'goals ( title ), students ( first_name, last_name )',
+    )
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as GoalReviewRequest[]
+}
+
+/**
+ * Ask for one. Written from the browser: db/117's policy decides everything
+ * that matters, and there is nobody to email — the specialist sees it on their
+ * own screen, which is the surface this product has rather than a scheduler.
+ */
+export async function askForGoalReview(input: {
+  goalId: string
+  studentId: string
+  note: string
+}): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const me = session.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  const { error } = await supabase.from('goal_review_requests').insert({
+    goal_id: input.goalId,
+    student_id: input.studentId,
+    requested_by: me,
+    note: input.note.trim() || null,
+    status: 'open',
+  })
+
+  if (error) {
+    // The one-open-per-goal index, said the way a parent would understand it.
+    if (error.code === '23505') {
+      throw new Error(
+        'You have already asked about this goal. The specialist will answer here.',
+      )
+    }
+    throw new Error(error.message)
+  }
+}
+
+/** Everything waiting on this specialist, across their caseload. */
+export async function fetchOpenGoalReviews(): Promise<GoalReviewRequest[]> {
+  const { data, error } = await supabase
+    .from('goal_review_requests')
+    .select(
+      'id, goal_id, student_id, note, status, response, answered_at, created_at, ' +
+        'goals ( title ), students ( first_name, last_name )',
+    )
+    .eq('status', 'open')
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as GoalReviewRequest[]
+}
+
+/** Answer one, or decline it with the same box. */
+export async function answerGoalReview(
+  id: string,
+  status: 'answered' | 'declined',
+  response: string,
+): Promise<void> {
+  const { data: session } = await supabase.auth.getUser()
+  const me = session.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  const { data, error } = await supabase
+    .from('goal_review_requests')
+    .update({
+      status,
+      response: response.trim() || null,
+      answered_by: me,
+      answered_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('status', 'open')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'That answer')
+}
+
+// ---------------------------------------------------------------------------
 // Parent portal
 // ---------------------------------------------------------------------------
+
+export type HomeStrategyRow = {
+  id: string
+  request_id: string
+  title: string
+  body: string
+  rationale: string[]
+  confidence: number
+}
+
+/** One family's answer to one observation — db/114. */
+export type HomeAiRequestRow = {
+  id: string
+  observation_id: string
+  risk_flagged: boolean
+  withheld_count: number
+  withheld_reason: string | null
+  created_at: string
+  home_ai_strategies: HomeStrategyRow[]
+}
+
+export type HomeStrategyResponse = {
+  requestId: string
+  strategies: HomeStrategyRow[]
+  /** Waiting on the child's specialist. Not gone — see db/114. */
+  heldForReview: number
+  heldReason: string | null
+  riskFlagged: boolean
+  redactions: number
+  escalated: boolean
+  /** True when the server returned an existing answer instead of generating. */
+  alreadyGenerated?: boolean
+}
+
+/**
+ * Ask for up to three things to try at home — db/114, FR9, P06.
+ *
+ * The observation must already exist. That is not an extra step to tidy away
+ * later: what the family wrote is a record the school can read whether or not
+ * the AI ever answers, and generating first would make the suggestion the
+ * point and the observation a by-product of it.
+ */
+export async function requestHomeStrategies(
+  observationId: string,
+): Promise<HomeStrategyResponse> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/home-strategies`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // The server reads the observation AS YOU, so RLS decides whether it is
+      // yours to ask about.
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ observationId }),
+  }).catch(() => {
+    throw new Error(
+      'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
+    )
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as HomeStrategyResponse
+}
+
+/**
+ * Every answer a family has already had, for one child.
+ *
+ * One query for the child rather than one per observation, and no status
+ * filter here: db/114's guardian policy returns only settled strategies, so
+ * the rule that decides what a family reads is not restated in this file where
+ * it could drift.
+ */
+export async function fetchHomeStrategies(
+  studentId: string,
+): Promise<HomeAiRequestRow[]> {
+  const { data, error } = await supabase
+    .from('home_ai_requests')
+    .select(
+      `id, observation_id, risk_flagged, withheld_count, withheld_reason, created_at,
+       home_ai_strategies ( id, request_id, title, body, rationale, confidence )`,
+    )
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as HomeAiRequestRow[]
+}
 
 /**
  * Behaviour logs a teacher has deliberately shared with this child's guardians.
@@ -1082,6 +1421,18 @@ export type ObservationCategory =
 export type HomeObservationRow = {
   id: string
   student_id: string
+  /*
+   * WHO WROTE IT. Written since db/007 and never read back, which is why every
+   * parent screen treated a child's observations as the reader's own: a second
+   * guardian saw the first one's note with no name on it, a count labelled
+   * "your" that was not, and a "Correct this" the database was always going to
+   * refuse. `null` where the author's account has since been deleted — db/007
+   * keeps the observation on purpose, so the school's picture does not develop
+   * holes.
+   */
+  logged_by: string | null
+  /** Null when the author's profile is not readable, which RLS decides. */
+  author: { full_name: string } | null
   title: string
   body: string
   category: ObservationCategory
@@ -1089,17 +1440,22 @@ export type HomeObservationRow = {
   created_at: string
 }
 
+/** The columns every observation fetch needs, including who wrote it. */
+const HOME_OBSERVATION_COLUMNS = `id, student_id, logged_by, title, body,
+   category, observed_on, created_at,
+   author:profiles!home_observations_logged_by_fkey ( full_name )`
+
 export async function fetchHomeObservations(
   studentId: string,
 ): Promise<HomeObservationRow[]> {
   const { data, error } = await supabase
     .from('home_observations')
-    .select('id, student_id, title, body, category, observed_on, created_at')
+    .select(HOME_OBSERVATION_COLUMNS)
     .eq('student_id', studentId)
     .order('observed_on', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []) as unknown as HomeObservationRow[]
 }
 
 /**
@@ -1111,11 +1467,11 @@ export async function fetchHomeObservations(
 export async function fetchAllHomeObservations(): Promise<HomeObservationRow[]> {
   const { data, error } = await supabase
     .from('home_observations')
-    .select('id, student_id, title, body, category, observed_on, created_at')
+    .select(HOME_OBSERVATION_COLUMNS)
     .order('observed_on', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []) as unknown as HomeObservationRow[]
 }
 
 /**
@@ -1557,7 +1913,7 @@ export type ThreadRow = {
   subject: string | null
   last_message_at: string
   /** Which child this conversation is about. Every thread has one. */
-  students: { display_name: string } | null
+  students: { display_name: string; first_name: string; last_name: string } | null
   thread_participants: {
     profile_id: string
     last_read_at: string | null
@@ -1577,7 +1933,7 @@ export async function fetchThreads(): Promise<ThreadRow[]> {
     .from('message_threads')
     .select(
       `id, student_id, subject, last_message_at,
-       students ( display_name ),
+       students ( display_name, first_name, last_name ),
        thread_participants ( profile_id, last_read_at, profiles ( id, full_name, role ) ),
        messages ( sender_id, body, created_at, deleted_at, message_attachments ( kind ) )`,
     )
@@ -1592,7 +1948,7 @@ export async function fetchThreads(): Promise<ThreadRow[]> {
         .from('message_threads')
         .select(
           `id, student_id, subject, last_message_at,
-           students ( display_name ),
+           students ( display_name, first_name, last_name ),
            thread_participants ( profile_id, last_read_at, profiles ( id, full_name, role ) ),
            messages ( sender_id, body, created_at )`,
         )
@@ -2020,12 +2376,18 @@ export type MySchool = {
   abn: string | null
   kind: OrganisationKind
   status: OrganisationStatus
+  /* db/116, FR15. Both are the school's own policy rather than a preference. */
+  auto_share_updates: boolean
+  parent_invite_enabled: boolean
 }
 
 export async function fetchMySchool(): Promise<MySchool | null> {
   const { data, error } = await supabase
     .from('schools')
-    .select('id, name, suburb, state, timezone, abn, kind, status')
+    .select(
+      'id, name, suburb, state, timezone, abn, kind, status, ' +
+        'auto_share_updates, parent_invite_enabled',
+    )
     .maybeSingle()
 
   if (error) throw new Error(error.message)
@@ -2039,6 +2401,31 @@ export async function fetchMySchool(): Promise<MySchool | null> {
  * a school that could write its own status could lift its own suspension, and
  * since db/063 that decides whether its educators can add children.
  */
+/**
+ * The two FR15 switches — db/116.
+ *
+ * Separate from `updateMySchool` on purpose. That one is a form with a Save
+ * button and five fields somebody is editing; these are policy, they take
+ * effect the moment they are pressed, and burying them in a form somebody
+ * might abandon half-changed would leave a school unsure which way round its
+ * own sharing rule was.
+ */
+export async function updateSchoolPolicy(
+  id: string,
+  fields: Partial<{ auto_share_updates: boolean; parent_invite_enabled: boolean }>,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('schools')
+    .update(fields)
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // db/066's trigger refuses status and kind; a policy change filtered out by
+  // RLS would otherwise report success and change nothing.
+  assertChanged(data, 'That setting')
+}
+
 export async function updateMySchool(
   id: string,
   fields: {
@@ -3035,6 +3422,43 @@ export async function fetchStrategyConfidence(): Promise<
  * `approved` is in the teacher's select policy; `rejected` is not, so a
  * rejected suggestion simply never appears — no separate hiding logic needed.
  */
+/**
+ * Put a reviewed suggestion back in the queue — the other half of reviewStrategy.
+ *
+ * WHY THIS IS SAFE TO OFFER. db/006's update policy admits a specialist for any
+ * student they can view and says nothing about which status they may set, so
+ * returning one to `pending` needs no new grant. The reviewer fields are
+ * cleared with it: a strategy that is waiting again has not been reviewed by
+ * anybody, and leaving a name and a timestamp on it would make the audit trail
+ * say something that is no longer true.
+ *
+ * What it cannot undo is a teacher who has already looked. Releasing puts a
+ * suggestion in front of somebody; this takes it back off the list, it does not
+ * unsee it. That is why the toast says "released" first and offers this second,
+ * rather than pretending the decision had not happened yet.
+ */
+export async function undoReview(strategyId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('ai_strategies')
+    .update({
+      /* `pending_review`, not `pending`. The enum in db/006 is published /
+         pending_review / approved / rejected, and the first version of this
+         wrote a value that is not in it — so every undo failed, silently,
+         because the error came back on a call nobody was reading. Found by
+         pressing the button and then looking at the row rather than at the
+         screen. */
+      status: 'pending_review',
+      reviewed_by: null,
+      reviewed_at: null,
+      review_note: null,
+    })
+    .eq('id', strategyId)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'Putting it back in the queue')
+}
+
 export async function reviewStrategy(
   strategyId: string,
   decision: 'approved' | 'rejected',
@@ -4329,7 +4753,7 @@ export type FamilyAppointment = {
   starts_at: string
   ends_at: string
   duration_minutes: number
-  status: 'scheduled' | 'completed' | 'cancelled'
+  status: 'requested' | 'scheduled' | 'completed' | 'cancelled' | 'declined'
   purpose: string | null
   cancelled_reason: string | null
   /** Null means no separate charge — included in what the school already pays. */
@@ -4355,6 +4779,81 @@ export type FamilyAppointment = {
  * what decides. Passing a student id the caller is not a guardian of returns an
  * empty list rather than an error.
  */
+/**
+ * The specialists on this child's caseload — db/115, P05.
+ *
+ * "Assigned specialists", not the verified directory db/104 built for
+ * individuals. A family should not be able to put a clinician they have never
+ * met into their child's diary, and db/115's insert policy refuses it anyway;
+ * this is the screen agreeing with the database rather than discovering it.
+ */
+export async function fetchChildSpecialists(
+  studentId: string,
+): Promise<{ profile_id: string; full_name: string }[]> {
+  const { data, error } = await supabase
+    .from('student_educators')
+    .select('profile_id, profiles ( full_name, role )')
+    .eq('student_id', studentId)
+    .eq('assignment', 'specialist')
+
+  if (error) throw new Error(error.message)
+  return (data ?? [])
+    .map((r) => {
+      const p = (r as unknown as { profiles: { full_name: string; role: string } | null })
+        .profiles
+      return { profile_id: r.profile_id as string, full_name: p?.full_name ?? '', role: p?.role }
+    })
+    .filter((r) => r.role === 'specialist' && r.full_name)
+    .map(({ profile_id, full_name }) => ({ profile_id, full_name }))
+}
+
+/** Ask a specialist for a time — db/115. Goes through the server so it can notify. */
+export async function requestAppointment(input: {
+  studentId: string
+  specialistId: string
+  startsAt: string
+  purpose: string
+}): Promise<{ id: string }> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/appointments/request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  }).catch(() => {
+    throw new Error('Could not reach the API server. Is it running?')
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  return body as { id: string }
+}
+
+/**
+ * Take back a request nobody has answered — db/115.
+ *
+ * Written from the browser rather than the server: there is nobody to notify.
+ * A specialist who never saw the request does not need telling it is gone.
+ * `assertChanged` because an RLS-filtered update returns success with zero
+ * rows, which is indistinguishable from a button that does nothing.
+ */
+export async function withdrawAppointmentRequest(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .update({ status: 'cancelled' })
+    .eq('id', id)
+    .eq('status', 'requested')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'That request could not be withdrawn. It may already have been answered.')
+}
+
 export async function fetchAppointmentsForChild(
   studentId: string,
 ): Promise<FamilyAppointment[]> {
@@ -6616,7 +7115,7 @@ export async function fetchUnengagedSpecialists(): Promise<FreelanceSpecialist[]
 }
 
 export type UpcomingGoal = GoalRow & {
-  students: { display_name: string } | null
+  students: { display_name: string; first_name: string; last_name: string } | null
 }
 
 /**
@@ -7348,6 +7847,13 @@ export type IepPlanRow = {
   home_languages: string | null
   /** PostgREST returns an aggregate as a one-element array. */
   iep_goals: { count: number }[]
+  /*
+   * WHO HAS PERSONALLY CONFIRMED, so a card can say whether the person reading
+   * it is one of them. Ids rather than a count: "somebody agreed" is the fact
+   * `status` already carries, and the whole point of db/054's second table is
+   * that it is not the same fact as "you agreed".
+   */
+  iep_plan_confirmations: { profile_id: string }[]
 }
 
 export type IepPlanDetail = {
@@ -7418,7 +7924,8 @@ export async function fetchIepPlans(studentId: string): Promise<IepPlanRow[]> {
     .from('iep_plans')
     .select(
       `id, plan_date, status, proposed_review_date, actual_review_date,
-       agreed_at, home_languages, iep_goals ( count )`,
+       agreed_at, home_languages, iep_goals ( count ),
+       iep_plan_confirmations ( profile_id )`,
     )
     .eq('student_id', studentId)
     .order('plan_date', { ascending: false })
@@ -8717,6 +9224,66 @@ export async function fetchFreeSlots(
   return ((data ?? []) as { slot: string }[]).map((r) => r.slot)
 }
 
+/**
+ * Requests from families, for the specialist they were asked of — db/115.
+ *
+ * No status filter beyond 'requested' and no policy restated: db/059's select
+ * policy already limits this to their own caseload.
+ */
+export async function fetchIncomingAppointmentRequests(): Promise<
+  {
+    id: string
+    student_id: string
+    starts_at: string
+    duration_minutes: number
+    purpose: string | null
+    students: { first_name: string; last_name: string } | null
+  }[]
+> {
+  const { data, error } = await supabase
+    .from('specialist_appointments')
+    .select(
+      'id, student_id, starts_at, duration_minutes, purpose, students ( first_name, last_name )',
+    )
+    .eq('status', 'requested')
+    .order('starts_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as {
+    id: string
+    student_id: string
+    starts_at: string
+    duration_minutes: number
+    purpose: string | null
+    students: { first_name: string; last_name: string } | null
+  }[]
+}
+
+/** Agree to a family's request, or decline it with a reason — db/115. */
+export async function answerAppointmentRequest(
+  appointmentId: string,
+  decision: 'scheduled' | 'declined',
+  note?: string,
+): Promise<void> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('You are not signed in.')
+
+  const res = await fetch(`${API_URL}/api/appointments/answer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ appointmentId, decision, note }),
+  }).catch(() => {
+    throw new Error('Could not reach the API server. Is it running?')
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+}
+
 export async function fetchMyBookings(): Promise<IndividualBooking[]> {
   const { data, error } = await supabase
     .from('individual_bookings')
@@ -8943,6 +9510,12 @@ export const queryKeys = {
   pendingStrategies: ['pending-strategies'] as const,
   sharedLogs: (id: string) => ['shared-logs', id] as const,
   homeObservations: (id: string) => ['home-observations', id] as const,
+  homeStrategies: (id: string) => ['home-strategies', id] as const,
+  evidenceStrategies: ['evidence-strategies'] as const,
+  goalReviews: (id: string) => ['goal-reviews', id] as const,
+  openGoalReviews: ['open-goal-reviews'] as const,
+  childSpecialists: (id: string) => ['child-specialists', id] as const,
+  incomingAppointmentRequests: ['incoming-appointment-requests'] as const,
   allHomeObservations: ['home-observations', 'all'] as const,
   goals: (id: string) => ['goals', id] as const,
   iepDocuments: (id: string) => ['iep-documents', id] as const,

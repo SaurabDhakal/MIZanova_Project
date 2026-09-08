@@ -239,7 +239,7 @@ export default function Compliance() {
                               type="button"
                               disabled={busy}
                               onClick={() => withdraw.mutate(active.id)}
-                              className="mt-1 text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
+                              className="mt-1 inline-flex min-h-6 items-center text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
                             >
                               Withdraw
                             </button>
@@ -259,14 +259,14 @@ export default function Compliance() {
                                     consentType: type,
                                   })
                                 }
-                                className="rounded-btn bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                                className="min-h-11 rounded-btn bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                               >
                                 Yes, record it
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setRecording(null)}
-                                className="rounded-btn border border-border px-2 py-1 text-xs font-semibold text-foreground"
+                                className="min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-foreground"
                               >
                                 Cancel
                               </button>
@@ -276,7 +276,7 @@ export default function Compliance() {
                           <button
                             type="button"
                             onClick={() => setRecording(key)}
-                            className="rounded-btn border border-border px-2 py-1 text-xs font-semibold text-muted-foreground"
+                            className="min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-muted-foreground"
                           >
                             Not on record
                           </button>

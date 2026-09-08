@@ -20,3 +20,17 @@ export function toLocalInputValue(date: Date): string {
 export function toLocalDateValue(date: Date): string {
   return toLocalInputValue(date).slice(0, 10)
 }
+
+/**
+ * Today, where the person is standing.
+ *
+ * `new Date().toISOString().slice(0, 10)` is the same mistake this file was
+ * written to stop, and it had spread to every screen that pre-fills a date or
+ * caps one with `max`. Australia is UTC+10 or +11, so from midnight until
+ * mid-morning that expression returns YESTERDAY: a parent writing up last
+ * night's meltdown before school dated it a day early, and the `max` on the
+ * field refused to let them correct it to today.
+ */
+export function todayLocal(): string {
+  return toLocalDateValue(new Date())
+}

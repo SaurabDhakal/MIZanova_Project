@@ -213,7 +213,7 @@ export default function Resources() {
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              className="rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
             >
               {open ? 'Cancel' : '+ Upload'}
             </button>
@@ -313,7 +313,7 @@ export default function Resources() {
           <button
             type="submit"
             disabled={upload.isPending}
-            className="mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="min-h-11 mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {upload.isPending ? 'Uploading…' : 'Upload'}
           </button>
@@ -329,7 +329,7 @@ export default function Resources() {
                 key={value}
                 type="button"
                 onClick={() => setFilter(value)}
-                className={`rounded-btn border px-3 py-1.5 text-sm font-semibold ${
+                className={`min-h-11 rounded-btn border px-3 py-1.5 text-sm font-semibold ${
                   filter === value
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border text-muted-foreground'
@@ -414,7 +414,7 @@ export default function Resources() {
                         setDeleting(resource)
                       }}
                       disabled={remove.isPending}
-                      className="rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                      className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                     >
                       Delete
                     </button>
@@ -472,7 +472,7 @@ export default function Resources() {
                               type="button"
                               onClick={() => confirmRead.mutate(s.id)}
                               disabled={confirmRead.isPending}
-                              className="rounded-btn bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                              className="min-h-11 rounded-btn bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                             >
                               I have read this
                             </button>

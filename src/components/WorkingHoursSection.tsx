@@ -44,6 +44,7 @@ export default function WorkingHoursSection({
   canEdit: boolean
 }) {
   const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
   const [weekday, setWeekday] = useState(1)
   const [startsAt, setStartsAt] = useState('09:00')
   const [endsAt, setEndsAt] = useState('12:00')
@@ -83,9 +84,64 @@ export default function WorkingHoursSection({
 
   const hhmm = (t: string) => t.slice(0, 5)
 
+  /* ------------------------------------------------------------------
+     FOLDED ONCE IT IS SET, BECAUSE IT IS SET ONCE.
+     ------------------------------------------------------------------
+     This block is 610px of a 3,100px page — a fifth of the Schedule, sitting
+     at the very bottom, for a thing a specialist changes perhaps twice a
+     year. Everything above it is what they came for: the diary, and the people
+     waiting for an answer.
+
+     Folded it is a sentence saying what the hours currently are, which is the
+     only question anybody has about them most days. Open it is the editor,
+     unchanged. Somebody with NO hours set gets it open, because for them it is
+     not a setting they are reviewing, it is the thing that makes them
+     bookable at all and the page should say so.
+     ------------------------------------------------------------------ */
+  const summary = week
+    .filter((d) => d.bands.length > 0)
+    .map(
+      (d) =>
+        `${d.label} ${d.bands.map((b) => `${hhmm(b.starts_at)}–${hhmm(b.ends_at)}`).join(', ')}`,
+    )
+    .join(' · ')
+
+  if (bands.isSuccess && (bands.data ?? []).length > 0 && !open) {
+    return (
+      <section className="mt-8 rounded-card border border-border bg-card p-4 shadow-raised">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-bold text-foreground">Your working hours</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">{summary}</p>
+          </div>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+            >
+              Change them
+            </button>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
-      <h2 className="text-lg font-bold text-foreground">Your working hours</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h2 className="text-lg font-bold text-foreground">Your working hours</h2>
+        {bands.isSuccess && (bands.data ?? []).length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+          >
+            Done
+          </button>
+        )}
+      </div>
       <p className="mt-1 max-w-prose text-muted-foreground">
         When you are available in an ordinary week. This is what a family or an
         individual sees when they look for a time &mdash; an empty day means you
@@ -147,7 +203,7 @@ export default function WorkingHoursSection({
               id="av-day"
               value={weekday}
               onChange={(e) => setWeekday(Number(e.target.value))}
-              className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+              className="mt-1 min-h-11 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
             >
               {[...WEEKDAYS.slice(1), WEEKDAYS[0]].map((label) => (
                 <option key={label} value={WEEKDAYS.indexOf(label)}>
@@ -165,7 +221,7 @@ export default function WorkingHoursSection({
               type="time"
               value={startsAt}
               onChange={(e) => setStartsAt(e.target.value)}
-              className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+              className="mt-1 min-h-11 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
             />
           </div>
           <div>
@@ -177,7 +233,7 @@ export default function WorkingHoursSection({
               type="time"
               value={endsAt}
               onChange={(e) => setEndsAt(e.target.value)}
-              className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+              className="mt-1 min-h-11 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
             />
           </div>
           <button
@@ -186,7 +242,7 @@ export default function WorkingHoursSection({
             onClick={() =>
               add.mutate({ specialistId, weekday, startsAt, endsAt })
             }
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {add.isPending ? 'Adding…' : 'Add hours'}
           </button>

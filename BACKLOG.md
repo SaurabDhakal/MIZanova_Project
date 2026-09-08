@@ -152,6 +152,643 @@ bulk import as gaps, and both shipped since it was written.
 
 ---
 
+## 2b. The parent role — audited by using it, 8 September 2026
+
+Signed in as a parent and walked all thirteen sidebar screens against a child
+with real data. Four defects, all fixed; every one of them was green under
+lint, the typecheck and the build both before and after, and none was visible
+from reading the code.
+
+- [x] ~~**A co-parent's writing was rendered as your own.**~~ `logged_by` has
+      been written since db/007 and was never selected back, so a child's
+      second guardian met "your home observations: 1" having written nothing,
+      the other parent's account of an evening with no name on it, and a
+      "Correct this" whose update db/007's policy was always going to refuse.
+      The refusal itself was sound — `assertChanged` caught it — but it read
+      "your account does not have permission for this record", which blames
+      the account rather than saying somebody else wrote it. Verified both
+      ways: the co-parent's note is attributed and has no edit control, and a
+      note written by the signed-in parent still has one and still saves.
+- [x] ~~**The month calendar's header read "Mon, 5 Jan" over September.**~~
+      `dayHeaderFormat` was written for the week header, where every column is
+      a real date, and applied to every view. A month grid's header names seven
+      weekdays for five weeks at once, so FullCalendar dated them from an
+      arbitrary reference week — and the Sunday column read 4 Jan, after
+      Saturday's 10th. It was on the parent, specialist and educator calendars
+      alike. Week and day views still show real dates; checked after the fix.
+- [x] ~~**An IEP card asked for agreement it already had.**~~ Opening the panel
+      was the only way to see whether your own confirmation had registered, so
+      the card sat at "Read it and agree" under a pill reading "Agreed at the
+      meeting" — the unreadable pairing `FamilyIepPlans.tsx` was written to fix,
+      still standing on the one control a family presses. The card now carries
+      "You have agreed" and the button reads "Read it again".
+- [x] ~~**Every date field defaulted to yesterday until mid-morning.**~~
+      `new Date().toISOString().slice(0, 10)` is UTC and Australia is UTC+10, so
+      for the first ten hours of each day a parent writing up last night dated
+      it a day early — and the field's own `max` refused to let them correct it
+      to today. Found live: an observation logged at 01:17 on 8 September was
+      filed as the 7th. `src/lib/localTime.ts` already existed to stop exactly
+      this and its docstring names the fault; it now exports `todayLocal()`.
+
+- [ ] **The same UTC expression is still on eleven other call sites**, none of
+      them reachable from a parent account and so none verified by this pass.
+      Each defaults or caps a date and each is a day early every morning:
+      `components/IepDocumentsSection.tsx:77`, `components/SessionsSection.tsx:175`,
+      `lib/api.ts:4510`, `lib/api.ts:4541` (writes `ends_on`),
+      `lib/api.ts:8008`, `lib/api.ts:8774-8775` (a reporting range),
+      `pages/educator/AddStudent.tsx:159` (caps a date of birth),
+      `pages/platformAdmin/Subscriptions.tsx:339`,
+      `pages/shared/IepPlanEditor.tsx:368`, `pages/shared/IepPlans.tsx:146`
+      (writes `plan_date`). The fix is `todayLocal()` in each; what it needs is
+      somebody signed into those roles to confirm nothing else read the old
+      value. The download-filename and authenticator-label uses of the same
+      expression are left alone deliberately — a filename a day behind is not
+      a record a day behind.
+
+- [ ] **Nothing tells a parent a plan is waiting for their agreement.** The
+      notification bell gives a parent unread conversations and unpaid invoices;
+      an IEP awaiting confirmation passes the bell's own test — it links to the
+      screen that clears it — and is the thing a school most needs a family to
+      act on. Not built rather than broken, so it is listed rather than fixed.
+
+- [ ] **A plan's review date passes in silence.** The card read "to be reviewed
+      around 29 Aug 2026" on 8 September in the same grey as everything else.
+      Whether that should be the family's problem to notice is Joe's call.
+
+### The UI pass over the same thirteen screens
+
+Measured rather than eyeballed — every figure below came out of the running
+page, at 1159px and again at 375px.
+
+- [x] ~~**The calendar was taller than the window.**~~ 1099px of calendar in a
+      698px viewport, so the page scrolled instead of the grid and the toolbar
+      and day headers scrolled away with it. `height="auto"` makes FullCalendar
+      as tall as its content, and the visible day is widened to fit whatever is
+      booked — one 7:30pm session anywhere in the loaded set opened every week
+      at 7am–9pm, 28 half-hour rows. A real height (`70vh`) gives the grid its
+      own scroller: 489px, header pinned, and `scrollTime` opens it at the
+      school morning. Month view now fits a whole month on one screen.
+- [x] ~~**No line showed the time of day.**~~ The red now-indicator only draws
+      inside the visible hours, and with the grid opening wherever the widening
+      reached, it was never where anybody was looking. Confirmed the machinery
+      itself is sound by temporarily widening the day to midnight: the line
+      rendered at the right offset in the right colour, then the probe was
+      reverted. It stays absent outside 7am–9pm, which is correct for a school
+      calendar — a line at 2am marks nothing.
+- [x] ~~**The calendar toolbar crammed three groups onto one row on a
+      phone.**~~ At 394px the title got a 90px column, so "1 – 30 September
+      2026" wrapped onto three lines between two button groups and the view
+      switcher sat flush against the right edge. The scoped calendar CSS had no
+      responsive rule at all — it is 90 lines of colour and nothing about small
+      screens. Stacked below 640px, title first.
+- [x] ~~**Nine standalone controls were under the 44px touch floor.**~~ Every
+      one was a bare text button: "View goals →" and "All appointments →" at
+      20px, "Read it and agree" at 20px — the single control a family presses
+      on the IEP screen — "Correct this", "Read it" ×3 in the Library at 20px,
+      "Start this course" at 36px and "Log an observation" at 40px. The idiom
+      already existed: `inline-flex min-h-11 items-center`, from the sign-in
+      touch-target fix, which also warns against widening a target so far that
+      it becomes a different bug. All thirteen parent screens now measure zero.
+
+**Clean, and worth not re-checking:** no screen scrolls horizontally at 375px,
+on any of the thirteen. The contrast checker passes WCAG AA on every pair in
+use, including the calendar's event colours.
+
+- [ ] **The same sub-44px text button is on nineteen more call sites**, in
+      fourteen files across specialist, educator, platform admin and individual
+      screens. Not touched, for the reason the date fix was not: they belong to
+      roles this pass could not sign into. The fix is the same class string
+      each time.
+- [ ] **The visible hours are computed from every appointment loaded, not the
+      week on screen.** A single evening booking in August still widens
+      September's empty weeks to fourteen hours. Harmless now the grid scrolls
+      inside itself, and worth fixing when somebody is next in that file.
+- [ ] **The sidebar says "Collab & Finance" and the page says "Finance".**
+      One of the two is wrong and it is not obvious which.
+
+### Checked and sound, so nobody re-audits them
+
+About your child, Privacy & Consent, Link a child, Resources, Academy, Library,
+Messages and Collab & Finance all say what they do and do what they say.
+"About your child" names the other guardian outright, which is what made the
+observations screen's silence about authorship a contradiction rather than
+just a gap. The Resources page still promises no email about resources, and
+that is still true — nothing notifies on a shared resource.
+
+### The demo account
+
+`parent.demo@mizanova.test` / `Demo!Parent2026` — a second guardian on Ethan
+Mitchell at the demo school, made because the three real parent accounts belong
+to teammates. Delete the account and its `student_guardians` row when it has
+served its purpose. It holds one IEP agreement on the plan of 22 Aug, left in
+place because the screen says agreement cannot be undone there and quietly
+deleting it from behind would make that untrue.
+
+---
+
+## 2c. What the client documents ask of a parent — 8 September 2026
+
+Read out of `docs/1.WDPBI Special Miles_Joe Abboud 14022026.docx` and
+`docs/Final Requirements.docx`, then checked one by one against the code and
+the live database rather than against memory.
+
+### Built, and verified by using it
+
+- [x] ~~**A family could not read the advice attached to an incident they were
+      told about.**~~ db/113. Measured before: 121 strategies existed, 136 logs
+      had been shared with parents, and 86 of those carried advice no guardian
+      could read. `ai_strategies` had two select policies and neither mentioned
+      a guardian. Two gates on the new one: the log must have been shared, and
+      the status must be settled. Verified signed in — five strategies across
+      three of Arlo Kaur's six shared updates.
+
+      **A defect this introduced, caught by looking at it.** The heading read
+      "What can help at home" over advice that said "put the next activity on
+      the whiteboard" and "whole-class practice, so no individual singling
+      out" — `generateStrategies` writes to a teacher about a room full of
+      children. It now says "What the school is trying", says it is classroom
+      advice, and points at the screen that answers the home question.
+
+- [x] ~~**FR9 / P06 — a parent got no suggestions at all.**~~ db/114. Two
+      tables, a third system prompt written for a kitchen rather than a
+      classroom, and `/api/home-strategies`. Proved end to end on a real
+      observation about bath time: two suggestions published at 0.85 and 0.82,
+      one held at 0.78 with its reason recorded, running on the free tier's
+      cheap model, `school_id` null on the spend record so the school's daily
+      budget is untouched, and the cap reading 1 of 40.
+
+      Nothing is discarded here, unlike db/094 — a child has a specialist, so
+      what falls under the bar waits for them. That is FR9's own requirement
+      and the reason this could not reuse the individual's tables.
+
+### Still missing, in the order I would build them
+
+- [x] ~~**FR6 / P05 — a parent cannot book a specialist session.**~~ db/115.
+      One more status on `specialist_appointments` rather than a second table,
+      because a parent's request is for a child and the row it wants to become
+      is exactly the row a specialist would have created. Accepting is an
+      UPDATE. A family may ask their child's assigned, verified specialist and
+      may withdraw a request nobody has answered; they cannot confirm their
+      own, book an unverified clinician or a class teacher, or ask on behalf
+      of another family's child.
+
+      **The part that would have shipped broken:** `free_slots` excluded
+      appointments with `status <> 'cancelled'` — a negative list from when
+      'cancelled' was the only status that did not occupy a diary. Adding
+      'requested' to it would have let one unanswered request remove a slot
+      from the calendar it was asked from, so a family could empty a
+      specialist's availability for everybody by asking for everything. It is
+      a positive list now, and the test asserts 8 free slots → 8 while
+      requested → 7 once agreed.
+
+      **The payment half is deliberately absent.** FR6 says "book and pay";
+      `fee_cents` has been on the table since db/073 and is null on every row
+      because nobody has priced a specialist's afternoon.
+      `raise_appointment_invoice()` is ready for the day there is a figure.
+- [x] ~~**P03 — no export.**~~ "Export as a spreadsheet" on Home Observations.
+      CSV rather than PDF because these are rows — a date, a category and two
+      pieces of text — which is a spreadsheet's shape and not a document's; the
+      Progress report is the one that prints. It exports the whole history
+      rather than the filtered view, and names the author, because both
+      guardians write here and a file with no names loses which of them said
+      what the moment it leaves the product.
+
+      **It also closed a hole that was already open in three other exports.**
+      `AuditLog`, `RecordAccess` and `Courses` each had a local escaper that
+      quoted correctly and did nothing about formula injection: a cell
+      beginning `=`, `+`, `-`, `@` or a tab is evaluated by Excel, Numbers and
+      Sheets on open. Free text in this product is written by parents and
+      teachers, so `=HYPERLINK("http://…"&A1,"click")` in an observation would
+      put a child's data one click from leaving, inside a file the school
+      believes it produced itself. `src/lib/csv.ts` prefixes an apostrophe —
+      what spreadsheets write themselves — rather than stripping the character,
+      because "-2 hours of sleep" is a thing people write. Eleven unit tests,
+      and proved end to end by typing a real HYPERLINK formula into a real
+      observation and reading it back out of the download defused.
+- [x] ~~**FR24, the half that is clearly a parent's** — "request specialist
+      progress reviews".~~ db/117. A family reads a goal that has not moved and
+      asks the specialist to look at it; it lands on a queue on the
+      specialist's Caseload rather than in a message thread somebody has to be
+      reading. One open question per goal, enforced by a partial unique index,
+      because a worried parent presses the button again and nine identical rows
+      teach a specialist to skim the queue.
+
+      Answering and declining are both kept — "not the right person" is a real
+      answer and does not imply the family was wrong to ask. The response is a
+      column written TO the family, deliberately separate from
+      `specialist_session_notes`, which db/028 says families never see: keeping
+      them apart is what lets a clinician write honestly in one of them.
+
+      Only a VERIFIED assigned specialist answers. The test proves the
+      unverified one on the same caseload can read the request and cannot
+      answer it.
+
+      **Driven end to end across both roles.** As the parent: asked about a
+      goal, the note came back on the card, and the second goal's button
+      stayed while the asked-about one's was replaced by the pending request.
+      As a temporary verified specialist with TOTP enrolled: the question
+      appeared on Caseload with the child, the goal and the note, and was
+      answered. Back as the parent: "The specialist answered", with the words
+      they wrote. Temporary account and probe row both removed.
+
+- [ ] **FR24's other half — parents creating SMART goals and milestones.**
+      Deliberately not built, and this is the argument rather than an
+      oversight. A goal here is the school's plan, agreed at a meeting and
+      frozen into an IEP by db/057. A parent adding one that no teacher agreed
+      to makes the plan a place where two parties post rather than a document
+      somebody signed, and hands a family a progress bar they control on the
+      screen they use to judge how their child is doing. db/101 already gives
+      an individual goals in their own words with check-ins and no percentage —
+      **if Special Miles wants this for parents, that is the shape to copy,
+      beside the school's plan rather than inside it. Joe's call.**
+- [ ] **P01 — nothing notifies a family when a teacher shares something.** The
+      bell gives a parent unread conversations and unpaid invoices only.
+- [ ] **P02 — 15 course modules, 0 with a video, 3 articles.** The code links
+      out rather than embedding, which is small. The absence of any video is a
+      content problem.
+
+### Not engineering, or not yet
+
+- [ ] **FR7 / 1.5.2 Parent Premium.** No parent subscription exists; db/111
+      built that shape for individuals only. Blocked on the same two things:
+      no real Stripe key, and no agreed price. The Pricing page advertises
+      $9.99 and $19.99 with "Tell me when this opens", which is honest.
+- [ ] **FR23 neurodevelopment profile.** Nothing exists. It would make
+      diagnosis the most sensitive field in a product that says "never
+      diagnostic" on six public pages. **Needs Joe on consent, visibility and
+      retention before any schema.**
+- [ ] **1.4.2 automated daily sync reports.** `server/index.js` says outright
+      there is no scheduler and that its first act must not be mailing people.
+- [ ] **P03 delete.** db/007 has no delete policy on purpose and the screen
+      says "Observations are corrected rather than deleted". FR8 asks for
+      delete. **A deliberate divergence worth confirming rather than quietly
+      complying with** — a note the school has acted on should not vanish.
+
+---
+
+## 2d. Every requirement in the client documents, traced — 8 September 2026
+
+Read out of `docs/1.WDPBI Special Miles_Joe Abboud 14022026.docx` and
+`docs/Final Requirements.docx` and checked against the code, not remembered.
+FR1–FR26 and NFR1–NFR7 in full, so nothing has to be rediscovered.
+
+### The three relations the documents themselves define
+
+`Final Requirements` §2 names them under "System Logic", and they are the
+spine of the product rather than diagram decoration:
+
+| Relation | Document | State |
+|---|---|---|
+| **«include»** behavioural logging → anonymisation | "Student PII is automatically stripped before any data is saved or processed" | **Built and fails closed.** `buildAnonymousPayload` redacts every child at the school, and `findLeaks` re-checks the assembled payload and refuses the call rather than send. `anonymised_input` stores exactly what left, so the claim is a query rather than a promise. |
+| **«extend»** AI strategy request → specialist review queue | "high-risk or low-confidence AI suggestions are manually validated by a human expert before being released" | **Built twice.** db/006 for a teacher's log; db/114 for a parent's home observation. It is the reason db/114 could not reuse `individual_ai_requests`, whose header says it has no review state because an individual has no specialist. |
+| **Commercial** Stripe Payment + Premium Reports | "bridge the gap between classroom functionality and business sustainability" | **Half.** Stripe checkout exists for courses. Premium Reports (FR7) do not, and the key is a placeholder. |
+
+### Built
+
+FR1 behaviour logging · FR2 timer (`useTimer`) · FR3 voice (`useSpeechToText`)
+· FR4 three AI strategies with names stripped · FR6 booking, the request half
+(db/115) · FR8 home observations · FR9 parent AI strategies (db/114) · FR10
+low-confidence queue (`specialist/ReviewQueue`) · FR11 private specialist notes
+(`specialist_session_notes`) · FR13 assignments and permissions
+(`schoolAdmin/People`) · FR14 safeguarding lock (db/010) · FR16 institutional
+KPI dashboard (db/014) · FR18 WWCC verification pipeline (db/013, db/048) ·
+FR19 revenue dashboards · FR20 AI thresholds and FR21 kill switch
+(`ai_controls`) · FR25 consent with revoke and audit (db/021) · FR26 in-app
+messaging (db/009, db/084) · NFR2 offline (`sw.ts`, `offlineQueue`) · NFR3
+mobile-first (audited 8 Sep) · NFR6 data in Sydney.
+
+### Contradicts the spec, deliberately — Joe should confirm rather than discover
+
+- [ ] **FR5 says "the student's First Name only". Parent screens show the full
+      name.** Reversed on Saurab's call on 4 September and recorded in
+      `parent/Dashboard.tsx`, which also names the cost: a screenshot shared in
+      a group chat now carries a surname. Thirteen call sites use
+      `fullName(child)`. The reasoning is sound — RLS never sends a parent
+      another family's row, so the short form was a display choice not a
+      protection — but it is a written requirement being knowingly overridden.
+- [ ] **FR8 says a "private" area for home observations; db/007 shares them
+      with assigned staff the moment they are written.** Deliberate and
+      documented, and the screen says so. Same shape: worth confirming.
+- [ ] **P03 says parents may DELETE their own notes; db/007 has no delete
+      policy**, on purpose — "observations are corrected rather than deleted".
+
+### Not built, in the order I would take them
+
+- [x] ~~**FR15 — Auto-share and Parent Invite toggles.**~~ db/116, and two
+      switches on Settings → School. Not a form: they take effect on press,
+      because a policy left half-changed in an abandoned form is worse than one
+      that changes when you say so.
+
+      **The clause that matters is the one where two requirements collided.**
+      FR15 wants updates shared automatically; FR14 wants critical incidents
+      locked until a lead has reviewed them. An auto-share that ignored
+      `is_risk_flagged` would send exactly those to a family the instant a
+      teacher pressed save — before anybody had decided whether the family is
+      who the child needs protecting from. A flagged log is never auto-shared,
+      whichever way the switch is set, and the screen says so above the switch
+      rather than in a release note.
+
+      The trigger can only ever turn sharing ON. Switching the policy off stops
+      new logs being shared; it does not retract what families have already
+      been told.
+
+      Parent Invite gates `issue_guardian_code`, not `issue_invitation` —
+      the latter refuses the parent role outright, and gating it would have
+      produced a switch that looked authoritative and changed nothing.
+
+      **Verified by pressing the switches, not by reading them.** Reaching that
+      screen needed a temporary school admin, and the 2FA gate refused it until
+      the account had a real authenticator — so the probe enrols one by
+      computing the TOTP itself (RFC 6238 is HMAC-SHA1 over a 30-second
+      counter, which node has built in). Turning auto-share on in the browser
+      then made a real behaviour log come back shared, and a risk-flagged one
+      come back unshared, in the same write. Turning invitations off made
+      `issue_guardian_code` refuse. School restored, account deleted.
+
+      **And it nearly left the `schools` view behind for the third time.**
+      db/042 lost `kind`; db/067 exists only because `abn` went the same way.
+      Every screen reads the view, so a column added to `organisations` alone
+      simply does not exist to the product. The view is rebuilt with
+      `security_invoker` restated, and PostgREST told to reload.
+- [ ] **FR17 — a Country on each school to trigger local privacy law.** No
+      country column exists. Everything is implicitly Australian. Matters the
+      day a second jurisdiction appears, and is much cheaper before then.
+- [x] ~~**FR12 — a version-controlled library of proven strategies.**~~
+      db/118, and reading FR12 alone badly understates it. Three requirements
+      point at one thing: FR12 asks for the library, **E02 says "strategies
+      must fall back to the curated Evidence Database if AI is blocked or
+      offline"**, and A04 wants "the ratio of AI-generated strategies versus
+      Database-only usage".
+
+      **It is the net under the AI, and there was none.** `/api/strategies`
+      returned a 503 and nothing else when `ai_enabled` was false — so FR21's
+      kill switch, the one Special Miles pulls during a crisis, left every
+      teacher in every classroom with no strategies at all, at the moment they
+      were most likely to need one. Same for the offline case the brief names
+      as a core challenge.
+
+      Version-controlled taken literally: nothing is ever edited. A revision
+      inserts a new row in the same lineage and a partial unique index keeps
+      one current; a trigger refuses any change to the words outright, so an
+      edit cannot look saved. A strategy that changed after a teacher used it
+      is still readable as the words they were given.
+
+      `provenance` is NOT NULL. "Proven" is the requirement's word and a claim
+      nobody can check is not proof — it is the sentence a specialist would say
+      if a parent asked why the school is doing this.
+
+      **Proved with the kill switch actually pulled.** With `ai_enabled` set
+      false, a verified teacher asking about a disruptive log used to get a
+      bare 503; it now returns 200 with `source=evidence`, the strategy and its
+      provenance, and writes an `ai_generation_events` row marked `evidence` —
+      so A04's ratio is computable rather than theoretical. The switch, the
+      probe row and the temporary teacher were all restored afterwards.
+
+      Select is `using (true)`, the only such policy in the schema. These rows
+      carry no student, school or incident, which is what lets a laptop hold
+      them offline safely. Writing is a verified specialist or a platform
+      admin, and the test asserts an unverified specialist and a teacher are
+      both refused.
+
+- [ ] **The Evidence Database ships EMPTY, and that is deliberate.** Writing
+      "evidence-based" strategies with invented provenance would be the same
+      fabrication this project has refused for the ABN and for prices. Until
+      Special Miles writes some, the kill switch still leaves a teacher with
+      nothing — the screen's empty state says exactly that rather than "no
+      strategies yet", and the 503 now names the empty library as the reason.
+      **Content is Joe's, not an engineering task.**
+- [ ] **FR7 / 1.5.2 — Parent Premium and the 3-month report.** Eleven named
+      sections. Blocked on price and a real Stripe key.
+- [ ] **FR23 — optional neurodevelopment profile.** Needs Joe on consent and
+      visibility before schema.
+- [ ] **FR24 — the parent half of SMART goals.** "Request specialist progress
+      review" is clearly a parent action and is missing; creating goals I would
+      argue against.
+- [ ] **FR22 — Development / Staging / Production switch.** One environment.
+- [x] ~~**NFR5 — sessions must time out after 20 minutes.**~~ `IdleTimeout`,
+      mounted in `AppShell`. It follows `MFA_REQUIRED_ROLES` rather than
+      applying to everybody: `Final Requirements` puts NFR5 under the
+      specialist's section and pairs it with the 2FA this product already
+      enforces for exactly those four roles, and they are the four with
+      somebody else's child on screen. A parent on their own phone gains
+      nothing from being signed out every twenty minutes.
+
+      It warns a minute first, because a teacher is most likely to be idle
+      here while part-way through a behaviour log that exists nowhere but the
+      form. A banner rather than a modal — the decision it offers is "carry on",
+      and a modal could not have been verified in the in-app browser anyway.
+
+      Proved by shortening the clock and widening the roles temporarily: the
+      warning appeared, ignoring it signed the session out to `/login`,
+      pressing "Stop the clock" cleared it and the session outlived its
+      original deadline. Probe reverted. The Security tab's own "not built yet"
+      note stopped listing the auto-lock and now describes it, gated on the
+      same constant so the two cannot drift.
+- [ ] **NFR4 — "WhatsApp notifications must not contain names; only a secure
+      link."** There is no WhatsApp integration at all, so the requirement is
+      vacuously satisfied and actually unbuilt. Email and push exist and both
+      already withhold names, which is the same protection by another route.
+- [ ] **NFR1 — strategies in under 3 seconds.** Never measured, and db/099's
+      escalation deliberately makes the slow path slower to make the answer
+      better. Worth measuring before claiming either way.
+- [ ] **NFR7 — architecture defined for webapp AND mobile app.** There is one
+      codebase, a PWA. No mobile-app scope is written down.
+
+---
+
+### One child switcher, not eight — 8 September 2026
+
+Saurab's call, and the right one. `ChildSwitcher` was drawn on all eight parent
+screens, which is the same settled decision asked eight times. The choice
+already lived in `localStorage` and every screen read it on mount, so nothing
+about the mechanism had to change: switching on Home has always changed what
+the whole role is looking at. Drawing it repeatedly only made a decision look
+unsettled and took a row off every page.
+
+It now renders on Home alone. What every other screen has to do instead is name
+the child in its own lead sentence, so a family with two never wonders whose
+page they are on — seven of the eight already did, and **Appointments did not**,
+which is why removing its switcher without adding the name would have made it
+worse rather than tidier.
+
+Verified by switching to Ethan on Home and walking Goals, Appointments and
+Progress: all three followed, none drew a switcher.
+
+---
+
+### The UI sweep, done properly — 8 September 2026
+
+Saurab pointed out that I had been checking pages rather than reading them:
+looking for what I expected, on one screen's worth of a page that is five
+screens long. Two mechanical reasons it kept working out that way, both worth
+knowing before the next role is audited:
+
+- **`get_page_text` returns `<main>` only.** The shell, the account menu, the
+  notification bell, toasts and dialogs are all outside it. Every "full page"
+  read this session before now was missing them.
+- **`innerText` omits a closed `<details>`.** `NotBuiltYet` renders one on
+  almost every screen, so the honest "what this does not do yet" note reads as
+  an empty heading. I reported it as a bug for a minute before checking.
+
+The method that works: expand every `<details>`, click every
+`[aria-expanded=false]`, then read `document.body.innerText` — and press the
+controls rather than reading their labels.
+
+Three faults it found, all copy rather than logic, and none of which any test
+would have caught:
+
+- [x] ~~**A parent was told their photo is "how you appear to colleagues and
+      families".**~~ `Profile.tsx` decided staff-vs-not with
+      `role !== 'individual'`, which made parents and students staff. Every
+      parent account carries `school_id` null, so they were not in a school in
+      any sense the rest of the product uses. Three groups now.
+- [x] ~~**"Recent highlights" listed a nightly fight.**~~ The section draws
+      ticked milestones and every home observation, and the closing line
+      promised "things that went well". The first real one under it read "Bath
+      time falls apart every night". There is no sentiment to filter on and
+      inventing one would be the product deciding which of a family's evenings
+      counted as progress, so the heading says what is in the list: "Lately".
+- [x] ~~**The sidebar said "Collab & Finance" and the page said "Finance".**~~
+      The screen has never had a collaboration half.
+
+Checked and working, by pressing them rather than reading them: Academy
+enrolment and module completion (0 → 1 of 3, the tick, the auto-advance), the
+message composer with attachments, dictation in five languages and voice notes,
+the notification bell, all four account-menu destinations, and Link a child.
+
+The sweep finished on 8 September across the rest: **Privacy & Consent** —
+granting works, withdrawing asks "Yes, withdraw consent / Keep it" first, and
+confirming returns the page to where it started. **About your child** — both
+in-sentence links stay inside the app, and a missing date of birth reads "not
+recorded by the school" rather than blank. **Library** — an article opens and
+closes, and it is the article that settled the naming question above.
+**Home Observations** — "Correct this" edits and saves an author's own
+observation, and the change survives a reload.
+
+One more length fix came out of it: db/114's answer panel was rendering
+expanded under every observation a family had asked about, which made a single
+one 1266px. Folded with its count, the same way the school's advice on the home
+page is: 750px folded, 1258 expanded.
+
+- [x] ~~**Message threads said "about Arlo K." while every other parent screen
+      said "Arlo Kaur".**~~ Settled by the Library article rather than by me:
+      it states both halves of the rule — the short form exists "so that a
+      list, a chart, or a screenshot shared in a staff meeting cannot carry
+      somebody else's surname out of the room", AND "a parent reads their own
+      child's full name on their own screens". Messages was the one parent
+      screen that had not followed the 4 September reversal.
+
+      `Messenger` is shared by four roles and the short form is correct for
+      three of them, so the decision is read off the reader's role inside the
+      component rather than passed in as a prop a future call site could
+      forget. RLS has already decided a parent sees only their own child, so
+      the short form protected nobody there.
+
+---
+
+### Found in passing on 8 September — a deleted account still gets a shell
+
+- [x] ~~**An account deleted while signed in keeps a working-looking
+      session.**~~ Noticed after removing a temporary school admin: the browser
+      still rendered the full Command Centre and every figure as **0** —
+      "Students 0 · Active at school", "Open safeguarding 0 · Nothing
+      outstanding". No data leaked, because the profile row cascades away and
+      every policy then denies, which is precisely why the numbers were zero.
+      But that is the false-zeros fault this project has fixed once already,
+      putting the calmest sentence in the product on screen at the moment the
+      truth is "this account no longer exists".
+
+      `loadProfile` treated three causes as one and fell through to the cached
+      profile. PGRST116 from `.single()` on a primary key means the row is
+      gone; a network failure and an uncommitted signup trigger look different.
+
+      **The first fix was wrong, and using it found out.** It signed out only
+      when a cached profile existed — so a deleted session in a browser with no
+      cache neither signed out nor loaded, and the app sat on "Loading your
+      profile…" for ever with 406s stacking up. Worse than the bug it replaced:
+      a stale shell at least does something, and a spinner does not even let
+      somebody reach the sign-in page.
+
+      The discriminator is time, not the cache. It asks twice, 1.5 seconds
+      apart, and treats the second empty answer as the truth — a trigger that
+      has not committed resolves in a moment, a deleted account never does. A
+      loop rather than recursion, because a `useCallback` cannot reference
+      itself.
+
+      What this gives up, said rather than left to be found: a signup trigger
+      that genuinely has not run after 1.5 seconds now signs that person out
+      instead of leaving them on a spinner. For a broken signup the login page
+      is the better of the two, but it is a change.
+
+---
+
+### A test that was green by coincidence — 8 September 2026
+
+- [x] ~~**`audit-timeline` asserted a school admin reads NOTHING through the
+      timeline.**~~ It passed for as long as `ai_control_events` happened to be
+      empty, and failed the first time anybody switched the AI off — which was
+      while proving db/118's fallback.
+
+      The policy is right and the test was wrong. `audit_timeline` unions two
+      tables with deliberately different audiences: `admin_audit_events` is
+      `is_platform_admin()`, and `ai_control_events` is `is_platform_admin() or
+      is_school_admin()` because db/012 says so in as many words — "the AI
+      affects their students, and 'who turned this off and why' is a question
+      they are entitled to ask."
+
+      The assertion now says what the rule actually is: no `admin` rows ever,
+      and anything that does come back is the AI half. Worth noticing that a
+      suite of 552 tests contained one whose truth depended on a table nobody
+      had written to.
+
+---
+
+## 2e. The UI audit, measured — 8 September 2026
+
+Run in the page across all seven roles at 1280px and 375px: tap targets,
+computed contrast, text size, horizontal overflow, heading structure,
+accessible names. Everything below is a measured number.
+
+### Fixed
+
+- [x] ~~Four AA contrast failures.~~ `bg-danger` + `text-danger-foreground`
+      on four destructive buttons (2.21:1), `muted-foreground` on
+      `primary-subtle` (4.33:1, the tint under every selected row), the two
+      brand colours used as small caps on Landing (4.46 and 3.34:1), and
+      today's number on the calendar (4.33:1).
+- [x] ~~`--text-xs` was 12px across 340 call sites.~~ 13px now, set on the
+      token. `PageNote` — the paragraph saying what a screen will not claim —
+      was the smallest text in the product and is `text-sm`.
+- [x] ~~231 buttons, 9 selects and every text input under 44px.~~ Selects and
+      inputs by one base rule each.
+- [x] ~~`contrast-check` reported PASS while a pair was failing.~~ It knew
+      `primary on primary-subtle` and not `muted-foreground on
+      primary-subtle`. Five pairs added, including both brand inks.
+
+### Not fixed, and why
+
+- [ ] **Fourteen screens drop their own `<h1>` while loading.** They return
+      `<LoadingCards>` / `<ErrorState>` / `<EmptyState>` before rendering
+      `<PageHeader>`, so the heading arrives with the data and pushes the page
+      down — and an empty or failed screen has no title at all. Seen on
+      educator and specialist Messages with a fresh account. The files:
+      `parent/Appointments`, `shared/Academy`, `shared/Library`,
+      `student/MyGoals`, `educator/Messages`, `specialist/Messages` and eight
+      under `platformAdmin/`. Left because it is fourteen files of restructure
+      on the morning of a demo, not because it is small.
+- [ ] **Tertiary text links measure 19-24px.** WCAG 2.2 AA asks 24, not 44 —
+      44 is AAA. The ones under 24 are fixed. Making the rest 44 would lengthen
+      the pages Saurab asked to shorten, so they are left compliant.
+- [ ] **Heading level skips h1 -> h3** on `/for-schools`, `/security`,
+      platform-admin Enquiries and Applications, school-admin People.
+- [ ] **FullCalendar's prev/next carry `aria-pressed` on a non-toggle.** The
+      library's own markup; `buttonHints` already gives them a name.
+- [x] ~~The Library still carries "articultion exrecise".~~ It does not. The
+      row was corrected before this audit ran and section 4's note had gone
+      stale — the note outlived the fault.
+
+---
+
 ## 3. Real product gaps
 
 - [x] ~~**Availability does not exist.**~~ db/102. Recurring weekly hours, an
@@ -220,8 +857,11 @@ served its purpose; closing it removes everything and detaches the purchase.
 - [x] ~~Delete the test account `zz-individual-test@example.invalid`.~~ Gone —
       it was closed through the new closure flow, which tested the feature and
       cleared the account in one go.
-- [ ] The Library carries a file titled **"articultion exrecise"** — two
-      spelling mistakes, visible to every user who opens the Library.
+- [x] ~~The Library carries a file titled "articultion exrecise".~~ Already
+      corrected: the row reads "Articulation exercise" and its description now
+      says outright that the attached file is a placeholder. Checked 8
+      September across `resources`, `library_files`, `articles`, `courses` and
+      `course_modules` — no misspelling survives in any of them.
 
 ---
 

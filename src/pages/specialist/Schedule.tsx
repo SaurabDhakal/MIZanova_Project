@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   fetchAppointments,
   fetchMySessions,
+  fetchIncomingBookings,
   fetchStudents,
   queryKeys,
 } from '../../lib/api'
@@ -16,6 +17,7 @@ import AppointmentPanel from '../../components/AppointmentPanel'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import WorkingHoursSection from '../../components/WorkingHoursSection'
 import SessionRequestsSection from '../../components/SessionRequestsSection'
+import FamilyRequestsSection from '../../components/FamilyRequestsSection'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -68,6 +70,13 @@ export default function Schedule() {
     queryKey: queryKeys.students,
     queryFn: fetchStudents,
   })
+
+  /* Read here as well as in SessionRequestsSection: React Query dedupes by key,
+     so this is the same request, not a second one. */
+  const bookings = useQuery({
+    queryKey: queryKeys.incomingBookings,
+    queryFn: fetchIncomingBookings,
+  })
   const appointments = useQuery({
     queryKey: queryKeys.appointments,
     queryFn: fetchAppointments,
@@ -103,7 +112,27 @@ export default function Schedule() {
     : []
 
   const scheduled = (appointments.data ?? []).filter((a) => a.status === 'scheduled')
-  const upcoming = scheduled.filter((a) => new Date(a.starts_at).getTime() >= now)
+  /* ------------------------------------------------------------------
+     BOOKED AHEAD COUNTED HALF THE DIARY.
+     ------------------------------------------------------------------
+     `appointments` is `specialist_appointments` — a school booking a
+     clinician for one of its children. Since db/103 a second kind exists:
+     an individual with no school books the same person against the same
+     working hours, and those land in `individual_bookings`, which only
+     `SessionRequestsSection` further down this page was reading.
+
+     So a specialist with an accepted session in two days read "BOOKED AHEAD
+     0" at the top of the screen and found the booking eight hundred pixels
+     below it. The tile is the thing that answers "what is coming up", and it
+     was answering about one source out of two.
+     ------------------------------------------------------------------ */
+  const upcomingIndividual = (bookings.data ?? []).filter(
+    (b) => b.status === 'accepted' && new Date(b.starts_at).getTime() >= now,
+  )
+  const upcoming = [
+    ...scheduled.filter((a) => new Date(a.starts_at).getTime() >= now),
+    ...upcomingIndividual,
+  ]
 
   /*
    * STILL 'scheduled', AND ALREADY OVER. Nothing moves an appointment out of
@@ -170,6 +199,102 @@ export default function Schedule() {
         />
       </div>
 
+
+      {/* ------------------------------------------------------------------
+          ABOVE THE CALENDAR, BECAUSE SOMEBODY IS WAITING ON IT.
+          ------------------------------------------------------------------
+          This sat at 2,277px on a 3,100px page — below the diary, below the
+          delivered sessions, above only the settings. It is the one block on
+          the screen holding a person who has asked for something and not been
+          answered, and it was the last thing anybody would reach.
+
+          Everything above it is reference: what is booked, who has not been
+          seen, what was delivered. Reference can wait; a request cannot. It
+          renders nothing at all when there is nothing waiting, so on an
+          ordinary day this costs the page no height.
+          ------------------------------------------------------------------ */}
+      <SessionRequestsSection />
+      <FamilyRequestsSection />
+
+      {/* --- The calendar --------------------------------------------------- */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold text-foreground">Appointments</h2>
+        <p className="text-sm text-muted-foreground">
+          Click a slot to book, or an appointment to open it.
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            setBookingStart((current) => (current ? null : nextHalfHour()))
+          }
+          className="ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          {bookingStart ? 'Close' : '+ Book'}
+        </button>
+      </div>
+
+      {bookingStart && (
+        <div className="mb-5">
+          {/* Keyed on the chosen time so picking a different slot re-seeds the
+              form. Its fields are useState initialisers, which do not re-read a
+              prop that changed under them. */}
+          <BookAppointmentForm
+            key={bookingStart.toISOString()}
+            students={students.data ?? []}
+            defaultStart={bookingStart}
+            onBooked={() => setBookingStart(null)}
+          />
+        </div>
+      )}
+
+      {/* A failed appointments query must not render as an empty calendar — an
+          unbooked day and an unknown one look identical otherwise. */}
+      {appointments.isError ? (
+        <ErrorState
+          message="Your appointments could not be loaded, so this calendar is unknown rather than empty. Nothing has been cancelled."
+          onRetry={() => void appointments.refetch()}
+        />
+      ) : (
+        <AppointmentCalendar
+          appointments={appointments.data ?? []}
+          nameOf={nameOf}
+          currentUserId={profile?.id ?? null}
+          selectedId={selectedId}
+          onSelect={(a) => setSelectedId((id) => (id === a.id ? null : a.id))}
+          onPickSlot={(start, hasTime) =>
+            setBookingStart(hasTime ? start : atMorning(start))
+          }
+        />
+      )}
+
+      {selected && (
+        <div className="mt-5">
+          {/* Keyed on the appointment, for the same reason the booking form is
+              keyed on its start time. Its fields are useState initialisers and
+              its open form is component state, so without this, clicking a
+              second appointment while the panel is open reuses the first one's
+              — the Move form seeded with the wrong time, and clinical notes
+              typed about one child carried into the record of another. */}
+          <AppointmentPanel
+            key={selected.id}
+            appointment={selected}
+            studentName={nameOf(selected.student_id)}
+            mine={selected.specialist_id === profile?.id}
+            onDone={() => setSelectedId(null)}
+          />
+        </div>
+      )}
+
+      {/* --- Delivered ------------------------------------------------------ */}
+      {/* ------------------------------------------------------------------
+          THE CATCHING-UP MOVED BELOW THE DIARY.
+          ------------------------------------------------------------------
+          Both of these are admin: children not seen this month, and past
+          appointments with no session written up. Worth prompting, and neither
+          is what somebody opens this page to find out. Between them they were
+          368px sitting on top of the calendar, which is the answer to "what is
+          on today" and was starting a thousand pixels down.
+          ------------------------------------------------------------------ */}
       {notSeen.length > 0 && (
         <div className="mb-6 rounded-card border border-warning bg-warning-subtle p-4">
           <p className="font-semibold text-warning-foreground">
@@ -236,76 +361,6 @@ export default function Schedule() {
         </div>
       )}
 
-      {/* --- The calendar --------------------------------------------------- */}
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Appointments</h2>
-        <p className="text-sm text-muted-foreground">
-          Click a slot to book, or an appointment to open it.
-        </p>
-        <button
-          type="button"
-          onClick={() =>
-            setBookingStart((current) => (current ? null : nextHalfHour()))
-          }
-          className="ml-auto rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-        >
-          {bookingStart ? 'Close' : '+ Book'}
-        </button>
-      </div>
-
-      {bookingStart && (
-        <div className="mb-5">
-          {/* Keyed on the chosen time so picking a different slot re-seeds the
-              form. Its fields are useState initialisers, which do not re-read a
-              prop that changed under them. */}
-          <BookAppointmentForm
-            key={bookingStart.toISOString()}
-            students={students.data ?? []}
-            defaultStart={bookingStart}
-            onBooked={() => setBookingStart(null)}
-          />
-        </div>
-      )}
-
-      {/* A failed appointments query must not render as an empty calendar — an
-          unbooked day and an unknown one look identical otherwise. */}
-      {appointments.isError ? (
-        <ErrorState
-          message="Your appointments could not be loaded, so this calendar is unknown rather than empty. Nothing has been cancelled."
-          onRetry={() => void appointments.refetch()}
-        />
-      ) : (
-        <AppointmentCalendar
-          appointments={appointments.data ?? []}
-          nameOf={nameOf}
-          currentUserId={profile?.id ?? null}
-          selectedId={selectedId}
-          onSelect={(a) => setSelectedId((id) => (id === a.id ? null : a.id))}
-          onPickSlot={(start, hasTime) =>
-            setBookingStart(hasTime ? start : atMorning(start))
-          }
-        />
-      )}
-
-      {selected && (
-        <div className="mt-5">
-          {/* Keyed on the appointment, for the same reason the booking form is
-              keyed on its start time. Its fields are useState initialisers and
-              its open form is component state, so without this, clicking a
-              second appointment while the panel is open reuses the first one's
-              — the Move form seeded with the wrong time, and clinical notes
-              typed about one child carried into the record of another. */}
-          <AppointmentPanel
-            key={selected.id}
-            appointment={selected}
-            studentName={nameOf(selected.student_id)}
-            mine={selected.specialist_id === profile?.id}
-            onDone={() => setSelectedId(null)}
-          />
-        </div>
-      )}
-
-      {/* --- Delivered ------------------------------------------------------ */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
         Sessions delivered
       </h2>
@@ -360,8 +415,6 @@ export default function Schedule() {
         </ul>
       )}
 
-      <SessionRequestsSection />
-
       {profile && (
         <WorkingHoursSection specialistId={profile.id} canEdit />
       )}
@@ -375,8 +428,24 @@ export default function Schedule() {
               a note about what is missing has to be maintained as carefully as
               the features or it becomes the most confident wrong sentence on
               the page. */}
-          Setting your hours above says when you are available; it does not tell
-          anybody. Nobody is told about an appointment either:
+          {/* AND THE FIRST HALF WENT STALE A SECOND TIME. "Setting your hours
+              says when you are available; it does not tell anybody" was true
+              when only this school could see them. db/103 and db/104 then built
+              individual booking on top of the SAME `specialist_availability`
+              rows: `free_slots()` derives openings from them and
+              `bookable_specialists` lists whoever has any, so publishing hours
+              is what makes somebody bookable by a person with no school at all.
+              And `notifyAboutBooking` emails the specialist the moment one
+              asks.
+
+              So the sentence was not merely out of date, it was telling a
+              clinician that a control has no reach when what it actually does
+              is open their diary to strangers. That is the wrong direction for
+              a note whose whole purpose is to stop people assuming. */}
+          Setting your hours above is what makes you bookable: an individual
+          with no school can see the openings they leave and ask for one, and
+          you are emailed when they do. Nobody is told about a SCHOOL
+          appointment, which is the part that still has no mail behind it:
           {/* This said "there is no email in this product", which stopped
               being true when the server started sending invitations,
               enquiries, application decisions and access codes. What is

@@ -78,7 +78,7 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2.5 rounded-btn py-1.5 pr-2 pl-1.5 hover:bg-background"
+        className="min-h-11 flex items-center gap-2.5 rounded-btn py-1.5 pr-2 pl-1.5 hover:bg-background"
       >
         <Avatar
           id={profile.id}

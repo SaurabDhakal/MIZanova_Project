@@ -294,8 +294,8 @@ export default function NotificationBell({
         {!isPending && (count > 0 || cannotTell) && (
           <span
             aria-hidden="true"
-            className={`absolute top-1.5 right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-bold text-white ${
-              anyUrgent || cannotTell ? 'bg-danger' : 'bg-primary'
+            className={`absolute top-1.5 right-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] leading-none font-bold text-white ${
+              anyUrgent || cannotTell ? 'bg-danger-strong' : 'bg-primary'
             }`}
           >
             {/* A queue we could not read is shown as a question, never as a

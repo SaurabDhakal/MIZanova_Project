@@ -171,8 +171,36 @@ export default function Academy() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
-  if (courses.isPending) return <LoadingCards count={3} />
-  if (courses.isError) return <ErrorState message={courses.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Academy"
+      lead={
+        profile?.role === 'individual'
+          ? 'Short courses from Special Miles, at your own pace. Nothing is timed and nothing is scored.'
+          : 'Short courses from Special Miles, for the work you actually do.'
+      }
+    />
+  )
+
+  if (courses.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (courses.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={courses.error.message} />
+      </>
+    )
 
   const done = new Set(
     (completions.data ?? []).map((c) => `${c.enrolment_id}:${c.module_id}`),
@@ -236,14 +264,7 @@ export default function Academy() {
           public site promising the opposite. The rest of the screen is genuinely
           audience-driven through `audiences`; only the sentence at the top was
           not. */}
-      <PageHeader
-        title="Academy"
-        lead={
-          profile?.role === 'individual'
-            ? 'Short courses from Special Miles, at your own pace. Nothing is timed and nothing is scored.'
-            : 'Short courses from Special Miles, for the work you actually do.'
-        }
-      />
+      {header}
 
       {visible.length === 0 ? (
         <EmptyState
@@ -333,7 +354,7 @@ export default function Academy() {
                           void enrolments.refetch()
                           void completions.refetch()
                         }}
-                        className="rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                        className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
                       >
                         Try again
                       </button>
@@ -345,7 +366,7 @@ export default function Academy() {
                         type="button"
                         disabled={buy.isPending || total === 0}
                         onClick={() => buy.mutate(course.id)}
-                        className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {total === 0
                           ? 'Not ready yet'
@@ -358,7 +379,7 @@ export default function Academy() {
                         type="button"
                         disabled={enrol.isPending || total === 0}
                         onClick={() => enrol.mutate(course.id)}
-                        className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="min-h-11 rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {total === 0 ? 'Not ready yet' : 'Start this course'}
                       </button>
@@ -378,8 +399,8 @@ export default function Academy() {
                         onClick={() => setOpen(isOpen ? null : course.id)}
                         className={
                           isOpen
-                            ? 'rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground'
-                            : 'rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground'
+                            ? 'inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground'
+                            : 'inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground'
                         }
                       >
                         {isOpen
@@ -496,7 +517,7 @@ export default function Academy() {
                               onClick={() =>
                                 tick.mutate({ e: enrolment.id, m: m.id })
                               }
-                              className="mt-3 block rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-60"
+                              className="min-h-11 mt-3 block rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-60"
                             >
                               Mark as done
                             </button>

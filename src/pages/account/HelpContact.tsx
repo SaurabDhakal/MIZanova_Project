@@ -80,7 +80,13 @@ export default function HelpContact() {
               {FAQS.map((group) => ({
                 ...group,
                 items: group.items.filter(
-                  (item) => !item.roles || (role && item.roles.includes(role)),
+                  (item) =>
+                    /* Nobody reading THIS page is getting an account — they
+                       have one, they are signed in, and they are in their own
+                       Settings. See the note on `beforeAccount` in faqs.tsx:
+                       role tags say who, and this says when. */
+                    !item.beforeAccount &&
+                    (!item.roles || (role && item.roles.includes(role))),
                 ),
               }))
                 .filter((group) => group.items.length > 0)
@@ -159,12 +165,18 @@ export default function HelpContact() {
           <p className="mt-3 max-w-prose text-muted-foreground">
             To talk to Special Miles about your organisation &mdash; plans,
             adding a site, anything commercial &mdash;{' '}
-            <Link
-              to="/enquiry"
+            {/* Alongside, not instead of. /enquiry is a public page, so
+                following it in place would swap the application for the
+                marketing site and leave a school admin on the home screen
+                when they came back — with a half-written enquiry gone. */}
+            <a
+              href="/enquiry"
+              target="_blank"
+              rel="noopener noreferrer"
               className="font-semibold text-primary hover:underline"
             >
-              send an enquiry
-            </Link>
+              send an enquiry (opens in a new tab)
+            </a>
             . It asks for your organisation and roughly how many children, and
             somebody reads and replies personally.
           </p>

@@ -54,6 +54,18 @@ const PAIRS = [
   ['foreground', 'card', 'body text on a card', {}],
   ['muted-foreground', 'background', 'helper text on the page', {}],
   ['muted-foreground', 'card', 'helper text on a card', {}],
+  /* THE PAIR THIS FILE DID NOT CHECK, AND THE ONE THAT WAS FAILING.
+     `primary-subtle` is the background of every selected row, tinted stat tile
+     and highlighted card, and helper text sits on it constantly. It was 4.33:1
+     on the parent home, the individual home and Receipts — measured in the
+     browser on 8 September, not here, because there was no line for it. The
+     `primary` link on the same tint was already listed, which is exactly how
+     the gap survived: half the pairing was checked. */
+  ['muted-foreground', 'primary-subtle', 'helper text on a tinted row', {}],
+  ['brand-blue-ink', 'card', 'an eyebrow label on a card', {}],
+  ['brand-blue-ink', 'primary-subtle', 'an eyebrow label on a tinted panel', {}],
+  ['brand-green-ink', 'card', 'an eyebrow label on a card', {}],
+  ['brand-green-ink', 'primary-subtle', 'an eyebrow label on a tinted panel', {}],
 
   // --- Sidebar -----------------------------------------------------------
   ['sidebar-foreground', 'sidebar', 'active nav label', {}],
