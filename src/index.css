@@ -337,6 +337,32 @@ select:not([aria-invalid='true']) {
   position: relative;
 }
 
+/* ---------------------------------------------------------------------------
+   THE MOBILE MENU'S SCROLL LOCK CANNOT OUTLIVE THE MENU
+
+   SiteHeader's drawer covers the page, so the page behind it must not scroll
+   under the thumb. The obvious way to do that is `body.style.overflow` set in
+   an effect and cleared on close, and it has one failure mode that is much
+   worse than the problem: the drawer is hidden by a CSS breakpoint, so
+   dragging the window past 1024px takes the panel away WITHOUT closing it.
+   Anything that misses that transition — a browser that does not deliver the
+   media-query change, a resize the page never hears about — leaves a desktop
+   page that cannot scroll and no visible control to unlock it.
+
+   So the lock is a class, and the rule only exists below the breakpoint the
+   drawer lives at. Widening the window then unlocks the page by itself,
+   whether or not any JavaScript noticed. The component still closes the menu
+   on that transition; this is what makes being wrong about it harmless.
+
+   Outside @layer for the same reason as the rules above: it has to beat
+   Tailwind's layered utilities.
+--------------------------------------------------------------------------- */
+@media (max-width: 63.9375rem) {
+  body.menu-open {
+    overflow: hidden;
+  }
+}
+
 /* Respect the OS "reduce motion" setting — vestibular disorders are common in
    our user base, and this is a one-off fix rather than a per-animation one. */
 @media (prefers-reduced-motion: reduce) {

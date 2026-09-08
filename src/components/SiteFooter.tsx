@@ -76,8 +76,20 @@ export default function SiteFooter() {
   return (
     <footer className="bg-sidebar px-6 py-12">
       <div className="mx-auto max-w-6xl">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
-          <div>
+        {/*
+          TWO COLUMNS ON A PHONE, NOT ONE.
+
+          Five columns collapsing to one put twenty links in a single stack and
+          made the footer 1108px tall — one and a third viewports of nothing but
+          links, under a page that is already long. The four link groups are
+          short lists of short words; they pair across the screen comfortably at
+          375px, which roughly halves the height.
+
+          The brand block spans both, because a paragraph of copy in a
+          half-width column at this size is four words a line.
+        */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
+          <div className="col-span-2 md:col-span-1">
             <Logo tone="dark-background" />
             <p className="mt-3 max-w-xs text-sm text-sidebar-muted">
               Classroom strategies for neurodiverse learners, built with
@@ -90,12 +102,15 @@ export default function SiteFooter() {
               <h2 className="text-sm font-semibold text-sidebar-foreground">
                 {column.heading}
               </h2>
-              <ul className="mt-3 space-y-2">
+              {/* No `space-y` — the 44px targets below already carry the
+                  rhythm, and adding gaps on top of them would hand back every
+                  pixel the two-column grid just saved. */}
+              <ul className="mt-1">
                 {column.links.map((link) => (
                   <li key={link.to}>
                     <Link
                       to={link.to}
-                      className="inline-flex min-h-6 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
+                      className="inline-flex min-h-11 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
                     >
                       {link.label}
                     </Link>
@@ -117,13 +132,13 @@ export default function SiteFooter() {
           <div className="ml-auto flex flex-wrap gap-5">
             <Link
               to="/login"
-              className="inline-flex min-h-6 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
+              className="inline-flex min-h-11 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
             >
               Log in
             </Link>
             <Link
               to="/signup"
-              className="inline-flex min-h-6 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
+              className="inline-flex min-h-11 items-center text-sm text-sidebar-muted hover:text-sidebar-foreground hover:underline"
             >
               How to join
             </Link>
