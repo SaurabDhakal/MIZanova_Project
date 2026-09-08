@@ -517,13 +517,53 @@ export async function cleanupStrays(runId?: string): Promise<void> {
   // Scoped the same two ways as the schools above. `rls-` alone would take a
   // live run's accounts out from under it, which is how buildWorld ended up
   // signing in as somebody it had just deleted.
+  /*
+   * THE TWO HALVES HAVE TO AGREE ABOUT THE SAME WORLD, AND THEY DID NOT.
+   *
+   * Schools were chosen by the school's age; users by the user's age. A world
+   * creates its school and then its six accounts seconds later, so for a
+   * window of a few seconds each hour the school is past the cutoff and its
+   * members are not — the school is selected for deletion, everybody attached
+   * to it is skipped, and db/060's guard refuses with "This organisation still
+   * has N live staff membership(s)".
+   *
+   * That is the failure on main at 07:45 on 8 September: three files died in
+   * cleanupStrays with that message, on 1, 2 and 4 memberships, while the
+   * pull request that produced the merge had been green an hour earlier.
+   *
+   * The fix is to stop asking the question twice. Anybody who belongs to a
+   * school we have decided to remove goes with it, whatever their own age
+   * says — so the two halves cannot disagree, by construction.
+   */
+  const doomed = new Set<string>()
+  if (schoolIds.length > 0) {
+    const { data: members } = await admin
+      .from('memberships')
+      .select('profile_id')
+      .in('organisation_id', schoolIds)
+    for (const m of members ?? []) doomed.add(m.profile_id as string)
+  }
+
   const prefix = runId ? `rls-${runId}-` : 'rls-'
   const cutoff = Date.now() - STRAY_AGE_MS
   const { data: users } = await admin.auth.admin.listUsers({ perPage: 200 })
+
+  /*
+   * AND THE RESULT IS CHECKED NOW. `deleteUser` can fail — it answered
+   * `500 AuthRetryableFetchError` seven times on one account this same day —
+   * and the error was being dropped on the floor. The surviving account then
+   * kept its membership and the school delete blamed the membership, which
+   * is a true statement about the wrong thing and sends the reader to the
+   * wrong file.
+   */
+  const undeletable: string[] = []
   for (const user of users?.users ?? []) {
-    if (!(user.email ?? '').startsWith(prefix)) continue
-    if (!runId && new Date(user.created_at).getTime() > cutoff) continue
-    await admin.auth.admin.deleteUser(user.id)
+    const mine = (user.email ?? '').startsWith(prefix)
+    const attached = doomed.has(user.id)
+    if (!mine && !attached) continue
+    if (!runId && !attached && new Date(user.created_at).getTime() > cutoff) continue
+    const { error } = await admin.auth.admin.deleteUser(user.id)
+    if (error) undeletable.push(`${user.email} (${error.message})`)
   }
 
   if (schoolIds.length > 0) {
@@ -531,6 +571,11 @@ export async function cleanupStrays(runId?: string): Promise<void> {
       .from('schools')
       .delete()
       .in('id', schoolIds)
-    if (schoolError) throw new Error(`Test cleanup failed: ${schoolError.message}`)
+    if (schoolError) {
+      const because = undeletable.length
+        ? ` The likely cause is upstream: ${undeletable.length} account(s) could not be deleted — ${undeletable.join('; ')}.`
+        : ''
+      throw new Error(`Test cleanup failed: ${schoolError.message}${because}`)
+    }
   }
 }
