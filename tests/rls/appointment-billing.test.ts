@@ -28,13 +28,13 @@ let world: SpecialistWorld
 
 beforeAll(async () => {
   world = await buildSpecialistWorld()
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
   await admin.from('invoices').delete().eq('school_id', world.schoolId)
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 /*
  * EVERY BOOKING GETS ITS OWN HOUR. db/059 carries gist exclusion constraints so

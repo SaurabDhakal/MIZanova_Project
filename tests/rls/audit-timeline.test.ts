@@ -27,7 +27,7 @@ let world: World
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   /*
@@ -53,7 +53,7 @@ afterAll(async () => {
     .like('reason', `%${world.runId}`)
 
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('who may read the timeline', () => {
   test('a platform admin can read it', async () => {

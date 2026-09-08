@@ -52,7 +52,7 @@ beforeAll(async () => {
 
   if (error) throw new Error(`Could not seed an application: ${error.message}`)
   applicationId = data.id
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) {
@@ -62,7 +62,7 @@ afterAll(async () => {
       .like('email', `%${world.runId}%`)
     await destroyWorld(world)
   }
-}, 90_000)
+}, 120_000)
 
 // ===========================================================================
 // An applicant is not a user

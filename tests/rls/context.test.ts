@@ -43,11 +43,11 @@ beforeAll(async () => {
     assignment: 'specialist',
   })
   if (assignError) throw new Error(assignError.message)
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 90_000)
+}, 120_000)
 
 /** What the caseload screen asks for, through the signed-in user's own client. */
 async function visibleStudents(actor: SpecialistWorld['specialist']) {

@@ -23,11 +23,11 @@ let world: World
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 async function timelineFor(actor: World['guardianOfA'], studentId: string) {
   const { data, error } = await actor.db

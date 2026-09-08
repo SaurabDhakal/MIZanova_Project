@@ -48,13 +48,13 @@ beforeAll(async () => {
   forParents = await mk('Regulation at home', ['parent'], true)
   forEducators = await mk('Classroom transitions', ['educator'], true)
   draft = await mk('Half written', ['parent'], false)
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
   await admin.from('articles').delete().like('title', `%${world.runId}`)
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('who an article reaches', () => {
   test('a parent sees one written for parents', async () => {

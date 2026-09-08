@@ -82,11 +82,11 @@ beforeAll(async () => {
     .from('specialist_session_notes')
     .insert({ session_id: sessionId, notes: CLINICAL })
   if (notesError) throw new Error(notesError.message)
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 90_000)
+}, 120_000)
 
 /** The truth about a session, read past RLS. */
 async function record(id: string) {

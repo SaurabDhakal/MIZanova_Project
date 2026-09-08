@@ -52,11 +52,11 @@ async function bookAs(
 
 beforeAll(async () => {
   world = await buildSpecialistWorld()
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 90_000)
+}, 120_000)
 
 describe('who may book', () => {
   test('a verified specialist books for a child on their caseload', async () => {

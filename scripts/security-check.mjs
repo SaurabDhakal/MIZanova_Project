@@ -231,6 +231,60 @@ const esc = await fetch(
 if (esc.status === 200 || esc.status === 204) fail('role column was writable')
 else console.log(`  ok  set own role = platform_admin  ${esc.status} — refused`)
 
+/* ---------------------------------------------------------------------------
+ * EVERY OBJECT, ENUMERATED — NOT A LIST SOMEBODY MAINTAINS
+ * ---------------------------------------------------------------------------
+ * The loop above checks a hand-written list, and a hand-written list is how
+ * `storage-check` rotted through two migrations without anybody noticing. It
+ * also asks the wrong question. It fails only when rows come back, so a table
+ * that answers `[]` passes — and `[]` is not a refusal. It means the request
+ * reached the database, ran, and matched nothing.
+ *
+ * That is one layer of defence where the rest of the schema has two. On
+ * seventy-four objects an anonymous caller never reaches a policy at all,
+ * because the grant is missing and PostgREST refuses first. On the nine this
+ * check was added to catch, RLS was the only thing standing between an
+ * anonymous visitor and five real children's education plans.
+ *
+ * So this asks the question the other loop does not: was it REFUSED. The list
+ * of objects comes from PostgREST's own schema document, so a table created
+ * tomorrow without a revoke fails on the day it is created.
+ */
+const PUBLIC_ON_PURPOSE = new Set(PUBLIC_VIEWS.map((v) => v.name))
+
+console.log('\nEvery exposed object — anon must be REFUSED, not merely filtered')
+const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY
+if (!serviceKey) {
+  fail('SUPABASE_SERVICE_ROLE_KEY is not set, so the object list cannot be read and this check cannot run')
+} else {
+  const spec = await fetch(`${url}/rest/v1/`, {
+    headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, accept: 'application/openapi+json' },
+  }).then((r) => r.json())
+  const objects = Object.keys(spec?.definitions ?? {}).sort()
+  if (objects.length === 0) {
+    fail('PostgREST returned no object list, so nothing was checked — that is a failure, not a pass')
+  }
+  const filtered = []
+  for (const name of objects) {
+    if (PUBLIC_ON_PURPOSE.has(name)) continue
+    const res = await fetch(`${url}/rest/v1/${name}?select=*&limit=1`, { headers: H })
+    let parsed = null
+    try { parsed = JSON.parse(await res.text()) } catch { /* an error object is a refusal */ }
+    if (!Array.isArray(parsed)) continue // refused, which is what we want
+    if (parsed.length > 0) fail(`${name} returned ${parsed.length} row(s) to an anonymous caller`)
+    else filtered.push(name)
+  }
+  if (filtered.length > 0) {
+    fail(
+      `${filtered.length} object(s) answered an anonymous caller with an empty array instead of refusing: ` +
+        `${filtered.join(', ')}. Only row-level security is hiding these. Add ` +
+        `\`revoke all on public.<name> from anon;\` — see db/119.`,
+    )
+  } else {
+    console.log(`  ok  ${objects.length} objects — every one refused, or public on purpose`)
+  }
+}
+
 console.log(
   failures === 0
     ? '\nPASS — every anonymous attack was refused.'

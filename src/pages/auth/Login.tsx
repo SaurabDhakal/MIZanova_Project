@@ -100,7 +100,13 @@ export default function Login() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to continue supporting your students."
+      /* NOT "supporting your students". This screen cannot know who is
+         signing in — it is the one page that runs before a role exists —
+         and four of the seven roles have no students. A parent has a
+         child, an individual has nobody at all, and both were being told
+         the product was for somebody else on the second screen they ever
+         see. */
+      subtitle="Sign in to continue."
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {error && (
@@ -122,7 +128,10 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@school.nsw.edu.au"
+              /* A neutral example, for the same reason: a school address
+                 is wrong for every family and every individual, and a
+                 placeholder is a hint about what belongs here. */
+              placeholder="you@example.com"
             />
 
             <div>
