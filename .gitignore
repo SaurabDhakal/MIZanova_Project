@@ -59,3 +59,12 @@ docs/
 scripts/.tmp/
 public/__audit.js
 public/__judge.js
+
+# The user manual and its screenshots. Saurab asked on 8 September for this
+# to stay out of GitHub: the illustrated version carries sixty screenshots and
+# four megabytes, which is a large thing to push for a document nobody reads
+# from the repository. It lives on disk and is handed over as a file.
+#
+# Nothing is lost by ignoring it. scripts/manual-screenshots.mjs rebuilds every
+# image in about four minutes, and the Markdown it illustrates is the source.
+manual/
