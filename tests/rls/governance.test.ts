@@ -14,11 +14,11 @@ let world: World
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('AI usage records', () => {
   test('a browser session cannot write a usage record', async () => {

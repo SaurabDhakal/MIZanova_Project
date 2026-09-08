@@ -90,7 +90,7 @@ beforeAll(async () => {
     false,
     'individual',
   )
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
@@ -106,7 +106,7 @@ afterAll(async () => {
     await admin.from('individual_plan').update(planBefore).eq('id', 1)
   }
   await destroyWorld(world)
-}, 90_000)
+}, 120_000)
 
 describe('a subscription is written by the server and nobody else', () => {
   test('an individual cannot insert one for themselves', async () => {

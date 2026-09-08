@@ -54,13 +54,13 @@ beforeAll(async () => {
     { course_id: publishedForParents, title: 'Regulation at home', sort_order: 2 },
     { course_id: draftForParents, title: 'Unfinished', sort_order: 1 },
   ])
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
   await admin.from('courses').delete().like('title', `%${world.runId}`)
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('who a course reaches', () => {
   test('a parent sees one written for parents', async () => {

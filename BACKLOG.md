@@ -925,6 +925,26 @@ bearer token claiming `service_role`.
       invitations — as of 28 August the production mail key was returning
       `401: API key is invalid`, and invitations are how a school onboards.
 
+- [x] **The suite was flaky, and the config already said why.**
+      `vitest.config.ts` sets `hookTimeout: 120_000` and explains it: nine
+      actors at up to six seconds each of `signInWithRetry` sleep is 54s of
+      pure waiting before any network time, so "60 seconds was not enough
+      either". **Twenty-eight files then overrode it with 90s, and
+      `student-visibility` with 60s — the exact value the comment says
+      failed.**
+
+      It showed up as two different-looking failures on two consecutive full
+      runs: five test failures in `student-account`, then a hook failure in
+      `context` with all 575 tests passing. Different file each time, and
+      both passed in isolation — the signature of a timeout, not a defect.
+      Every file that failed builds a nine-actor specialist world behind a
+      90-second hook.
+
+      55 hooks across 28 files raised to the global floor. **Full run after:
+      39 files, 575 tests, all passing, 451s** — back to the baseline from
+      927s at its worst. Nothing about the product changed; the suite was
+      lying about it.
+
 ### Low / cosmetic
 
 - [x] ~~db/120 written, not applied.~~ **Applied 8 September and verified:** After db/119 the anonymous grant count

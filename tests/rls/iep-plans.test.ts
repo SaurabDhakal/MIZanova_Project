@@ -32,11 +32,11 @@ let world: World
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 /** A plan with one goal on it, created with the service key so the tests are
  *  about the policies rather than about the setup. */

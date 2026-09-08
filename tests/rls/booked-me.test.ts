@@ -41,14 +41,14 @@ beforeAll(async () => {
     .select('id')
     .single()
   bookingId = data?.id ?? null
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (bookingId) await admin.from('individual_bookings').delete().eq('id', bookingId)
   for (const id of [individual?.id, stranger?.id].filter(Boolean)) {
     await admin.auth.admin.deleteUser(id as string)
   }
-}, 90_000)
+}, 120_000)
 
 describe('a specialist can name who they have agreed to meet', () => {
   test('the person who booked them is readable', async () => {

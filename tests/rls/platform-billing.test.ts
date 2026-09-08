@@ -21,7 +21,7 @@ let world: World
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (!world) return
@@ -42,7 +42,7 @@ afterAll(async () => {
     .eq('school_id', world.otherSchoolId)
 
   await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 describe('an agreement is Special Miles to write and the school to read', () => {
   test('a platform admin can agree a rate', async () => {

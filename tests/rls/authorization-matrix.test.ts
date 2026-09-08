@@ -96,7 +96,7 @@ afterAll(async () => {
   if (!individual) return
   await admin.from('memberships').delete().eq('profile_id', individual.id)
   await admin.auth.admin.deleteUser(individual.id)
-}, 60_000)
+}, 120_000)
 
 describe('an account with no school reads no child, in any table', () => {
   for (const table of CHILD_TABLES) {

@@ -18,11 +18,11 @@ let draftId: string
 
 beforeAll(async () => {
   world = await buildWorld()
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 async function statusOf(id: string): Promise<string | null> {
   const { data } = await admin

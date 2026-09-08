@@ -58,7 +58,7 @@ beforeAll(async () => {
       expires_on: daysAway(-5),
     },
   ])
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) {
@@ -69,7 +69,7 @@ afterAll(async () => {
       .like('email', `%${world.runId}%`)
     await destroyWorld(world)
   }
-}, 90_000)
+}, 120_000)
 
 // ===========================================================================
 // Who can read a screening number

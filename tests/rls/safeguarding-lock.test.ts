@@ -40,11 +40,11 @@ beforeAll(async () => {
 
   if (error) throw new Error(error.message)
   logId = data.id
-}, 60_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 60_000)
+}, 120_000)
 
 /** The truth, read with the service key rather than from a response. */
 async function noteOnRecord(): Promise<string | null> {

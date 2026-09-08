@@ -84,11 +84,11 @@ beforeAll(async () => {
 
   shareToA = shares.find((s) => s.student_id === world.childA)!.id
   shareToB = shares.find((s) => s.student_id === world.childB)!.id
-}, 90_000)
+}, 120_000)
 
 afterAll(async () => {
   if (world) await destroyWorld(world)
-}, 90_000)
+}, 120_000)
 
 /** The truth about a resource, read past RLS. */
 async function exists(table: string, column: string, id: string): Promise<boolean> {
