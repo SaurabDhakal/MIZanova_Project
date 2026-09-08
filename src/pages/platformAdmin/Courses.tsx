@@ -678,24 +678,42 @@ export default function Courses() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
-  if (courses.isPending) return <LoadingCards count={3} />
-  if (courses.isError) return <ErrorState message={courses.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. Every state below used to return before reaching it. */
+  const header = (
+    <PageHeader
+      title="Courses"
+      lead="The Academy — what Special Miles publishes, and who it is for."
+      actions={
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
+          New course
+        </button>
+      }
+    />
+  )
+
+  if (courses.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (courses.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={courses.error.message} />
+      </>
+    )
 
   return (
     <div>
-      <PageHeader
-        title="Courses"
-        lead="The Academy — what Special Miles publishes, and who it is for."
-        actions={
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-          >
-            New course
-          </button>
-        }
-      />
+      {header}
 
       {creating && <NewCourseForm onDone={() => setCreating(false)} />}
 

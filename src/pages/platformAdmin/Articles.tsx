@@ -272,24 +272,42 @@ export default function Articles() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
-  if (articles.isPending) return <LoadingCards count={3} />
-  if (articles.isError) return <ErrorState message={articles.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. Every state below used to return before reaching it. */
+  const header = (
+    <PageHeader
+      title="Articles"
+      lead="Short reads and case studies, and who each one is written for."
+      actions={
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
+          New
+        </button>
+      }
+    />
+  )
+
+  if (articles.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (articles.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={articles.error.message} />
+      </>
+    )
 
   return (
     <div>
-      <PageHeader
-        title="Articles"
-        lead="Short reads and case studies, and who each one is written for."
-        actions={
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-          >
-            New
-          </button>
-        }
-      />
+      {header}
 
       {creating && <NewArticleForm onDone={() => setCreating(false)} />}
 

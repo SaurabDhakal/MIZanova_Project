@@ -71,8 +71,32 @@ export default function GlobalOverview() {
     queryFn: () => fetchSystemEvents(20),
   })
 
-  if (staff.isPending) return <LoadingCards count={3} />
-  if (staff.isError) return <ErrorState message={staff.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Global overview"
+      lead="What needs Special Miles today, across every school."
+    />
+  )
+
+  if (staff.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (staff.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={staff.error.message} />
+      </>
+    )
 
   const awaiting = staff.data.filter((p) => !p.is_verified)
 
@@ -153,10 +177,7 @@ export default function GlobalOverview() {
 
   return (
     <div>
-      <PageHeader
-        title="Global overview"
-        lead="What needs Special Miles today, across every school."
-      />
+      {header}
 
       {/* A LAPSED CHECK GOES ABOVE EVERY STATISTIC ON THIS PAGE.
           The screening list is its own screen, and a screen nobody opens is

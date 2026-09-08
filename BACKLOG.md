@@ -783,9 +783,9 @@ accessible names. Everything below is a measured number.
       platform-admin Enquiries and Applications, school-admin People.
 - [ ] **FullCalendar's prev/next carry `aria-pressed` on a non-toggle.** The
       library's own markup; `buttonHints` already gives them a name.
-- [ ] **The Library still carries "articultion exrecise"** — two spelling
-      mistakes, visible to every user who opens it. Section 4 has said so
-      since before this audit.
+- [x] ~~The Library still carries "articultion exrecise".~~ It does not. The
+      row was corrected before this audit ran and section 4's note had gone
+      stale — the note outlived the fault.
 
 ---
 
@@ -857,8 +857,11 @@ served its purpose; closing it removes everything and detaches the purchase.
 - [x] ~~Delete the test account `zz-individual-test@example.invalid`.~~ Gone —
       it was closed through the new closure flow, which tested the feature and
       cleared the account in one go.
-- [ ] The Library carries a file titled **"articultion exrecise"** — two
-      spelling mistakes, visible to every user who opens the Library.
+- [x] ~~The Library carries a file titled "articultion exrecise".~~ Already
+      corrected: the row reads "Articulation exercise" and its description now
+      says outright that the attached file is a placeholder. Checked 8
+      September across `resources`, `library_files`, `articles`, `courses` and
+      `course_modules` — no misspelling survives in any of them.
 
 ---
 

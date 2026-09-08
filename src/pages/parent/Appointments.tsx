@@ -135,8 +135,36 @@ export default function Appointments() {
     enabled: Boolean(child),
   })
 
-  if (isPending) return <LoadingCards count={3} />
-  if (isError) return <ErrorState message={error?.message ?? 'Could not load.'} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Appointments"
+      lead={
+        child
+          ? `When a specialist is seeing ${fullName(child)}, and what each session costs.`
+          : 'When a specialist is seeing your child, and what each session costs.'
+      }
+    />
+  )
+
+  if (isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={error?.message ?? 'Could not load.'} />
+      </>
+    )
   if (children.length === 0) return <NoChildYet thing="Appointments" />
 
   /*
@@ -169,14 +197,7 @@ export default function Appointments() {
 
   return (
     <div>
-      <PageHeader
-        title="Appointments"
-        lead={
-          child
-            ? `When a specialist is seeing ${fullName(child)}, and what each session costs.`
-            : 'When a specialist is seeing your child, and what each session costs.'
-        }
-      />
+      {header}
 
 
       {appointments.isPending && <LoadingCards count={2} />}

@@ -108,16 +108,43 @@ export default function Verification() {
     },
   })
 
-  if (waiting.isPending || verified.isPending) return <LoadingCards count={3} />
-  if (waiting.isError) return <ErrorState message={waiting.error.message} />
-  if (verified.isError) return <ErrorState message={verified.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Staff verification"
+      lead="Staff waiting to be trusted with student records."
+    />
+  )
+
+  if (waiting.isPending || verified.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (waiting.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={waiting.error.message} />
+      </>
+    )
+  if (verified.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={verified.error.message} />
+      </>
+    )
 
   return (
     <div>
-      <PageHeader
-        title="Staff verification"
-        lead="Staff waiting to be trusted with student records."
-      />
+      {header}
 
       <div
         className="mb-6 rounded-card border border-warning bg-warning-subtle p-4"

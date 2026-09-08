@@ -537,9 +537,39 @@ export default function Subscriptions() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
-  if (schools.isPending || subs.isPending) return <LoadingCards count={3} />
-  if (schools.isError) return <ErrorState message={schools.error.message} />
-  if (subs.isError) return <ErrorState message={subs.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Subscriptions"
+      lead="What each school pays Special Miles to use the platform."
+    />
+  )
+
+  if (schools.isPending || subs.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (schools.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={schools.error.message} />
+      </>
+    )
+  if (subs.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={subs.error.message} />
+      </>
+    )
 
   const liveFor = (schoolId: string) =>
     subs.data.find((s) => s.school_id === schoolId && s.ends_on === null)
@@ -563,10 +593,7 @@ export default function Subscriptions() {
 
   return (
     <div>
-      <PageHeader
-        title="Subscriptions"
-        lead="What each school pays Special Miles to use the platform."
-      />
+      {header}
 
       {/*
         THE SENTENCE THAT STOPS THE TWO KINDS OF MONEY BEING CONFUSED. It is

@@ -95,8 +95,27 @@ export default function RecordAccess() {
   })
   const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
 
-  if (events.isPending) return <LoadingCards count={2} />
-  if (events.isError) return <ErrorState message={events.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. The export button IS: it reads `events.data.total`, which does
+     not exist yet in the two states below, so it is left out of them rather
+     than rendered against a value that is not there. */
+  const TITLE = 'Record access'
+  const LEAD = "Who has opened children's records, across every school."
+
+  if (events.isPending)
+    return (
+      <>
+        <PageHeader title={TITLE} lead={LEAD} />
+        <LoadingCards count={2} />
+      </>
+    )
+  if (events.isError)
+    return (
+      <>
+        <PageHeader title={TITLE} lead={LEAD} />
+        <ErrorState message={events.error.message} />
+      </>
+    )
 
   const describe = (actorId: string) => {
     const person = staff.data?.find((p) => p.id === actorId)
@@ -209,8 +228,8 @@ export default function RecordAccess() {
   return (
     <div>
       <PageHeader
-        title="Record access"
-        lead="Who has opened children's records, across every school."
+        title={TITLE}
+        lead={LEAD}
         actions={
           <button
             type="button"

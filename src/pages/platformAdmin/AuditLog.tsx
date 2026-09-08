@@ -198,16 +198,36 @@ export default function AuditLog() {
   const filtered =
     Boolean(action) || Boolean(schoolId) || period !== 'all' || Boolean(search.trim())
 
-  if (events.isPending) return <LoadingCards count={3} />
-  if (events.isError) return <ErrorState message={events.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
+     Library.tsx. The export button IS, and is left out of the two states
+     below: there is nothing to export while the query is in flight, and less
+     than nothing when it has failed. The title and lead are named once so the
+     loading screen and the loaded one cannot drift apart. */
+  const TITLE = 'Audit log'
+  const LEAD = 'Every governance decision, who made it, and why.'
+
+  if (events.isPending)
+    return (
+      <>
+        <PageHeader title={TITLE} lead={LEAD} />
+        <LoadingCards count={3} />
+      </>
+    )
+  if (events.isError)
+    return (
+      <>
+        <PageHeader title={TITLE} lead={LEAD} />
+        <ErrorState message={events.error.message} />
+      </>
+    )
 
   const { rows, total } = events.data
 
   return (
     <div>
       <PageHeader
-        title="Audit log"
-        lead="Every governance decision, who made it, and why."
+        title={TITLE}
+        lead={LEAD}
         actions={
           <button
             type="button"

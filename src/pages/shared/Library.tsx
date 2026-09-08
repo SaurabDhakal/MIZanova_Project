@@ -63,8 +63,39 @@ export default function Library() {
     queryFn: fetchLibraryFiles,
   })
 
-  if (articles.isPending) return <LoadingCards count={3} />
-  if (articles.isError) return <ErrorState message={articles.error.message} />
+  /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
+     below returned before reaching it — so a slow query showed a page with no
+     name on it, and the title then arrived and shoved the content down. An
+     empty or failed screen had no title at all. Hoisted so every state has
+     one, and the page stops moving underneath the reader. */
+  const header = (
+    <PageHeader
+      title="Library"
+      lead={
+        /* "work with real schools" is the wrong promise for an individual,
+           and not merely off-key: they arrived from a page saying there is no
+           school attached to this account and nothing is reported to one. */
+        profile?.role === 'individual'
+          ? 'Short reads from Special Miles — practical guidance you can use on your own.'
+          : 'Short reads from Special Miles — practical guidance, and work with real schools.'
+      }
+    />
+  )
+
+  if (articles.isPending)
+    return (
+      <>
+        {header}
+        <LoadingCards count={3} />
+      </>
+    )
+  if (articles.isError)
+    return (
+      <>
+        {header}
+        <ErrorState message={articles.error.message} />
+      </>
+    )
 
   /*
    * A platform admin can read drafts — db/079 lets them, because somebody has
@@ -76,17 +107,7 @@ export default function Library() {
 
   return (
     <div>
-      <PageHeader
-        title="Library"
-        lead={
-          /* "work with real schools" is the wrong promise for an individual,
-             and not merely off-key: they arrived from a page saying there is no
-             school attached to this account and nothing is reported to one. */
-          profile?.role === 'individual'
-            ? 'Short reads from Special Miles — practical guidance you can use on your own.'
-            : 'Short reads from Special Miles — practical guidance, and work with real schools.'
-        }
-      />
+      {header}
 
       {visible.length === 0 ? (
         <EmptyState
