@@ -136,8 +136,8 @@ export default function SiteHeader() {
 
   const desktopLink = ({ isActive }: { isActive: boolean }) =>
     isActive
-      ? 'inline-flex min-h-11 items-center font-semibold text-primary'
-      : 'inline-flex min-h-11 items-center text-foreground hover:underline'
+      ? 'inline-flex min-h-11 items-center font-semibold text-primary underline decoration-2 underline-offset-8'
+      : 'inline-flex min-h-11 items-center text-foreground hover:text-primary'
 
   const drawerLink = ({ isActive }: { isActive: boolean }) =>
     `flex min-h-11 items-center rounded-btn px-3 py-2 ${
@@ -147,9 +147,29 @@ export default function SiteHeader() {
     }`
 
   return (
-    <header className="border-b border-border bg-card">
+    /*
+      STICKY, AND SOLID RATHER THAN FROSTED.
+
+      The homepage is 3,900px tall. Reaching the nav from the closing band
+      meant scrolling the whole page back, and the footer link list is not the
+      same thing — it has no "Talk to us" in it.
+
+      The background is a flat colour on purpose. `backdrop-filter` is the
+      obvious way to make a sticky bar look expensive, and it would have
+      broken the mobile menu: an ancestor with a backdrop-filter becomes the
+      containing block for `position: fixed` descendants, so the drawer below
+      would have been positioned against this 69px bar instead of the
+      viewport. A blur worth having is not worth that.
+    */
+    <header className="sticky top-0 z-30 border-b border-border bg-card">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-3 sm:py-4">
-        <Link to="/" aria-label="MiZanova home">
+        {/* 42px measured, against the 44 every other control in the product
+            holds to. The logo is the most-tapped thing in any header. */}
+        <Link
+          to="/"
+          aria-label="MiZanova home"
+          className="inline-flex min-h-11 items-center rounded-btn"
+        >
           <Logo />
         </Link>
 
@@ -188,7 +208,7 @@ export default function SiteHeader() {
           */}
           <Link
             to="/login"
-            className="hidden rounded-btn px-3 py-2.5 font-semibold text-primary hover:underline sm:inline-flex"
+            className="pressable hidden rounded-btn px-3 py-2.5 font-semibold text-primary hover:bg-primary-subtle sm:inline-flex"
           >
             Log in
           </Link>
@@ -197,7 +217,7 @@ export default function SiteHeader() {
               immediately takes away. */}
           <Link
             to="/enquiry"
-            className="hidden rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110 sm:inline-block"
+            className="pressable hidden rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110 sm:inline-block"
           >
             Talk to us
           </Link>
@@ -212,7 +232,7 @@ export default function SiteHeader() {
             onClick={() => setOpen(true)}
             aria-expanded={open}
             aria-controls="site-menu"
-            className="inline-flex min-h-11 items-center rounded-btn border border-border px-3 py-2 font-semibold text-foreground lg:hidden"
+            className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-3 py-2 font-semibold text-foreground hover:border-primary hover:text-primary lg:hidden"
           >
             Menu
           </button>
@@ -277,14 +297,14 @@ export default function SiteHeader() {
               <Link
                 to="/login"
                 onClick={close}
-                className="flex min-h-11 items-center justify-center rounded-btn border border-border px-4 py-2.5 font-semibold text-primary hover:bg-background"
+                className="pressable flex min-h-11 items-center justify-center rounded-btn border border-border px-4 py-2.5 font-semibold text-primary hover:bg-background"
               >
                 Log in
               </Link>
               <Link
                 to="/enquiry"
                 onClick={close}
-                className="flex min-h-11 items-center justify-center rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+                className="pressable flex min-h-11 items-center justify-center rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
               >
                 Talk to us
               </Link>

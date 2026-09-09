@@ -24,9 +24,8 @@ export default function About() {
     >
       <Lead>
         MiZanova helps schools support neurodiverse students. A teacher records
-        what they saw, the system suggests strategies that have worked
-        elsewhere, and a specialist stays in the loop wherever judgement is
-        needed.
+        what they saw, the system suggests what has worked elsewhere, and a
+        specialist stays in the loop.
       </Lead>
 
       <Section title="Special Miles, and MiZanova">

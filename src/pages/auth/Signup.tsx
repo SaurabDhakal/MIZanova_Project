@@ -208,7 +208,7 @@ export default function Signup() {
           </p>
           <Link
             to="/link"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
           >
             Enter my code
           </Link>
@@ -244,7 +244,7 @@ export default function Signup() {
           </p>
           <Link
             to="/pricing"
-            className="mt-3 inline-block rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             See plans
           </Link>
@@ -273,7 +273,7 @@ export default function Signup() {
           </p>
           <Link
             to="/signup?as=individual"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
           >
             Create my account
           </Link>

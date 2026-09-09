@@ -78,7 +78,7 @@ export default function Status() {
         service whether it is working and prints the answer.
       </Lead>
 
-      <div className="mx-auto mt-8 max-w-3xl">
+      <div className="mx-auto mt-10 max-w-2xl">
         {status.isPending && (
           <div className="rounded-card border border-border bg-card shadow-raised p-6 text-muted-foreground">
             Asking the service…
@@ -92,7 +92,7 @@ export default function Status() {
                 <Icon name={look.icon} className="h-6 w-6" />
               </span>
               <div>
-                <h2 className="text-lg font-bold text-foreground">
+                <h2 className="text-title text-foreground">
                   {look.heading}
                 </h2>
                 <p className="mt-1 text-muted-foreground">{look.detail}</p>
@@ -117,23 +117,20 @@ export default function Status() {
       <Section title="If something is wrong for you but green here">
         <p>
           This checks whether the service is answering, not whether your school
-          can reach it. A school firewall, a captive portal on guest wifi, or a
-          single classroom’s connection can all break the app while everything
-          here reports normal.
+          can reach it. A firewall, a captive portal or one classroom’s
+          connection can break the app while this reports normal.
         </p>
         <p>
-          Behaviour logging is designed for exactly that: the app opens without
-          a connection and observations written offline upload by themselves
-          once the network returns.
+          Logging is built for exactly that: the app opens offline and uploads
+          by itself when the network returns.
         </p>
       </Section>
 
       <NotThis>
         <p>
-          There is no uptime history, no percentage, and no record of past
-          incidents — because nothing is recording them. A figure like “99.9%
-          this month” would be invented, and this is the last page on the site
-          that should carry an invented number.
+          No uptime history, percentage or incident record, because nothing is
+          recording them. “99.9% this month” would be invented, and this is the
+          last page that should carry an invented number.
         </p>
         <p>
           There is no subscribe-to-updates option, because there is no incident

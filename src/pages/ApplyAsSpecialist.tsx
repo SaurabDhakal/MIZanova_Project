@@ -9,6 +9,8 @@ import {
   type Profession,
 } from '../lib/api'
 import PublicLayout from '../components/PublicLayout'
+import { Figure } from '../components/PublicSections'
+import { ReviewGateFigure } from '../components/PublicFigures'
 import FormField from '../components/FormField'
 
 /**
@@ -85,7 +87,7 @@ export default function ApplyAsSpecialist() {
           </p>
           <Link
             to="/"
-            className="mt-6 inline-block rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             Back to the home page
           </Link>
@@ -99,8 +101,18 @@ export default function ApplyAsSpecialist() {
       title="Join MiZanova as a specialist"
       subtitle="For speech pathologists, occupational therapists, psychologists and other practitioners working with neurodiverse children."
     >
+      {/* THE PAGE ASKED FOR A WORKING WITH CHILDREN CHECK NUMBER BEFORE IT
+          SHOWED THE JOB. This is where a practitioner decides whether the role
+          is one they want, and it opened straight onto a form asking for a
+          registration number and a date of birth. The gate IS the job — a held
+          suggestion and three ways to answer it — so it is drawn above the
+          first field rather than described after the last. */}
+      <Figure>
+        <ReviewGateFigure />
+      </Figure>
+
       <form
-        className="mx-auto max-w-xl space-y-4 rounded-card border border-border bg-card shadow-raised p-6 sm:p-8"
+        className="mx-auto mt-12 max-w-xl space-y-4 rounded-card border border-border bg-card p-6 shadow-raised sm:p-8"
         onSubmit={(event) => {
           event.preventDefault()
           send.mutate(form)
@@ -124,7 +136,7 @@ export default function ApplyAsSpecialist() {
           </p>
         </div>
 
-        <h2 className="pt-2 text-lg font-semibold text-foreground">About you</h2>
+        <h2 className="text-section pt-2 text-foreground">About you</h2>
 
         <FormField
           label="Full name"
@@ -163,7 +175,7 @@ export default function ApplyAsSpecialist() {
           onChange={(e) => set('dateOfBirth', e.target.value)}
         />
 
-        <h2 className="pt-4 text-lg font-semibold text-foreground">
+        <h2 className="text-section pt-4 text-foreground">
           Your practice
         </h2>
 
@@ -251,12 +263,11 @@ export default function ApplyAsSpecialist() {
           />
         </div>
 
-        <h2 className="pt-4 text-lg font-semibold text-foreground">Screening</h2>
+        <h2 className="text-section pt-4 text-foreground">Screening</h2>
         <p className="text-sm text-muted-foreground">
-          We verify these with the issuing authority rather than asking you to
-          upload anything. A Working With Children Check has no card or
-          certificate to scan — it is an online record, and checking it at the
-          source is both easier for you and better evidence.
+          We verify these at the source rather than asking you to upload
+          anything. A Working With Children Check is an online record with
+          nothing to scan, and checking it there is better evidence.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">

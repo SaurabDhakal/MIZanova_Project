@@ -5,7 +5,9 @@ import {
   NotThis,
   Points,
   Section,
+  Split,
 } from '../../components/PublicSections'
+import { WhoCanSeeFigure } from '../../components/PublicFigures'
 
 /**
  * "For Parent" from the Figma header.
@@ -23,23 +25,22 @@ export default function ForParents() {
     >
       <Lead>
         MiZanova costs a family nothing. Your child’s school gives you a code,
-        you enter it once, and you can see what the school has chosen to share
-        about your child — and add what you are seeing at home.
+        you enter it once, and you see what they chose to share — and add what
+        you are seeing at home.
       </Lead>
 
-      <Section title="Who can see what">
+      <Split title="Who can see what" figure={<WhoCanSeeFigure />}>
         <p>
-          You see your own child and nobody else’s. Teachers see the children
-          they are assigned to. A specialist sees the children on their
-          caseload. None of that is a setting somebody can get wrong — it is
-          enforced by the database on every request, not by the screen.
+          You see your own child and nobody else’s. None of that is a setting
+          somebody can get wrong — the database enforces it on every request,
+          not the screen.
         </p>
         <p>
-          You do not see every behaviour log, and that is deliberate. A teacher
-          chooses what to share, so the picture you get is the one they meant to
-          give rather than a raw feed of a hard day.
+          You do not see every behaviour log, deliberately. A teacher chooses
+          what to share, so you get the picture they meant to give rather than a
+          raw feed of a hard day.
         </p>
-      </Section>
+      </Split>
 
       <Section title="What you can do">
         <Points
@@ -55,9 +56,9 @@ export default function ForParents() {
 
       <Section title="Consent, and taking it back">
         <p>
-          Before any observation is sent for an AI strategy suggestion, names,
-          contact details and dates of birth are removed. You give consent for
-          that, and you can withdraw it at any moment — which stops it
+          Names, contact details and dates of birth are removed before any
+          observation is sent. You consent to that, and can withdraw it at any
+          moment — which stops it
           immediately, not at the end of term.
         </p>
         <p>
@@ -82,10 +83,9 @@ export default function ForParents() {
               only after a family consents. Saying the opposite on the page a
               parent reads before deciding anything was the worst place in the
               product for that sentence to go stale. */}
-          A child can have a sign-in of their own, but only if you agree to it
-          first and only if the school issues it. It shows them the goals they
-          are working on and nothing else &mdash; no behaviour notes, no plan
-          documents, and no messages between adults.
+          A child can have their own sign-in, but only if you agree and the
+          school issues it. It shows their goals and nothing else &mdash; no
+          behaviour notes, no documents, no messages between adults.
         </p>
       </NotThis>
 

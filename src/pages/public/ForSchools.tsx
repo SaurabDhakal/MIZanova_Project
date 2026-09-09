@@ -1,12 +1,14 @@
 import PublicLayout from '../../components/PublicLayout'
 import {
   CardGrid,
+  Figure,
   Lead,
   NextStep,
   NotThis,
   Points,
   Section,
 } from '../../components/PublicSections'
+import { SafeguardingQueueFigure } from '../../components/PublicFigures'
 
 /**
  * "For School" from the Figma header.
@@ -23,28 +25,31 @@ export default function ForSchools() {
       subtitle="See the pattern across a year group without reading every incident."
     >
       <Lead>
-        A teacher records what they saw in about twenty seconds. Everything a
-        school leader needs — trends, the safeguarding queue, who has access to
-        what — is built from those records rather than from a separate reporting
-        exercise nobody has time for.
+        A teacher records what they saw in about twenty seconds. Trends, the
+        safeguarding queue and who has access to what are built from those
+        records — not from a reporting exercise nobody has time for.
       </Lead>
+
+      <Figure>
+        <SafeguardingQueueFigure />
+      </Figure>
 
       <CardGrid
         cards={[
           {
             icon: 'safeguarding',
             title: 'A safeguarding queue that gets answered',
-            body: 'A teacher can flag an incident as they log it. The queue shows what is open and how long acknowledgement is taking — the number a leader is actually asked about.',
+            body: 'Flagged as it is logged. The queue shows what is open and how long acknowledgement took.',
           },
           {
             icon: 'kpis',
             title: 'Trends without names',
-            body: 'Behaviour patterns by category and time of day across a year group. Leaders see the shape of a problem without reading individual children’s records.',
+            body: 'Patterns by category and time of day, so you see the shape of a problem without reading a child’s record.',
           },
           {
             icon: 'verification',
             title: 'You decide who is staff',
-            body: 'Nobody claims to work at your school. An administrator invites them by email, and the account is created already attached and already verified.',
+            body: 'Nobody claims to work at your school. An administrator invites them, and the account arrives verified.',
           },
         ]}
       />
@@ -63,18 +68,18 @@ export default function ForSchools() {
 
       <Section title="It keeps working when the wifi does not">
         <p>
-          The app opens with no connection, and a behaviour log written offline
-          is kept on the device and uploads by itself. Existing records are
-          deliberately <strong className="text-foreground">not</strong> stored
-          on the device, because school laptops are shared.
+          The app opens with no connection, and a log written offline uploads by
+          itself. Existing records are deliberately{' '}
+          <strong className="text-foreground">not</strong> stored on the device,
+          because school laptops are shared.
         </p>
       </Section>
 
       <NotThis>
         <p>
-          There is no compliance score. Nothing here computes a per-staff
-          percentage, and a number beside a person’s name that nobody can
-          explain is worse than none — somebody will make a decision with it.
+          There is no compliance score. A number beside a person’s name that
+          nobody can explain is worse than none &mdash; somebody will make a
+          decision with it.
         </p>
         <p>
           It does not report to any authority. A safeguarding flag raises the

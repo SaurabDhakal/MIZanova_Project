@@ -34,15 +34,12 @@ export default function Cookies() {
           <strong className="text-foreground">
             Behaviour logs written offline.
           </strong>{' '}
-          A teacher can log an observation with no connection, so it has to be
-          kept on the device until it uploads. It is deleted the moment it does.
+          Kept on the device only until it uploads, then deleted.
         </p>
         <p>
           <strong className="text-foreground">Your class roster.</strong> Names
-          of the students assigned to you, so the log form works offline.
-          Nothing else about a child is ever stored on the device — no
-          observations, no goals, no documents — because school laptops are
-          shared.
+          only, so the log form works offline. Nothing else about a child is
+          ever stored on the device, because school laptops are shared.
         </p>
         <p>
           <strong className="text-foreground">The application itself.</strong>{' '}
@@ -53,18 +50,17 @@ export default function Cookies() {
 
       <Section title="Clearing it">
         <p>
-          Signing out clears your session and your cached roster. Clearing site
-          data in your browser removes everything, including any offline log
-          that has not uploaded yet — so upload first if you are on a bad
-          connection.
+          Signing out clears your session and roster. Clearing site data
+          removes everything, including an offline log that has not uploaded —
+          so upload first on a bad connection.
         </p>
       </Section>
 
       <NotThis>
         <p>
-          No cookie banner is shown because there is nothing to consent to.
-          If a tracking or analytics tool is ever added, this page changes and a
-          banner appears with it — that is the order those things happen in.
+          No cookie banner, because there is nothing to consent to. If a
+          tracking tool is ever added, this page changes and a banner appears
+          with it — in that order.
         </p>
       </NotThis>
 

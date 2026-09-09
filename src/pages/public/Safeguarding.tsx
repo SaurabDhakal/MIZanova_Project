@@ -22,22 +22,21 @@ export default function Safeguarding() {
       subtitle="What the software does, and where your own obligations begin."
     >
       <Lead>
-        MiZanova raises concerns inside your school and keeps a record of who
-        acted and when. It is a tool for your process. It is not the process,
-        and it is not a route to any authority.
+        MiZanova raises concerns inside your school and records who acted and
+        when. It is a tool for your process — not the process, and not a route
+        to any authority.
       </Lead>
 
       <Section title="Raising a concern">
         <p>
-          A teacher can flag an incident at the moment they log it, without
-          leaving the form or finding anybody. The flag goes to the school’s
-          safeguarding queue immediately.
+          A teacher flags an incident as they log it, without leaving the form
+          or finding anybody. It reaches the school’s queue immediately.
         </p>
         <Points
           items={[
             'The queue shows what is open and how long acknowledgement is taking.',
             'Acknowledging records who did it and when — it cannot be back-dated.',
-            'A flagged log is locked from casual editing, so the record of what was first written survives.',
+            'A flagged log locks, so what was first written survives.',
             'Nothing about a flag depends on the teacher knowing who to email.',
           ]}
         />
@@ -45,32 +44,27 @@ export default function Safeguarding() {
 
       <Section title="Who is allowed near a child’s record">
         <p>
-          Access comes from a relationship, not a job title. A teacher reaches a
-          child because they are assigned to them; a specialist because the
-          child is on their caseload; a guardian because a school issued them a
-          code for that specific child.
+          Access comes from a relationship, not a job title: a teacher is
+          assigned, a specialist has the child on their caseload, a guardian was
+          issued a code for that child.
         </p>
         <p>
-          Staff are verified by Special Miles before they can open any student
-          record, and a member of staff who moves school loses access to the
-          children they left behind on the day they accept the new invitation.
+          Staff are verified before they can open any record, and somebody who
+          moves school loses the children they left behind the day they accept
+          the new invitation.
         </p>
       </Section>
 
       <Section title="Screening for specialists">
         <p>
-          A specialist joining the Special Miles network gives their
-          professional registration and their Working With Children Check, and a
-          named person verifies both at the source — the Office of the
-          Children’s Guardian and the relevant register — before they are
+          A specialist gives their registration and Working With Children
+          Check, and a named person verifies both at the source before they are
           admitted.
         </p>
         <p>
-          Checks expire, so the expiry date is held and the platform reports
-          when one is running out or was never recorded. A school can also see
-          whether a specialist was vetted by Special Miles or engaged directly
-          by the school itself, because those are different things and both are
-          allowed.
+          Expiry dates are held and reported when one runs out or was never
+          recorded. A school can see whether a specialist was vetted by Special
+          Miles or engaged directly — both are allowed.
         </p>
       </Section>
 
@@ -80,27 +74,26 @@ export default function Safeguarding() {
             It does not report to police, child protection or any regulator.
           </strong>{' '}
           A flag raises a concern inside your school. Your mandatory reporting
-          obligations are unchanged and are not discharged by using this.
+          obligations are unchanged.
         </p>
         <p>
           It does not decide whether something is a safeguarding matter. A
           person does.
         </p>
         <p>
-          Verifying a check records that a named person confirmed it on a date.
+          Verifying records that a named person confirmed it on a date.
           MiZanova does not connect to the Office of the Children’s Guardian —
           the button is the attestation, not the check.
         </p>
         <p>
-          An expired check does not automatically remove anybody’s access.
-          Whether it should, and after how long, is a decision for Special Miles
-          and is not made quietly by the software.
+          An expired check does not remove access by itself. Whether it should
+          is a decision for Special Miles, not one the software makes quietly.
         </p>
       </NotThis>
 
       <NextStep
         heading="Does this fit your Child Safe Standards work?"
-        body="Tell us how your school currently records concerns and acknowledgements, and we will tell you honestly where this helps and where it does not."
+        body="Tell us how you record concerns now and we will say where this helps and where it does not."
         to="/enquiry"
         label="Talk to us"
       />

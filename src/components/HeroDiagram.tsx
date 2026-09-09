@@ -1,168 +1,92 @@
+import { Cell, Defs, FULL, M, ROW, W } from './PublicFigures'
+
 /**
  * What actually happens to an observation, drawn.
  *
- * WHAT THIS REPLACED, AND WHY IT MATTERED. A radial gradient in hot pink,
- * violet and indigo — the largest element on the page, meaning nothing, in
- * three colours the brand does not contain. It is the single thing that made
- * the page read as generated: every templated landing page has a gradient blob
- * where the product should be.
+ * WHAT THIS REPLACED. A radial gradient in hot pink, violet and indigo — the
+ * largest element on the page, meaning nothing, in three colours the brand
+ * does not contain. It was the single thing that made the page read as
+ * generated: every templated landing page has a gradient blob where the
+ * product should be.
  *
- * A hero image should show the product or the promise. MiZanova's promise is
- * not "we have AI" — half the market says that. It is that **the names come
- * off before anything leaves the building, and the exact text that was sent is
- * kept**. That is the sentence a principal needs, and it is a sequence, so it
- * is drawn as one.
+ * MiZanova's promise is not "we have AI" — half the market says that. It is
+ * that the names come off before anything leaves the building, and the exact
+ * text that was sent is kept. That is a sequence, so it is drawn as one.
  *
  * ---------------------------------------------------------------------------
- * DRAWN, NOT PHOTOGRAPHED, AND DELIBERATELY SO
+ * IT IS ON THE SHARED GRID NOW, AND VERTICAL
  * ---------------------------------------------------------------------------
- * The obvious hero for a product about children is a photograph of children.
- * Stock photography of neurodiverse children on a page selling software about
- * them is the wrong instinct twice over: the child in it consented to a stock
- * library, not to this, and it invites a reader to picture a real child while
- * reading marketing copy. Nothing here needs a face.
+ * This was the last figure drawn by hand: a 196-wide panel beside a 174-wide
+ * one, a third panel of 314 starting at x=98 under neither of them, and three
+ * type sizes. Nothing aligned with anything, and next to the figures in
+ * PublicFigures.tsx — which all sit on one measure — it was visibly the odd
+ * one out, which is exactly how it read on the page.
  *
- * Inline SVG rather than a file: it costs no request, works offline with the
- * rest of the shell, and takes the brand tokens so it cannot drift from the
- * logo the way a flat image would.
+ * It is three full-width rows now, top to bottom, because that is what the
+ * thing is: an observation goes in, a stripped version goes out, a strategy
+ * comes back. Side by side, the first two rows had about 146 units for a line
+ * like "Maya left the room", which needs 150. Stacked, every row has the full
+ * measure and the sequence reads in the direction people read.
+ *
+ * Inline SVG rather than a file: no request, works offline with the rest of
+ * the shell, and it takes the brand tokens so it cannot drift from the logo.
  *
  * `aria-hidden` because the three steps are written out in the copy beside it.
- * A screen reader hearing the diagram would hear the page twice.
  */
 export default function HeroDiagram() {
+  const id = 'hero'
+
   return (
-    <svg
-      viewBox="0 0 420 320"
-      className="h-auto w-full"
-      aria-hidden="true"
-      role="presentation"
-    >
-      <defs>
-        {/* The logo's own gradient, navy through to green. */}
-        <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--color-brand-navy)" />
-          <stop offset="55%" stopColor="var(--color-brand-blue)" />
-          <stop offset="100%" stopColor="var(--color-brand-green)" />
-        </linearGradient>
-      </defs>
+    <svg viewBox={`0 0 ${W} 274`} className="h-auto w-full" aria-hidden="true">
+      <Defs id={id} />
 
-      {/* --- 1. what the teacher saw ------------------------------------- */}
-      <g>
-        <rect
-          x="8"
-          y="18"
-          width="196"
-          height="96"
-          rx="12"
-          fill="var(--color-card)"
-          stroke="var(--color-border)"
-        />
-        <text x="26" y="44" className="fill-muted-foreground" fontSize="11">
-          WHAT THE TEACHER SAW
-        </text>
-        {/* A name, legible, because the next panel is about removing it. */}
-        <text x="26" y="70" className="fill-foreground" fontSize="15" fontWeight="600">
-          Maya left the room
-        </text>
-        <text x="26" y="92" className="fill-muted-foreground" fontSize="13">
-          during reading, 11:20am
-        </text>
-      </g>
-
-      {/* --- the anonymising step, the whole point ------------------------ */}
-      <g>
-        <path
-          d="M204 66h34"
-          stroke="url(#brand)"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <circle cx="221" cy="66" r="17" fill="url(#brand)" />
-        {/* A struck-through tag: the name coming off. */}
-        <path
-          d="M214 66h14M216 60l10 12"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </g>
-
-      {/* --- 2. what the AI received -------------------------------------- */}
-      <g>
-        <rect
-          x="238"
-          y="18"
-          width="174"
-          height="96"
-          rx="12"
-          fill="var(--color-card)"
-          stroke="url(#brand)"
-        />
-        <text x="256" y="44" className="fill-muted-foreground" fontSize="11">
-          WHAT THE AI RECEIVED
-        </text>
-        <text x="256" y="70" className="fill-foreground" fontSize="15" fontWeight="600">
-          A student left
-        </text>
-        <text x="256" y="92" className="fill-muted-foreground" fontSize="13">
-          during reading, morning
-        </text>
-      </g>
-
-      {/* --- the strategy comes back -------------------------------------- */}
-      <path
-        d="M325 114v34"
-        stroke="url(#brand)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="4 5"
+      {/* 1. A name, legible, because the next row is about removing it. */}
+      <Cell
+        id={id}
+        x={M}
+        y={8}
+        w={FULL}
+        label="WHAT THE TEACHER SAW"
+        value="Maya left the room"
       />
 
-      {/* --- 3. what the teacher gets back -------------------------------- */}
-      <g>
-        <rect
-          x="98"
-          y="148"
-          width="314"
-          height="104"
-          rx="12"
-          fill="var(--color-card)"
-          stroke="var(--color-border)"
-        />
-        <text x="118" y="174" className="fill-muted-foreground" fontSize="11">
-          SUGGESTED STRATEGY
-        </text>
-        <text x="118" y="200" className="fill-foreground" fontSize="15" fontWeight="600">
-          Offer a planned break card
-        </text>
-        <text x="118" y="222" className="fill-muted-foreground" fontSize="13">
-          Used by 3 other classrooms
-        </text>
-        {/* The specialist gate — a held suggestion is the other half of the
-            claim, and it is what stops this being another AI wrapper. */}
-        <rect
-          x="118"
-          y="230"
-          width="150"
-          height="6"
-          rx="3"
-          fill="var(--color-brand-green)"
-          opacity="0.25"
-        />
-      </g>
+      {/* The anonymising step, which is the whole point. */}
+      <path
+        d={`M${W / 2} ${8 + ROW}v10M${W / 2} ${8 + ROW + 34}v10`}
+        stroke={`url(#${id}-brand)`}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx={W / 2} cy={8 + ROW + 22} r="16" fill={`url(#${id}-brand)`} />
+      {/* A struck-through tag: the name coming off. */}
+      <path
+        d={`M${W / 2 - 7} ${8 + ROW + 22}h14M${W / 2 - 5} ${8 + ROW + 16}l10 12`}
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
 
-      {/* --- the audit line ----------------------------------------------- */}
-      <g>
-        <path
-          d="M8 282h404"
-          stroke="var(--color-border)"
-          strokeWidth="1"
-          strokeDasharray="3 4"
-        />
-        <text x="8" y="304" className="fill-muted-foreground" fontSize="12">
-          Every sent message is kept, so the claim can be checked
-        </text>
-      </g>
+      {/* 2. What actually left the building. */}
+      <Cell
+        id={id}
+        x={M}
+        y={122}
+        w={FULL}
+        label="WHAT THE AI RECEIVED"
+        value="A student left"
+        tone="brand"
+      />
+
+      {/* 3. What comes back. */}
+      <Cell
+        id={id}
+        x={M}
+        y={200}
+        w={FULL}
+        label="SUGGESTED STRATEGY"
+        value="Offer a planned break card"
+      />
+
     </svg>
   )
 }
