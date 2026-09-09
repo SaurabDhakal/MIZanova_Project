@@ -123,7 +123,7 @@ export default function Receipts() {
         <p className="text-sm font-semibold tracking-wide uppercase">
           MiZanova — receipts
         </p>
-        <h1 className="mt-1 text-2xl font-bold">
+        <h1 className="text-title mt-1 text-foreground">
           {profile?.full_name?.trim() || profile?.email}
         </h1>
         <p className="mt-1 text-sm">
@@ -154,7 +154,7 @@ export default function Receipts() {
           </p>
           <Link
             to="/individual/academy"
-            className="mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
           >
             Look at the courses
           </Link>
@@ -301,7 +301,7 @@ export default function Receipts() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
+                  className="pressable min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
                 >
                   <Icon name="invoices" className="h-4 w-4 shrink-0" />
                   Print or save as PDF

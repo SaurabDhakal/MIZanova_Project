@@ -154,7 +154,7 @@ export default function IdleTimeout() {
         <button
           type="button"
           onClick={markActive}
-          className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
         >
           Stop the clock
         </button>

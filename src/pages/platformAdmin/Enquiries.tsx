@@ -227,7 +227,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           {enquiry.status === 'onboarded' && (
             <Link
               to={`/platform-admin/tenants?enquiry=${enquiry.id}`}
-              className="rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="pressable rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               Create the school →
             </Link>
@@ -240,7 +240,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
               onClick={() =>
                 update.mutate({ status: NEXT_STEP[enquiry.status]! })
               }
-              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               {update.isPending
                 ? 'Saving…'

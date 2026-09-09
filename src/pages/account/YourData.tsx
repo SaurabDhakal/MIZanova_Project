@@ -89,7 +89,7 @@ function ExportSection() {
         type="button"
         onClick={() => void download()}
         disabled={busy}
-        className="min-h-11 mt-4 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground disabled:opacity-50"
+        className="pressable min-h-11 mt-4 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground disabled:opacity-50"
       >
         {busy ? 'Gathering…' : 'Download everything'}
       </button>
@@ -195,7 +195,7 @@ function CloseAccountSection() {
         type="button"
         disabled={!password}
         onClick={() => setConfirming(true)}
-        className="mt-4 inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-50"
+        className="pressable mt-4 inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-50"
       >
         Close my account
       </button>

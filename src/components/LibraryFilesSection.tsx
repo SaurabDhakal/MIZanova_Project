@@ -182,7 +182,7 @@ export default function LibraryFilesSection() {
         <button
           type="submit"
           disabled={upload.isPending}
-          className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 mt-4 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {upload.isPending ? 'Uploading…' : 'Upload'}
         </button>
@@ -219,7 +219,7 @@ export default function LibraryFilesSection() {
                   <button
                     type="button"
                     onClick={() => void open(f.storage_path!)}
-                    className="min-h-11 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground"
+                    className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground"
                   >
                     Open
                   </button>

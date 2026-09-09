@@ -165,7 +165,7 @@ export default function EducatorResources() {
                                   type="button"
                                   onClick={() => acknowledge.mutate(share.id)}
                                   disabled={acknowledge.isPending}
-                                  className="min-h-11 rounded-btn border border-border px-2.5 py-1.5 text-xs font-semibold text-primary disabled:opacity-60"
+                                  className="pressable min-h-11 rounded-btn border border-border px-2.5 py-1.5 text-xs font-semibold text-primary disabled:opacity-60"
                                 >
                                   {acknowledge.isPending &&
                                   acknowledge.variables === share.id

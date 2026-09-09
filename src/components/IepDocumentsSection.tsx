@@ -48,7 +48,7 @@ function AttachFile({
   })
 
   return (
-    <label className="cursor-pointer rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-primary">
+    <label className="pressable cursor-pointer rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-primary">
       {attach.isPending ? 'Attaching…' : 'Attach file'}
       <input
         type="file"
@@ -112,7 +112,7 @@ export default function IepDocumentsSection({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
+            className="pressable ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
           >
             + Register a document
           </button>
@@ -208,7 +208,7 @@ export default function IepDocumentsSection({
             <button
               type="submit"
               disabled={create.isPending}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {create.isPending
                 ? file
@@ -219,7 +219,7 @@ export default function IepDocumentsSection({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+              className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
             >
               Cancel
             </button>

@@ -147,7 +147,7 @@ export default function ActivityBars({ days }: { days: ActivityDay[] }) {
       {hover !== null && (
         <div
           role="status"
-          className="pointer-events-none absolute -top-1 rounded-btn border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-lifted"
+          className="pressable pointer-events-none absolute -top-1 rounded-btn border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-lifted"
           style={{
             left: `${((hover + 0.5) / days.length) * 100}%`,
             transform: 'translateX(-50%)',

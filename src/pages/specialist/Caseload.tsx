@@ -115,7 +115,7 @@ function CaseloadCard({
 
       <Link
         to={`/specialist/students/${student.id}`}
-        className="mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
       >
         Open student
       </Link>

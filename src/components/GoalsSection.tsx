@@ -92,7 +92,7 @@ export default function GoalsSection({ studentId }: { studentId: string }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            className="pressable ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
             + New goal
           </button>
@@ -213,14 +213,14 @@ export default function GoalsSection({ studentId }: { studentId: string }) {
             <button
               type="submit"
               disabled={create.isPending}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {create.isPending ? 'Saving…' : 'Create goal'}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+              className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
             >
               Cancel
             </button>

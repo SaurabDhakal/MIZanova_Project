@@ -297,7 +297,7 @@ export default function AddStudents() {
                   'the form above',
                 )
               }
-              className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="pressable min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               Review this student
             </button>
@@ -323,7 +323,7 @@ export default function AddStudents() {
               type="button"
               disabled={pasted.trim() === ''}
               onClick={() => build(parseDelimited(pasted), 'the pasted list')}
-              className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="pressable min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               Review these students
             </button>
@@ -354,7 +354,7 @@ export default function AddStudents() {
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                className="min-h-11 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+                className="pressable min-h-11 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
               >
                 <Icon name="resources" className="h-4 w-4" />
                 Choose a file
@@ -362,7 +362,7 @@ export default function AddStudents() {
               <button
                 type="button"
                 onClick={downloadTemplate}
-                className="min-h-11 inline-flex items-center gap-2 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+                className="pressable min-h-11 inline-flex items-center gap-2 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
               >
                 <Icon name="audit" className="h-4 w-4" />
                 Download the template
@@ -470,7 +470,7 @@ export default function AddStudents() {
               type="button"
               disabled={counts.ready === 0 || importer.isPending}
               onClick={() => importer.mutate()}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
             >
               {importer.isPending
                 ? 'Adding…'
@@ -479,7 +479,7 @@ export default function AddStudents() {
             <button
               type="button"
               onClick={startOver}
-              className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:bg-background"
+              className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:bg-background"
             >
               Start again
             </button>
@@ -526,14 +526,14 @@ export default function AddStudents() {
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               to="/school-admin/students"
-              className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+              className="pressable rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
             >
               See the roll
             </Link>
             <button
               type="button"
               onClick={startOver}
-              className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:bg-background"
+              className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:bg-background"
             >
               Add more
             </button>

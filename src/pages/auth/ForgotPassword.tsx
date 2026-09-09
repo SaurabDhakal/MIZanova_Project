@@ -107,7 +107,7 @@ export default function ForgotPassword() {
         <button
           type="submit"
           disabled={submitting || email.trim() === ''}
-          className="w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
+          className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
         >
           {submitting ? 'Sending…' : 'Send reset link'}
         </button>

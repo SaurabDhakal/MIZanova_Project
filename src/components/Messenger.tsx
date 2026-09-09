@@ -473,7 +473,7 @@ export default function Messenger({
                   type="button"
                   onClick={() => markAllRead.mutate()}
                   disabled={markAllRead.isPending}
-                  className="min-h-11 rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
+                  className="pressable min-h-11 rounded-btn px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-subtle disabled:opacity-50"
                 >
                   {markAllRead.isPending ? 'Marking…' : 'Mark all read'}
                 </button>
@@ -666,7 +666,7 @@ export default function Messenger({
               <button
                 type="button"
                 onClick={() => setActiveId(null)}
-                className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-medium lg:hidden"
+                className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-medium lg:hidden"
               >
                 ← Back
               </button>
@@ -823,7 +823,7 @@ export default function Messenger({
                 <button
                   type="submit"
                   disabled={send.isPending || !canSend}
-                  className="min-h-11 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
+                  className="pressable min-h-11 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   {send.isPending ? 'Sending…' : 'Send'}
                 </button>
@@ -849,7 +849,7 @@ export default function Messenger({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={attachments.length >= 5}
-                  className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
+                  className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
                 >
                   <Icon name="resources" className="h-4 w-4" />
                   Photo or file

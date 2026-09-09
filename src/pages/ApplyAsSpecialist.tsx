@@ -354,7 +354,7 @@ export default function ApplyAsSpecialist() {
         <button
           type="submit"
           disabled={send.isPending}
-          className="w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
         >
           {send.isPending ? 'Sending…' : 'Send my application'}
         </button>

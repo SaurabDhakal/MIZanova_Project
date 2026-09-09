@@ -123,7 +123,7 @@ export default function VerifyTwoFactor() {
           <button
             type="submit"
             disabled={submitting || code.trim().length < 6}
-            className="w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {submitting ? 'Checking…' : 'Continue'}
           </button>

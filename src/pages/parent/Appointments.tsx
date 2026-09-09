@@ -401,7 +401,7 @@ function AppointmentCard({
           type="button"
           onClick={onWithdraw}
           disabled={withdrawing}
-          className="mt-3 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+          className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
         >
           {withdrawing ? 'Withdrawing…' : 'Withdraw this request'}
         </button>

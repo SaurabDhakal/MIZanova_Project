@@ -279,7 +279,7 @@ export default function Subscription() {
                 </p>
                 <Link
                   to="/individual/receipts"
-                  className="mt-4 inline-block rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
+                  className="pressable mt-4 inline-block rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground"
                 >
                   See your receipts
                 </Link>

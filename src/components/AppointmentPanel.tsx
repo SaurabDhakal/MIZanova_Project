@@ -183,14 +183,14 @@ export default function AppointmentPanel({
               <button
                 type="button"
                 onClick={() => setMode('complete')}
-                className="min-h-11 rounded-btn bg-success-strong px-4 py-2.5 text-sm font-semibold text-white"
+                className="pressable min-h-11 rounded-btn bg-success-strong px-4 py-2.5 text-sm font-semibold text-white"
               >
                 Record session
               </button>
               <button
                 type="button"
                 onClick={() => setMode('reschedule')}
-                className="min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
+                className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
               >
                 Move
               </button>
@@ -386,7 +386,7 @@ function Actions({
         type="button"
         onClick={onBack}
         disabled={busy}
-        className="min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
+        className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
       >
         Back
       </button>
@@ -465,7 +465,7 @@ function FeePanel({
         <button
           type="button"
           onClick={onDone}
-          className="min-h-11 mt-3 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 mt-3 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
         >
           Back
         </button>
@@ -521,14 +521,14 @@ function FeePanel({
             if (!valid) return setError('That is not an amount.')
             save.mutate(fee.trim() === '' ? null : Math.round(amount * 100))
           }}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {save.isPending ? 'Saving…' : 'Save the fee'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
         >
           Back
         </button>
@@ -577,7 +577,7 @@ function FeePanel({
                 setError(null)
                 bill.mutate()
               }}
-              className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
             >
               {bill.isPending ? 'Raising…' : 'Bill this session'}
             </button>

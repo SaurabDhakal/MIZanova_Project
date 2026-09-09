@@ -369,7 +369,7 @@ export default function WhatWorks() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="min-h-11 print-hide mt-6 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+              className="pressable min-h-11 print-hide mt-6 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
             >
               <Icon name="resources" className="h-4 w-4 shrink-0" />
               Print or save as PDF

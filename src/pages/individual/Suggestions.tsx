@@ -221,7 +221,7 @@ export default function Suggestions() {
           <button
             type="button"
             onClick={() => void health.refetch()}
-            className="min-h-11 mt-3 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
+            className="pressable min-h-11 mt-3 rounded-btn border border-border bg-card px-4 py-2 font-semibold text-foreground"
           >
             Try again
           </button>
@@ -334,7 +334,7 @@ export default function Suggestions() {
              */
             disabled={ask.isPending || tooShort || tooLong}
             onClick={() => ask.mutate({ text: text.trim() })}
-            className="rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="pressable rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {ask.isPending ? 'Thinking…' : 'Ask for suggestions'}
           </button>
@@ -435,7 +435,7 @@ export default function Suggestions() {
             <button
               type="button"
               onClick={() => setShowAllAsks(true)}
-              className="min-h-11 mt-5 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:border-primary"
+              className="pressable min-h-11 mt-5 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground hover:border-primary"
             >
               See the other {history.data.length - 3}
             </button>
@@ -575,7 +575,7 @@ function SuggestionActions({
                 showToast(e.message, 'error')
               })
           }}
-          className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
+          className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary disabled:opacity-50"
         >
           {/* The icon says where it goes — this button makes a goal, and the
               goals screen wears the same one in the sidebar. */}
@@ -602,7 +602,7 @@ function SuggestionActions({
         type="button"
         onClick={() => setFollowUp(followUp === null ? '' : null)}
         aria-expanded={followUp !== null}
-        className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary"
+        className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary"
       >
         <Icon
           name={followUp === null ? 'messages' : 'cross'}
@@ -649,7 +649,7 @@ function SuggestionActions({
               onAskAbout(suggestion.id, followUp.trim())
               setFollowUp(null)
             }}
-            className="min-h-11 mt-2 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            className="pressable min-h-11 mt-2 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
             {asking ? 'Asking…' : 'Ask'}
           </button>
@@ -677,7 +677,7 @@ function SuggestionActions({
             type="button"
             disabled={outcome.isPending}
             onClick={() => outcome.mutate('helped')}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
+            className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-success-foreground hover:border-success disabled:opacity-50"
           >
             <Icon name="tick" className="h-4 w-4 shrink-0" />
             Yes
@@ -686,7 +686,7 @@ function SuggestionActions({
             type="button"
             disabled={outcome.isPending}
             onClick={() => outcome.mutate('didnt_help')}
-            className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
+            className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border bg-card px-3 py-1.5 font-semibold text-muted-foreground hover:border-primary disabled:opacity-50"
           >
             <Icon name="cross" className="h-4 w-4 shrink-0" />
             Not for me

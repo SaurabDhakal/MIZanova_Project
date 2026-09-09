@@ -118,7 +118,7 @@ export default function WorkingHoursSection({
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+              className="pressable min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
             >
               Change them
             </button>
@@ -136,7 +136,7 @@ export default function WorkingHoursSection({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+            className="pressable min-h-11 shrink-0 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
           >
             Done
           </button>
@@ -170,7 +170,7 @@ export default function WorkingHoursSection({
                 {day.bands.map((b) => (
                   <span
                     key={b.id}
-                    className="inline-flex items-center gap-2 rounded-btn bg-primary-subtle px-3 py-1 text-sm font-medium text-foreground"
+                    className="pressable inline-flex items-center gap-2 rounded-btn bg-primary-subtle px-3 py-1 text-sm font-medium text-foreground"
                   >
                     <span className="tabular-nums">
                       {hhmm(b.starts_at)}&ndash;{hhmm(b.ends_at)}
@@ -242,7 +242,7 @@ export default function WorkingHoursSection({
             onClick={() =>
               add.mutate({ specialistId, weekday, startsAt, endsAt })
             }
-            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {add.isPending ? 'Adding…' : 'Add hours'}
           </button>

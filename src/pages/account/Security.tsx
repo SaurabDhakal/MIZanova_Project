@@ -177,7 +177,7 @@ export default function Security() {
                 void navigator.clipboard.writeText(freshCodes.join('\n'))
                 showToast('Recovery codes copied.')
               }}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
             >
               Copy all
             </button>
@@ -264,7 +264,7 @@ export default function Security() {
                 type="button"
                 onClick={() => regenerate.mutate()}
                 disabled={regenerate.isPending}
-                className="min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
+                className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
               >
                 {regenerate.isPending
                   ? 'Generating…'
@@ -302,7 +302,7 @@ export default function Security() {
               type="button"
               onClick={() => begin.mutate()}
               disabled={begin.isPending}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {begin.isPending ? 'Preparing…' : 'Set up an authenticator app'}
             </button>
@@ -373,7 +373,7 @@ export default function Security() {
                 type="button"
                 onClick={() => confirm.mutate()}
                 disabled={confirm.isPending || code.trim().length < 6}
-                className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {confirm.isPending ? 'Checking…' : 'Turn on'}
               </button>
@@ -383,7 +383,7 @@ export default function Security() {
                   setEnrolment(null)
                   setCode('')
                 }}
-                className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
               >
                 Cancel
               </button>
@@ -444,7 +444,7 @@ export default function Security() {
           <button
             type="submit"
             disabled={changePassword.isPending}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {changePassword.isPending ? 'Saving…' : 'Update password'}
           </button>

@@ -200,7 +200,7 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
                   <h3 className="font-semibold text-foreground">
                     Plan of {day(p.plan_date)}
                   </h3>
-                  <span className="rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
+                  <span className="pressable rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
                     {FAMILY_STATUS_LABEL[p.status]}
                   </span>
                   {iAgreed && (

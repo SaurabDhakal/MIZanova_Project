@@ -135,7 +135,7 @@ export default function StartWithCode() {
           <button
             type="submit"
             disabled={check.isPending || code.trim() === ''}
-            className="mt-5 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable mt-5 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {check.isPending ? 'Checking…' : 'Continue'}
           </button>
@@ -180,13 +180,13 @@ export default function StartWithCode() {
             `/signup?code=${encodeURIComponent(code)}` +
             (urlEmail ? `&email=${encodeURIComponent(urlEmail)}` : '')
           }
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Create my account
         </Link>
         <Link
           to={`/login?next=${encodeURIComponent('/parent/link-child')}`}
-          className="mt-3 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
+          className="pressable mt-3 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
         >
           I already have an account
         </Link>
@@ -222,7 +222,7 @@ export default function StartWithCode() {
         type="button"
         onClick={() => redeem.mutate()}
         disabled={redeem.isPending}
-        className="mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+        className="pressable mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
       >
         {redeem.isPending ? 'Linking…' : `Link ${found.childName} to my account`}
       </button>

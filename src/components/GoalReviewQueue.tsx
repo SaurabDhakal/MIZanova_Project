@@ -110,7 +110,7 @@ export default function GoalReviewQueue() {
                     type="button"
                     disabled={answer.isPending}
                     onClick={() => answer.mutate({ id: r.id, status: 'answered' })}
-                    className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   >
                     Send the answer
                   </button>
@@ -118,7 +118,7 @@ export default function GoalReviewQueue() {
                     type="button"
                     disabled={answer.isPending}
                     onClick={() => answer.mutate({ id: r.id, status: 'declined' })}
-                    className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+                    className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
                   >
                     Not the right person
                   </button>
@@ -141,7 +141,7 @@ export default function GoalReviewQueue() {
                   setAnsweringId(r.id)
                   setResponse('')
                 }}
-                className="mt-3 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
                 Answer this
               </button>

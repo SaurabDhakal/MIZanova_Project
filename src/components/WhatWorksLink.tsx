@@ -33,7 +33,7 @@ export default function WhatWorksLink({ from }: { from: 'goals' | 'suggestions' 
           </p>
           <Link
             to="/individual/what-works"
-            className="mt-3 inline-flex items-center gap-2 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
+            className="pressable mt-3 inline-flex items-center gap-2 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
           >
             Make the page
           </Link>

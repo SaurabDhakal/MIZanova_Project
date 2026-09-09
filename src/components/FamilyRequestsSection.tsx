@@ -136,7 +136,7 @@ export default function FamilyRequestsSection() {
                       onClick={() =>
                         answer.mutate({ id: r.id, decision: 'declined', note })
                       }
-                      className="inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      className="pressable inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       Send the decline
                     </button>
@@ -146,7 +146,7 @@ export default function FamilyRequestsSection() {
                         setDecliningId(null)
                         setNote('')
                       }}
-                      className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+                      className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
                     >
                       Back
                     </button>
@@ -158,14 +158,14 @@ export default function FamilyRequestsSection() {
                     type="button"
                     disabled={answer.isPending}
                     onClick={() => answer.mutate({ id: r.id, decision: 'scheduled' })}
-                    className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   >
                     Agree to this time
                   </button>
                   <button
                     type="button"
                     onClick={() => setDecliningId(r.id)}
-                    className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+                    className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
                   >
                     Cannot make it
                   </button>

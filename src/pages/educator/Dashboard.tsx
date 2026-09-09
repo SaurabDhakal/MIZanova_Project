@@ -350,7 +350,7 @@ export default function EducatorDashboard() {
       )}
 
       {/* --- Students ------------------------------------------------------ */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="text-section mt-10 mb-3 text-foreground">
         Your students
       </h2>
 
@@ -381,7 +381,27 @@ export default function EducatorDashboard() {
                  kind of small that reads as unfinished. */
               <li
                 key={student.id}
-                className="flex flex-col rounded-card border border-border bg-card p-5 shadow-raised"
+                /*
+                  THE WHOLE CARD IS THE TARGET NOW.
+
+                  Only the name was a link — about 90px of a 250px card — and a
+                  teacher scanning thirty children was aiming at a word. The
+                  card also had no hover state at all, so nothing said it could
+                  be opened.
+
+                  Done with a stretched link rather than by wrapping the card in
+                  an anchor: the card contains a button, and a button inside a
+                  link is invalid markup that browsers and screen readers handle
+                  differently. The name keeps being the one link and its ::after
+                  covers the card; the button sits above it on its own stacking
+                  context. Accessible name, tab order and reading order are all
+                  exactly what they were.
+
+                  focus-within so a keyboard user gets the same outline a mouse
+                  user gets on hover — the card is the thing being chosen either
+                  way.
+                */
+                className="pressable relative flex flex-col rounded-card border border-border bg-card p-5 shadow-raised hover:border-primary hover:shadow-lifted focus-within:border-primary focus-within:shadow-lifted"
               >
                 {/* LEFT-ALIGNED, and the name leads. Centred text reads as a
                     poster rather than a record, and the ID was set at the same
@@ -401,7 +421,7 @@ export default function EducatorDashboard() {
                   <div className="min-w-0">
                     <Link
                       to={`/educator/students/${student.id}`}
-                      className="block truncate font-semibold text-foreground hover:text-primary hover:underline"
+                      className="block truncate font-semibold text-foreground after:absolute after:inset-0 after:rounded-card hover:text-primary hover:underline"
                     >
                       {student.display_name}
                     </Link>
@@ -444,11 +464,14 @@ export default function EducatorDashboard() {
                     link. */}
                 {/* The wrapper takes mt-auto so it absorbs the slack in a short
                     card, and every button in the row lands on the same line. */}
-                <div className="mt-auto pt-4">
+                {/* relative + z-10 keeps this above the name's ::after
+                    overlay; without it the stretched link swallows the click
+                    and every button on the screen opens a student record. */}
+                <div className="relative z-10 mt-auto pt-4">
                   <button
                     type="button"
                     onClick={() => setLoggingFor(student)}
-                    className="w-full rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
+                    className="pressable w-full rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
                   >
                     Log behaviour
                   </button>

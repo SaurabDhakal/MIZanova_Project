@@ -192,14 +192,14 @@ function CorrectionForm({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+            className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={save.isPending}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {save.isPending ? 'Saving…' : 'Save the correction'}
           </button>
@@ -239,7 +239,24 @@ export default function EditBehaviourLogDialog({
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="w-[min(34rem,92vw)] rounded-card border border-border bg-card p-0 text-foreground backdrop:bg-black/40"
+      /*
+        m-auto IS LOAD-BEARING AND THIS DIALOG WAS MISSING IT.
+
+        A browser centres a modal <dialog> with `margin: auto`, and Tailwind's
+        preflight sets `margin: 0` on everything — so without m-auto the dialog
+        opens pinned to the top-left corner of the viewport. Measured against
+        the other two dialogs in a 1440x900 window: BehaviourLogModal lands at
+        (376, 417); this one landed at (0, 0).
+
+        BehaviourLogModal has carried a comment explaining exactly this since it
+        was written. This dialog was written later and did not get it, which is
+        how a documented trap catches somebody twice.
+
+        shadow-lifted and the /50 backdrop are the same fix: the other two
+        dialogs use both, and a modal that is flatter than its siblings and sits
+        behind a paler scrim reads as a different kind of thing.
+      */
+      className="m-auto w-[min(34rem,92vw)] rounded-card border border-border bg-card p-0 text-foreground shadow-lifted backdrop:bg-black/50"
     >
       <div className="p-5">
         <h2 className="text-section text-foreground">
@@ -283,7 +300,7 @@ export default function EditBehaviourLogDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
               >
                 Close
               </button>

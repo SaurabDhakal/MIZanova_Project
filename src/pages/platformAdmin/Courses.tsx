@@ -154,14 +154,14 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           disabled={create.isPending}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {create.isPending ? 'Creating…' : 'Create as draft'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -323,14 +323,14 @@ function ModuleEditor({ course }: { course: Course }) {
                     <button
                       type="submit"
                       disabled={save.isPending}
-                      className="min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                      className="pressable min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                     >
                       {save.isPending ? 'Saving…' : 'Save'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditing(null)}
-                      className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+                      className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
                     >
                       Cancel
                     </button>
@@ -394,7 +394,7 @@ function ModuleEditor({ course }: { course: Course }) {
           <button
             type="submit"
             disabled={add.isPending}
-            className="min-h-11 justify-self-start rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+            className="pressable min-h-11 justify-self-start rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
           >
             {add.isPending ? 'Adding…' : 'Add module'}
           </button>
@@ -482,7 +482,7 @@ function PriceControl({ course }: { course: Course }) {
           }
           save.mutate(cents)
         }}
-        className="rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+        className="pressable rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
       >
         Save
       </button>
@@ -491,7 +491,7 @@ function PriceControl({ course }: { course: Course }) {
         type="button"
         disabled={save.isPending}
         onClick={() => save.mutate(null)}
-        className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
+        className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-xs font-semibold text-foreground"
       >
         Make it free
       </button>
@@ -598,7 +598,7 @@ function Engagement() {
         <button
           type="button"
           onClick={() => exportCsv(rows.data)}
-          className="min-h-11 ml-auto rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
+          className="pressable min-h-11 ml-auto rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
         >
           Export as CSV
         </button>
@@ -688,7 +688,7 @@ export default function Courses() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
         >
           New course
         </button>
@@ -767,7 +767,7 @@ export default function Courses() {
                   <button
                     type="button"
                     onClick={() => setOpen(open === course.id ? null : course.id)}
-                    className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                    className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                   >
                     {open === course.id ? 'Hide modules' : 'Modules'}
                   </button>

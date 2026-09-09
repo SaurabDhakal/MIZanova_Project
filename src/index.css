@@ -268,6 +268,21 @@
   --text-section--letter-spacing: -0.005em;
   --text-section--font-weight: 600;
 
+  /* A NUMBER ON A DASHBOARD, WHICH IS NOT A HEADING.
+     StatTile drew its figure at text-4xl font-bold: 36px with
+     letter-spacing: normal, the same untracked default that made every public
+     h1 look typed rather than set. A metric is worse for it than a heading is,
+     because a dashboard shows several side by side and the eye compares them.
+
+     Not --text-display, which clamps between 36 and 48 for a public page
+     title and would make one tile grow on a wide monitor while the tile beside
+     it stayed put. A figure is a fixed size. tabular-nums is set on the
+     element rather than here, because the token cannot carry it. */
+  --text-metric: 2.25rem;
+  --text-metric--line-height: 1.1;
+  --text-metric--letter-spacing: -0.02em;
+  --text-metric--font-weight: 700;
+
   /* THE SMALL-TEXT FLOOR IS 13px, NOT 12.
      Tailwind's `text-xs` is 12px and the product used it 340 times — for
      timestamps, badges, meta lines and, until this pass, whole explanatory

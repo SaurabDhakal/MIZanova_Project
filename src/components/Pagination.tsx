@@ -110,7 +110,7 @@ export default function Pagination<T>({
           type="button"
           disabled={page.page === 0 || busy}
           onClick={() => onChange(page.page - 1)}
-          className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-40"
+          className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-40"
         >
           Previous
         </button>
@@ -118,7 +118,7 @@ export default function Pagination<T>({
           type="button"
           disabled={!page.hasMore || busy}
           onClick={() => onChange(page.page + 1)}
-          className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-40"
+          className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground disabled:opacity-40"
         >
           Next
         </button>

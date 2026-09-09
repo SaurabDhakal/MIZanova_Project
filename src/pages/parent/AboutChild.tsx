@@ -391,7 +391,7 @@ export default function AboutChild() {
                       </span>
                     )}
                     {person.is_primary && (
-                      <span className="rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
+                      <span className="pressable rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
                         Main contact
                       </span>
                     )}

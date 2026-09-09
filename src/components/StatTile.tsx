@@ -78,23 +78,21 @@ export default function StatTile({
   return (
     <div className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          {label}
-        </p>
+        <p className="text-caption text-muted-foreground uppercase">{label}</p>
         <span className={`inline-flex shrink-0 rounded-btn p-2 ${look.tile}`}>
           <Icon name={icon} className="h-5 w-5" />
         </span>
       </div>
 
       <p
-        className={`mt-2 text-4xl font-bold ${known ? look.value : 'text-muted-foreground'}`}
+        className={`text-metric mt-3 tabular-nums ${known ? look.value : 'text-muted-foreground'}`}
         // Said out loud, because an em-dash on its own is read as a dash and
         // a sighted user has only the shape to go on.
         title={known ? undefined : 'Not known — this could not be loaded'}
       >
         {known ? value : '—'}
         {known && suffix ? (
-          <span className="text-2xl">{suffix}</span>
+          <span className="text-title">{suffix}</span>
         ) : null}
       </p>
 

@@ -137,7 +137,7 @@ export default function ConfirmDestructive({
             ref={cancelRef}
             onClick={onCancel}
             disabled={pending}
-            className="min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
+            className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
           >
             Cancel
           </button>
@@ -145,7 +145,7 @@ export default function ConfirmDestructive({
             type="button"
             onClick={onConfirm}
             disabled={!unlocked || pending}
-            className="min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="pressable min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
           >
             {pending ? 'Working…' : confirmLabel}
           </button>

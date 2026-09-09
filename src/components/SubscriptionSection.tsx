@@ -171,7 +171,7 @@ export default function SubscriptionSection() {
                 type="button"
                 onClick={() => subscribe.mutate()}
                 disabled={subscribe.isPending}
-                className="min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                className="pressable min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {subscribe.isPending
                   ? 'Opening the payment page…'
@@ -229,7 +229,7 @@ export default function SubscriptionSection() {
                   type="button"
                   onClick={() => renewal.mutate(true)}
                   disabled={renewal.isPending}
-                  className="min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                  className="pressable min-h-11 mt-4 inline-flex items-center gap-2 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                 >
                   Keep it running
                 </button>
@@ -261,14 +261,14 @@ export default function SubscriptionSection() {
                             renewal.mutate(false)
                           }}
                           disabled={renewal.isPending}
-                          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                         >
                           Stop renewing
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirming(false)}
-                          className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
+                          className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground"
                         >
                           Keep it
                         </button>
@@ -279,7 +279,7 @@ export default function SubscriptionSection() {
                       type="button"
                       onClick={() => setConfirming(true)}
                       disabled={renewal.isPending}
-                      className="min-h-11 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground disabled:opacity-60"
+                      className="pressable min-h-11 inline-flex items-center gap-2 rounded-btn border border-border bg-background px-4 py-2.5 font-semibold text-foreground disabled:opacity-60"
                     >
                       Cancel subscription
                     </button>

@@ -213,7 +213,7 @@ export default function Resources() {
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
             >
               {open ? 'Cancel' : '+ Upload'}
             </button>
@@ -313,7 +313,7 @@ export default function Resources() {
           <button
             type="submit"
             disabled={upload.isPending}
-            className="min-h-11 mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable min-h-11 mt-5 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {upload.isPending ? 'Uploading…' : 'Upload'}
           </button>
@@ -472,7 +472,7 @@ export default function Resources() {
                               type="button"
                               onClick={() => confirmRead.mutate(s.id)}
                               disabled={confirmRead.isPending}
-                              className="min-h-11 rounded-btn bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                              className="pressable min-h-11 rounded-btn bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                             >
                               I have read this
                             </button>

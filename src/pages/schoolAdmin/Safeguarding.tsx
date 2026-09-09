@@ -166,7 +166,7 @@ function IncidentCard({
               type="button"
               onClick={() => acknowledge.mutate()}
               disabled={acknowledge.isPending || note.trim() === ''}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {acknowledge.isPending ? 'Recording…' : 'Acknowledge'}
             </button>
