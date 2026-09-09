@@ -135,7 +135,7 @@ export default function Enquiry() {
 
           <Link
             to="/"
-            className="mt-6 inline-block rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             Back to the home page
           </Link>
@@ -275,7 +275,7 @@ export default function Enquiry() {
         <button
           type="submit"
           disabled={send.isPending}
-          className="w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-100 disabled:opacity-60"
         >
           {send.isPending ? 'Sending…' : 'Send this to Special Miles'}
         </button>

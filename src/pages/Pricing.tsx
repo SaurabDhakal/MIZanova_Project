@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import PublicLayout from '../components/PublicLayout'
+import Icon from '../components/Icon'
 import {
   fetchCourseCatalogue,
   fetchIndividualPlan,
@@ -177,20 +178,22 @@ function PlanCard({ plan }: { plan: Plan }) {
   return (
     <li
       className={`flex flex-col rounded-card border bg-card p-6 ${
-        plan.featured ? 'border-primary shadow-lg' : 'border-border'
+        plan.featured ? 'border-primary shadow-lifted' : 'border-border'
       }`}
     >
       {plan.featured && (
-        <p className="mb-3 inline-block self-start rounded-btn bg-primary px-3 py-1 text-xs font-bold tracking-wide text-primary-foreground uppercase">
+        <p className="text-caption mb-3 inline-block self-start rounded-btn bg-primary px-3 py-1 text-primary-foreground uppercase">
           Most popular
         </p>
       )}
 
-      <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+      <h3 className="text-section text-foreground">{plan.name}</h3>
       <p className="text-sm text-muted-foreground">{plan.subtitle}</p>
 
       <p className="mt-4">
-        <span className="text-4xl font-bold text-foreground">{plan.price}</span>{' '}
+        <span className="text-display text-foreground tabular-nums">
+          {plan.price}
+        </span>{' '}
         <span className="text-muted-foreground">{plan.period}</span>
       </p>
       {plan.annual && (
@@ -199,10 +202,11 @@ function PlanCard({ plan }: { plan: Plan }) {
 
       <ul className="mt-5 flex-1 space-y-2">
         {plan.features.map((feature) => (
-          <li key={feature} className="flex gap-2 text-sm text-foreground">
-            <span aria-hidden="true" className="text-success-foreground">
-              ✓
-            </span>
+          <li key={feature} className="flex gap-2.5 text-sm text-foreground">
+            <Icon
+              name="tick"
+              className="mt-0.5 h-4 w-4 shrink-0 text-brand-green-ink"
+            />
             <span>{feature}</span>
           </li>
         ))}
@@ -214,10 +218,10 @@ function PlanCard({ plan }: { plan: Plan }) {
           they just pressed. */}
       <Link
         to={`/enquiry?plan=${plan.key}`}
-        className={`mt-6 rounded-btn px-4 py-3 text-center font-semibold ${
+        className={`pressable mt-6 flex min-h-11 items-center justify-center rounded-btn px-4 py-3 text-center font-semibold ${
           plan.featured
-            ? 'bg-primary text-primary-foreground'
-            : 'border border-border text-foreground'
+            ? 'bg-primary text-primary-foreground hover:brightness-110'
+            : 'border border-border text-foreground hover:border-primary hover:text-primary'
         }`}
       >
         {plan.cta}
@@ -293,7 +297,7 @@ export default function Pricing() {
         </div>
       </fieldset>
 
-      <h2 className="text-center text-title text-foreground">
+      <h2 className="text-heading text-center text-foreground">
         {audience === 'schools'
           ? 'School subscriptions'
           : audience === 'montessori'
@@ -337,9 +341,7 @@ export default function Pricing() {
       {audience === 'montessori' && (
         <div className="mx-auto max-w-4xl">
           <div className="rounded-card border border-border bg-card p-6 shadow-raised sm:p-8">
-            <p className="text-3xl font-bold text-foreground">
-              Quoted per centre
-            </p>
+            <p className="text-heading text-foreground">Quoted per centre</p>
             <p className="mt-2 max-w-prose text-muted-foreground">
               Everything a school gets, in the language your setting actually
               uses. Tell us how many children you have and how your
@@ -388,7 +390,7 @@ export default function Pricing() {
 
             <Link
               to="/enquiry?plan=montessori"
-              className="mt-8 inline-block rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
+              className="pressable mt-8 inline-flex min-h-11 items-center rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
             >
               Talk to us about your centre
             </Link>
@@ -509,7 +511,7 @@ export default function Pricing() {
 
           <Link
             to="/signup?as=individual"
-            className="mt-6 inline-block rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
+            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground hover:brightness-110"
           >
             Create my account
           </Link>
@@ -566,7 +568,7 @@ export default function Pricing() {
                   <h4 className="font-bold text-foreground">
                     {plan.data.name}
                   </h4>
-                  <p className="text-2xl font-bold tabular-nums text-foreground">
+                  <p className="text-title text-foreground tabular-nums">
                     {formatMoney(plan.data.price_cents, plan.data.currency)}
                     <span className="text-sm font-normal text-muted-foreground">
                       {' '}
@@ -594,7 +596,7 @@ export default function Pricing() {
                 </ul>
                 <Link
                   to="/signup"
-                  className="mt-5 inline-block rounded-btn bg-primary px-5 py-3 font-semibold text-primary-foreground"
+                  className="pressable mt-5 inline-flex min-h-11 items-center rounded-btn bg-primary px-5 py-3 font-semibold text-primary-foreground hover:brightness-110"
                 >
                   {plan.data.trial_days
                     ? 'Start the free trial'
@@ -621,7 +623,7 @@ export default function Pricing() {
           </p>
           <Link
             to="/enquiry?plan=individual"
-            className="mt-4 inline-block rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground"
+            className="pressable inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary mt-4"
           >
             Tell me when this opens
           </Link>
@@ -698,7 +700,7 @@ export default function Pricing() {
 
           <Link
             to="/enquiry?kind=family"
-            className="mt-6 inline-block rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground"
+            className="pressable inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-5 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary mt-6"
           >
             Tell me when this opens
           </Link>
@@ -706,27 +708,22 @@ export default function Pricing() {
       )}
 
       {/* --- What this page cannot yet promise ----------------------------- */}
-      <section className="mx-auto mt-14 max-w-3xl rounded-card border border-border bg-background p-6">
-        <h2 className="font-semibold text-foreground">
-          Before you choose a plan
-        </h2>
+      <section className="mx-auto mt-14 max-w-2xl rounded-card border border-border bg-background p-6">
+        <h2 className="text-title text-foreground">Before you choose a plan</h2>
         {/* THE SCHOOL SENTENCE WAS SHOWN TO EVERYBODY, including somebody on
             the "For myself" tab who has no school and is not creating one.
             The true half — that nothing on this page charges you — holds for
             all four audiences and is the half worth keeping. */}
         <p className="mt-2 text-sm text-muted-foreground">
-          Nothing on this page takes a payment. No card is entered here and no
-          plan is applied.{' '}
+          Nothing here takes a payment.{' '}
           {audience === 'individual'
-            ? 'You make an account first, and anything with a price on it is paid for from inside it, with the figure shown before you decide.'
-            : 'Every button here starts a conversation — a school account is created by Special Miles, because creating one means creating the thing every account at that school hangs off.'}
+            ? 'You make an account first, and anything with a price is paid from inside it, with the figure shown before you decide.'
+            : 'Every button here starts a conversation — Special Miles creates a school account, because it is the thing every other account hangs off.'}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
-          The design for this page also carries a list of frequently asked
-          questions covering trials, refunds, upgrades and GST. Those are
-          commercial policies belonging to Special Miles, and MiZanova will not
-          publish answers to them that nobody has agreed to. They are the
-          questions to settle before this page goes live.
+          The design also carries FAQs on trials, refunds, upgrades and GST.
+          Those are Special Miles&rsquo; commercial policies, and MiZanova will
+          not publish answers nobody has agreed to.
         </p>
       </section>
     </PublicLayout>

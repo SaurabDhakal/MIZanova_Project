@@ -1,7 +1,11 @@
-import { Link } from 'react-router-dom'
 import PublicLayout from '../../components/PublicLayout'
-import Icon, { type IconName } from '../../components/Icon'
-import { Lead, NextStep, NotThis } from '../../components/PublicSections'
+import { type IconName } from '../../components/Icon'
+import {
+  Lead,
+  NextStep,
+  Points,
+  Section,
+} from '../../components/PublicSections'
 
 /**
  * "Features" from the Figma footer.
@@ -89,82 +93,32 @@ export default function Features() {
         the bottom rather than quietly omitted.
       </Lead>
 
-      <div className="mx-auto mt-10 max-w-3xl space-y-10">
-        {GROUPS.map((group) => (
-          <section key={group.audience}>
-            <div className="flex items-center gap-3">
-              <span className="inline-flex rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
-                <Icon name={group.icon} className="h-6 w-6" />
-              </span>
-              <h2 className="text-title text-foreground">
-                {group.audience}
-              </h2>
-            </div>
-            <p className="mt-2 text-muted-foreground">{group.intro}</p>
-            <ul className="mt-4 space-y-2.5">
-              {group.items.map((item) => (
-                <li key={item} className="flex gap-3">
-                  <Icon
-                    name="tick"
-                    className="mt-1 h-4 w-4 shrink-0 text-brand-green"
-                  />
-                  <span className="text-foreground">{item}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+{/* WRITTEN OUT LONGHAND HERE UNTIL NOW, AND SLIGHTLY DIFFERENT FOR IT.
+          This page had its own icon chip, its own h2 at text-title, its own
+          column at max-w-3xl and its own ticked list with a bare 16px tick —
+          five small disagreements with the nine pages beside it, all of them
+          from having been written before <Section> and <Points> existed. It
+          renders them now, so there is one answer to each question again. */}
+      {GROUPS.map((group) => (
+        <Section key={group.audience} title={group.audience} icon={group.icon}>
+          <p>{group.intro}</p>
+          <Points items={group.items} />
+        </Section>
+      ))}
 
-      <NotThis title="Deliberately not built">
-        {/* THIS SAID BOOKING DID NOT EXIST. It was written before db/059
-            appointments, db/073 (a family can see and pay for one) and
-            db/102-104, which added a specialist's recurring hours with an
-            exclusion constraint against overlaps, `free_slots()` derived from
-            both diaries, and asking and answering. A public page was telling
-            prospective customers the product deliberately lacked a feature it
-            has. The half that is still true — and the reason the original
-            claim was made — is reminders. */}
-        <p>
-          <strong className="text-foreground">No reminders.</strong> Sessions
-          can be arranged here — a specialist&rsquo;s hours, the times actually
-          free in both diaries, and asking for one — but nothing chases anybody
-          as the day approaches. There is no scheduler in this product, so a
-          time agreed here belongs in your own calendar too, and the screen
-          says so rather than letting you assume otherwise.
-        </p>
-        <p>
-          <strong className="text-foreground">No behaviour trend chart for families.</strong>{' '}
-          A parent only sees the logs a teacher chose to share, so a trend drawn
-          from them could show improvement when it only means fewer were shared.
-        </p>
-        <p>
-          <strong className="text-foreground">No compliance scores.</strong>{' '}
-          Nothing computes a percentage next to a staff member’s name.
-        </p>
-        {/* ALSO NO LONGER TRUE. db/074 added the student role and there are
-            student accounts in use; they get goals, the Academy and the
-            Library and nothing else. What was being promised is that a child
-            is not administering their own record, and that is still exactly
-            right — so it is now said about the thing that is true. */}
-        <p>
-          <strong className="text-foreground">
-            No child administering their own record.
-          </strong>{' '}
-          An older student can be given an account, and it shows them their own
-          goals and the reading &mdash; not the log a teacher wrote, not a
-          safeguarding note, and nothing about anybody else. The record is the
-          school&rsquo;s to keep and the family&rsquo;s to see.
-        </p>
-        <p>
-          <strong className="text-foreground">No diagnosis.</strong> It suggests
-          classroom strategies. It is not a clinical tool and does not pretend
-          to assess anybody.{' '}
-          <Link to="/security" className="text-primary hover:underline">
-            How the data is protected →
-          </Link>
-        </p>
-      </NotThis>
+      {/* THE "DELIBERATELY NOT BUILT" PANEL WAS REMOVED FROM THIS PAGE ON
+          Saurab's call: a features page is where somebody is deciding to buy,
+          and a list of five things the product does not do is the wrong thing
+          to hand them at that moment.
+
+          It is only gone from HERE. The same habit still runs everywhere it is
+          load-bearing rather than promotional: /security still names what has
+          not been done (no penetration test, no certification), /safeguarding
+          still says it does not report to any authority, /privacy still says it
+          is not a legal policy, and the footer on every page of this site still
+          carries "it does not diagnose, and it is not a clinical tool" — which
+          is the one line here that mattered legally, and it did not live only
+          in this panel. */}
 
       <NextStep
         heading="Want to see it working?"

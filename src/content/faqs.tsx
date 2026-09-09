@@ -77,10 +77,8 @@ export const FAQS: { section: string; items: Faq[] }[] = [
         beforeAccount: true,
         a: (
           <>
-            You do not. An account is created for you by the thing that gives
-            you a reason to have one — a school invites you by email, or gives
-            your family a code for your child. There is no open registration
-            form, because an account attached to nothing cannot do anything.{' '}
+            You do not. A school invites you, or gives your family a code. An
+            account attached to nothing cannot do anything.{' '}
             <Link to="/signup" className="text-primary hover:underline">
               See which route applies to you →
             </Link>
@@ -96,10 +94,9 @@ export const FAQS: { section: string; items: Faq[] }[] = [
             <Link to="/link" className="text-primary hover:underline">
               Enter it here
             </Link>
-            . It sets up your account and connects you to your child in one
-            step. The code works once, expires after thirty days, and only works
-            for the email address the school sent it to — which is what stops
-            somebody else reaching your child’s record.
+            . It works once, expires after thirty days, and only for the
+            address the school sent it to — which is what stops somebody else
+            reaching your child’s record.
           </>
         ),
       },
@@ -107,13 +104,13 @@ export const FAQS: { section: string; items: Faq[] }[] = [
         q: 'I work at a school and there is no invitation in my inbox.',
         roles: ['educator', 'specialist', 'school_admin'],
         beforeAccount: true,
-        a: 'Ask your school office to send one. Only a school administrator can, and only they can say you work there — which is the point. Check spam first: invitations come from an automated address.',
+        a: 'Ask your school office. Only an administrator can say you work there, which is the point. Check spam first — invitations come from an automated address.',
       },
       {
         q: 'My invitation link says it does not work.',
         roles: ['parent', 'educator', 'specialist', 'school_admin'],
         beforeAccount: true,
-        a: 'Invitations expire after fourteen days and can only be used once, so the most common cause is that it was already opened or has been sitting in an inbox too long. Ask whoever invited you to send a new one.',
+        a: 'Invitations last fourteen days and work once, so it was probably already opened or has sat too long. Ask whoever invited you for a new one.',
       },
       {
         q: 'I am a specialist. How do I join?',
@@ -126,8 +123,8 @@ export const FAQS: { section: string; items: Faq[] }[] = [
             <Link to="/for-specialists" className="text-primary hover:underline">
               The application is here
             </Link>
-            . Approval admits you; your account is created when a school engages
-            you.
+            . Approval admits you; your account is created when a school
+            engages you.
           </>
         ),
       },
@@ -138,22 +135,22 @@ export const FAQS: { section: string; items: Faq[] }[] = [
     items: [
       {
         q: 'Does it work without internet?',
-        a: 'The app opens and you can log behaviour with no connection — those logs are kept on the device and upload by themselves. Existing records will not load, because they are deliberately never stored on the device: school laptops are shared.',
+        a: 'Yes for logging — those upload by themselves. Existing records will not load, because they are never stored on the device: school laptops are shared.',
       },
       {
         q: 'Why can I not see any students?',
         roles: ['educator', 'specialist', 'school_admin'],
-        a: 'Two possible reasons, and the screen usually says which. Either your account has not been verified by Special Miles yet, or you have not been assigned to any students. Access comes from an assignment, never from being employed at the school.',
+        a: 'Either your account is not verified yet, or you have not been assigned any students — the screen usually says which. Access comes from an assignment, never from employment.',
       },
       {
         q: 'I am a parent and my dashboard is empty.',
         roles: ['parent'],
-        a: 'No child is linked to your account yet. If you have a code from the school, enter it. If you do not, ask the school office — only they can issue one, and only to the address they hold for you.',
+        a: 'No child is linked yet. Enter your code, or ask the school office — only they can issue one, and only to the address they hold for you.',
       },
       {
         q: 'Can I be a parent and a teacher at the same time?',
         roles: ['parent', 'educator'],
-        a: 'Yes. One account can hold several roles — a teacher at one school, a parent of a child at another. Use the context switcher at the top to change which one you are acting as.',
+        a: 'Yes. One account can hold several roles. Use the context switcher at the top to change which one you are acting as.',
       },
     ],
   },
@@ -164,9 +161,9 @@ export const FAQS: { section: string; items: Faq[] }[] = [
         q: 'What is sent to the AI?',
         a: (
           <>
-            The text of an observation, with names, contact details and dates of
-            birth removed first. The exact anonymised text is stored against the
-            record, so you can be shown what left rather than told about it.{' '}
+            The observation text, with names, contact details and dates of
+            birth removed first. The exact text is stored, so you can be shown
+            what left.{' '}
             {/* A NEW TAB, BECAUSE THIS ANSWER IS READ IN TWO PLACES.
                 /privacy is public and has no in-app twin, so following it
                 from the Settings Help tab would render the marketing header
@@ -194,7 +191,7 @@ export const FAQS: { section: string; items: Faq[] }[] = [
       {
         q: 'Who can see my child’s record?',
         roles: ['parent'],
-        a: 'The teachers assigned to them, specialists with them on a caseload, the school’s administrators, and you. Special Miles staff can reach records for support and safeguarding, and every time they do it is written to the same access log your school can read.',
+        a: 'The teachers assigned to them, specialists on their caseload, the school’s administrators, and you. Special Miles staff can reach records for support and safeguarding, and every time is written to the access log your school can read.',
       },
     ],
   },
@@ -212,22 +209,22 @@ export const FAQS: { section: string; items: Faq[] }[] = [
       {
         q: 'Do I have to pay anything?',
         roles: ['individual'],
-        a: 'No. The account is free, every course is free at the moment, and asking a specialist for a session costs nothing because no price has been set for one. If a course ever costs something, the price is on it before you start.',
+        a: 'No. The account and every course are free at the moment, and no price has been set for a specialist session. If a course ever costs something, the price is on it before you start.',
       },
       {
         q: 'What does subscribing actually change?',
         roles: ['individual'],
-        a: 'Two things, and nothing else: your suggestions are answered by the more capable model, and you can ask more times a day. Courses, the library, your goals and asking for a session are the same either way.',
+        a: 'Two things: a more capable model answers your suggestions, and you can ask more times a day. Everything else is the same either way.',
       },
       {
         q: 'What happens if I cancel?',
         roles: ['individual'],
-        a: 'It stops renewing and you keep what you have paid for until the end of the period you are in — nothing is switched off the moment you press it. You can start it again any time before then.',
+        a: 'It stops renewing and you keep what you paid for until the period ends. Nothing switches off the moment you press it.',
       },
       {
         q: 'Can anybody else see what I write?',
         roles: ['individual'],
-        a: 'No. Your goals, your check-ins and what you ask the AI are readable by you and nobody else — not another user, not a specialist, not Special Miles. That is enforced by the database rather than by the screens hiding things.',
+        a: 'No. Your goals, check-ins and questions are readable by you and nobody else — not a specialist, not Special Miles. The database enforces that, not the screens.',
       },
     ],
   },

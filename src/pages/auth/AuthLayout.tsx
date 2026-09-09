@@ -19,7 +19,7 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-primary-subtle">
       <header className="border-b border-border bg-card px-6 py-4">
         <Link to="/" aria-label="MiZanova home">
           <Logo />
@@ -37,8 +37,15 @@ export default function AuthLayout({
         aria-label={title}
         className="flex flex-1 items-center justify-center p-4"
       >
-        <div className="w-full max-w-md rounded-card border border-border bg-card shadow-raised p-8">
-          <h1 className="text-center text-3xl font-bold text-foreground">
+        {/* shadow-lifted, not raised. This card is the only thing on the
+            screen and it now sits on a coloured ground; the higher of the two
+            elevation tokens is what says "this is the thing" rather than "this
+            is one of several panels". */}
+        <div className="w-full max-w-md rounded-card border border-border bg-card p-8 shadow-lifted">
+          {/* text-title. It was text-3xl — 30px, untracked — inside a 448px
+              card, which is a page-title size in a place that is not a page
+              title. */}
+          <h1 className="text-title text-center text-balance text-foreground">
             {title}
           </h1>
           {subtitle && (

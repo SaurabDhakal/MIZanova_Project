@@ -6,7 +6,9 @@ import {
   NotThis,
   Points,
   Section,
+  Split,
 } from '../../components/PublicSections'
+import { NothingLeavesFigure } from '../../components/PublicFigures'
 
 /**
  * For somebody who is not connected to a school — db/088.
@@ -40,29 +42,26 @@ export default function ForIndividuals() {
       subtitle="For working on this yourself, with no school and nobody else involved."
     >
       <Lead>
-        Most of MiZanova sits between a school and a family. This part does not.
-        You make an account, and you get short courses and reading written for
-        neurodivergent adults and older students &mdash; at your own pace, with
-        nobody watching how you go.
+        Most of MiZanova sits between a school and a family. This part does not
+        &mdash; short courses, reading and suggestions written for
+        neurodivergent adults, at your own pace, with nobody watching.
       </Lead>
 
-      <Section title="Nobody is looking over your shoulder">
+      <Split
+        title="Nobody is looking over your shoulder"
+        figure={<NothingLeavesFigure />}
+      >
         <p>
-          There is no school attached to this account and no teacher, employer
-          or clinician on the other end of it. Nothing you read, start or leave
-          half-finished is reported to anybody.
+          No school, no teacher, no clinician on the other end. Nothing you
+          read, start or leave half-finished is reported to anybody, and you are
+          on nobody&rsquo;s caseload.
         </p>
         <p>
-          Special Miles can see how many people started a course, because that
-          is how they work out what to write next. They cannot see that it was
-          you. The screen that shows those numbers deliberately has no names on
-          it, and the database view behind it does not carry any.
+          Special Miles can see how many people started a course, not that it
+          was you. The screen has no names on it and neither does the view
+          behind it.
         </p>
-        <p>
-          You are not on anybody&rsquo;s caseload, you have no record here, and
-          there is nothing to be referred to.
-        </p>
-      </Section>
+      </Split>
 
       {/* ---------------------------------------------------------------
           THIS LIST WAS FOUR LINES LONG AND DESCRIBED A DIFFERENT PRODUCT.
@@ -83,28 +82,20 @@ export default function ForIndividuals() {
           --------------------------------------------------------------- */}
       <Section title="What you actually get">
         <p>
-          <b>Suggestions for your own situation.</b> Describe something you are
-          finding hard, in your own words, and get two specific things to try.
-          Not a diagnosis and not advice about medication &mdash; practical
-          steps, written for you rather than about you. You can ask a follow-up
-          about one of them, say whether it helped, and turn any of them into
-          something you are working on. What you write is readable by you and
-          nobody else: not a school, not a specialist, not Special Miles.
+          <b>Suggestions for your own situation.</b> Describe what you are
+          finding hard and get two things to try &mdash; practical steps, not a
+          diagnosis. Readable by you and nobody else.
         </p>
         <p>
-          <b>Things you are working on, in your own words.</b> A goal here is a
-          sentence you wrote and a reason you wrote it, with a check-in that
-          asks how it went &mdash; good, mixed, or hard. There is no streak and
-          no percentage, on purpose: a number that resets to zero when you have
-          a bad fortnight is a punishment, not a record.
+          <b>Things you are working on.</b> A sentence you wrote and a reason
+          you wrote it, with a check-in. No streak and no percentage &mdash; a
+          number that resets after a bad fortnight is a punishment.
         </p>
         <p>
-          <b>Short courses and reading.</b> Worked through in your own time
-          &mdash; nothing is timed, nothing is scored, and going back over one
-          changes nothing. You can read the first part of any course before
-          deciding about it. There are two courses and a handful of articles
-          today, which is small, and saying otherwise would be selling
-          something that is not there.
+          <b>Short courses and reading.</b> Nothing timed or scored, and you
+          can read the first part before deciding. Two courses and a few
+          articles today &mdash; which is small, and saying otherwise would be
+          selling something that is not there.
         </p>
         <p>
           <b>Time with a verified specialist, if you want it.</b> You can see
@@ -131,33 +122,18 @@ export default function ForIndividuals() {
           the SHAPE of the charging and send people there for figures. */}
       <Section title="What it costs">
         <p>
-          The account is free and there is nothing to pay to make one. No card
-          is asked for at sign-up, and nothing here is a trial that quietly
-          ends and starts charging you.
+          The account is free, no card is asked for, and nothing is a trial
+          that quietly starts charging. Every course is free today; if one ever
+          costs something, the price is on it before you start.
         </p>
         <p>
-          Every course is free at the moment. Some may not stay that way: a
-          course that costs something says so on its own card, with the price
-          on the button, before you have entered anything. A course you have
-          paid for stays yours &mdash; it keeps working even if it is later
-          withdrawn from everybody else.
-        </p>
-        <p>
-          There is no subscription on sale today. If one is offered, it will be
-          on the{' '}
+          No subscription and no price for a specialist session today. Either
+          would appear on the{' '}
           <Link to="/pricing" className="font-semibold text-primary underline">
             pricing page
           </Link>{' '}
-          with the price on it, and it would change how many suggestions you can
-          ask for in a day and which model answers them &mdash; not whether you
-          can use MiZanova, which stays free either way.
-        </p>
-        <p>
-          Asking a specialist for a session costs nothing at the moment, because
-          Special Miles has not set a price for one. Nobody will ask you for a
-          card. When there is a figure it will be on the pricing page, and
-          asking will still be asking &mdash; a specialist decides, rather than
-          selling an afternoon off a shelf.
+          first, and would change how many suggestions you get a day &mdash; not
+          whether you can use MiZanova.
         </p>
       </Section>
 
@@ -167,21 +143,17 @@ export default function ForIndividuals() {
           anything. It is written material and short courses.
         </p>
         <p>
-          There is no assessment and there are no certificates. Marking a module
-          done records that you read it, which is not a claim that you were
-          tested on it.
+          No assessment and no certificates. Marking a module done records that
+          you read it, not that you were tested.
         </p>
         <p>
-          You can ask a verified specialist for a session, and they answer in
-          your account. It is a request rather than a booking &mdash; they
-          decide &mdash; and you are emailed when they answer. The email carries
-          the time and nothing else: what you wrote about what you are finding
-          hard stays in your account, where only you can read it.
+          Asking a specialist for a session is a request, not a booking &mdash;
+          they decide, and you are emailed the time and nothing else. What you
+          wrote stays in your account.
         </p>
         <p>
-          If you are a parent of a child at a school that uses MiZanova, this is
-          the wrong page &mdash; ask the school for a code, which connects you to
-          your child rather than giving you an account of your own.
+          A parent at a school that uses MiZanova wants a code from the school,
+          not this page.
         </p>
       </NotThis>
 

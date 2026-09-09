@@ -21,23 +21,21 @@ export default function Privacy() {
       subtitle="A plain-English description of what the software actually does."
     >
       <Lead>
-        This page describes how MiZanova stores and moves information. It is a
-        description of the software, not a legal privacy policy — Special Miles
-        publishes that separately, and where the two ever differ, the formal
-        policy governs.
+        What the software actually does with information. Not a legal privacy
+        policy — Special Miles publishes that separately, and where the two
+        differ the formal policy governs.
       </Lead>
 
       <Section title="What is stored, and where">
         <p>
-          Everything is stored in Sydney, on Australian infrastructure, and does
-          not leave the country. That includes behaviour records, goals, IEP
-          documents, messages and the audit trail.
+          Everything — records, goals, IEP documents, messages, the audit
+          trail — is stored in Sydney and does not leave the country.
         </p>
         <Points
           items={[
-            'About a child: first and last name, year level, an optional school reference, behaviour observations, goals, IEP documents, and sessions delivered by specialists.',
-            'About an adult: name, email address, role, and which school or children they are connected to.',
-            'About a specialist applying to the network: additionally a date of birth and screening numbers, used only to verify their Working With Children Check and visible only to Special Miles staff.',
+            'A child: name, year level, an optional school reference, observations, goals, IEP documents and specialist sessions.',
+            'An adult: name, email, role, and which school or children they are connected to.',
+            'A specialist applying: also a date of birth and screening numbers, used only to verify their Working With Children Check and visible only to Special Miles.',
             'A log of every time a student record is opened, and by whom.',
           ]}
         />
@@ -45,58 +43,47 @@ export default function Privacy() {
 
       <Section title="What leaves, and what does not">
         <p>
-          Two optional features can send information to an external processor.
-          An anonymised behaviour observation is sent to Anthropic to generate
-          a strategy suggestion, only after names, contact details and dates of
-          birth have been removed. Browser dictation may send microphone audio
-          to the browser provider&rsquo;s speech service (for example Google in
-          Chrome) so it can return text.
+          Two optional features send anything outside. An observation goes to
+          Anthropic for a strategy suggestion, only after names, contact details
+          and dates of birth are removed. Browser dictation may send audio to
+          the browser&rsquo;s own speech service.
         </p>
         <p>
-          The exact anonymised text that was sent is stored against the record.
-          If a parent asks what left, they can be shown it rather than assured
-          about it.
+          The exact text that was sent is stored, so a parent asking what left
+          can be shown it. Dictation can be replaced by typing; a voice note
+          stays in the Australian store with its conversation.
         </p>
         <p>
-          Dictation is optional and can be replaced by typing. A voice note is
-          different: it is deliberately attached to a message and stored with
-          that student conversation in the private Australian data store.
-        </p>
-        <p>
-          Nothing is sold, and there is no advertising, analytics or tracking
-          product anywhere in this application.
+          Nothing is sold. There is no advertising, analytics or tracking
+          anywhere in this application.
         </p>
       </Section>
 
       <Section title="Consent">
         <p>
-          A guardian consents to AI suggestions for their child, and can
-          withdraw that consent at any moment. Withdrawal takes effect
-          immediately: the next request for a suggestion about that child is
-          refused by the database, not queued.
+          A guardian consents to AI suggestions and can withdraw at any moment.
+          It takes effect immediately — the next request is refused by the
+          database, not queued.
         </p>
       </Section>
 
       <Section title="Who can see a child’s record">
         <p>
-          A teacher assigned to them, a specialist with them on their caseload,
-          the school’s administrators, and their own guardians. That is decided
-          on every request by the database rather than by the screen, so a fault
-          in the interface cannot widen it.
+          A teacher assigned to them, a specialist on whose caseload they sit,
+          the school’s administrators, and their guardians. The database decides
+          that on every request, so a fault in the interface cannot widen it.
         </p>
         <p>
-          Special Miles staff can reach records for support and safeguarding.
-          When they do, it is written to the same access log the school can
-          read.
+          Special Miles staff can reach records for support and safeguarding,
+          and every time is written to the access log the school can read.
         </p>
       </Section>
 
       <NotThis title="What this page is not">
         <p>
-          It is not a privacy policy, a collection notice, or a statement of
-          your rights under the Privacy Act 1988. Those are legal documents and
-          Special Miles must publish them — written by somebody qualified to,
-          which is not this software and not me.
+          Not a privacy policy, a collection notice, or a statement of your
+          rights under the Privacy Act 1988. Those are legal documents, and
+          Special Miles must publish them.
         </p>
         <p>
           Data retention periods are not stated here because none have been
@@ -106,7 +93,7 @@ export default function Privacy() {
 
       <NextStep
         heading="Something here unclear?"
-        body="If you are a parent or a school with a question about what is held about a child, ask and you will get a specific answer."
+        body="Ask what is held about a child and you will get a specific answer."
         to="/enquiry"
         label="Ask us"
       />

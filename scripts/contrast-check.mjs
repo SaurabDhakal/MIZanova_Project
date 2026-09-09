@@ -191,6 +191,8 @@ for (const [name, bg, where, restricted] of [
   ['brand-blue', 'card', 'diagram strokes on white', false],
   ['brand-green', 'card', 'tick icons and the wordmark on white', true],
   ['brand-green', 'sidebar', 'the "nova" half of the wordmark on the sidebar', false],
+  ['accent-on-dark', 'sidebar', 'the accent line of the hero headline', false],
+  ['accent-on-dark', 'brand-navy', 'the same, where the gradient is lightest', false],
 ]) {
   const value = ratio(tokens[name], tokens[bg])
   if (value < 3) {
@@ -204,6 +206,91 @@ for (const [name, bg, where, restricted] of [
     if (restricted && value >= 4.5) {
       console.log(`       note: ${name} now clears 4.5:1 — the "never for a sentence" note in index.css is out of date.`)
       warnings++
+    }
+  }
+}
+
+/**
+ * THE TINTED GROUNDS, CHECKED AT THEIR STRONGEST POINT.
+ *
+ * .wash-sand and .wash-cool are radial gradients of a DECORATIVE colour over a
+ * normal surface. The decorative palette in index.css is allowed to skip the
+ * ratios above precisely because it never carries ink — but the moment a tint
+ * sits UNDER text, the surface it makes is a real background and the text on it
+ * has a real ratio to clear.
+ *
+ * A gradient has no single colour, so what is checked is the worst case: the
+ * tint at the peak of its radial, composited over its own base. Every point
+ * away from that peak is lighter and therefore safer.
+ *
+ * muted-foreground on .wash-cool is the tightest pair on this site at 4.71:1.
+ * It passes, and it is 0.21 from not passing — so if that violet is ever
+ * strengthened past 13%, this is the line that will say so.
+ */
+function composite(hex, baseHex, alpha) {
+  const ch = (h, i) => parseInt(h.replace('#', '').substr(i * 2, 2), 16)
+  const out = [0, 1, 2].map((i) =>
+    Math.round(ch(hex, i) * alpha + ch(baseHex, i) * (1 - alpha)),
+  )
+  return '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('')
+}
+
+console.log('\nTinted grounds — the decorative tint at its peak, under real text:')
+for (const [surface, tint, base, alpha, inks] of [
+  ['.wash-sand', 'decor-sand', 'card', 0.24, ['foreground', 'muted-foreground', 'primary']],
+  ['.wash-cool', 'decor-violet', 'background', 0.13, ['foreground', 'muted-foreground', 'primary']],
+]) {
+  const ground = composite(tokens[tint], tokens[base], alpha)
+  for (const ink of inks) {
+    const value = ratio(tokens[ink], ground)
+    if (value < 4.5) {
+      console.log(`  FAIL ${ink} on ${surface} at peak tint: ${value.toFixed(2)}:1`)
+      failures++
+    } else {
+      console.log(
+        `  ${value.toFixed(2).padStart(6)}  4.5   ok  ${ink} on ${surface} (tint at ${Math.round(alpha * 100)}%)`,
+      )
+    }
+  }
+}
+
+
+/**
+ * THE GRADIENT BANDS, CHECKED AT BOTH ENDS.
+ *
+ * Everything above this checks a PAIR: one flat colour on another. A gradient
+ * is not a pair — it is a different colour at every x, so a band can pass at
+ * the left edge and fail at the right, and nothing here would have said so.
+ *
+ * This was not hypothetical. The closing call to action on the homepage was
+ * first written as .brand-wash running navy → brand-blue → brand-green under
+ * white body copy, which measures 11.27:1 where it starts and 3.34:1 where it
+ * ends. It looked fine in a screenshot of its left half.
+ *
+ * So each gradient carrying text is listed with the stops it actually uses,
+ * and every stop is held to the same floor. A stop that fails means the wash
+ * needs a darker token, not a smaller heading.
+ */
+console.log('\nGradient surfaces — every stop held to the text floor running across it:')
+for (const [surface, where, floor, stops] of [
+  [
+    '.brand-wash',
+    'the closing band, under white body copy',
+    4.5,
+    ['brand-navy', 'brand-blue-ink', 'brand-green-ink'],
+  ],
+]) {
+  for (const stop of stops) {
+    const value = ratio(tokens[stop], tokens['primary-foreground'])
+    if (value < floor) {
+      console.log(
+        `  FAIL ${surface} at ${stop}: ${value.toFixed(2)}:1 — ${where} needs ${floor}:1.`,
+      )
+      failures++
+    } else {
+      console.log(
+        `  ${value.toFixed(2).padStart(6)} ${String(floor).padStart(4)}   ok  ${surface} at ${stop} — ${where}`,
+      )
     }
   }
 }

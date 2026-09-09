@@ -154,6 +154,39 @@
   /* Keyboard focus ring. Every interactive element must show one (WCAG AA). */
   --color-ring: #2563eb;
 
+  /* INK FOR THE DARK BANDS, WHICH THE BRAND GREEN CANNOT BE.
+     --color-brand-green (#38a123) is built for white and measures about 3.1:1
+     on the sidebar navy — over the 3:1 graphic floor, under the 4.5:1 a
+     sentence needs, and marginal even for a heading. A dark hero needs an
+     accent that is properly legible on it rather than one that technically
+     scrapes past at display size.
+
+     This is a real ink, so unlike the decorative tones below it is in
+     scripts/contrast-check.mjs and has ratios to hold. */
+  --color-accent-on-dark: #86e08a;
+
+  /* --- The decorative palette -------------------------------------------
+     THESE ARE FOR LIGHT, NOT FOR INK. Three tones that widen the visual
+     language past navy-blue-green without touching the palette that carries
+     meaning. They appear only in gradients, washes and organic shapes — never
+     behind a word, never as a border on a control, never as the colour of a
+     state.
+
+     That restriction is the whole reason they can exist. Every colour above
+     this block is in scripts/contrast-check.mjs and has to clear a ratio
+     against the surfaces it is used on; a colour that only ever appears at
+     twenty per cent opacity behind a gradient has no ratio to clear. Adding
+     them as ink would mean five more pairs to prove and five more chances for
+     a heading to fail on a page nobody re-checked.
+
+     Warm sand keeps the blue-green field from reading cold and clinical on a
+     page about children. Violet is the one already in the palette as
+     --color-accent, borrowed here at low opacity so the decoration and the IEP
+     chips share a family. */
+  --color-decor-sand: #f2b880;
+  --color-decor-clay: #e08b6a;
+  --color-decor-violet: #8b5cf6;
+
   /* --- Shape ------------------------------------------------------------ */
   /* TIGHTENED from 12/8. Saurab called it "so round round" and was right: a
      generous radius on every surface reads soft and toy-like, and this product
@@ -183,10 +216,47 @@
      Large text gets NEGATIVE tracking. Inter at 36px with default spacing
      looks loose and amateurish; pulling it in is most of the difference
      between a heading that looks set and one that looks typed. */
-  --text-display: 2.25rem; /* page titles on public pages */
-  --text-display--line-height: 1.08;
-  --text-display--letter-spacing: -0.022em;
+  /* IT SAYS "page titles on public pages" AND NO PUBLIC PAGE USED IT.
+     Measured on 8 September: About's h1 rendered 36px with
+     `letter-spacing: normal`, because it was written `text-4xl` — the same
+     size this token already was, arriving without the tracking that is the
+     whole reason the token exists. Ten public pages shared that h1. The
+     homepage asked for 48px (`md:text-5xl`), a size the scale did not carry
+     at all, so the largest words on the site were also the loosest.
+
+     One token covers both now, because they are one thing: the title that
+     opens a public page. The clamp is what lets it be — 36px on a phone,
+     where 48px breaks "Support every learner." across four lines, up to 48px
+     once there is room for it. Nothing needs a `md:` override any more, which
+     is what stopped the old pair agreeing in the first place. */
+  --text-display: clamp(2.25rem, 1.55rem + 2.9vw, 3rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.026em;
   --text-display--font-weight: 700;
+
+  /* THE HOMEPAGE HEADLINE, WHICH IS A SIZE ABOVE EVERY OTHER TITLE.
+     --text-display tops out at 48px, and 48px is right for the ten inner
+     pages: they are documents, and a document's title should not shout. The
+     homepage is not a document. It is the one surface whose whole job is to
+     make somebody stop, and at the same size as /cookies it was not doing it.
+
+     64px with -0.035em is the difference between a headline and a heading. The
+     tracking has to come in as the size goes up — Inter set at 64px with the
+     display tracking is visibly gappy, and the gaps are the first thing that
+     reads as amateur at that scale. */
+  --text-hero: clamp(2.5rem, 1.4rem + 4.6vw, 4rem);
+  --text-hero--line-height: 0.98;
+  --text-hero--letter-spacing: -0.035em;
+  --text-hero--font-weight: 700;
+
+  /* The h2 that opens a public section, and the step below --text-display.
+     These were `text-3xl` — 30px, untracked — on all six homepage sections
+     and on every <Section> across the ten pages under it. Same fault as the
+     h1 and the same fix; it clamps for the same reason. */
+  --text-heading: clamp(1.625rem, 1.4rem + 1vw, 1.875rem);
+  --text-heading--line-height: 1.15;
+  --text-heading--letter-spacing: -0.02em;
+  --text-heading--font-weight: 700;
 
   --text-title: 1.5rem; /* the h1 of an app screen */
   --text-title--line-height: 1.2;
@@ -231,6 +301,14 @@
      draw the eye without pulling a teacher's attention off the class. The
      reduce-motion block near the bottom of this file neutralises it. */
   --animate-toast-in: toast-in 200ms ease-out;
+
+  /* CSS's built-in `ease-out` is weak — it lacks the punch that makes a
+     transition read as deliberate rather than as lag. One curve, used by
+     every hover and every press on the public site, so the whole thing moves
+     the same way. `ease-in` is deliberately absent: it withholds movement at
+     the exact moment somebody is watching for it, which is why it feels slow
+     at a duration that is not. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
 
   @keyframes toast-in {
     from {
@@ -285,6 +363,428 @@
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+
+  /* -------------------------------------------------------------------------
+     A FOCUS RING HAS TO CONTRAST WITH WHAT IS BEHIND IT, AND ON THE DARK
+     BANDS THIS ONE DID NOT.
+
+     --color-ring is #2563eb, which is excellent on every pale surface in the
+     product and invisible on the dark ones. Measured against the stops of the
+     closing band:
+
+       brand-navy      2.18:1
+       brand-blue-ink  1.12:1
+       brand-green-ink 1.21:1
+
+     WCAG 2.4.11 wants 3:1 for a focus indicator, so a keyboard user tabbing to
+     "Talk to us" on that band got no visible indicator at all — blue on blue.
+     This predates the gradient: the band used to be flat --color-primary
+     (#1d4ed8), where a #2563eb ring is just as lost.
+
+     White is the fix, and it is applied by declaring the surface dark rather
+     than by guessing from a background utility class. The footer is not in the
+     list because #2563eb on --color-sidebar measures 3.35:1 and passes.
+     --------------------------------------------------------------------- */
+  .on-dark :focus-visible {
+    outline-color: var(--color-sidebar-foreground);
+  }
+
+  /* Native controls — scrollbars, select menus, date pickers — are painted by
+     the OS, and on a machine set to dark mode they paint dark against this
+     deliberately light product. One word stops that; the product has no dark
+     theme, so saying so is honest rather than limiting. */
+  :root {
+    color-scheme: light;
+  }
+
+  /* -------------------------------------------------------------------------
+     THE PARTS OF THE PAGE THE DESIGN NEVER DREW
+
+     Selecting a sentence, the caret in a text box, the tick inside a checkbox
+     and the scrollbar down the side all ship with a browser default that
+     belongs to no design system. On this site they came out as Chrome's own
+     blue — beside a page whose blue is #1d4ed8, close enough to read as a
+     mistake rather than as a choice. These cover every screen in the product
+     rather than only the public pages that prompted them.
+     --------------------------------------------------------------------- */
+  ::selection {
+    background-color: var(--color-primary-subtle);
+    color: var(--color-foreground);
+  }
+
+  :root {
+    caret-color: var(--color-primary);
+    accent-color: var(--color-primary);
+    scrollbar-color: var(--color-input-border) transparent;
+  }
+
+  /* An underline sitting on the baseline strikes through the descenders of
+     g, y and p. Every "How your data is handled →" on the public site had
+     one, and `hover:underline` puts one under most links in the app. */
+  a {
+    text-underline-offset: 0.16em;
+    text-decoration-thickness: from-font;
+  }
+
+  /* The public header is sticky, so "See how it works" would otherwise land
+     its heading underneath the bar. Scoped to :target, which is exactly the
+     jumped-to element — `scroll-mt-*` written on each anchor would be four
+     more chances to forget one. */
+  :target {
+    scroll-margin-top: 5.5rem;
+  }
+
+  /* Stops a paragraph or a bullet ending on a single orphaned word. Costs
+     nothing where it is unsupported. */
+  p,
+  li {
+    text-wrap: pretty;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   THE DECORATIVE LAYER
+
+   Everything here is drawn by the browser out of the brand tokens. Not one
+   rule fetches a file, and that is the constraint rather than a preference:
+   this stylesheet already self-hosts Inter rather than pulling it from Google
+   so the product renders in a school with poor connectivity (NFR2) and leaks
+   no visitor data to a third party (NFR5). A decorative background that
+   arrives over the network would give both of those away for a picture.
+
+   So the "photography" on this site is a gradient field, a grid and a set of
+   drawn shapes. They cost no request, they cannot 404, they scale to any
+   viewport without a second asset, and they follow the palette — change the
+   brand blue and the artwork changes with it.
+--------------------------------------------------------------------------- */
+
+/* ORGANIC SHAPES, NOT CIRCLES.
+   A circle behind a heading is the shape you reach for when you have not
+   chosen one, and a page of them reads as a template with blobs on it. These
+   are irregular — four different radii on each axis — so no two sit the same
+   way and none of them looks like a bullet point that got out. Blurred and
+   held under twenty per cent, they are light in the room rather than objects
+   in it.
+
+   A page about neurodiverse children should not be built out of hard geometry.
+   That is the whole argument for the shape. */
+.blob {
+  border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+  filter: blur(48px);
+}
+
+.blob-b {
+  border-radius: 62% 38% 34% 66% / 56% 62% 38% 44%;
+  filter: blur(56px);
+}
+
+.blob-c {
+  border-radius: 33% 67% 58% 42% / 63% 34% 66% 37%;
+  filter: blur(40px);
+}
+
+/* THE AURORA. Three soft pools of brand colour, placed off-centre so the
+   field has a direction rather than a middle. color-mix keeps them tied to
+   the tokens; hard-coded rgba here would be the fourth place the brand blue
+   is written down and the first place it goes stale. */
+.aurora {
+  background-image:
+    radial-gradient(
+      62% 78% at 12% 18%,
+      color-mix(in oklab, var(--color-brand-blue) 30%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      48% 62% at 88% 8%,
+      color-mix(in oklab, var(--color-brand-green) 22%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      74% 88% at 68% 96%,
+      color-mix(in oklab, var(--color-brand-navy) 20%, transparent),
+      transparent 66%
+    );
+}
+
+/* A WARM GROUND, SO EVERY SECTION IS NOT THE SAME BLUE.
+   The palette is navy, blue and green, which is trustworthy and, run down a
+   whole page unbroken, cold. This is the one warm surface: sand from the top
+   right, a trace of violet from the bottom left, both over white. It comes out
+   around #fbe8d6 at its strongest, so every text token that passes on white
+   passes on it too — which is the reason the warm tones are allowed to exist
+   at all (see the decorative palette note above).
+
+   Used on ONE section. A second warm band and the page has two identities. */
+.wash-sand {
+  background-color: var(--color-card);
+  background-image:
+    radial-gradient(
+      72% 62% at 82% 0%,
+      color-mix(in oklab, var(--color-decor-sand) 24%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      58% 54% at 8% 100%,
+      color-mix(in oklab, var(--color-decor-violet) 11%, transparent),
+      transparent 60%
+    );
+}
+
+/* The quiet counterpart, for a section that needs to be distinct from white
+   without becoming a colour. */
+.wash-cool {
+  background-color: var(--color-background);
+  background-image: radial-gradient(
+    64% 58% at 88% 6%,
+    color-mix(in oklab, var(--color-decor-violet) 13%, transparent),
+    transparent 62%
+  );
+}
+
+/* The same field on the navy CTA band, where the pools have to lighten rather
+   than tint or they disappear into the ground. */
+.aurora-deep {
+  background-image:
+    radial-gradient(
+      58% 72% at 18% 14%,
+      color-mix(in oklab, var(--color-brand-blue) 55%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      52% 66% at 84% 90%,
+      color-mix(in oklab, var(--color-brand-green) 34%, transparent),
+      transparent 62%
+    );
+}
+
+/* THERE WAS A .grid-field HERE AND IT IS DELIBERATELY GONE.
+   A 48px hairline grid, tiled with two linear-gradients and masked to fade at
+   the edges, sat behind the hero and the privacy band. It was subtle and it
+   was generic: a tiled rule-grid is decoration that belongs to no product, and
+   it is one of the most reliable tells of a page that was generated rather
+   than designed. The mechanical design check flags it by name.
+
+   Nothing replaced it, because nothing needed to. The aurora is made of THIS
+   brand's three colours and the artwork beside it is a drawing of THIS
+   product's own screens — both are specific to MiZanova in a way a grid can
+   never be. A blueprint grid earns its place on a canvas, a map or a
+   measurement surface. This is a marketing page. */
+
+/* The logo's own navy-through-green, as a surface.
+   -------------------------------------------------------------------------
+   THE INK VARIANTS, NOT THE BRAND ONES, AND THIS IS AN ACCESSIBILITY FIX
+   RATHER THAN A PREFERENCE. This band carries white body copy, and measured
+   against white the brand pair does not hold it up:
+
+     brand-green  #38a123  3.34:1   fails AA body text
+     brand-blue   #2b7fa8  4.46:1   fails AA body text, narrowly
+     brand-navy   #1b3a6b 11.27:1   passes
+
+   So a wash running navy → blue → green starts legible and ends unreadable,
+   and the failure is worst at the right-hand end where the second call to
+   action sits. The ink variants exist for exactly this and clear the bar
+   everywhere along the ramp:
+
+     brand-blue-ink  #256d8a  5.78:1
+     brand-green-ink #266f17  6.23:1
+
+   scripts/contrast-check.mjs would not have caught this: it checks named
+   token PAIRS, and a gradient is a surface with a different colour at every
+   x. The endpoints are now in that script so the next person gets told.
+
+   Never on type. Gradient text trades legibility for a trick, and the type
+   scale already carries the emphasis. */
+.brand-wash {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-navy) 0%,
+    var(--color-brand-blue-ink) 55%,
+    var(--color-brand-green-ink) 130%
+  );
+}
+
+/* The bright brand colours DO belong here: this is a 4px hairline carrying
+   no text, so the 4.5:1 body-text floor does not apply to it. */
+.brand-rule {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-brand-navy),
+    var(--color-brand-blue) 45%,
+    var(--color-brand-green)
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   THE ONE ANIMATED THING ON THE SITE
+
+   The hero says a teacher records what they saw in about twenty seconds, and
+   the artwork beside it is a picture of that screen with a timer on it. A
+   still timer is a screenshot of a claim; a running one is the claim.
+
+   So this is the single authored moment on the public site, and it is here
+   because it EXPLAINS something rather than because motion looks expensive.
+   Nothing else moves: no section entrances, no scroll reveals, no floating
+   cards. A page where one thing moves has somewhere for the eye to go; a page
+   where six things move has nowhere.
+
+   Deliberately not JavaScript. These run off the main thread, cost nothing to
+   set up, and cannot leak a timer when React unmounts the component.
+
+   REDUCED MOTION NEEDED TWO THINGS, AND THE FIRST ONE WAS NOT ENOUGH.
+   The block near the bottom of this file collapses every animation to 0.01ms
+   and one iteration. Writing the 100% keyframes to be the correct still
+   picture is the obvious half of the fix and on its own it does nothing:
+   `animation-fill-mode` defaults to `none`, so an animation that has finished
+   reverts to the element's BASE style rather than holding its last frame.
+   Measured with the reduced-motion declarations applied, all three timer
+   readings came back at opacity 1 — three numbers stacked in one place — and
+   the ring sat there at full opacity instead of having faded away.
+
+   So each rule sets its own resting state as the base style AND asks for
+   `forwards`. Either alone would do it; both together mean the still frame is
+   correct whether the animation is collapsed, never started, or unsupported.
+--------------------------------------------------------------------------- */
+
+/* The recording dot, breathing. */
+@keyframes logger-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.logger-dot {
+  opacity: 1;
+  animation: logger-pulse 1.9s ease-in-out infinite forwards;
+}
+
+/* A ring leaving the dot, the way a live indicator does. Ends invisible, so
+   the reduced-motion still frame simply does not have one. */
+@keyframes logger-ring {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+.logger-ring {
+  /* An SVG element scales from the user-space origin without these, which
+     sends the ring off to the top-left corner instead of out of the dot. */
+  transform-box: fill-box;
+  transform-origin: center;
+  /* A still frame has no ring in it at all. */
+  opacity: 0;
+  animation: logger-ring 1.9s ease-out infinite forwards;
+}
+
+/* THE TIMER. Three readings stacked in the same place, each visible for a
+   third of the cycle, with a 180ms crossfade at the handover so the digits
+   change rather than blink. The reading a still frame lands on is the last
+   one, which is the twenty-second claim the copy makes. */
+@keyframes logger-t1 {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes logger-t2 {
+  0%,
+  30% {
+    opacity: 0;
+  }
+  34%,
+  63% {
+    opacity: 1;
+  }
+  67%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes logger-t3 {
+  0%,
+  63% {
+    opacity: 0;
+  }
+  67%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* The still frame is the last reading — which is the twenty seconds the copy
+   beside this artwork claims. */
+.logger-t1,
+.logger-t2 {
+  opacity: 0;
+}
+
+.logger-t3 {
+  opacity: 1;
+}
+
+.logger-t1 {
+  animation: logger-t1 6s linear infinite forwards;
+}
+.logger-t2 {
+  animation: logger-t2 6s linear infinite forwards;
+}
+.logger-t3 {
+  animation: logger-t3 6s linear infinite forwards;
+}
+
+/* ---------------------------------------------------------------------------
+   A BUTTON SHOULD ANSWER WHEN IT IS PRESSED
+
+   Every control on the public site was a rectangle that changed brightness on
+   hover and did nothing at all on press — so on a phone, where there is no
+   hover, tapping "Book a walkthrough" produced no acknowledgement whatsoever
+   until the next page painted. On a cold Render instance that is a fifty
+   second wait after a tap that appeared to do nothing.
+
+   Three per cent is the whole effect. It is not meant to be noticed; it is
+   meant to make the surface feel like it heard you. Written here rather than
+   as four utilities repeated on twenty-six controls, because the twenty-seventh
+   would be written without them.
+
+   The transition names its properties. `all` would animate width, height and
+   anything else a hover happens to touch, which is how a press starts costing
+   layout work.
+--------------------------------------------------------------------------- */
+.pressable {
+  transition:
+    transform 160ms var(--ease-out-strong),
+    background-color 160ms var(--ease-out-strong),
+    border-color 160ms var(--ease-out-strong),
+    box-shadow 160ms var(--ease-out-strong),
+    color 160ms var(--ease-out-strong);
+}
+
+.pressable:active {
+  transform: scale(0.97);
+}
+
+/* Someone who has asked for less motion gets the colour change and not the
+   movement. The global reduce-motion block below neutralises durations, which
+   would leave this transform snapping rather than easing. */
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active {
+    transform: none;
   }
 }
 
@@ -365,13 +865,26 @@ select:not([aria-invalid='true']) {
 
 /* Respect the OS "reduce motion" setting — vestibular disorders are common in
    our user base, and this is a one-off fix rather than a per-animation one. */
+/* REDUCE MOTION, NOT FEEDBACK.
+   This used to set every transition on every element to 0.01ms, which is the
+   standard snippet and is heavier-handed than the preference asks for.
+   "Reduced motion" is a request to stop things MOVING — it is not a request to
+   strip the interface of the colour and opacity changes that tell somebody a
+   button took their hover, a panel opened, or a row is now selected. Killing
+   those makes the product harder to read for the person who asked, which is
+   the opposite of the point.
+
+   So movement goes and feedback stays: transforms and animations are
+   neutralised, colour, background, border, opacity and shadow keep their
+   (already short) durations. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: color, background-color, border-color, box-shadow,
+      opacity, outline-color, fill, stroke !important;
     scroll-behavior: auto !important;
   }
 }

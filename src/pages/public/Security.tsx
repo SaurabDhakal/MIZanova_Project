@@ -1,12 +1,14 @@
 import PublicLayout from '../../components/PublicLayout'
 import {
   CardGrid,
+  Figure,
   Lead,
   NextStep,
   NotThis,
   Points,
   Section,
 } from '../../components/PublicSections'
+import HeroDiagram from '../../components/HeroDiagram'
 
 /**
  * "Security" from the Figma footer.
@@ -28,22 +30,26 @@ export default function Security() {
       subtitle="What actually stops the wrong person seeing a child’s record."
     >
       <Lead>
-        The protection here is not a setting on a screen. Access is decided by
-        the database on every single request, so a bug in the interface cannot
-        hand somebody a record they were never entitled to.
+        Access is decided by the database on every request, not by a setting
+        on a screen &mdash; so a bug in the interface cannot hand somebody a
+        record they were never entitled to.
       </Lead>
+
+      <Figure>
+        <HeroDiagram />
+      </Figure>
 
       <CardGrid
         cards={[
           {
             icon: 'privacy',
             title: 'The database is the boundary',
-            body: 'Row-Level Security policies decide what each request may return. If a screen asked for the wrong thing, the answer would still be nothing.',
+            body: 'The database decides what each request may return. A screen asking for the wrong thing still gets nothing.',
           },
           {
             icon: 'ai',
             title: 'Names come off before the AI',
-            body: 'Names, contact details and dates of birth are stripped before an observation is sent. The exact text that was sent is stored, so the claim is auditable.',
+            body: 'Names, contact details and dates of birth are stripped before an observation is sent — and the exact text that went is stored.',
           },
           {
             icon: 'recordAccess',
@@ -68,26 +74,22 @@ export default function Security() {
 
       <Section title="How it is checked">
         <p>
-          The access rules have an automated test suite that runs against a real
-          database, signing in as each kind of person and asserting what they
-          can and cannot see. It is the refusals that are tested most: a school
-          administrator who cannot read another school’s records, a teacher who
-          cannot browse parents, a specialist who cannot reach a child they are
-          not assigned to.
+          The access rules have a test suite that signs in as each kind of
+          person against a real database. The refusals are tested most: an
+          administrator who cannot read another school, a teacher who cannot
+          browse parents.
         </p>
       </Section>
 
       <NotThis title="What has not been done">
         <p>
-          MiZanova has not had an independent penetration test, and holds no
-          security certification — not ISO 27001, not SOC 2, not IRAP. If your
-          procurement requires one, it does not have it yet, and we would rather
-          you found that out here than in a questionnaire.
+          No independent penetration test, and no certification — not ISO
+          27001, SOC 2 or IRAP. If procurement requires one, better you learn
+          that here than in a questionnaire.
         </p>
         <p>
-          There is no formal incident-response commitment or uptime guarantee
-          published. Those are contractual promises and Special Miles has not
-          made them yet.
+          No published incident-response commitment or uptime guarantee. Those
+          are contractual promises Special Miles has not made yet.
         </p>
       </NotThis>
 
