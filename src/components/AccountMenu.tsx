@@ -149,7 +149,7 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
                     they can hold several. One role and no switcher makes it a
                     label for its own sake. */}
                 {roleLabel && (
-                  <p className="mt-1 inline-flex rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
+                  <p className="pressable mt-1 inline-flex rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
                     {roleLabel}
                   </p>
                 )}

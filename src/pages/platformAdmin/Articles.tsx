@@ -218,14 +218,14 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           disabled={create.isPending}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {create.isPending ? 'Creating…' : 'Create as draft'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -282,7 +282,7 @@ export default function Articles() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
         >
           New
         </button>

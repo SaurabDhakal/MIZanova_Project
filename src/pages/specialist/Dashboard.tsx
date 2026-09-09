@@ -98,7 +98,7 @@ export default function SpecialistDashboard() {
           </p>
           <Link
             to="/specialist/review-queue"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
           >
             Open the review queue
           </Link>

@@ -117,7 +117,7 @@ export default function AcceptInvitation() {
             <button
               type="button"
               onClick={() => navigate(pathForRole(profile.role), { replace: true })}
-              className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+              className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
             >
               Go to {ROLE_CONFIG[profile.role].label}
             </button>
@@ -125,7 +125,7 @@ export default function AcceptInvitation() {
         ) : (
           <Link
             to="/login"
-            className="mt-6 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
+            className="pressable mt-6 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
           >
             Go to sign in
           </Link>
@@ -174,7 +174,7 @@ export default function AcceptInvitation() {
         <button
           type="button"
           onClick={() => navigate(pathForRole(role), { replace: true })}
-          className="mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
+          className="pressable mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
         >
           {MFA_REQUIRED_ROLES.includes(role)
             ? 'Set up two-factor and continue'
@@ -208,13 +208,13 @@ export default function AcceptInvitation() {
             was the defect. */}
         <Link
           to={`/signup?invite=${encodeURIComponent(token)}`}
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Create my account
         </Link>
         <Link
           to={`/login?next=${encodeURIComponent(`/invite/${token}`)}`}
-          className="mt-3 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
+          className="pressable mt-3 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
         >
           I already have one
         </Link>
@@ -247,7 +247,7 @@ export default function AcceptInvitation() {
 
         <Link
           to="/login"
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Sign in as somebody else
         </Link>
@@ -289,7 +289,7 @@ export default function AcceptInvitation() {
         type="button"
         onClick={() => accept.mutate()}
         disabled={accept.isPending}
-        className="mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+        className="pressable mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
       >
         {accept.isPending ? 'Joining…' : `Join ${schoolName}`}
       </button>

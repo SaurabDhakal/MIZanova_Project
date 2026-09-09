@@ -199,7 +199,7 @@ export default function StudentDetail() {
             <button
               type="button"
               onClick={() => setLogging(true)}
-              className="min-h-11 shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+              className="pressable min-h-11 shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
             >
               Log behaviour
             </button>
@@ -283,7 +283,7 @@ export default function StudentDetail() {
             </p>
             <Link
               to={`${roleBase}/students/${studentId}/iep`}
-              className="mt-3 inline-block rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
+              className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
             >
               Open plans
             </Link>

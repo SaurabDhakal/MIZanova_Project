@@ -207,7 +207,7 @@ function AgreementForm({
                   setPeriod('termly')
                   setRate(String((p.termCents ?? 0) / 100))
                 }}
-                className="min-h-11 rounded-btn border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                className="pressable min-h-11 rounded-btn border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
                 {p.name}
               </button>
@@ -301,14 +301,14 @@ function AgreementForm({
         <button
           type="submit"
           disabled={save.isPending}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {save.isPending ? 'Saving…' : current ? 'Change the agreement' : 'Record it'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -469,14 +469,14 @@ function RaiseInvoiceForm({
         <button
           type="submit"
           disabled={raise.isPending}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {raise.isPending ? 'Raising…' : 'Raise as draft'}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -729,7 +729,7 @@ export default function Subscriptions() {
                       onClick={() =>
                         setEditing(editing === school.id ? null : school.id)
                       }
-                      className="min-h-11 rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                      className="pressable min-h-11 rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
                     >
                       {live ? 'Change' : 'Agree a rate'}
                     </button>
@@ -740,7 +740,7 @@ export default function Subscriptions() {
                           onClick={() =>
                             setRaising(raising === school.id ? null : school.id)
                           }
-                          className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                          className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                         >
                           Raise invoice
                         </button>
@@ -748,7 +748,7 @@ export default function Subscriptions() {
                           type="button"
                           disabled={end.isPending}
                           onClick={() => end.mutate(live.id)}
-                          className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
+                          className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
                         >
                           End
                         </button>
@@ -856,7 +856,7 @@ export default function Subscriptions() {
                           type="button"
                           disabled={issue.isPending}
                           onClick={() => issue.mutate(inv.id)}
-                          className="min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                          className="pressable min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                         >
                           Issue
                         </button>

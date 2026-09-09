@@ -171,7 +171,7 @@ export default function IndividualPlanSection() {
                 setOffered(Boolean(p?.is_offered))
                 setEditing(true)
               }}
-              className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+              className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
             >
               {p?.is_offered ? 'Change it' : 'Set a price'}
             </button>
@@ -319,7 +319,7 @@ export default function IndividualPlanSection() {
               <button
                 type="submit"
                 disabled={save.isPending}
-                className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {save.isPending ? 'Saving…' : 'Save the plan'}
               </button>
@@ -329,7 +329,7 @@ export default function IndividualPlanSection() {
                   setEditing(false)
                   setError(null)
                 }}
-                className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
               >
                 Cancel
               </button>

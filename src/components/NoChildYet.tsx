@@ -50,7 +50,7 @@ export default function NoChildYet({
         </p>
         <Link
           to="/parent/link-child"
-          className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+          className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
         >
           Link a child
         </Link>

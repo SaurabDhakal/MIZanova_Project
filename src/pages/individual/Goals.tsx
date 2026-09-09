@@ -180,7 +180,7 @@ export default function Goals() {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground shadow-raised"
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2.5 font-semibold text-foreground shadow-raised"
         >
           Set something new
         </button>
@@ -233,7 +233,7 @@ export default function Goals() {
           onClick={() =>
             add.mutate({ title, why, targetDate: targetDate || null })
           }
-          className="min-h-11 mt-4 block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+          className="pressable min-h-11 mt-4 block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
         >
           {add.isPending ? 'Saving…' : 'Add it'}
         </button>
@@ -450,7 +450,7 @@ function GoalCard({
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               Tell it how it went
             </button>
@@ -458,7 +458,7 @@ function GoalCard({
               type="button"
               disabled={snooze.isPending}
               onClick={() => snooze.mutate(7)}
-              className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+              className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
             >
               Not now
             </button>
@@ -471,7 +471,7 @@ function GoalCard({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 font-semibold text-primary-foreground"
+          className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 font-semibold text-primary-foreground"
         >
           How is it going?
         </button>

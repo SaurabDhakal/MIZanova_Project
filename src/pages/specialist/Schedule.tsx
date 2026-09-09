@@ -227,7 +227,7 @@ export default function Schedule() {
           onClick={() =>
             setBookingStart((current) => (current ? null : nextHalfHour()))
           }
-          className="ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          className="pressable ml-auto inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
         >
           {bookingStart ? 'Close' : '+ Book'}
         </button>

@@ -59,7 +59,7 @@ export default function GoalCard({
           and an "Education plan" card and has to guess whether they are the
           same thing — which is exactly what Saurab asked. */}
       {planLink && (
-        <p className="mt-2 inline-flex items-center gap-1.5 rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
+        <p className="pressable mt-2 inline-flex items-center gap-1.5 rounded-btn bg-primary-subtle px-2 py-0.5 text-xs font-semibold text-primary">
           <Icon name="compliance" className="h-3.5 w-3.5" />
           Education plan · {planLink.area}
         </p>

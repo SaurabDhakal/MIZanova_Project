@@ -75,7 +75,7 @@ export default function HomeStrategiesPanel({
           type="button"
           onClick={() => ask.mutate()}
           disabled={ask.isPending}
-          className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-primary hover:bg-background disabled:opacity-60"
+          className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-primary hover:bg-background disabled:opacity-60"
         >
           {ask.isPending ? 'Thinking…' : 'What could we try?'}
         </button>

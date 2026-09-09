@@ -234,7 +234,7 @@ export default function Book() {
           ].map(([icon, label]) => (
             <li
               key={label}
-              className="inline-flex items-center gap-1.5 rounded-btn bg-primary-subtle px-3 py-1.5 text-sm font-medium text-foreground"
+              className="pressable inline-flex items-center gap-1.5 rounded-btn bg-primary-subtle px-3 py-1.5 text-sm font-medium text-foreground"
             >
               <Icon
                 name={icon as 'tick'}
@@ -645,7 +645,7 @@ export default function Book() {
                 purpose,
               })
             }
-            className="min-h-11 mt-4 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="pressable min-h-11 mt-4 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {ask.isPending ? 'Asking…' : `Ask for ${when(slot)}`}
           </button>

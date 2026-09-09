@@ -111,7 +111,7 @@ export default function LinkChild() {
         <button
           type="submit"
           disabled={redeem.isPending || code.trim() === ''}
-          className="mt-5 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable mt-5 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
         >
           {redeem.isPending ? 'Checking…' : 'Link my child'}
         </button>

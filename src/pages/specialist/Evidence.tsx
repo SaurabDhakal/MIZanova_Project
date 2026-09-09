@@ -158,7 +158,7 @@ export default function Evidence() {
           <button
             type="button"
             onClick={() => begin('new')}
-            className="mt-4 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+            className="pressable mt-4 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
           >
             + Add a strategy
           </button>
@@ -255,14 +255,14 @@ export default function Evidence() {
                 <button
                   type="submit"
                   disabled={save.isPending}
-                  className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
                   {save.isPending ? 'Saving…' : 'Save'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(null)}
-                  className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+                  className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
                 >
                   Cancel
                 </button>
@@ -305,7 +305,7 @@ export default function Evidence() {
                         <button
                           type="button"
                           onClick={() => begin(s)}
-                          className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+                          className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
                         >
                           Revise
                         </button>
@@ -313,7 +313,7 @@ export default function Evidence() {
                           type="button"
                           disabled={retire.isPending}
                           onClick={() => retire.mutate(s)}
-                          className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
+                          className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
                         >
                           Withdraw
                         </button>

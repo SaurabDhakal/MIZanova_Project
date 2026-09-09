@@ -108,7 +108,7 @@ export default function GoalsAndIep() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold text-foreground">Active goals</h2>
         {goals.isSuccess && (
-          <span className="rounded-btn bg-primary-subtle px-2.5 py-1 text-sm font-semibold text-primary">
+          <span className="pressable rounded-btn bg-primary-subtle px-2.5 py-1 text-sm font-semibold text-primary">
             {active.length} active objective{active.length === 1 ? '' : 's'}
           </span>
         )}
@@ -219,7 +219,7 @@ export default function GoalsAndIep() {
                       type="button"
                       onClick={() => acknowledge.mutate(document.id)}
                       disabled={acknowledge.isPending}
-                      className="w-full rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60 sm:w-auto"
+                      className="pressable w-full rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60 sm:w-auto"
                     >
                       Confirm I have read this
                     </button>

@@ -332,7 +332,7 @@ export default function StrategyPanel({
                   feedback.mutate({ strategyId: strategy.id, action: 'applied' })
                 }
                 disabled={feedback.isPending}
-                className="min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 <Icon name="tick" className="h-4 w-4" />
                 Applied

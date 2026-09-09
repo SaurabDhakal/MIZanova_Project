@@ -217,7 +217,7 @@ export default function AskForATimeSection({
             disabled={!specialistId || !slot || ask.isPending}
             aria-describedby={!specialistId || !slot ? 'ask-blocked' : undefined}
             onClick={() => ask.mutate()}
-            className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {ask.isPending ? 'Asking…' : 'Ask for this time'}
           </button>

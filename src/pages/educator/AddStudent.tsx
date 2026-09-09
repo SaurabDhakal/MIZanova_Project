@@ -176,14 +176,14 @@ export default function AddStudent() {
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           <Link
             to="/educator/students"
-            className="rounded-btn border border-border px-4 py-2.5 font-semibold"
+            className="pressable rounded-btn border border-border px-4 py-2.5 font-semibold"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={!valid || create.isPending}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
+            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {create.isPending ? 'Adding…' : 'Add student'}
           </button>

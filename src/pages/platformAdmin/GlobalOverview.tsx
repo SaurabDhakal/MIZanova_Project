@@ -238,7 +238,7 @@ export default function GlobalOverview() {
           </p>
           <Link
             to="/platform-admin/screening"
-            className="mt-3 inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white"
+            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white"
           >
             Open screening
           </Link>
@@ -261,7 +261,7 @@ export default function GlobalOverview() {
           </p>
           <Link
             to="/platform-admin/ai-governance"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
           >
             Open AI governance
           </Link>
@@ -586,7 +586,7 @@ export default function GlobalOverview() {
                 </div>
                 <Link
                   to="/platform-admin/verification"
-                  className="mt-2 inline-flex min-h-11 items-center rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground sm:mt-0 sm:ml-auto"
+                  className="pressable mt-2 inline-flex min-h-11 items-center rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground sm:mt-0 sm:ml-auto"
                 >
                   Verify
                 </Link>

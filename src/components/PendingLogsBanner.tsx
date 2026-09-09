@@ -54,7 +54,7 @@ export default function PendingLogsBanner() {
             type="button"
             onClick={() => void sync()}
             disabled={isSyncing}
-            className="min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable min-h-11 mt-3 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {isSyncing ? 'Sending…' : 'Try sending now'}
           </button>

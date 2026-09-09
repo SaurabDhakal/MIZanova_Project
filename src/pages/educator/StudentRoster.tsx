@@ -173,7 +173,7 @@ export default function StudentRoster() {
                 ? '/school-admin/students/add'
                 : '/educator/students/add'
             }
-            className="shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+            className="pressable shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
           >
             Add student
           </Link>
@@ -325,7 +325,7 @@ export default function StudentRoster() {
                   setAttention('')
                   setSortBy('name')
                 }}
-                className="min-h-11 rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
+                className="pressable min-h-11 rounded-btn border border-border px-3 py-2.5 text-sm font-semibold hover:bg-background"
               >
                 Clear filters
               </button>

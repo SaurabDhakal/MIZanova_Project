@@ -200,14 +200,14 @@ export default function Privacy() {
                                 onSuccess: () => setConfirming(null),
                               })
                             }}
-                            className="min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+                            className="pressable min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white disabled:opacity-60"
                           >
                             {busy ? 'Withdrawing…' : 'Yes, withdraw consent'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirming(null)}
-                            className="min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
+                            className="pressable min-h-11 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground"
                           >
                             Keep it
                           </button>
@@ -233,7 +233,7 @@ export default function Privacy() {
                         type="button"
                         disabled={busy}
                         onClick={() => grant.mutate(type)}
-                        className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+                        className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {busy ? 'Saving…' : 'I give consent'}
                       </button>

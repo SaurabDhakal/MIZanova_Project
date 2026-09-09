@@ -153,7 +153,7 @@ export default function StudentAccountsSection() {
           <button
             type="button"
             onClick={() => setLink(null)}
-            className="min-h-11 mt-3 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+            className="pressable min-h-11 mt-3 rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
           >
             Done
           </button>
@@ -210,7 +210,7 @@ export default function StudentAccountsSection() {
                       setInviting(inviting === s.id ? null : s.id)
                       setError(null)
                     }}
-                    className="inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
+                    className="pressable inline-flex min-h-11 items-center rounded-btn border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground"
                   >
                     {inviting === s.id ? 'Cancel' : 'Invite'}
                   </button>
@@ -255,7 +255,7 @@ export default function StudentAccountsSection() {
                   <button
                     type="submit"
                     disabled={invite.isPending}
-                    className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   >
                     {invite.isPending ? 'Sending…' : 'Send the invitation'}
                   </button>

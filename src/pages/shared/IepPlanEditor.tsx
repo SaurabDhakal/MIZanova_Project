@@ -252,14 +252,14 @@ function GoalCard({
               !form.short_term_goal.trim()
             }
             onClick={() => save.mutate()}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
+            className="pressable min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
           >
             Cancel
           </button>
@@ -276,7 +276,7 @@ function GoalCard({
         </span>
         <h3 className="text-section text-foreground">{goal.area_of_concern}</h3>
         {latestReview && (
-          <span className="rounded-btn bg-primary-subtle px-2.5 py-0.5 text-xs font-semibold text-primary">
+          <span className="pressable rounded-btn bg-primary-subtle px-2.5 py-0.5 text-xs font-semibold text-primary">
             {IEP_OUTCOME_LABEL[latestReview.outcome]} ·{' '}
             {formatDate(latestReview.reviewed_on)}
           </span>
@@ -286,7 +286,7 @@ function GoalCard({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-background"
+              className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-background"
             >
               Edit
             </button>
@@ -294,7 +294,7 @@ function GoalCard({
               type="button"
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
-              className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
             >
               Remove
             </button>
@@ -482,14 +482,14 @@ function RecordReview({
         <button
           type="submit"
           disabled={save.isPending}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {save.isPending ? 'Saving…' : 'Record it'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
         >
           Cancel
         </button>
@@ -609,14 +609,14 @@ function AddGoal({
             !form.shortTerm.trim()
           }
           onClick={() => add.mutate()}
-          className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
           {add.isPending ? 'Adding…' : 'Add'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
+          className="pressable min-h-11 rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
         >
           Cancel
         </button>
@@ -725,7 +725,7 @@ function Participants({
             type="button"
             disabled={!name.trim() || add.isPending}
             onClick={() => add.mutate()}
-            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background disabled:opacity-60"
+            className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-background disabled:opacity-60"
           >
             Add
           </button>
@@ -991,7 +991,7 @@ export default function IepPlanEditor() {
               type="button"
               disabled={save.isPending || details === null}
               onClick={() => save.mutate()}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               {save.isPending ? 'Saving…' : 'Save plan details'}
             </button>
@@ -1059,7 +1059,7 @@ export default function IepPlanEditor() {
               type="button"
               disabled={goals.length === 0}
               onClick={() => setConfirmingAgree(true)}
-              className="min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+              className="pressable min-h-11 mt-4 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
               Agree this plan
             </button>
@@ -1087,14 +1087,14 @@ export default function IepPlanEditor() {
                   type="button"
                   disabled={agree.isPending}
                   onClick={() => agree.mutate()}
-                  className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
                   {agree.isPending ? 'Agreeing…' : 'Yes, agree this plan'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingAgree(false)}
-                  className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
+                  className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground"
                 >
                   Not yet
                 </button>

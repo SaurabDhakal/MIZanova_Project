@@ -228,7 +228,7 @@ export default function HomeObservations() {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="mt-4 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground sm:mt-0 sm:ml-auto sm:w-auto"
+              className="pressable mt-4 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground sm:mt-0 sm:ml-auto sm:w-auto"
             >
               + Log observation
             </button>
@@ -317,7 +317,7 @@ export default function HomeObservations() {
               <button
                 type="submit"
                 disabled={create.isPending || update.isPending}
-                className="min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+                className="pressable min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {editingId
                   ? update.isPending
@@ -333,7 +333,7 @@ export default function HomeObservations() {
                   setEditingId(null)
                   setOpen(false)
                 }}
-                className="min-h-11 rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
+                className="pressable min-h-11 rounded-btn border border-border px-4 py-3 font-semibold text-foreground"
               >
                 Cancel
               </button>
@@ -360,7 +360,7 @@ export default function HomeObservations() {
           <button
             type="button"
             onClick={exportObservations}
-            className="ml-auto inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
+            className="pressable ml-auto inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-background"
           >
             Export as a spreadsheet
           </button>

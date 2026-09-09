@@ -280,7 +280,7 @@ export default function BehaviourLogModal({
               <button
                 type="button"
                 onClick={timer.reset}
-                className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-medium"
+                className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-medium"
               >
                 Clear
               </button>
@@ -294,7 +294,7 @@ export default function BehaviourLogModal({
                     ? timer.stop
                     : timer.resume
               }
-              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               {!timer.started ? 'Start' : timer.running ? 'Stop' : 'Resume'}
             </button>
@@ -527,7 +527,7 @@ export default function BehaviourLogModal({
             <button
               type="button"
               onClick={close}
-              className="min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
+              className="pressable min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
             >
               Done
             </button>
@@ -536,7 +536,7 @@ export default function BehaviourLogModal({
               <button
                 type="button"
                 onClick={close}
-                className="min-h-11 flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
+                className="pressable min-h-11 flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
               >
                 Discard
               </button>
@@ -544,7 +544,7 @@ export default function BehaviourLogModal({
                 type="button"
                 onClick={() => save.mutate()}
                 disabled={!canSave}
-                className="min-h-11 flex-[2] rounded-btn bg-success-strong px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="pressable min-h-11 flex-[2] rounded-btn bg-success-strong px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {save.isPending ? 'Saving…' : 'Save log'}
               </button>

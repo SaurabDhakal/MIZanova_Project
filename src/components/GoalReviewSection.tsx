@@ -145,7 +145,7 @@ export default function GoalReviewSection({
                         type="button"
                         disabled={ask.isPending}
                         onClick={() => ask.mutate(goal.id)}
-                        className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         {ask.isPending ? 'Asking…' : 'Send the request'}
                       </button>
@@ -155,7 +155,7 @@ export default function GoalReviewSection({
                           setOpenFor(null)
                           setNote('')
                         }}
-                        className="inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
+                        className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground"
                       >
                         Back
                       </button>

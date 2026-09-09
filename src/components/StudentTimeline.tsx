@@ -480,7 +480,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
         >
           See {hidden} more on this page
         </button>
@@ -490,7 +490,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
         <button
           type="button"
           onClick={() => setShowAll(false)}
-          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
         >
           Show fewer
         </button>
@@ -502,7 +502,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             type="button"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Newer
           </button>
@@ -510,7 +510,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
             type="button"
             disabled={!timeline.data.hasMore}
             onClick={() => setPage((p) => p + 1)}
-            className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
+            className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-50"
           >
             Older
           </button>

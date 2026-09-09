@@ -259,14 +259,14 @@ export default function Compliance() {
                                     consentType: type,
                                   })
                                 }
-                                className="min-h-11 rounded-btn bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                                className="pressable min-h-11 rounded-btn bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                               >
                                 Yes, record it
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setRecording(null)}
-                                className="min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-foreground"
+                                className="pressable min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-foreground"
                               >
                                 Cancel
                               </button>
@@ -276,7 +276,7 @@ export default function Compliance() {
                           <button
                             type="button"
                             onClick={() => setRecording(key)}
-                            className="min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-muted-foreground"
+                            className="pressable min-h-11 rounded-btn border border-border px-2 py-1 text-xs font-semibold text-muted-foreground"
                           >
                             Not on record
                           </button>

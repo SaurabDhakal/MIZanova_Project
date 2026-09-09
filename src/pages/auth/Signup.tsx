@@ -134,7 +134,7 @@ export default function Signup() {
         </p>
         <Link
           to="/link"
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Try a different code
         </Link>
@@ -158,7 +158,7 @@ export default function Signup() {
         </p>
         <Link
           to="/login"
-          className="mt-6 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
+          className="pressable mt-6 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
         >
           Go to sign in
         </Link>
@@ -448,13 +448,13 @@ export default function Signup() {
 
         <Link
           to={`/login?next=${encodeURIComponent(back)}`}
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Sign in and continue
         </Link>
         <Link
           to="/forgot-password"
-          className="mt-3 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
+          className="pressable mt-3 block w-full rounded-btn border border-border px-4 py-3 text-center font-semibold text-foreground"
         >
           I have forgotten my password
         </Link>
@@ -493,7 +493,7 @@ export default function Signup() {
 
         <Link
           to="/login"
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Go to sign in
         </Link>
@@ -622,7 +622,7 @@ export default function Signup() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
+          className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
         >
           {submitting
             ? "Creating account…"

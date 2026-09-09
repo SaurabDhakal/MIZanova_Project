@@ -208,7 +208,7 @@ export default function GuardianAccessSection({
           <button
             type="submit"
             disabled={create.isPending}
-            className="min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
+            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
           >
             {create.isPending ? 'Creating…' : 'Create code'}
           </button>
@@ -255,7 +255,7 @@ export default function GuardianAccessSection({
                   .then(() => showToast('Code copied.'))
                   .catch(() => showToast('Could not copy — select it and copy manually.'))
               }}
-              className="min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-primary"
+              className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-primary"
             >
               Copy code
             </button>
@@ -271,7 +271,7 @@ export default function GuardianAccessSection({
                   .then(() => showToast('Link copied — paste it into your email.'))
                   .catch(() => showToast('Could not copy.'))
               }}
-              className="min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               Copy sign-up link
             </button>

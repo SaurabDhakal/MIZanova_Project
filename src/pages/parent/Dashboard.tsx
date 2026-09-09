@@ -386,7 +386,7 @@ export default function ParentDashboard() {
           )}
           <Link
             to="/parent/observations"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+            className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
           >
             Log an observation
           </Link>
@@ -438,7 +438,7 @@ export default function ParentDashboard() {
         <button
           type="button"
           onClick={() => setShowAllShared(true)}
-          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
         >
           See {hiddenShared} earlier update{hiddenShared === 1 ? '' : 's'}
         </button>
@@ -448,7 +448,7 @@ export default function ParentDashboard() {
         <button
           type="button"
           onClick={() => setShowAllShared(false)}
-          className="mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
         >
           Show fewer
         </button>

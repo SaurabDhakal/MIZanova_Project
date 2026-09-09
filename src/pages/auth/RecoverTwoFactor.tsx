@@ -62,7 +62,7 @@ export default function RecoverTwoFactor() {
 
         <Link
           to="/account/security"
-          className="mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
+          className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
         >
           Set up a new authenticator
         </Link>
@@ -119,7 +119,7 @@ export default function RecoverTwoFactor() {
         <button
           type="submit"
           disabled={submitting || code.trim() === ''}
-          className="w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+          className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
         >
           {submitting ? 'Checking…' : 'Remove my authenticator'}
         </button>

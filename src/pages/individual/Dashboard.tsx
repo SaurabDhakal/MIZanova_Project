@@ -240,7 +240,7 @@ export default function IndividualHome() {
                 month: 'long',
               })}
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-balance text-foreground md:text-4xl">
+            <h1 className="text-title mt-2 text-balance text-foreground">
               {firstName ? `Hello, ${firstName}` : 'Hello'}
             </h1>
             <p className="mt-2 max-w-prose text-foreground">
@@ -311,7 +311,7 @@ export default function IndividualHome() {
             </div>
             <Link
               to={nextThing.to}
-              className="shrink-0 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+              className="pressable shrink-0 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
             >
               {nextThing.cta}
             </Link>
@@ -499,7 +499,7 @@ export default function IndividualHome() {
             </p>
             <Link
               to="/individual/academy"
-              className="mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+              className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
             >
               Look at the courses
             </Link>

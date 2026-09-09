@@ -255,7 +255,7 @@ export default function Verification() {
                 type="button"
                 onClick={() => verify.mutate({ id: person.id, verified: true })}
                 disabled={verify.isPending}
-                className="mt-3 w-full rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60 sm:mt-0 sm:ml-auto sm:w-auto"
+                className="pressable mt-3 w-full rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60 sm:mt-0 sm:ml-auto sm:w-auto"
               >
                 Verify
               </button>
@@ -361,14 +361,14 @@ export default function Verification() {
                         type="button"
                         onClick={() => resetMfa.mutate(person.id)}
                         disabled={resetMfa.isPending}
-                        className="min-h-11 rounded-btn bg-danger-strong px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        className="pressable min-h-11 rounded-btn bg-danger-strong px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {resetMfa.isPending ? 'Clearing…' : 'Yes, clear it'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingReset(null)}
-                        className="min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                        className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                       >
                         Cancel
                       </button>
@@ -396,7 +396,7 @@ export default function Verification() {
                     verify.mutate({ id: person.id, verified: false })
                   }
                   disabled={verify.isPending}
-                  className="min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
+                  className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
                 >
                   Withdraw verification
                 </button>

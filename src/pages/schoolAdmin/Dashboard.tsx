@@ -80,7 +80,7 @@ export default function SchoolAdminDashboard() {
           )}
           <Link
             to="/school-admin/safeguarding"
-            className="mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+            className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
           >
             Review them
           </Link>

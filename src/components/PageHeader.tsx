@@ -35,6 +35,18 @@ export default function PageHeader({
   actions?: ReactNode
 }) {
   return (
+    /* NO GRADIENT ACCENT HERE, AND THAT WAS TRIED.
+       The public mastheads carry a brand-gradient dash under the title and it
+       was added here to match. It came straight back out: only twenty of the
+       forty screens in this product render PageHeader — the rest open with
+       their own <h1> — so the accent appeared on half the app and not the
+       other half, which is a worse result than not having it at all.
+
+       It is also the wrong instinct for this surface. A marketing page is
+       trying to be memorable; a classroom screen is trying to be read quickly
+       by somebody with thirty children in front of them. The brand belongs in
+       the precise things here — the 44px targets, the press response, the
+       tokens — not in decoration above the fold. */
     <header className="mb-6 border-b border-border pb-5">
       {/*
         The actions sit on the heading's row from `sm` up and wrap beneath it on

@@ -85,7 +85,7 @@ export default function ReviewEvents({
                 <button
                   type="submit"
                   disabled={review.isPending || note.trim() === ''}
-                  className="min-h-11 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  className="pressable min-h-11 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
                   {review.isPending
                     ? 'Recording…'
@@ -97,7 +97,7 @@ export default function ReviewEvents({
                     setOpenKind(null)
                     setNote('')
                   }}
-                  className="min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold"
+                  className="pressable min-h-11 rounded-btn border border-border px-3 py-1.5 text-sm font-semibold"
                 >
                   Cancel
                 </button>
