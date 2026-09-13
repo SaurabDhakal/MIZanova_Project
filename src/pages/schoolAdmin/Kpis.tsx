@@ -11,6 +11,7 @@ import {
   ErrorState,
   LoadingCards,
 } from '../../components/QueryState'
+import { PrintButton, PrintHeader } from '../../components/PrintHeader'
 
 /**
  * Performance KPIs - docs/Figma Pages Design/SC2-Performance KPIs Dashboard.png.
@@ -46,7 +47,7 @@ function StatCard({
         ? 'text-success-foreground'
         : 'text-foreground'
   return (
-    <div className="rounded-card border border-border bg-card shadow-raised p-5">
+    <div className="print-keep rounded-card border border-border bg-card shadow-raised p-5">
       <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </p>
@@ -68,7 +69,7 @@ function WeeklyBars({ rows }: { rows: WeeklyRow[] }) {
   const max = Math.max(1, ...rows.map((r) => r.logs))
 
   return (
-    <div className="rounded-card border border-border bg-card shadow-raised p-5">
+    <div className="print-keep rounded-card border border-border bg-card shadow-raised p-5">
       <p className="font-semibold text-foreground">Logs per week</p>
       <p className="mt-0.5 text-sm text-muted-foreground">
         Last 12 weeks. Red portion is incidents flagged for safeguarding.
@@ -199,12 +200,17 @@ export default function Kpis() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Performance KPIs</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          Counted live from your school&rsquo;s records. No figure here is
-          stored, estimated or projected.
-        </p>
+      <PrintHeader title="Performance KPIs" />
+
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-title text-foreground">Performance KPIs</h1>
+          <p className="mt-1 max-w-prose text-muted-foreground">
+            Counted live from your school&rsquo;s records. No figure here is
+            stored, estimated or projected.
+          </p>
+        </div>
+        <PrintButton />
       </header>
 
       {/* --- Safeguarding responsiveness ---------------------------------- */}
@@ -289,9 +295,7 @@ export default function Kpis() {
       )}
 
       {/* --- Coverage ------------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-section text-foreground">
-        Coverage
-      </h2>
+      <h2 className="mt-10 mb-3 text-section text-foreground">Coverage</h2>
       <div className="grid gap-5 sm:grid-cols-2">
         <StatCard
           label="Students with a guardian connected"
@@ -308,9 +312,7 @@ export default function Kpis() {
       </div>
 
       {/* --- AI ------------------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-section text-foreground">
-        AI oversight
-      </h2>
+      <h2 className="mt-10 mb-3 text-section text-foreground">AI oversight</h2>
 
       {ai.isError ? (
         /* This page opens by promising that nothing on it is "stored,
@@ -353,7 +355,7 @@ export default function Kpis() {
       )}
 
       {/* --- What is deliberately not here ---------------------------------- */}
-      <div className="mt-10 rounded-card border border-border bg-card shadow-raised p-5">
+      <div className="print-keep mt-10 rounded-card border border-border bg-card shadow-raised p-5">
         <h2 className="font-semibold text-foreground">
           What this page does not show, and why
         </h2>
