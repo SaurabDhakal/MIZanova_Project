@@ -17,6 +17,7 @@ import {
 } from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import NotBuiltYet from '../../components/NotBuiltYet'
+import { PrintButton, PrintHeader } from '../../components/PrintHeader'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -116,15 +117,20 @@ export default function Compliance() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="text-title text-foreground">Compliance</h1>
-        <p className="mt-1 max-w-prose text-muted-foreground">
-          What each family has agreed to, and what is missing.
-        </p>
+      <PrintHeader title="Compliance record" />
+
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-title text-foreground">Compliance</h1>
+          <p className="mt-1 max-w-prose text-muted-foreground">
+            What each family has agreed to, and what is missing.
+          </p>
+        </div>
+        <PrintButton />
       </header>
 
       <div className="mb-6 grid gap-5 sm:grid-cols-3">
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
+        <div className="print-keep rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Students
           </p>
@@ -132,7 +138,7 @@ export default function Compliance() {
             {students.data.length}
           </p>
         </div>
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
+        <div className="print-keep rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             AI consent given
           </p>
@@ -147,7 +153,7 @@ export default function Compliance() {
             Teachers get no AI suggestions for the rest.
           </p>
         </div>
-        <div className="rounded-card border border-border bg-card shadow-raised p-5">
+        <div className="print-keep rounded-card border border-border bg-card shadow-raised p-5">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             No consent on record
           </p>
