@@ -52,6 +52,7 @@ export default function ConfirmDestructive({
   confirmPhrase,
   confirmLabel,
   tone = 'danger',
+  note,
   pending = false,
   error = null,
   onConfirm,
@@ -65,6 +66,20 @@ export default function ConfirmDestructive({
   confirmLabel: string
   /** 'danger' destroys something. 'primary' cannot be undone but is not a loss. */
   tone?: 'danger' | 'primary'
+  /**
+   * An optional line of reasoning, recorded with the action.
+   *
+   * "Are you sure?" and "why?" are asked at the same moment, and the person who
+   * knows the answer is the one standing here. Asked afterwards on a separate
+   * screen it never gets written down. Never required: an action held up by a
+   * text box teaches people to type a full stop and move on.
+   */
+  note?: {
+    label: string
+    placeholder?: string
+    value: string
+    onChange: (value: string) => void
+  }
   pending?: boolean
   error?: string | null
   onConfirm: () => void
@@ -76,6 +91,7 @@ export default function ConfirmDestructive({
   const [typed, setTyped] = useState('')
   const titleId = useId()
   const phraseId = useId()
+  const noteId = useId()
 
   /* The hook opens it; this only moves focus to the field somebody must type
      in, or to Cancel when there is none. */
@@ -137,6 +153,27 @@ export default function ConfirmDestructive({
               autoComplete="off"
               spellCheck={false}
               className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+            />
+          </div>
+        )}
+
+        {note && (
+          <div className="mt-4">
+            <label
+              htmlFor={noteId}
+              className="block text-sm font-semibold text-foreground"
+            >
+              {note.label}{' '}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </label>
+            <input
+              id={noteId}
+              value={note.value}
+              onChange={(e) => note.onChange(e.target.value)}
+              placeholder={note.placeholder}
+              className="mt-1.5 min-h-11 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
             />
           </div>
         )}

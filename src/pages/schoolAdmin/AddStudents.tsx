@@ -5,6 +5,10 @@ import {
   createStudents,
   fetchExistingStudentRefs,
   queryKeys,
+  findJustCreatedStudent,
+  saveStudentProfile,
+  EMPTY_PROFILE,
+  type StudentProfile,
   type ImportOutcome,
 } from '../../lib/api'
 import {
@@ -15,11 +19,13 @@ import {
   readDate,
   readFailureMessage,
   templateCsv,
+  templateWorkbook,
   toRows,
   type CheckedRow,
 } from '../../lib/studentImport'
 import { ErrorState } from '../../components/QueryState'
 import Icon from '../../components/Icon'
+import AboutThisChild from '../../components/AboutThisChild'
 import { showToast } from '../../lib/toast'
 import { useAuth } from '../../lib/auth'
 
@@ -85,6 +91,21 @@ export default function AddStudents() {
     date_of_birth: '',
   })
   const [pasted, setPasted] = useState('')
+  /**
+   * What the office knows about this one child — db/127.
+   *
+   * ONLY ON THE SINGLE-STUDENT FORM, and deliberately not on the paste or file
+   * paths. docs/19 §5.1 is blunt that the office typing six hundred names knows
+   * none of this; it is learned in the second week by the person in the room.
+   * Five more columns in the import would be five more empty columns.
+   *
+   * Typing ONE child is a different act. Somebody doing that is usually looking
+   * at a form a family filled in, and the educator's own add-student screen has
+   * asked this since db/127. There was no reason for the same question to be
+   * absent here except that nobody had put it in.
+   */
+  const [about, setAbout] = useState<StudentProfile>(EMPTY_PROFILE)
+  const [aboutOpen, setAboutOpen] = useState(false)
 
   const existing = useQuery({
     queryKey: queryKeys.existingStudentRefs,
@@ -95,7 +116,12 @@ export default function AddStudents() {
     setReadError(null)
     const { rows: parsed, usedHeader, unknownHeaders } = toRows(grid)
     if (parsed.length === 0) {
-      setReadError('There were no rows in that.')
+      setReadError(
+        usedHeader
+          ? 'The column headings were read, but there are no students under ' +
+              'them yet. If this is the template, fill in a row and try again.'
+          : 'There were no rows in that.',
+      )
       return
     }
     const messages: string[] = []
@@ -139,9 +165,15 @@ export default function AddStudents() {
     }
   }
 
+  /** Anything at all typed into the About section. */
+  const hasAbout =
+    Boolean(about.interests || about.strengths || about.finds_hard) ||
+    about.helps.length > 0 ||
+    about.triggers.length > 0
+
   const importer = useMutation({
-    mutationFn: () =>
-      createStudents(
+    mutationFn: async () => {
+      const result = await createStudents(
         rows
           .filter((r) => r.verdict.status === 'ready')
           .map((r) => ({
@@ -155,7 +187,42 @@ export default function AddStudents() {
         // RLS re-checks this against my_school_id(), so it is the caller
         // stating which school, not the caller choosing.
         profile!.school_id!,
-      ),
+      )
+
+      /*
+       * SECOND, AND NEVER ALLOWED TO UNDO THE FIRST — db/127.
+       *
+       * Getting the child onto the roll is the thing that must succeed. If the
+       * profile write fails, the child is still there and the office is told
+       * about the part that did not land — rather than being shown one error
+       * that makes it look as though nothing was created and inviting them to
+       * type it all again. The educator's add-student screen says the same.
+       *
+       * Only when exactly one child was created. That is the single-student
+       * form by definition; a pasted list has no About section to have filled
+       * in, so there is nothing to attach and no row to attach it to.
+       */
+      if (hasAbout && result.created === 1) {
+        try {
+          const id = await findJustCreatedStudent({
+            firstName: one.first_name.trim(),
+            lastName: one.last_name.trim(),
+            externalRef: one.external_ref.trim() || null,
+          })
+          if (!id) throw new Error('The new record could not be found.')
+          await saveStudentProfile(id, about)
+        } catch (error) {
+          showToast(
+            `${one.first_name.trim() || 'The student'} was added, but the notes about them were not saved. You can add them from their record. (${
+              error instanceof Error ? error.message : 'Unknown error'
+            })`,
+            'error',
+          )
+        }
+      }
+
+      return result
+    },
     onSuccess: (result) => {
       setOutcome(result)
       setStage('done')
@@ -168,16 +235,43 @@ export default function AddStudents() {
     onError: (error) => showToast(error.message, 'error'),
   })
 
-  const downloadTemplate = () => {
-    const url = URL.createObjectURL(
-      new Blob([templateCsv()], { type: 'text/csv;charset=utf-8' }),
-    )
+  /**
+   * Hand the file over.
+   *
+   * The revoke is deferred by a tick rather than called on the next line. The
+   * click starts the save, but the browser has not necessarily finished
+   * reading the blob when the statement after it runs, and revoking a URL out
+   * from under a download in progress can cancel it. Nothing here is large
+   * enough for it to have bitten yet, and the workbook is bigger than the CSV.
+   */
+  const handOver = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'mizanova-student-template.csv'
+    link.download = filename
     link.click()
-    URL.revokeObjectURL(url)
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
+
+  const downloadTemplate = async () => {
+    setReadError(null)
+    try {
+      handOver(await templateWorkbook(), 'mizanova-students.xlsx')
+    } catch {
+      // exceljs is loaded on demand, so this is a failed chunk fetch — offline,
+      // or a deploy mid-session. The CSV needs nothing but this file.
+      setReadError(
+        'The Excel template could not be built just now. Use the CSV instead — ' +
+          'it has the same columns.',
+      )
+    }
+  }
+
+  const downloadCsvTemplate = () =>
+    handOver(
+      new Blob([templateCsv()], { type: 'text/csv;charset=utf-8' }),
+      'mizanova-students.csv',
+    )
 
   const counts = {
     ready: rows.filter((r) => r.verdict.status === 'ready').length,
@@ -190,6 +284,8 @@ export default function AddStudents() {
     setRows([])
     setOutcome(null)
     setPasted('')
+    setAbout(EMPTY_PROFILE)
+    setAboutOpen(false)
     setOne({
       first_name: '',
       last_name: '',
@@ -306,6 +402,50 @@ export default function AddStudents() {
               </label>
             </div>
 
+            {/* Optional, and closed until asked for. A page whose first section
+                is five required fields plus five open-ended ones reads as a
+                long form; this is one line until somebody wants it. */}
+            {!aboutOpen ? (
+              <button
+                type="button"
+                onClick={() => setAboutOpen(true)}
+                className="pressable mt-4 min-h-11 w-full rounded-btn border border-dashed border-border px-4 text-left"
+              >
+                <span className="text-sm font-semibold text-foreground">
+                  Anything about {one.first_name.trim() || 'them'} worth writing
+                  down?
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Optional. What they love, are good at and find hard &mdash;
+                  the part that makes suggestions about this child rather than
+                  about children. It can be added later from their record.
+                </span>
+              </button>
+            ) : (
+              <div className="mt-4 rounded-btn border border-border p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    About {one.first_name.trim() || 'them'}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setAboutOpen(false)}
+                    className="min-h-11 px-2 text-xs text-muted-foreground hover:underline"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <AboutThisChild
+                    idPrefix="admin-add-one"
+                    firstName={one.first_name.trim() || undefined}
+                    value={about}
+                    onChange={setAbout}
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               disabled={!one.first_name.trim() || !one.last_name.trim()}
@@ -389,13 +529,52 @@ export default function AddStudents() {
               </button>
               <button
                 type="button"
-                onClick={downloadTemplate}
+                onClick={() => void downloadTemplate()}
                 className="pressable min-h-11 inline-flex items-center gap-2 rounded-btn border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
               >
                 <Icon name="audit" className="h-4 w-4" />
                 Download the template
               </button>
+              {/* Second, and quieter. The workbook is the one to use — its
+                  birth-date column is formatted as a date, which is what stops
+                  a DD/MM column half-importing. The CSV is here for whoever
+                  does not have Excel. */}
+              <button
+                type="button"
+                onClick={downloadCsvTemplate}
+                className="min-h-11 inline-flex items-center px-1 text-sm font-medium text-primary hover:underline"
+              >
+                or as CSV
+              </button>
             </div>
+
+            {/* On the page, not in the file. A line of guidance inside a CSV is
+                parsed as a student, and the old template's three sample rows —
+                Ada Lovelace, Alan Turing, Grace Hopper — would have been
+                enrolled by anybody who typed underneath them. */}
+            <dl className="mt-4 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[auto_1fr]">
+              <dt className="font-semibold text-foreground">Needed</dt>
+              <dd className="text-muted-foreground">
+                First name and surname. Nothing else is required.
+              </dd>
+              <dt className="font-semibold text-foreground">Optional</dt>
+              <dd className="text-muted-foreground">
+                Year level, Student ID, date of birth. A Student ID is what
+                stops the same child being added twice.
+              </dd>
+              <dt className="font-semibold text-foreground">Dates</dt>
+              <dd className="text-muted-foreground">
+                Write{' '}
+                <span className="font-medium text-foreground">2015-03-05</span>{' '}
+                for the 5th of March. In the Excel template the column is
+                already formatted as a date, so 5/3/2015 is fine there.{' '}
+                <span className="font-medium text-foreground">
+                  05/03/2015 in a CSV is refused
+                </span>{' '}
+                &mdash; it could be the 5th of March or the 3rd of May, and
+                guessing would put a wrong birthday on a child.
+              </dd>
+            </dl>
 
             {readError && (
               <p role="alert" className="mt-3 text-sm text-danger-foreground">
@@ -591,12 +770,26 @@ export default function AddStudents() {
             </button>
           </div>
 
-          <p className="mt-4 max-w-prose text-xs text-muted-foreground">
-            Adding a child creates the record. It does not assign a teacher or
-            connect a family — those are separate on purpose, because an
-            assignment is what actually grants access to a record. Use Directory
-            &amp; Access for both.
-          </p>
+          {/* WHAT IS STILL MISSING, NAMED. The first two were already here.
+              The third was not, and it is the one nobody would guess: the AI
+              cannot tell a child's interests from an incident report, so a
+              school that never fills this in gets general advice forever and
+              has no way to learn why. */}
+          <div className="mt-4 max-w-prose space-y-2 text-xs text-muted-foreground">
+            <p>
+              Adding a child creates the record. It does not assign a teacher or
+              connect a family &mdash; those are separate on purpose, because an
+              assignment is what actually grants access to a record. Use
+              Directory &amp; Access for both.
+            </p>
+            <p>
+              It also does not say anything about who they are. What a child
+              loves, is good at and finds hard lives on their record under
+              &ldquo;About&rdquo;, and it is what turns general advice into
+              advice about them. Whoever teaches them is usually the one who
+              knows it, a fortnight from now.
+            </p>
+          </div>
         </section>
       )}
     </div>

@@ -11,6 +11,7 @@ import { EmptyState, ErrorState } from '../../components/QueryState'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
 import BehaviourLogModal from '../../components/BehaviourLogModal'
+import StudentEnrolment from '../../components/StudentEnrolment'
 import Spinner from '../../components/Spinner'
 import Icon from '../../components/Icon'
 import Avatar from '../../components/Avatar'
@@ -248,6 +249,11 @@ export default function StudentDetail() {
             </dd>
           </div>
         </dl>
+
+        {/* db/135. Renders a banner when this child has left, and — for the
+            office only — the control that records it. Everything else on this
+            page keeps working for a departed student; that is the point. */}
+        <StudentEnrolment student={s} />
       </header>
 
       {/* --- One child, one story ----------------------------------------

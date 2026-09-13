@@ -15,6 +15,7 @@ import Avatar from '../../components/Avatar'
 import Icon from '../../components/Icon'
 import TodayContext from '../../components/TodayContext'
 import EducatorSchoolContext from '../../components/EducatorSchoolContext'
+import PastStudents from '../../components/PastStudents'
 
 /**
  * Student roster — docs/Figma Pages Design/Student Roster Table.png.
@@ -478,6 +479,11 @@ export default function StudentRoster() {
           </p>
         </>
       )}
+
+      {/* db/135. The archive, for the office only — an educator's roster is
+          their assignments, and children they no longer teach are not their
+          work. Renders nothing at all until a school has a leaver. */}
+      {isSchoolAdmin && <PastStudents />}
     </div>
   )
 }

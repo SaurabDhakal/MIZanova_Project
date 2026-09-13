@@ -166,8 +166,22 @@ export function toRows(grid: string[][]): {
   if (grid.length === 0)
     return { rows: [], usedHeader: false, unknownHeaders: [] }
 
+  /*
+   * A real school spreadsheet does not have tidy headers. It has "First Name*",
+   * "DOB (dd/mm/yyyy)" and "Year Level (K-6)", because whoever made it was
+   * annotating the column for the person filling it in. Matching those against
+   * the alias map literally fails, and the import then reports the column as
+   * ignored and every name as missing — which reads as the file being wrong
+   * when it is the reader being fussy.
+   *
+   * So the hint is stripped: a trailing parenthetical, and any asterisk. This
+   * is also what lets our own template label its columns "Date of birth
+   * (YYYY-MM-DD)" and still be read by the thing that produced it.
+   */
   const normalise = (s: string) =>
     s
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/[*†‡]/g, ' ')
       .trim()
       .toLowerCase()
       .replace(/[_\s]+/g, ' ')
@@ -436,14 +450,169 @@ function cellText(value: unknown): string {
   return String(value)
 }
 
-/** The file a school is given to fill in, so the columns are never in doubt. */
+/**
+ * The columns as a person reads them, in the order the importer expects.
+ *
+ * NOT the database names. `external_ref` means nothing to a school office, and
+ * the form on the same page already calls that field "Student ID" — one thing
+ * with two names, and the one printed in the template was the wrong one.
+ *
+ * Every heading here is in HEADER_ALIASES, so a file produced from this
+ * template is read back by the importer that produced it. The parenthetical on
+ * the date is stripped by `normalise` before matching, which is what makes a
+ * self-documenting heading possible at all.
+ */
+const TEMPLATE_HEADINGS = [
+  'First name',
+  'Surname',
+  'Year level',
+  'Student ID',
+  'Date of birth (YYYY-MM-DD)',
+] as const
+
+/**
+ * What the person filling this in needs to know, in the file itself.
+ *
+ * Kept off the sheet the importer reads — see templateWorkbook. A line of
+ * guidance in row 1 of the data sheet would be parsed as a student.
+ */
+const TEMPLATE_GUIDANCE: [string, string][] = [
+  ['First name', 'Required.'],
+  ['Surname', 'Required.'],
+  ['Year level', 'Optional. Whatever your school writes: 4, K, Prep, Year 7.'],
+  [
+    'Student ID',
+    'Optional. Your own roll number for this child, if you have one. ' +
+      'It is what stops the same child being added twice.',
+  ],
+  [
+    'Date of birth (YYYY-MM-DD)',
+    'Optional, and the one to be careful with. This column is already ' +
+      'formatted as a date, so type it however you normally would — ' +
+      '5/3/2015 is fine — and Excel will store it correctly. In a plain ' +
+      'CSV there is no such column type, so write it as 2015-03-05.',
+  ],
+  [
+    '',
+    'Why the format matters: 05/03/2015 on its own could be the 5th of March ' +
+      'or the 3rd of May, and nothing in the cell says which. Rather than ' +
+      'guess a birthday onto a child, the import refuses it and asks for ' +
+      'YYYY-MM-DD. Dates where the day is 13 or higher are unambiguous and ' +
+      'are read without complaint — which is why a file can half-import.',
+  ],
+  [
+    '',
+    'Nothing is created until you have seen every row and what will happen ' +
+      'to it. Extra columns are ignored, not rejected.',
+  ],
+]
+
+/**
+ * The file a school is given to fill in, so the columns are never in doubt.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT WAS WRONG WITH THE ONE BEFORE IT
+ * ---------------------------------------------------------------------------
+ * It had the database's column names as headings, and three sample rows:
+ *
+ *     first_name,last_name,year_level,external_ref,date_of_birth
+ *     Ada,Lovelace,4,4001,2015-12-10
+ *
+ * Ada Lovelace, Alan Turing and Grace Hopper are indistinguishable from real
+ * students in a file a school office is filling in. Somebody types their own
+ * rows underneath and imports all three — and they PASS, because they are
+ * perfectly valid students. The template's own examples would have been
+ * enrolled.
+ *
+ * Nothing said which columns were required, and nothing said the date format
+ * was mandatory, which is the expensive one. An Australian school pasting its
+ * own DD/MM/YYYY column gets days 13-31 through silently and days 1-12
+ * refused: roughly two thirds in, one third out, for no reason the person can
+ * see.
+ *
+ * There are no sample rows here. The guidance lives where it cannot be
+ * imported.
+ */
 export function templateCsv(): string {
-  return [
-    IMPORT_COLUMNS.join(','),
-    'Ada,Lovelace,4,4001,2015-12-10',
-    'Alan,Turing,3,4002,2016-06-23',
-    'Grace,Hopper,4,4003,',
-  ].join('\n')
+  const escape = (cell: string) =>
+    /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell
+
+  /*
+   * HEADINGS AND NOTHING ELSE, and that is the whole point.
+   *
+   * A first draft of this put the guidance in the file, below a blank line. It
+   * reads fine in Excel and it is a trap: a CSV has no comment convention, so
+   * feeding this template back into the importer that produced it would have
+   * offered to create a student called "First name Required." — the identical
+   * fault to the Ada Lovelace rows it replaced, committed while fixing them.
+   *
+   * So the notes live where they cannot become children: on the page beside
+   * the download button, and on the workbook's second sheet, which
+   * parseSpreadsheet never reads.
+   */
+  return TEMPLATE_HEADINGS.map(escape).join(',') + '\n'
+}
+
+/**
+ * The same thing as a real workbook, which is the one a school should use.
+ *
+ * ---------------------------------------------------------------------------
+ * THE DATE COLUMN IS THE WHOLE REASON THIS EXISTS
+ * ---------------------------------------------------------------------------
+ * Sheet 1's birth-date column is formatted as a date. Excel then stores
+ * whatever is typed as a real date value rather than text, `parseSpreadsheet`
+ * gets a Date back from exceljs, and `cellText` formats it as ISO. So a school
+ * secretary types 5/3/2015 the way they always have, and the ambiguity that
+ * refuses a third of a CSV import never arises. cellText's own comment made
+ * this promise already: "a properly typed spreadsheet column imports without
+ * the school having to reformat anything."
+ *
+ * SHEET ORDER IS LOAD-BEARING. `parseSpreadsheet` reads `worksheets[0]`, so the
+ * data sheet must be first and the notes second. Reversing them would import
+ * the instructions as children.
+ */
+export async function templateWorkbook(): Promise<Blob> {
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'MiZanova'
+  workbook.created = new Date()
+
+  const sheet = workbook.addWorksheet('Students')
+  sheet.addRow([...TEMPLATE_HEADINGS])
+
+  const header = sheet.getRow(1)
+  header.font = { bold: true }
+  header.alignment = { vertical: 'middle' }
+  header.height = 22
+  // Frozen so the headings stay visible on the four hundredth row, which is
+  // where somebody loses track of which column they are in.
+  sheet.views = [{ state: 'frozen', ySplit: 1 }]
+
+  sheet.columns = [
+    { width: 18 },
+    { width: 18 },
+    { width: 12 },
+    { width: 14 },
+    { width: 24 },
+  ]
+
+  // The promise above, in one line. Applied to the column rather than to cells
+  // so it holds for every row the school adds.
+  sheet.getColumn(5).numFmt = 'yyyy-mm-dd'
+
+  const notes = workbook.addWorksheet('How to fill this in')
+  notes.columns = [{ width: 26 }, { width: 96 }]
+  notes.addRow(['Column', 'What goes in it'])
+  notes.getRow(1).font = { bold: true }
+  for (const [column, note] of TEMPLATE_GUIDANCE) {
+    const row = notes.addRow([column, note])
+    row.alignment = { wrapText: true, vertical: 'top' }
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  return new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
 }
 
 /**
