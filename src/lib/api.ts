@@ -139,6 +139,10 @@ export type StudentRow = {
   year_level: string | null
   external_ref: string | null
   is_active: boolean
+  /** db/135. When they were marked as having left; null while they are here. */
+  left_at?: string | null
+  /** db/135. The school's own note about why. Never shown to families. */
+  left_reason?: string | null
 }
 
 /**
@@ -279,6 +283,62 @@ export async function fetchStudents(): Promise<StudentRow[]> {
   // the real answer and letting the error state explain itself.
   if (!cached) return load()
   return raceAgainstCache(load, cached)
+}
+
+/**
+ * Everybody who has ever been on the roll, including those who have left.
+ *
+ * SEPARATE FROM `fetchStudents` ON PURPOSE. That one is the roster — the
+ * children who are here — and every screen that asks "who do I teach" or "who
+ * can I log against" must keep getting exactly that. Widening it would put
+ * departed students back into every dropdown, which is the problem db/135 was
+ * built to solve.
+ *
+ * This is for the two screens that look backwards. Invoices raised before a
+ * student left are still owed and still chased, and without this the money
+ * column would sit next to the words "Unknown student" — the record would have
+ * lost the one name that makes it collectable. The roster's own "Past students"
+ * view is the other reader.
+ *
+ * Not cached to the device. The offline roster exists so a teacher can log
+ * against a child in front of them; nobody needs a leavers' list on a train.
+ */
+export async function fetchStudentsIncludingPast(): Promise<StudentRow[]> {
+  const { data, error } = await supabase
+    .from('students')
+    // One literal, not a concatenation: the typed client infers the row shape
+    // from the string itself, and `a + b` erases that into plain `string`.
+    .select(
+      'id, first_name, last_name, display_name, year_level, external_ref, is_active, left_at, left_reason',
+    )
+    .order('first_name')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as StudentRow[]
+}
+
+/**
+ * Record that a student has left the school, or that they have come back.
+ *
+ * THERE IS NO DELETE, AND THERE SHOULD NOT BE — db/004 refuses one and db/135
+ * explains why at length. A child's record carries their behaviour history,
+ * goals, IEP plans, consents and invoices; destroying it would destroy the
+ * evidence of what a school did for them.
+ *
+ * The whole operation is one `security definer` function so the flag, the date
+ * and the audit row cannot come apart. Pressing it twice writes one event.
+ */
+export async function setStudentLeft(
+  studentId: string,
+  left: boolean,
+  reason?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('set_student_left', {
+    p_student_id: studentId,
+    p_left: left,
+    p_reason: reason ?? null,
+  })
+  if (error) throw new Error(error.message)
 }
 
 /**
@@ -601,7 +661,7 @@ export async function fetchStudent(id: string): Promise<StudentRow | null> {
     const { data, error } = await supabase
       .from('students')
       .select(
-        'id, first_name, last_name, display_name, year_level, external_ref, is_active',
+        'id, first_name, last_name, display_name, year_level, external_ref, is_active, left_at, left_reason',
       )
       .eq('id', id)
       .maybeSingle()
@@ -630,7 +690,11 @@ export async function fetchStudent(id: string): Promise<StudentRow | null> {
         })
     }
 
-    return data
+    /* Narrowed to StudentRow because the select here asks for two columns the
+       roster's does not — left_at and left_reason, which are optional on the
+       type. Without this the cache race unifies on the wider inferred shape and
+       the cached roster row, which never carries them, stops matching. */
+    return data as StudentRow | null
   }
 
   // Same race as the roster. Without it, opening one student still waited for
@@ -8229,6 +8293,24 @@ export async function createStudents(
 
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
+    /*
+     * NO `.select()` ON THIS INSERT, AND IT CANNOT HAVE ONE.
+     *
+     * Returning the inserted rows makes PostgREST read them back, which runs
+     * `students_select` — and that policy calls `can_view_student(id)`, a
+     * STABLE security-definer function that goes back to `public.students` to
+     * check the school. A stable function sees the snapshot from the start of
+     * the statement, in which the row being inserted does not exist yet, so it
+     * answers false and the whole insert is refused:
+     *
+     *     new row violates row-level security policy for table "students"
+     *
+     * Verified directly as a signed-in school admin: the plain insert
+     * succeeds and the identical insert with `.select('id')` is refused. If
+     * you need the new id, ask for it in a SEPARATE statement afterwards —
+     * see findJustCreatedStudent — because a second statement gets a fresh
+     * snapshot in which the row is really there.
+     */
     const { error } = await supabase
       .from('students')
       .insert(chunk.map(toRecord))
@@ -8256,6 +8338,43 @@ export async function createStudents(
   }
 
   return outcome
+}
+
+/**
+ * The child that was just created, so a profile can be attached to them.
+ *
+ * A SEPARATE STATEMENT ON PURPOSE — see the long note in `createStudents`. The
+ * insert cannot return its own id, because reading the new row back runs a
+ * policy that cannot see it yet. This runs afterwards, in its own statement
+ * with its own snapshot, where the row is simply there.
+ *
+ * Narrowed by student ID when the school gave one, which is exact. Without one
+ * it takes the newest match on both names, which is correct here because the
+ * caller created that row a moment ago — and if it somehow matched an older
+ * namesake instead, the cost is a profile on the wrong record of two children
+ * with identical names at one school, which the caller can see and correct.
+ * Only ever used for a single child typed into a form; the bulk import never
+ * asks.
+ */
+export async function findJustCreatedStudent(input: {
+  firstName: string
+  lastName: string
+  externalRef: string | null
+}): Promise<string | null> {
+  let query = supabase
+    .from('students')
+    .select('id')
+    .eq('first_name', input.firstName)
+    .eq('last_name', input.lastName)
+
+  if (input.externalRef) query = query.eq('external_ref', input.externalRef)
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  return data?.[0]?.id ?? null
 }
 
 /** Postgres speaks to itself; this says the same thing to a school office. */
@@ -10336,6 +10455,7 @@ export const queryKeys = {
   upcomingGoals: ['upcoming-goals'] as const,
   peopleAtSchool: (id: string) => ['people-at-school', id] as const,
   unengagedSpecialists: ['unengaged-specialists'] as const,
+  studentsIncludingPast: ['students', 'including-past'] as const,
   staffVetting: ['staff-vetting'] as const,
   screening: ['screening'] as const,
   unscreened: ['screening', 'missing'] as const,

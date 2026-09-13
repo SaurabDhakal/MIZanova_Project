@@ -5,7 +5,7 @@ import {
   deleteInvoiceDraft,
   fetchInvoices,
   fetchSchoolSummary,
-  fetchStudents,
+  fetchStudentsIncludingPast,
   formatMoney,
   queryKeys,
   setInvoiceStatus,
@@ -266,9 +266,13 @@ export default function Invoices() {
     queryKey: queryKeys.invoices,
     queryFn: fetchInvoices,
   })
+  /* INCLUDING THOSE WHO HAVE LEFT — db/135. An invoice raised before a student
+     left is still owed and still chased. Reading the active roster here would
+     print "Unknown student" beside the amount, which is the one fact that makes
+     the debt collectable. */
   const students = useQuery({
-    queryKey: queryKeys.students,
-    queryFn: fetchStudents,
+    queryKey: queryKeys.studentsIncludingPast,
+    queryFn: fetchStudentsIncludingPast,
   })
   const school = useQuery({
     queryKey: queryKeys.schoolSummary,
@@ -342,11 +346,19 @@ export default function Invoices() {
     return <LoadingCards count={2} />
   if (invoices.isError) return <ErrorState message={invoices.error.message} />
 
+  /* The dropdown offers only children who are here. A school can still look at
+     — and chase — an invoice belonging to somebody who has left, but raising a
+     NEW bill against a departed student is almost always a mis-click, and the
+     two-step draft would not catch it because the name would look right. */
+  const enrolled = (students.data ?? []).filter((s) => s.is_active)
+
   const nameFor = (id: string) => {
     const student = students.data?.find((s) => s.id === id)
-    return student
-      ? `${student.first_name} ${student.last_name}`
-      : 'Unknown student'
+    if (!student) return 'Unknown student'
+    const name = `${student.first_name} ${student.last_name}`
+    /* Said, not hidden. Somebody chasing an unpaid bill needs to know the
+       family has gone before they pick up the phone. */
+    return student.is_active ? name : `${name} (has left)`
   }
 
   const outstanding = invoices.data
@@ -400,7 +412,7 @@ export default function Invoices() {
         <div className="mb-6">
           <InvoiceForm
             heading="New invoice"
-            students={students.data ?? []}
+            students={enrolled}
             submitLabel="Save as draft"
             footnote="Saved as a draft. The family sees nothing until you issue it."
             pending={create.isPending}
@@ -437,7 +449,7 @@ export default function Invoices() {
                     // are re-initialised from that invoice rather than kept.
                     key={invoice.id}
                     heading="Edit draft"
-                    students={students.data ?? []}
+                    students={enrolled}
                     invoice={invoice}
                     submitLabel="Save changes"
                     footnote="Still a draft. The family sees nothing until you issue it."
