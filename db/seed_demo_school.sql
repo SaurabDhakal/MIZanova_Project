@@ -69,6 +69,25 @@ select
 from generate_series(1, 28) n
 on conflict (id) do nothing;
 
+-- ---------------------------------------------------------------------------
+-- Repair rows written before the fix above
+-- ---------------------------------------------------------------------------
+-- `on conflict do nothing` means correcting the generator does not correct an
+-- existing demo, and the whole point of this data is that somebody looks at it.
+-- These rows carry the five wall-clock times the old version produced, to the
+-- second; a log a person actually wrote will not.
+--
+-- Reading each back as UTC and re-declaring it as Sydney moves the instant by
+-- the offset and leaves the wall clock alone, which is what was meant all
+-- along. Re-running is harmless: after one pass no row matches.
+update public.behaviour_logs
+set occurred_at = (occurred_at at time zone 'UTC') at time zone 'Australia/Sydney',
+    started_at  = (started_at  at time zone 'UTC') at time zone 'Australia/Sydney',
+    ended_at    = case when ended_at is null then null
+                  else (ended_at at time zone 'UTC') at time zone 'Australia/Sydney' end
+where to_char(occurred_at, 'HH24:MI:SS') in
+      ('09:15:00', '10:33:00', '11:51:00', '13:09:00', '14:27:00');
+
 
 -- ---------------------------------------------------------------------------
 -- 2. Who teaches them
@@ -127,10 +146,23 @@ select
     'Tore up the worksheet after the second correction. Apologised unprompted at the end of the lesson.',
     'Withdrew to the reading corner during group work and stayed there until the bell.'
   ])[1 + ((n + d) % 6)],
-  (current_date - d) + time '09:15' + ((n % 5) * interval '78 minutes'),
-  (current_date - d) + time '09:15' + ((n % 5) * interval '78 minutes'),
-  (current_date - d) + time '09:15' + ((n % 5) * interval '78 minutes')
-    + ((2 + ((n * 3 + d) % 18)) * interval '1 minute'),
+  -- AT TIME ZONE, or these land in the middle of the night.
+  --
+  -- `(current_date - d) + time '09:15'` is a naive `timestamp`, and the column
+  -- is `timestamptz`. Postgres therefore reads it in the SERVER's zone, which
+  -- on Supabase is UTC — so a demo school in Sydney rendered 09:15 as 19:15,
+  -- 11:51 as 21:51, and the 14:27 bucket as 00:27 the following morning. The
+  -- schedule was always right; nothing ever said which clock it was on.
+  --
+  -- Every classroom on this demo roster is in Sydney, so the naive time is
+  -- declared as Sydney local and stored as the correct instant.
+  (((current_date - d) + time '09:15' + ((n % 5) * interval '78 minutes'))
+    at time zone 'Australia/Sydney'),
+  (((current_date - d) + time '09:15' + ((n % 5) * interval '78 minutes'))
+    at time zone 'Australia/Sydney'),
+  (((current_date - d) + time '09:15' + ((n % 5) * interval '78 minutes')
+    + ((2 + ((n * 3 + d) % 18)) * interval '1 minute'))
+    at time zone 'Australia/Sydney'),
   -- About one in forty is flagged, which is roughly what a school sees.
   ((n * 11 + d * 5) % 40) = 0,
   ((n + d) % 3) <> 0
@@ -205,8 +237,32 @@ select
   case when conf.value < 0.75
        then 'Confidence below the routing threshold'
        else 'Above the routing threshold' end,
-  'A student in this year level; ' || l.behaviour_type || ', ' || l.intensity || ' intensity.',
-  2,
+  -- db/134. This was the sentence 'A student in this year level; …', which is
+  -- not JSON — so the "What the AI was told" panel could parse nothing and
+  -- rendered an empty box on every seeded suggestion. Built from the log the
+  -- suggestion hangs off, so every field is true of that incident, and marked
+  -- `reconstructed` because nothing was ever sent to a model for a seed row.
+  jsonb_strip_nulls(jsonb_build_object(
+    'behaviourType', l.behaviour_type,
+    'intensity',     l.intensity,
+    'approximateDurationMinutes',
+      case when l.duration_seconds is not null
+           then round(l.duration_seconds / 60.0) end,
+    'yearLevel',     stu.year_level,
+    'notes',         nullif(l.notes, ''),
+    'antecedent',    l.antecedent,
+    'whatHelped',    l.what_helped,
+    'settingEvents',
+      case when cardinality(coalesce(l.setting_events, '{}')) > 0
+           then to_jsonb(l.setting_events) end,
+    'patterns',
+      case when (pat.value->>'total')::int > 0 then pat.value end,
+    'redactions',    0,
+    'reconstructed', true
+  ))::text,
+  -- 0, not 2. Not one seeded note contains a name, and the panel renders this
+  -- number as "N names or contact details were taken out" — db/134.
+  0,
   'claude-sonnet-4-5',
   'demo-seed',
   l.occurred_at + interval '4 minutes'
@@ -214,6 +270,10 @@ from public.behaviour_logs l
 cross join lateral (
   select round((0.45 + (('x' || substr(md5(l.id::text), 5, 4))::bit(16)::int % 52) / 100.0)::numeric, 2) as value
 ) conf
+join public.students stu on stu.id = l.student_id
+cross join lateral (
+  select public.student_behaviour_patterns(l.student_id, 90) as value
+) pat
 where l.student_id in (
         select id from public.students where external_ref like 'DEMO-%'
       )
