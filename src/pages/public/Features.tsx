@@ -93,7 +93,7 @@ export default function Features() {
         the bottom rather than quietly omitted.
       </Lead>
 
-{/* WRITTEN OUT LONGHAND HERE UNTIL NOW, AND SLIGHTLY DIFFERENT FOR IT.
+      {/* WRITTEN OUT LONGHAND HERE UNTIL NOW, AND SLIGHTLY DIFFERENT FOR IT.
           This page had its own icon chip, its own h2 at text-title, its own
           column at max-w-3xl and its own ticked list with a bare 16px tick —
           five small disagreements with the nine pages beside it, all of them

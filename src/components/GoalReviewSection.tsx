@@ -101,14 +101,19 @@ export default function GoalReviewSection({
               )}
 
               {answered.map((r) => (
-                <div key={r.id} className="mt-2 rounded-btn bg-background px-3 py-2">
+                <div
+                  key={r.id}
+                  className="mt-2 rounded-btn bg-background px-3 py-2"
+                >
                   <p className="text-sm font-medium text-foreground">
                     {r.status === 'answered'
                       ? 'The specialist answered'
                       : 'The specialist could not take this on'}
                   </p>
                   {r.response ? (
-                    <p className="mt-0.5 text-sm text-foreground">{r.response}</p>
+                    <p className="mt-0.5 text-sm text-foreground">
+                      {r.response}
+                    </p>
                   ) : (
                     /* An answer with no words is still an answer, and saying so
                        beats an empty box that reads as a loading state. */

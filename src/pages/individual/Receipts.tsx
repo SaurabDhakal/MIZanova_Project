@@ -50,7 +50,10 @@ export default function Receipts() {
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
   })
-  const courses = useQuery({ queryKey: queryKeys.courses, queryFn: fetchCourses })
+  const courses = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: fetchCourses,
+  })
 
   if (purchases.isPending) return <LoadingCards count={2} />
   if (purchases.isError) {
@@ -208,7 +211,9 @@ export default function Receipts() {
       {paid.length > 0 && (
         <ul className="space-y-6">
           {paid.map((purchase) => {
-            const course = courses.data?.find((c) => c.id === purchase.course_id)
+            const course = courses.data?.find(
+              (c) => c.id === purchase.course_id,
+            )
             return (
               <li
                 key={purchase.id}

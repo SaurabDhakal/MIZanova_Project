@@ -92,12 +92,23 @@ export function LoggerShot() {
             fill="var(--color-background)"
           />
           {[18, 36, 54].map((cx) => (
-            <circle key={cx} cx={cx} cy="17" r="4.5" fill="var(--color-border)" />
+            <circle
+              key={cx}
+              cx={cx}
+              cy="17"
+              r="4.5"
+              fill="var(--color-border)"
+            />
           ))}
           {/* WHOSE SCREEN THIS IS. A window with nobody signed into it is a
               wireframe; one initial and a school name is the difference
               between a diagram of an app and a picture of one in use. */}
-          <text x="196" y="21" fontSize="11" fill="var(--color-muted-foreground)">
+          <text
+            x="196"
+            y="21"
+            fontSize="11"
+            fill="var(--color-muted-foreground)"
+          >
             Rosewood Primary
           </text>
           <circle cx="452" cy="17" r="10" fill="var(--color-brand-navy)" />
@@ -278,7 +289,12 @@ export function LoggerShot() {
                     taken ? 'var(--color-primary)' : 'var(--color-input-border)'
                   }
                 />
-                <circle cx={x + 16} cy="155" r="4.5" fill={taken ? '#ffffff' : tint} />
+                <circle
+                  cx={x + 16}
+                  cy="155"
+                  r="4.5"
+                  fill={taken ? '#ffffff' : tint}
+                />
                 <text
                   x={x + 28}
                   y="160"
@@ -302,7 +318,12 @@ export function LoggerShot() {
             stroke="var(--color-input-border)"
             strokeDasharray="5 4"
           />
-          <text x="144" y="218" fontSize="12.5" className="fill-muted-foreground">
+          <text
+            x="144"
+            y="218"
+            fontSize="12.5"
+            className="fill-muted-foreground"
+          >
             Notes — optional, and it saves without them
           </text>
 
@@ -324,7 +345,12 @@ export function LoggerShot() {
           >
             Save log
           </text>
-          <text x="262" y="275" fontSize="12.5" className="fill-muted-foreground">
+          <text
+            x="262"
+            y="275"
+            fontSize="12.5"
+            className="fill-muted-foreground"
+          >
             Works with no connection
           </text>
         </g>
@@ -366,11 +392,24 @@ export function FamilyPhoneShot() {
 
       <g filter={`url(#${id}-float)`}>
         <g clipPath={`url(#${id}-phone)`}>
-          <rect x="8" y="0" width="224" height="410" fill="var(--color-background)" />
+          <rect
+            x="8"
+            y="0"
+            width="224"
+            height="410"
+            fill="var(--color-background)"
+          />
 
           {/* The notch, which is what makes a rounded rectangle read as a
               phone rather than as another card. */}
-          <rect x="92" y="10" width="56" height="9" rx="4.5" fill="var(--color-border)" />
+          <rect
+            x="92"
+            y="10"
+            width="56"
+            height="9"
+            rx="4.5"
+            fill="var(--color-border)"
+          />
 
           <text x="28" y="52" fontSize="11" className="fill-muted-foreground">
             WEDNESDAY
@@ -436,7 +475,14 @@ export function FamilyPhoneShot() {
           >
             Asking for a break
           </text>
-          <rect x="40" y="244" width="160" height="7" rx="3.5" fill="var(--color-border)" />
+          <rect
+            x="40"
+            y="244"
+            width="160"
+            height="7"
+            rx="3.5"
+            fill="var(--color-border)"
+          />
           <rect
             x="40"
             y="244"
@@ -445,7 +491,12 @@ export function FamilyPhoneShot() {
             rx="3.5"
             fill="var(--color-brand-green)"
           />
-          <text x="40" y="264" fontSize="11.5" className="fill-muted-foreground">
+          <text
+            x="40"
+            y="264"
+            fontSize="11.5"
+            className="fill-muted-foreground"
+          >
             4 of 6 steps
           </text>
 
@@ -464,7 +515,14 @@ export function FamilyPhoneShot() {
           <text x="40" y="326" fontSize="13" className="fill-foreground">
             Add what you saw
           </text>
-          <rect x="40" y="334" width="120" height="1" fill="var(--color-primary)" opacity="0.25" />
+          <rect
+            x="40"
+            y="334"
+            width="120"
+            height="1"
+            fill="var(--color-primary)"
+            opacity="0.25"
+          />
           <circle cx="196" cy="318" r="14" fill="var(--color-primary)" />
           <path
             d="M196 312v12M190 318h12"
@@ -557,7 +615,12 @@ export function AnonymisedCard() {
         >
           A student left
         </text>
-        <text x="24" y="86" fontSize="13.5" fill="var(--color-muted-foreground)">
+        <text
+          x="24"
+          y="86"
+          fontSize="13.5"
+          fill="var(--color-muted-foreground)"
+        >
           during reading
         </text>
 

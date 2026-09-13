@@ -396,7 +396,7 @@ export default function RecordAccess() {
               setPeriod('30')
               setPage(0)
             }}
-            className="py-2 text-sm font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center py-2 text-sm font-semibold text-primary hover:underline"
           >
             Clear
           </button>

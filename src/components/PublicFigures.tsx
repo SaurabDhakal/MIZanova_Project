@@ -128,7 +128,9 @@ export function Cell({
           x={x + PAD}
           y={y + 26}
           fontSize="12"
-          fill={brand ? 'rgba(255,255,255,0.85)' : 'var(--color-muted-foreground)'}
+          fill={
+            brand ? 'rgba(255,255,255,0.85)' : 'var(--color-muted-foreground)'
+          }
         >
           {label}
         </text>
@@ -191,8 +193,22 @@ export function SafeguardingQueueFigure() {
     <svg viewBox="0 0 420 232" className="h-auto w-full" aria-hidden="true">
       <Defs id={id} />
 
-      <Cell id={id} x={col.half[0]} y={8} w={HALF} label="FLAGGED IN CLASS" value="9:12am" />
-      <Cell id={id} x={col.half[1]} y={8} w={HALF} label="SAFEGUARDING QUEUE" value="3 open" />
+      <Cell
+        id={id}
+        x={col.half[0]}
+        y={8}
+        w={HALF}
+        label="FLAGGED IN CLASS"
+        value="9:12am"
+      />
+      <Cell
+        id={id}
+        x={col.half[1]}
+        y={8}
+        w={HALF}
+        label="SAFEGUARDING QUEUE"
+        value="3 open"
+      />
 
       <path
         d={`M${W / 2} ${8 + ROW}v22`}
@@ -279,7 +295,13 @@ export function WhoCanSeeFigure() {
               stroke="var(--color-border)"
               filter={`url(#${id}-lift)`}
             />
-            <text x={M + PAD} y={y + 28} fontSize="14" fontWeight="600" fill="var(--color-foreground)">
+            <text
+              x={M + PAD}
+              y={y + 28}
+              fontSize="14"
+              fontWeight="600"
+              fill="var(--color-foreground)"
+            >
               {who}
             </text>
             {/* Anchored right, so the reason lines up down the three rows
@@ -402,7 +424,13 @@ export function NothingLeavesFigure() {
         stroke={`url(#${id}-brand)`}
         strokeWidth="2"
       />
-      <text x={M + 20} y={36} fontSize="12" fontWeight="700" fill="var(--color-brand-blue-ink)">
+      <text
+        x={M + 20}
+        y={36}
+        fontSize="12"
+        fontWeight="700"
+        fill="var(--color-brand-blue-ink)"
+      >
         YOUR ACCOUNT
       </text>
 

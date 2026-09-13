@@ -87,7 +87,7 @@ export default function ApplyAsSpecialist() {
           </p>
           <Link
             to="/"
-            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
+            className="pressable mt-6 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             Back to the home page
           </Link>
@@ -175,9 +175,7 @@ export default function ApplyAsSpecialist() {
           onChange={(e) => set('dateOfBirth', e.target.value)}
         />
 
-        <h2 className="text-section pt-4 text-foreground">
-          Your practice
-        </h2>
+        <h2 className="text-section pt-4 text-foreground">Your practice</h2>
 
         <div>
           <label

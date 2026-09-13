@@ -198,9 +198,7 @@ function Entry({
       <div className="min-w-0 flex-1">
         <div
           className={
-            isCard
-              ? 'rounded-card border border-border bg-card p-3'
-              : undefined
+            isCard ? 'rounded-card border border-border bg-card p-3' : undefined
           }
         >
           <div className="flex flex-wrap items-baseline gap-x-2">
@@ -268,15 +266,18 @@ function Entry({
           {/* ONLY ON AN OPEN ROW. Ten unanswered logs otherwise meant ten
               chip rows stacked down the page, which is the opposite of the
               gentle nudge this is meant to be. */}
-          {row.kind === 'behaviour' && actionable && open && !row.what_helped && (
-            <HowDidItEnd
-              logId={row.source_id}
-              studentId={studentId}
-              behaviourType={row.behaviour_type!}
-              intensity={row.intensity!}
-              notes={row.detail}
-            />
-          )}
+          {row.kind === 'behaviour' &&
+            actionable &&
+            open &&
+            !row.what_helped && (
+              <HowDidItEnd
+                logId={row.source_id}
+                studentId={studentId}
+                behaviourType={row.behaviour_type!}
+                intensity={row.intensity!}
+                notes={row.detail}
+              />
+            )}
 
           {actionable && (
             <button
@@ -569,7 +570,9 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
                 status={(strategyStatus.data ?? {})[row.source_id]}
                 statusUnknown={strategyStatus.isError}
                 onShare={(id, shared) => share.mutate({ id, shared })}
-                sharing={share.isPending && share.variables?.id === row.source_id}
+                sharing={
+                  share.isPending && share.variables?.id === row.source_id
+                }
               />
             ))}
           </ul>
@@ -648,7 +651,6 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
           it for your school specialist.
         </p>
       </details>
-
     </section>
   )
 }

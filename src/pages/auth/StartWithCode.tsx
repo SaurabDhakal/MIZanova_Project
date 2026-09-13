@@ -73,7 +73,9 @@ export default function StartWithCode() {
      * route their role cannot open, immediately after telling them it worked.
      */
     onSuccess: () =>
-      navigate(profile ? pathForRole(profile.role) : '/parent', { replace: true }),
+      navigate(profile ? pathForRole(profile.role) : '/parent', {
+        replace: true,
+      }),
   })
 
   // Arrived by clicking a link that contains the code — check it rather than
@@ -143,7 +145,10 @@ export default function StartWithCode() {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-primary hover:underline">
+          <Link
+            to="/login"
+            className="font-semibold text-primary hover:underline"
+          >
             Sign in
           </Link>
         </p>
@@ -224,7 +229,9 @@ export default function StartWithCode() {
         disabled={redeem.isPending}
         className="pressable mt-6 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
       >
-        {redeem.isPending ? 'Linking…' : `Link ${found.childName} to my account`}
+        {redeem.isPending
+          ? 'Linking…'
+          : `Link ${found.childName} to my account`}
       </button>
     </AuthLayout>
   )

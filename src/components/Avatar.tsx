@@ -50,7 +50,8 @@ function initialsFor(name: string, email: string): string {
     return first ? first.toUpperCase() : '?'
   }
   const first = Array.from(parts[0])[0] ?? ''
-  const last = parts.length > 1 ? (Array.from(parts[parts.length - 1])[0] ?? '') : ''
+  const last =
+    parts.length > 1 ? (Array.from(parts[parts.length - 1])[0] ?? '') : ''
   return (first + last).toUpperCase()
 }
 

@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys, updateBehaviourLog } from '../lib/api'
-import {
-  WHAT_HELPED,
-  type WhatHelped,
-} from '../lib/behaviourContext'
+import { WHAT_HELPED, type WhatHelped } from '../lib/behaviourContext'
 import SuggestedText from './SuggestedText'
 import { showToast } from '../lib/toast'
 

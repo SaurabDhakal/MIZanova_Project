@@ -92,10 +92,10 @@ export default function ForIndividuals() {
           number that resets after a bad fortnight is a punishment.
         </p>
         <p>
-          <b>Short courses and reading.</b> Nothing timed or scored, and you
-          can read the first part before deciding. Two courses and a few
-          articles today &mdash; which is small, and saying otherwise would be
-          selling something that is not there.
+          <b>Short courses and reading.</b> Nothing timed or scored, and you can
+          read the first part before deciding. Two courses and a few articles
+          today &mdash; which is small, and saying otherwise would be selling
+          something that is not there.
         </p>
         <p>
           <b>Time with a verified specialist, if you want it.</b> You can see
@@ -122,9 +122,9 @@ export default function ForIndividuals() {
           the SHAPE of the charging and send people there for figures. */}
       <Section title="What it costs">
         <p>
-          The account is free, no card is asked for, and nothing is a trial
-          that quietly starts charging. Every course is free today; if one ever
-          costs something, the price is on it before you start.
+          The account is free, no card is asked for, and nothing is a trial that
+          quietly starts charging. Every course is free today; if one ever costs
+          something, the price is on it before you start.
         </p>
         <p>
           No subscription and no price for a specialist session today. Either

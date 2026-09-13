@@ -109,9 +109,9 @@ export default function GoalsSection({ studentId }: { studentId: string }) {
       <p className="mb-3 max-w-prose text-sm text-muted-foreground">
         The day-to-day steps, written and ticked by you. Separate from the
         education plan, which is what the school and family agreed at a meeting
-        — a goal here can serve one, and says so when it does.
-        Visible to this student&rsquo;s family exactly as you see it here.
-        Ticking a milestone updates the percentage on their screen.
+        — a goal here can serve one, and says so when it does. Visible to this
+        student&rsquo;s family exactly as you see it here. Ticking a milestone
+        updates the percentage on their screen.
       </p>
 
       {open && (

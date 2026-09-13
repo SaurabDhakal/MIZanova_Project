@@ -17,11 +17,18 @@ import Icon from './Icon'
  * individual/Receipts routed to nothing, so they are a shared component rather
  * than three copies that can rot separately.
  */
-export default function WhatWorksLink({ from }: { from: 'goals' | 'suggestions' | 'account' }) {
+export default function WhatWorksLink({
+  from,
+}: {
+  from: 'goals' | 'suggestions' | 'account'
+}) {
   return (
     <section className="print-hide mt-10 rounded-card border border-border bg-background p-6">
       <div className="flex items-start gap-3">
-        <Icon name="resources" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <Icon
+          name="resources"
+          className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+        />
         <div className="min-w-0">
           <h2 className="font-semibold text-foreground">What works for me</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">

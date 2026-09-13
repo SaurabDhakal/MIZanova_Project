@@ -393,7 +393,7 @@ function RecordReview({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 text-sm font-semibold text-primary hover:underline"
+        className="inline-flex min-h-11 items-center mt-3 text-sm font-semibold text-primary hover:underline"
       >
         Record a review of this goal
       </button>

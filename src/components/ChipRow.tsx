@@ -148,11 +148,7 @@ export default function ChipRow<T extends string>(props: {
           an unnamed group of eleven buttons. */}
       <p
         id={groupId}
-        className={
-          label
-            ? 'text-xs font-semibold text-foreground'
-            : 'sr-only'
-        }
+        className={label ? 'text-xs font-semibold text-foreground' : 'sr-only'}
       >
         {label || props.otherLabel || 'Options'}
       </p>

@@ -34,12 +34,15 @@ export default function PendingLogsBanner() {
           className="rounded-card border border-warning bg-warning-subtle p-4"
         >
           <p className="font-semibold text-warning-foreground">
-            {waiting.length} behaviour log{waiting.length === 1 ? '' : 's'} saved
-            on this device, not yet sent
+            {waiting.length} behaviour log{waiting.length === 1 ? '' : 's'}{' '}
+            saved on this device, not yet sent
           </p>
           <ul className="mt-2 space-y-1">
             {waiting.map((log) => (
-              <li key={log.clientRef} className="text-sm text-warning-foreground">
+              <li
+                key={log.clientRef}
+                className="text-sm text-warning-foreground"
+              >
                 {log.studentName} · {log.behaviourType} · {log.intensity} ·
                 written {when(log.queuedAt)}
               </li>
@@ -75,7 +78,10 @@ export default function PendingLogsBanner() {
           </p>
           <ul className="mt-2 space-y-3">
             {failed.map((log) => (
-              <li key={log.clientRef} className="text-sm text-danger-foreground">
+              <li
+                key={log.clientRef}
+                className="text-sm text-danger-foreground"
+              >
                 <p className="font-medium">
                   {log.studentName} · {log.behaviourType} · {log.intensity} ·
                   written {when(log.queuedAt)}

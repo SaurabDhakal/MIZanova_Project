@@ -10,7 +10,11 @@ import {
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import { GOAL_CATEGORY_LABEL } from '../../lib/goalCategories'
 import { observationCategoryStyle } from '../../lib/observationCategories'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SessionsSection from '../../components/SessionsSection'
 import { fullName } from '../../lib/displayName'
@@ -131,14 +135,10 @@ export default function ParentProgress() {
   }
 
   if (!child) {
-    return (
-      <NoChildYet thing="Progress and goals" />
-    )
+    return <NoChildYet thing="Progress and goals" />
   }
 
-  const active = (goals.data ?? []).filter(
-    (g) => g.status !== 'discontinued',
-  )
+  const active = (goals.data ?? []).filter((g) => g.status !== 'discontinued')
 
   // Highlights: things that genuinely happened, from both sides.
   const highlights: Highlight[] = [
@@ -186,7 +186,8 @@ export default function ParentProgress() {
         </p>
         <h1 className="text-title mt-1 text-foreground">{fullName(child)}</h1>
         <p className="mt-1 text-sm">
-          Printed {new Date().toLocaleDateString('en-AU', {
+          Printed{' '}
+          {new Date().toLocaleDateString('en-AU', {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
@@ -196,9 +197,7 @@ export default function ParentProgress() {
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-title text-foreground">
-            Progress highlights
-          </h1>
+          <h1 className="text-title text-foreground">Progress highlights</h1>
           <p className="mt-1 text-muted-foreground">
             How {fullName(child)} is tracking against the goals the school has
             set, and what has gone well recently.
@@ -221,12 +220,8 @@ export default function ParentProgress() {
         </button>
       </header>
 
-
-
       {/* --- Skill progress ------------------------------------------------ */}
-      <h2 className="mb-3 text-section text-foreground">
-        Skill progress
-      </h2>
+      <h2 className="mb-3 text-section text-foreground">Skill progress</h2>
 
       {goals.isPending && <LoadingCards count={3} />}
       {goals.isError && (
@@ -296,8 +291,8 @@ export default function ParentProgress() {
       )}
 
       <p className="mt-3 text-sm text-muted-foreground">
-        Where a goal has steps, the percentage is how many have been ticked
-        off — the same figure the teacher sees. Where it has none, it is the
+        Where a goal has steps, the percentage is how many have been ticked off
+        — the same figure the teacher sees. Where it has none, it is the
         teacher&rsquo;s own assessment of how it is going, not a count of
         anything.{' '}
         <Link
@@ -319,9 +314,7 @@ export default function ParentProgress() {
       <SessionsSection studentId={child.id} />
 
       {/* --- Recent highlights ---------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-section text-foreground">
-        Lately
-      </h2>
+      <h2 className="mt-10 mb-3 text-section text-foreground">Lately</h2>
 
       {/*
         A FAILED OBSERVATIONS QUERY IS NOT AN EMPTY ONE, AND THE EMPTY STATE
@@ -381,11 +374,10 @@ export default function ParentProgress() {
       <p className="mt-4 max-w-prose text-xs text-muted-foreground">
         This page shows goal progress, what the school has shared, and what you
         have written from home — the hard evenings as well as the good ones. It
-        does not
-        show a behaviour trend chart: you only see the behaviour logs a teacher
-        has chosen to share with you, so a chart drawn from them could look like
-        improvement when it only means fewer were shared. Ask your child&rsquo;s
-        teacher for the full picture.
+        does not show a behaviour trend chart: you only see the behaviour logs a
+        teacher has chosen to share with you, so a chart drawn from them could
+        look like improvement when it only means fewer were shared. Ask your
+        child&rsquo;s teacher for the full picture.
       </p>
     </div>
   )

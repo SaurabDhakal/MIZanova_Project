@@ -147,7 +147,9 @@ export default function AppointmentPanel({
             {when} · {appointment.duration_minutes} minutes
           </p>
           {appointment.purpose && (
-            <p className="mt-1 text-sm text-foreground">{appointment.purpose}</p>
+            <p className="mt-1 text-sm text-foreground">
+              {appointment.purpose}
+            </p>
           )}
         </div>
         <span
@@ -171,8 +173,8 @@ export default function AppointmentPanel({
 
       {!mine && appointment.status === 'scheduled' && (
         <p className="mt-3 text-sm text-muted-foreground">
-          Booked by another specialist on this child&rsquo;s team. You can see it
-          so a clash makes sense; only they can change it.
+          Booked by another specialist on this child&rsquo;s team. You can see
+          it so a clash makes sense; only they can change it.
         </p>
       )}
 
@@ -293,7 +295,10 @@ export default function AppointmentPanel({
           )}
 
           {mode === 'complete' && (
-            <form onSubmit={submitComplete} className="mt-4 border-t border-border pt-4">
+            <form
+              onSubmit={submitComplete}
+              className="mt-4 border-t border-border pt-4"
+            >
               {/* Dictation, because this form is opened at the end of a session
                   with a child still in the room — see DictatedTextarea. */}
               <DictatedTextarea
@@ -347,7 +352,10 @@ export default function AppointmentPanel({
       )}
 
       {formError && (
-        <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mt-3 text-sm font-medium text-danger-foreground"
+        >
           {formError}
         </p>
       )}
@@ -394,7 +402,6 @@ function Actions({
   )
 }
 
-
 /**
  * What a session costs, and turning that into something payable — db/073.
  *
@@ -440,7 +447,8 @@ function FeePanel({
   const billed = appointment.invoice_id !== null
 
   const save = useMutation({
-    mutationFn: (cents: number | null) => setAppointmentFee(appointment.id, cents),
+    mutationFn: (cents: number | null) =>
+      setAppointmentFee(appointment.id, cents),
     onSuccess: () => finish('Fee recorded.'),
     onError: (e) => setError(e.message),
   })
@@ -544,8 +552,8 @@ function FeePanel({
         <div className="mt-5 border-t border-border pt-4">
           <p className="text-sm text-muted-foreground">
             Bill the family {formatMoney(appointment.fee_cents)} for this
-            session. It arrives as a draft on the school&rsquo;s Invoices
-            screen — they issue it, because their name is on it.
+            session. It arrives as a draft on the school&rsquo;s Invoices screen
+            — they issue it, because their name is on it.
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <div>

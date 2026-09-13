@@ -9,8 +9,7 @@ import { fullName } from '../../lib/displayName'
  * Text only in v1.
  */
 export default function ParentMessages() {
-  const { child, isPending, isError, error } =
-    useSelectedChild()
+  const { child, isPending, isError, error } = useSelectedChild()
 
   if (isPending) return <LoadingCards count={2} />
 
@@ -39,9 +38,7 @@ export default function ParentMessages() {
   }
 
   if (!child) {
-    return (
-      <NoChildYet thing="Messages with the care team" />
-    )
+    return <NoChildYet thing="Messages with the care team" />
   }
 
   return (
@@ -52,8 +49,6 @@ export default function ParentMessages() {
           Talk to the people supporting {fullName(child)} at school.
         </p>
       </header>
-
-
 
       <Messenger studentId={child.id} />
 

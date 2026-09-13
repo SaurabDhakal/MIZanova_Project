@@ -93,8 +93,12 @@ function CorrectionForm({
   // db/125. The escape hatch, and the only part of these fields that can carry
   // a name — so it is redacted before the model like any other prose.
   // Only meaningful alongside the matching 'other' code.
-  const [antecedentNote, setAntecedentNote] = useState(log.antecedent_note ?? '')
-  const [whatHelpedNote, setWhatHelpedNote] = useState(log.what_helped_note ?? '')
+  const [antecedentNote, setAntecedentNote] = useState(
+    log.antecedent_note ?? '',
+  )
+  const [whatHelpedNote, setWhatHelpedNote] = useState(
+    log.what_helped_note ?? '',
+  )
   const [settingEventsNote, setSettingEventsNote] = useState(
     log.setting_events_note ?? '',
   )
@@ -243,9 +247,9 @@ function CorrectionForm({
             What was going on
           </legend>
           <p className="-mt-1 mb-3 text-xs text-muted-foreground">
-            Optional, and worth adding now if it was too busy at the time. It
-            is what makes the AI&rsquo;s suggestions specific to this child
-            rather than general advice.
+            Optional, and worth adding now if it was too busy at the time. It is
+            what makes the AI&rsquo;s suggestions specific to this child rather
+            than general advice.
           </p>
 
           {/* CHIPS HERE TOO, for the reason the log modal reverted: this
@@ -326,7 +330,6 @@ export default function EditBehaviourLogDialog({
     queryFn: () => fetchBehaviourLog(logId),
   })
 
-
   const isAdmin =
     profile?.role === 'school_admin' || profile?.role === 'platform_admin'
   const acknowledged = log.data?.safeguarding_acknowledged_at != null
@@ -383,10 +386,9 @@ export default function EditBehaviourLogDialog({
                   </p>
                   <p className="mt-1">
                     It is locked from here on. That is deliberate: a record its
-                    author can revise after somebody has formally read it
-                    proves nothing. If something in it is wrong, tell an
-                    administrator — they can still correct it, and the change
-                    is recorded.
+                    author can revise after somebody has formally read it proves
+                    nothing. If something in it is wrong, tell an administrator
+                    — they can still correct it, and the change is recorded.
                   </p>
                 </>
               ) : (

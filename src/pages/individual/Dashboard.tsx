@@ -593,7 +593,7 @@ export default function IndividualHome() {
             </p>
             <Link
               to="/individual/suggestions"
-              className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+              className="inline-flex min-h-11 items-center mt-3 -ml-1 px-1 text-sm font-semibold text-primary hover:underline"
             >
               Ask for suggestions &rarr;
             </Link>
@@ -678,7 +678,7 @@ export default function IndividualHome() {
                     </p>
                     <Link
                       to="/individual/subscription"
-                      className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-11 items-center mt-3 -ml-1 px-1 text-sm font-semibold text-primary hover:underline"
                     >
                       {hasLiveSubscription ? 'Manage it' : 'See the details'}{' '}
                       &rarr;
@@ -735,7 +735,7 @@ export default function IndividualHome() {
                 rather than the main nav. */}
               <Link
                 to="/individual/receipts"
-                className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+                className="min-h-11 mt-2 inline-block text-sm font-semibold text-primary hover:underline"
               >
                 Receipts &rarr;
               </Link>

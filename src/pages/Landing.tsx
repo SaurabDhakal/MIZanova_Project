@@ -187,7 +187,7 @@ export default function Landing() {
                 <div className="mt-9 flex flex-wrap gap-3">
                   <Link
                     to="/enquiry"
-                    className="pressable inline-flex min-h-11 items-center rounded-btn bg-card px-6 py-3 font-semibold text-brand-navy shadow-lifted hover:brightness-105"
+                    className="pressable rounded-btn bg-card px-6 py-3 font-semibold text-brand-navy shadow-lifted hover:brightness-105"
                   >
                     Book a walkthrough
                   </Link>
@@ -237,7 +237,6 @@ export default function Landing() {
               ))}
             </ul>
           </div>
-
         </section>
 
         {/* --- How it works --------------------------------------------------
@@ -246,54 +245,57 @@ export default function Landing() {
             paragraphs; this is it. The one violet shape in the corner keeps it
             from being a blank slab.
             ------------------------------------------------------------------ */}
-        <section id="how-it-works" className="relative isolate overflow-hidden bg-card">
+        <section
+          id="how-it-works"
+          className="relative isolate overflow-hidden bg-card"
+        >
           <div
             aria-hidden="true"
             className="blob-c absolute -top-32 right-0 h-[380px] w-[420px] bg-decor-violet/12"
           />
           <div className="relative mx-auto max-w-6xl px-6 py-16 md:py-24">
-          <h2 className="text-heading max-w-2xl text-balance text-foreground">
-            How it works
-          </h2>
-          <p className="mt-3 max-w-prose text-lg text-muted-foreground">
-            A teacher records. The system suggests. A specialist stays in the
-            loop.
-          </p>
+            <h2 className="text-heading max-w-2xl text-balance text-foreground">
+              How it works
+            </h2>
+            <p className="mt-3 max-w-prose text-lg text-muted-foreground">
+              A teacher records. The system suggests. A specialist stays in the
+              loop.
+            </p>
 
-          <ol className="mt-12 grid gap-5 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              /* 70ms between siblings. Three cards arriving together is a
+            <ol className="mt-12 grid gap-5 md:grid-cols-3">
+              {STEPS.map((step, i) => (
+                /* 70ms between siblings. Three cards arriving together is a
                  flash; three arriving 300ms apart is a queue you wait for.
                  Seventy reads as one movement with a direction in it. */
-              <Reveal
-                key={step.title}
-                as="li"
-                delayMs={i * 70}
-                className="relative overflow-hidden rounded-card border border-border bg-card p-6 shadow-raised md:p-7"
-              >
-                {/* A hairline of the brand gradient across the top of each
+                <Reveal
+                  key={step.title}
+                  as="li"
+                  delayMs={i * 70}
+                  className="relative overflow-hidden rounded-card border border-border bg-card p-6 shadow-raised md:p-7"
+                >
+                  {/* A hairline of the brand gradient across the top of each
                     card. It is the one place the three brand colours appear
                     together at small size, so the cards read as a set. */}
-                <span
-                  aria-hidden="true"
-                  className="brand-rule absolute inset-x-0 top-0 h-1"
-                />
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="inline-flex rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
-                    <Icon name={step.icon} className="h-6 w-6" />
-                  </span>
-                  <span className="text-caption text-muted-foreground tabular-nums">
-                    <span className="sr-only">Step </span>
-                    {i + 1} of {STEPS.length}
-                  </span>
-                </div>
-                <h3 className="text-section mt-5 text-balance text-foreground">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-muted-foreground">{step.body}</p>
-              </Reveal>
-            ))}
-          </ol>
+                  <span
+                    aria-hidden="true"
+                    className="brand-rule absolute inset-x-0 top-0 h-1"
+                  />
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="inline-flex rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
+                      <Icon name={step.icon} className="h-6 w-6" />
+                    </span>
+                    <span className="text-caption text-muted-foreground tabular-nums">
+                      <span className="sr-only">Step </span>
+                      {i + 1} of {STEPS.length}
+                    </span>
+                  </div>
+                  <h3 className="text-section mt-5 text-balance text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-muted-foreground">{step.body}</p>
+                </Reveal>
+              ))}
+            </ol>
           </div>
         </section>
 
@@ -373,7 +375,7 @@ export default function Landing() {
                 </p>
                 <Link
                   to="/privacy"
-                  className="mt-6 inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
+                  className="inline-flex min-h-11 items-center mt-6 font-semibold text-primary hover:underline"
                 >
                   How your data is handled &rarr;
                 </Link>
@@ -465,7 +467,7 @@ export default function Landing() {
                 </p>
                 <Link
                   to="/pricing"
-                  className="pressable mt-7 inline-flex min-h-11 items-center rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lifted hover:brightness-110"
+                  className="pressable mt-7 rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lifted hover:brightness-110"
                 >
                   What it costs for a centre
                 </Link>
@@ -521,7 +523,7 @@ export default function Landing() {
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link
                 to="/enquiry"
-                className="pressable inline-flex min-h-11 items-center rounded-btn bg-card px-8 py-3 font-semibold text-primary shadow-lifted hover:brightness-105"
+                className="pressable rounded-btn bg-card px-8 py-3 font-semibold text-primary shadow-lifted hover:brightness-105"
               >
                 Talk to us
               </Link>

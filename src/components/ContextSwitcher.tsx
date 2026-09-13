@@ -138,10 +138,15 @@ export default function ContextSwitcher() {
             </li>
 
             {all.map((m) => {
-              const active = m.organisation_id === current.organisation_id &&
+              const active =
+                m.organisation_id === current.organisation_id &&
                 m.role === current.role
               return (
-                <li key={`${m.organisation_id}-${m.role}`} role="option" aria-selected={active}>
+                <li
+                  key={`${m.organisation_id}-${m.role}`}
+                  role="option"
+                  aria-selected={active}
+                >
                   <button
                     type="button"
                     disabled={active || switchTo.isPending}

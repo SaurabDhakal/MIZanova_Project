@@ -516,7 +516,7 @@ function PriceControl({ course }: { course: Course }) {
       <button
         type="button"
         onClick={() => setEditing(false)}
-        className="text-xs font-semibold text-muted-foreground hover:underline"
+        className="inline-flex min-h-11 items-center text-xs font-semibold text-muted-foreground hover:underline"
       >
         Cancel
       </button>

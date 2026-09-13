@@ -7,7 +7,11 @@ import {
   queryKeys,
 } from '../../lib/api'
 import { ROLE_CONFIG } from '../../lib/roles'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import Pagination from '../../components/Pagination'
 
 /**
@@ -51,7 +55,9 @@ export default function AccessLog() {
 
   const studentName = (id: string) => {
     const student = students.data?.find((s) => s.id === id)
-    return student ? `${student.first_name} ${student.last_name}` : 'Unknown student'
+    return student
+      ? `${student.first_name} ${student.last_name}`
+      : 'Unknown student'
   }
 
   // How many distinct staff have opened each child's record. The useful shape
@@ -93,9 +99,7 @@ export default function AccessLog() {
         />
       ) : (
         <>
-          <h2 className="mb-3 text-section text-foreground">
-            By child
-          </h2>
+          <h2 className="mb-3 text-section text-foreground">By child</h2>
           <ul className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[...perStudent.entries()].map(([studentId, actors]) => (
               <li
@@ -106,8 +110,8 @@ export default function AccessLog() {
                   {studentName(studentId)}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {actors.size} member{actors.size === 1 ? '' : 's'} of staff, on
-                  this page of entries
+                  {actors.size} member{actors.size === 1 ? '' : 's'} of staff,
+                  on this page of entries
                 </p>
               </li>
             ))}
@@ -123,20 +127,32 @@ export default function AccessLog() {
             <table className="w-full min-w-[38rem] text-left">
               <thead>
                 <tr className="border-b border-border">
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     When
                   </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     Who
                   </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     Opened
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {events.data.rows.map((event) => (
-                  <tr key={event.id} className="border-b border-border last:border-0">
+                  <tr
+                    key={event.id}
+                    className="border-b border-border last:border-0"
+                  >
                     <td className="p-4 text-sm text-muted-foreground">
                       {new Date(event.occurred_at).toLocaleString('en-AU', {
                         day: 'numeric',

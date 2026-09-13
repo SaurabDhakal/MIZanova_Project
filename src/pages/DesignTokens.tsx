@@ -98,9 +98,7 @@ export default function DesignTokens() {
         <StatTile label="Recent logs" value={undefined} icon="observations" />
       </div>
 
-      <h2 className="mt-10 text-section text-foreground">
-        Status colours
-      </h2>
+      <h2 className="mt-10 text-section text-foreground">Status colours</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Light fill plus the darkened text token — that pairing is what passes
         WCAG AA. The plain mid-tone would not.
@@ -165,9 +163,7 @@ export default function DesignTokens() {
         </button>
       </div>
 
-      <h2 className="mt-10 text-section text-foreground">
-        Every token
-      </h2>
+      <h2 className="mt-10 text-section text-foreground">Every token</h2>
       <div className="mt-3 overflow-x-auto rounded-card border border-border bg-card shadow-raised p-5">
         <table className="w-full text-left">
           <caption className="sr-only">

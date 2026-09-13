@@ -48,7 +48,10 @@ export default function ReviewEvents({
   // Counted in a single pass. The first version built a "source.event" string,
   // split it back into its two halves, and re-scanned every event once per
   // distinct kind — taking apart something it had just assembled, quadratically.
-  const kinds = new Map<string, { source: string; event: string; count: number }>()
+  const kinds = new Map<
+    string,
+    { source: string; event: string; count: number }
+  >()
   for (const e of events) {
     const key = `${e.source}.${e.event}`
     const seen = kinds.get(key)
@@ -110,7 +113,7 @@ export default function ReviewEvents({
                 setOpenKind(key)
                 setNote('')
               }}
-              className="text-sm font-semibold underline"
+              className="pressable -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold underline"
             >
               I have looked at {key}
               {kind.count > 1 && ` (${kind.count})`}

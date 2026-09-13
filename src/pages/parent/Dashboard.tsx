@@ -13,7 +13,11 @@ import {
 import { useAuth } from '../../lib/auth'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import ChildSwitcher from '../../components/ChildSwitcher'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
 import SharedStrategies from '../../components/SharedStrategies'
@@ -129,9 +133,7 @@ export default function ParentDashboard() {
   if (isError) return <ErrorState message={error?.message ?? 'Unknown error'} />
 
   if (!child) {
-    return (
-      <NoChildYet thing="Your child’s daily updates" />
-    )
+    return <NoChildYet thing="Your child’s daily updates" />
   }
 
   const shared = logs.data ?? []
@@ -192,7 +194,6 @@ export default function ParentDashboard() {
       </header>
 
       <ChildSwitcher children={children} child={child} onSelect={selectChild} />
-
 
       {/* --- Today's update ------------------------------------------------ */}
       {latest ? (
@@ -281,7 +282,9 @@ export default function ParentDashboard() {
               (g) => g.status !== 'achieved' && g.status !== 'discontinued',
             )
             if (goals.isPending) {
-              return <p className="mt-2 text-4xl font-bold text-foreground">—</p>
+              return (
+                <p className="mt-2 text-4xl font-bold text-foreground">—</p>
+              )
             }
             /*
              * A FAILED QUERY IS NOT A CHILD WITH NO GOALS.
@@ -332,7 +335,7 @@ export default function ParentDashboard() {
                 </p>
                 <Link
                   to="/parent/goals"
-                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+                  className="inline-flex min-h-11 items-center mt-3 text-sm font-semibold text-primary hover:underline"
                 >
                   View goals →
                 </Link>
@@ -431,9 +434,7 @@ export default function ParentDashboard() {
                   {relativeDay(log.occurred_at)}
                 </span>
               </div>
-              {log.notes && (
-                <p className="mt-2 text-foreground">{log.notes}</p>
-              )}
+              {log.notes && <p className="mt-2 text-foreground">{log.notes}</p>}
               <ContextLine row={log} />
               <SharedStrategies strategies={adviceFor(log.id)} />
             </li>

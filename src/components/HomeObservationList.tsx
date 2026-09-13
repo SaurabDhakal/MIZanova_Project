@@ -86,13 +86,16 @@ export default function HomeObservationList({
               <p className="mt-1 text-foreground">{observation.body}</p>
               {!isMine && (
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Written by {observation.author?.full_name ?? 'someone at home'}
+                  Written by{' '}
+                  {observation.author?.full_name ?? 'someone at home'}
                 </p>
               )}
               {answers && (
                 <HomeStrategiesPanel
                   observationId={observation.id}
-                  answer={answers.find((a) => a.observation_id === observation.id)}
+                  answer={answers.find(
+                    (a) => a.observation_id === observation.id,
+                  )}
                   canAsk={isMine}
                 />
               )}

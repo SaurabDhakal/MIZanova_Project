@@ -92,7 +92,9 @@ export default function IndividualPlanSection() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.individualPlanAdmin,
       })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.individualPlan })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.individualPlan,
+      })
       setEditing(false)
       setError(null)
       showToast('The individual plan has been changed.')
@@ -164,7 +166,9 @@ export default function IndividualPlanSection() {
             <button
               type="button"
               onClick={() => {
-                setPrice(p?.price_cents != null ? String(p.price_cents / 100) : '')
+                setPrice(
+                  p?.price_cents != null ? String(p.price_cents / 100) : '',
+                )
                 setEvery(p?.bill_every ?? 'month')
                 setTrial(p?.trial_days != null ? String(p.trial_days) : '')
                 setPriceId(p?.stripe_price_id ?? '')

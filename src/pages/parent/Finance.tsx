@@ -10,7 +10,11 @@ import {
   type InvoiceRow,
 } from '../../lib/api'
 import { useMyChildren } from '../../hooks/useMyChildren'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import { showToast } from '../../lib/toast'
 import { fullName } from '../../lib/displayName'
 
@@ -30,13 +34,24 @@ import { fullName } from '../../lib/displayName'
  * fake version here would be worse than the gap.
  */
 
-const STATUS_STYLE: Record<InvoiceRow['status'], { label: string; className: string }> =
-  {
-    draft: { label: 'Draft', className: 'bg-background text-muted-foreground' },
-    open: { label: 'Due', className: 'bg-warning-subtle text-warning-foreground' },
-    paid: { label: 'Paid', className: 'bg-success-subtle text-success-foreground' },
-    void: { label: 'Cancelled', className: 'bg-background text-muted-foreground' },
-  }
+const STATUS_STYLE: Record<
+  InvoiceRow['status'],
+  { label: string; className: string }
+> = {
+  draft: { label: 'Draft', className: 'bg-background text-muted-foreground' },
+  open: {
+    label: 'Due',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  paid: {
+    label: 'Paid',
+    className: 'bg-success-subtle text-success-foreground',
+  },
+  void: {
+    label: 'Cancelled',
+    className: 'bg-background text-muted-foreground',
+  },
+}
 
 export default function Finance() {
   const queryClient = useQueryClient()
@@ -64,7 +79,9 @@ export default function Finance() {
     mutationFn: (id: string) => confirmCheckout(id),
     onSuccess: (paid) => {
       showToast(
-        paid ? 'Payment received. Thank you.' : 'That payment has not completed.',
+        paid
+          ? 'Payment received. Thank you.'
+          : 'That payment has not completed.',
         paid ? 'success' : 'error',
       )
       void queryClient.invalidateQueries({ queryKey: queryKeys.invoices })

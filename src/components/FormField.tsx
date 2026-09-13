@@ -30,7 +30,10 @@ export default function FormField({
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-semibold text-foreground">
+      <label
+        htmlFor={id}
+        className="block text-sm font-semibold text-foreground"
+      >
         {label}
       </label>
       {hint && (
