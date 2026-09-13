@@ -90,6 +90,32 @@ export default function AddStudents() {
 
   const [stage, setStage] = useState<Stage>('choose')
   const [rows, setRows] = useState<CheckedRow[]>([])
+  /**
+   * The row being corrected in the review table, and the values being typed.
+   *
+   * ---------------------------------------------------------------------------
+   * WHY A ROW CAN BE FIXED HERE AT ALL
+   * ---------------------------------------------------------------------------
+   * Saurab: "what if while importing the list one wrong came up".
+   *
+   * Until now: nothing. A file of thirty children with one bad date of birth
+   * left two options, and both were bad. Import the twenty-nine and lose the
+   * thirtieth — the row is gone when the page resets, so somebody has to
+   * remember which child it was and type them in again. Or press Start again,
+   * go back to the spreadsheet, find the row, fix it, save, and re-paste all
+   * thirty.
+   *
+   * The correction is almost always a keystroke: a date typed 05/03/2015, a
+   * missing surname, a student ID that repeats. Sending somebody back to Excel
+   * for a keystroke, on a screen that is already showing them exactly what is
+   * wrong and on which line, is the kind of thing that makes people import a
+   * file with errors in it rather than fix them.
+   *
+   * EVERY ROW IS EDITABLE, not only the failing ones. A row can be perfectly
+   * valid and still wrong — "Jhon" passes every check there is.
+   */
+  const [editingLine, setEditingLine] = useState<number | null>(null)
+  const [rowDraft, setRowDraft] = useState<CheckedRow | null>(null)
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState<string[]>([])
   const [readError, setReadError] = useState<string | null>(null)
@@ -152,6 +178,25 @@ export default function AddStudents() {
     setSource(describedAs)
     setNotes(messages)
     setStage('preview')
+  }
+
+  /**
+   * Put a corrected row back and judge the whole list again.
+   *
+   * RE-CHECKS EVERYTHING, not just the row that changed. The verdicts are not
+   * independent of each other: duplicate student IDs are decided by comparing
+   * rows, so fixing line 12's ID can clear the error that was showing on line
+   * 30. Re-running the one row would leave the other still marked as a
+   * duplicate of something that no longer exists.
+   */
+  const saveRow = () => {
+    if (!rowDraft) return
+    const next = rows.map((r) =>
+      r.line === rowDraft.line ? { ...rowDraft } : r,
+    )
+    setRows(checkRows(next, existing.data ?? new Set()))
+    setEditingLine(null)
+    setRowDraft(null)
   }
 
   const onFile = async (file: File) => {
@@ -687,50 +732,174 @@ export default function AddStudents() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr
-                    key={r.line}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {r.line}
-                    </td>
-                    <td className="px-3 py-2 text-foreground">
-                      {`${r.first_name} ${r.last_name}`.trim() || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {r.year_level || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {r.external_ref || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {readDate(r.date_of_birth).value ??
-                        (r.date_of_birth || '—')}
-                    </td>
-                    {anyDescribed && (
-                      /* WHICH of the three arrived, not the text itself. The
+                {rows.map((r) =>
+                  editingLine === r.line && rowDraft ? (
+                    /* THE SAME ROW, IN PLACE. An edit form somewhere else on a
+                       long table is a correction somebody makes to the wrong
+                       child — the whole value here is that line 12 is being
+                       fixed where line 12 is. */
+                    <tr
+                      key={r.line}
+                      className="border-b border-border bg-background last:border-0"
+                    >
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {r.line}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          <input
+                            aria-label={`First name, line ${r.line}`}
+                            value={rowDraft.first_name}
+                            onChange={(e) =>
+                              setRowDraft({
+                                ...rowDraft,
+                                first_name: e.target.value,
+                              })
+                            }
+                            className="min-h-11 w-28 rounded-btn border border-border bg-card px-2 text-foreground"
+                          />
+                          <input
+                            aria-label={`Surname, line ${r.line}`}
+                            value={rowDraft.last_name}
+                            onChange={(e) =>
+                              setRowDraft({
+                                ...rowDraft,
+                                last_name: e.target.value,
+                              })
+                            }
+                            className="min-h-11 w-28 rounded-btn border border-border bg-card px-2 text-foreground"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          aria-label={`Year level, line ${r.line}`}
+                          value={rowDraft.year_level}
+                          onChange={(e) =>
+                            setRowDraft({
+                              ...rowDraft,
+                              year_level: e.target.value,
+                            })
+                          }
+                          className="min-h-11 w-16 rounded-btn border border-border bg-card px-2 text-foreground"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          aria-label={`Student ID, line ${r.line}`}
+                          value={rowDraft.external_ref}
+                          onChange={(e) =>
+                            setRowDraft({
+                              ...rowDraft,
+                              external_ref: e.target.value,
+                            })
+                          }
+                          className="min-h-11 w-24 rounded-btn border border-border bg-card px-2 text-foreground"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        {/* A DATE FIELD, WHICH IS THE POINT. The commonest
+                            failure here is an ambiguous 05/03/2015, and a
+                            picker cannot produce one. */}
+                        <input
+                          type="date"
+                          aria-label={`Date of birth, line ${r.line}`}
+                          value={readDate(rowDraft.date_of_birth).value ?? ''}
+                          onChange={(e) =>
+                            setRowDraft({
+                              ...rowDraft,
+                              date_of_birth: e.target.value,
+                            })
+                          }
+                          className="min-h-11 rounded-btn border border-border bg-card px-2 text-foreground"
+                        />
+                      </td>
+                      {anyDescribed && (
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {describedLabels(r).join(' · ') || '—'}
+                        </td>
+                      )}
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={saveRow}
+                            className="pressable min-h-11 rounded-btn bg-primary px-3 text-sm font-semibold text-primary-foreground"
+                          >
+                            Save row
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingLine(null)
+                              setRowDraft(null)
+                            }}
+                            className="pressable min-h-11 rounded-btn border border-border px-3 text-sm font-semibold text-foreground"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr
+                      key={r.line}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {r.line}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {`${r.first_name} ${r.last_name}`.trim() || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {r.year_level || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {r.external_ref || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {readDate(r.date_of_birth).value ??
+                          (r.date_of_birth || '—')}
+                      </td>
+                      {anyDescribed && (
+                        /* WHICH of the three arrived, not the text itself. The
                          sentences are long enough to make every row three
                          lines tall, and what somebody is checking here is
                          whether the notes landed on the right child. */
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {describedLabels(r).join(' · ') || '—'}
-                      </td>
-                    )}
-                    <td className="px-3 py-2">
-                      <span
-                        className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${VERDICT_STYLE[r.verdict.status]}`}
-                      >
-                        {VERDICT_LABEL[r.verdict.status]}
-                      </span>
-                      {r.verdict.status !== 'ready' && (
-                        <span className="ml-2 text-muted-foreground">
-                          {r.verdict.reason}
-                        </span>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {describedLabels(r).join(' · ') || '—'}
+                        </td>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${VERDICT_STYLE[r.verdict.status]}`}
+                          >
+                            {VERDICT_LABEL[r.verdict.status]}
+                          </span>
+                          {r.verdict.status !== 'ready' && (
+                            <span className="text-muted-foreground">
+                              {r.verdict.reason}
+                            </span>
+                          )}
+                          {/* Offered on every row. A row can pass every check
+                            there is and still be wrong — "Jhon" does. */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingLine(r.line)
+                              setRowDraft({ ...r })
+                            }}
+                            className="min-h-11 ml-auto inline-flex items-center px-2 text-sm font-semibold text-primary hover:underline"
+                          >
+                            Fix
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
