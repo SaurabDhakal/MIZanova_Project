@@ -6,7 +6,11 @@ import {
   queryKeys,
   type WeeklyRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 
 /**
  * Performance KPIs - docs/Figma Pages Design/SC2-Performance KPIs Dashboard.png.
@@ -116,7 +120,7 @@ function WeeklyBars({ rows }: { rows: WeeklyRow[] }) {
       </div>
 
       <details className="mt-4">
-        <summary className="cursor-pointer text-sm font-medium text-primary">
+        <summary className="min-h-11 flex cursor-pointer items-center text-sm font-medium text-primary">
           Show as a table
         </summary>
         <table className="mt-2 w-full text-left text-sm">
@@ -125,14 +129,23 @@ function WeeklyBars({ rows }: { rows: WeeklyRow[] }) {
           </caption>
           <thead>
             <tr className="border-b border-border">
-              <th scope="col" className="py-1.5 font-semibold">Week starting</th>
-              <th scope="col" className="py-1.5 font-semibold">Logs</th>
-              <th scope="col" className="py-1.5 font-semibold">Flagged</th>
+              <th scope="col" className="py-1.5 font-semibold">
+                Week starting
+              </th>
+              <th scope="col" className="py-1.5 font-semibold">
+                Logs
+              </th>
+              <th scope="col" className="py-1.5 font-semibold">
+                Flagged
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.week_start} className="border-b border-border last:border-0">
+              <tr
+                key={row.week_start}
+                className="border-b border-border last:border-0"
+              >
                 <td className="py-1.5">
                   {new Date(row.week_start).toLocaleDateString('en-AU')}
                 </td>
@@ -195,14 +208,16 @@ export default function Kpis() {
       </header>
 
       {/* --- Safeguarding responsiveness ---------------------------------- */}
-      <h2 className="mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mb-3 text-section text-foreground">
         Safeguarding responsiveness
       </h2>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Open incidents"
           value={String(k.flagged_open)}
-          detail={k.flagged_open === 0 ? 'Nothing outstanding' : 'Awaiting a decision'}
+          detail={
+            k.flagged_open === 0 ? 'Nothing outstanding' : 'Awaiting a decision'
+          }
           tone={k.flagged_open > 0 ? 'warn' : 'good'}
         />
         <StatCard
@@ -237,7 +252,7 @@ export default function Kpis() {
       </div>
 
       {/* --- Activity ------------------------------------------------------ */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Recording activity
       </h2>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -274,7 +289,7 @@ export default function Kpis() {
       )}
 
       {/* --- Coverage ------------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Coverage
       </h2>
       <div className="grid gap-5 sm:grid-cols-2">
@@ -293,7 +308,7 @@ export default function Kpis() {
       </div>
 
       {/* --- AI ------------------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         AI oversight
       </h2>
 

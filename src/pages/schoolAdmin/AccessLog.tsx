@@ -93,7 +93,7 @@ export default function AccessLog() {
         />
       ) : (
         <>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             By child
           </h2>
           <ul className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -115,7 +115,7 @@ export default function AccessLog() {
 
           <h2
             ref={listTop}
-            className="mb-3 scroll-mt-6 text-lg font-semibold text-foreground"
+            className="mb-3 scroll-mt-6 text-section text-foreground"
           >
             Entries
           </h2>

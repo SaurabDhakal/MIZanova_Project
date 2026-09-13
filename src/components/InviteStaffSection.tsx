@@ -123,7 +123,7 @@ export default function InviteStaffSection({
 
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold text-foreground">
+      <h2 className="text-section text-foreground">
         {schoolName ? `Invite somebody to ${schoolName}` : 'Invite staff'}
       </h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">

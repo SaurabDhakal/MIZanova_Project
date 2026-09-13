@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import Icon from './Icon'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import SentToAi from './SentToAi'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   flagStrategyForReview,
   queryKeys,
   recordStrategyFeedback,
+  fetchMyStrategyFeedback,
   requestStrategies,
   type LogStrategyStatus,
   type StrategyRow,
@@ -91,8 +93,15 @@ export default function StrategyPanel({
   // incident and must not be buried in a sentence about AI routing.
   const [safeguarding, setSafeguarding] = useState(false)
 
+  /* db/129. Open when the teacher wants to say WHY the first set did not fit —
+     shut by default, because "just give me different ones" is the common case
+     and making somebody justify themselves before helping them is a tax. */
+  const [askingOpen, setAskingOpen] = useState(false)
+  const [because, setBecause] = useState('')
+
   const generate = useMutation({
-    mutationFn: () => requestStrategies(logId),
+    mutationFn: (again?: { because?: string }) =>
+      requestStrategies(logId, again),
     onSuccess: async (result) => {
       setNotice(
         [
@@ -110,6 +119,8 @@ export default function StrategyPanel({
           .join(' '),
       )
       setSafeguarding(result.riskFlagged)
+      setAskingOpen(false)
+      setBecause('')
       await queryClient.invalidateQueries({
         queryKey: queryKeys.studentStrategies(studentId),
       })
@@ -122,6 +133,18 @@ export default function StrategyPanel({
     },
   })
 
+  /* What I have already said about each of these. Durable, so it survives a
+     reload — the record itself always did. */
+  const myFeedback = useQuery({
+    queryKey: queryKeys.myStrategyFeedback(logId),
+    queryFn: () => fetchMyStrategyFeedback(strategies.map((s) => s.id)),
+    enabled: strategies.length > 0,
+  })
+
+  /* Empty while it loads, which renders the two buttons — the same thing an
+     unanswered suggestion shows, so nothing flickers into a wrong state. */
+  const mine = myFeedback.data ?? {}
+
   const feedback = useMutation({
     mutationFn: ({
       strategyId,
@@ -130,12 +153,13 @@ export default function StrategyPanel({
       strategyId: string
       action: 'applied' | 'dismissed'
     }) => recordStrategyFeedback(strategyId, action),
-    onSuccess: (_data, variables) =>
-      setNotice(
-        variables.action === 'applied'
-          ? 'Recorded that you tried this strategy.'
-          : 'Recorded that this was not useful.',
-      ),
+    /* No banner at the top of the list. It named no strategy, so with three on
+       screen it could not say WHICH one had been recorded — and it vanished on
+       reload while the record did not. The answer now lives on the card. */
+    onSuccess: () =>
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.myStrategyFeedback(logId),
+      }),
   })
 
   // Flagging is not feedback. It sends the suggestion back to a specialist and
@@ -233,7 +257,7 @@ export default function StrategyPanel({
             </p>
             <button
               type="button"
-              onClick={() => generate.mutate()}
+              onClick={() => generate.mutate(undefined)}
               disabled={generate.isPending}
               className="min-h-11 mt-3 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
             >
@@ -243,7 +267,7 @@ export default function StrategyPanel({
         ) : (
           <button
             type="button"
-            onClick={() => generate.mutate()}
+            onClick={() => generate.mutate(undefined)}
             disabled={generate.isPending}
             className="min-h-11 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
           >
@@ -273,9 +297,17 @@ export default function StrategyPanel({
 
   return (
     <div className="mt-3 border-t border-border pt-3">
-      <p className="text-xs font-semibold tracking-wide text-accent-foreground uppercase">
-        Recommended interventions
-      </p>
+      {/* A REAL HEADING, and in the page's own register.
+
+          It was a <p>, so a screen-reader user navigating by heading found
+          nothing at all inside an expanded row. And "RECOMMENDED
+          INTERVENTIONS" is clinical shorthand on a page that otherwise speaks
+          plainly — "How did it end?", "What was going on", "Usually sets it
+          off". The uppercase treatment now matches the day labels in the
+          timeline, so the two read as the same level of thing. */}
+      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        Suggestions
+      </h3>
 
       {notice && (
         <p role="status" className="mt-2 text-sm text-muted-foreground">
@@ -285,23 +317,65 @@ export default function StrategyPanel({
       {safeguardingBanner}
 
       <ul className="mt-2 space-y-3">
-        {strategies.map((strategy) => (
+        {strategies.map((strategy, index) => (
           <li
             key={strategy.id}
             className="rounded-card border border-border bg-background p-4"
           >
-            <p className="font-bold text-foreground">{strategy.title}</p>
-
-            {/* The quoted block from the design — the actual instruction. */}
-            <p className="mt-2 border-l-4 border-accent pl-3 text-foreground">
-              {strategy.body}
+            {/* NUMBERED. Three untitled-looking cards are hard to talk about —
+                "the second one" is how a teacher refers to these to a colleague
+                or a specialist, and until now there was no second one, only
+                three headings. The number is decorative to a screen reader,
+                which already announces "2 of 3" from the list itself. */}
+            <p className="flex gap-2 font-bold text-foreground">
+              <span className="text-muted-foreground" aria-hidden>
+                {index + 1}.
+              </span>
+              <span>{strategy.title}</span>
             </p>
 
+            {/* db/118, db/124 — WHERE THIS CAME FROM, when it did not come from
+                the model.
+
+                The evidence library answers during an outage and when the kill
+                switch is pulled, which is to say on the worst day. Until now a
+                teacher was handed three paragraphs with no source and no way to
+                tell whether they were chosen for this situation or are general
+                advice that happened to rank. db/118 made provenance not-null
+                because a strategy with no evidence is an opinion with better
+                placement — which is only true if somebody can read it. */}
+            {strategy.provenance && (
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <Icon name="audit" className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span>
+                  From the evidence library
+                  {strategy.targeted
+                    ? ' — chosen for what happened just before this'
+                    : ' — general guidance for this kind of behaviour'}
+                  . Source: {strategy.provenance}
+                </span>
+              </p>
+            )}
+
+            {/* The instruction itself. The accent stripe that used to sit on
+                the left is gone: at 375px it cost width the text could not
+                spare (the body renders in 202px of a 375px viewport once the
+                nested padding is counted), and a heavy coloured rule is
+                decoration standing in for hierarchy the type already carries. */}
+            <p className="mt-2 text-foreground">{strategy.body}</p>
+
+            {/* COLLAPSED — docs/20 follow-up, 2026-09-12.
+                Three strategies with their rationales open came to 512 words
+                on one screen. A teacher reading between lessons needs the
+                ACTION; the reasoning is what they want when deciding whether
+                to trust it, or when explaining it to a parent, and that is a
+                different moment. Shut by default takes the page to about 150
+                visible words without removing anything. */}
             {strategy.rationale.length > 0 && (
-              <>
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  Why this works:
-                </p>
+              <details className="mt-2 group">
+                <summary className="min-h-11 flex cursor-pointer items-center text-sm font-medium text-primary hover:underline">
+                  Why this works
+                </summary>
                 <ul className="mt-1 space-y-1">
                   {strategy.rationale.map((reason, i) => (
                     <li key={i} className="flex gap-2 text-sm text-foreground">
@@ -313,8 +387,9 @@ export default function StrategyPanel({
                     </li>
                   ))}
                 </ul>
-              </>
+              </details>
             )}
+
 
             {/* A QUIET ACTION ROW, from the generator reference in
                 docs/log inspiration: small actions sitting under each output
@@ -325,45 +400,119 @@ export default function StrategyPanel({
 
                 "Applied" keeps the only fill, because it is the one that says
                 something happened in a classroom. */}
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-              <button
-                type="button"
-                onClick={() =>
-                  feedback.mutate({ strategyId: strategy.id, action: 'applied' })
-                }
-                disabled={feedback.isPending}
-                className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-              >
-                <Icon name="tick" className="h-4 w-4" />
-                Applied
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  feedback.mutate({
-                    strategyId: strategy.id,
-                    action: 'dismissed',
-                  })
-                }
-                disabled={feedback.isPending}
-                className="min-h-11 inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background disabled:opacity-60"
-              >
-                <Icon name="cross" className="h-4 w-4" />
-                Not useful
-              </button>
-              <button
-                type="button"
-                onClick={() => flag.mutate(strategy.id)}
-                disabled={flag.isPending}
-                className="min-h-11 ml-auto inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
-              >
-                <Icon name="flag" className="h-4 w-4" />
-                {flag.isPending ? 'Sending…' : 'Flag'}
-              </button>
+            {/* WHAT PRESSING THESE ACTUALLY DOES, said on the card.
+
+                Neither button is a rating. "Applied" records that this was
+                tried in a real classroom. "Not useful" is stronger than it
+                looks: `student_strategy_outcomes` reads it, and the prompt is
+                told never to suggest that idea for this child again — so it is
+                a decision about the future, not a thumbs-down, and the teacher
+                should know that before pressing it and after.
+
+                Both are changeable. db/006 keeps every row rather than editing
+                one, so changing your mind is a new row and the newest wins —
+                which means a mis-tap is not permanent. */}
+            <div className="mt-3 border-t border-border pt-3">
+              {mine[strategy.id] ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {mine[strategy.id] === 'applied' ? (
+                      <span className="inline-flex items-center gap-1.5 text-success-foreground">
+                        <Icon name="tick" className="h-4 w-4" />
+                        You tried this
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <Icon name="cross" className="h-4 w-4" />
+                        Marked not useful
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {mine[strategy.id] === 'applied'
+                      ? 'Recorded on this child’s history, so later suggestions build on it.'
+                      : 'This will not be suggested for this child again.'}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={feedback.isPending}
+                    onClick={() =>
+                      feedback.mutate({
+                        strategyId: strategy.id,
+                        action:
+                          mine[strategy.id] === 'applied'
+                            ? 'dismissed'
+                            : 'applied',
+                      })
+                    }
+                    className="min-h-11 -mx-2 inline-flex items-center px-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      feedback.mutate({ strategyId: strategy.id, action: 'applied' })
+                    }
+                    disabled={feedback.isPending}
+                    className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  >
+                    <Icon name="tick" className="h-4 w-4" />
+                    I tried this
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      feedback.mutate({
+                        strategyId: strategy.id,
+                        action: 'dismissed',
+                      })
+                    }
+                    disabled={feedback.isPending}
+                    className="min-h-11 inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background disabled:opacity-60"
+                    title="Records that this did not suit, and stops it being suggested for this child again."
+                  >
+                    <Icon name="cross" className="h-4 w-4" />
+                    Not useful
+                  </button>
+
+                  {/* FLAG IS NOT FEEDBACK, so it sits apart from the two that
+                      are. It sends the suggestion to a specialist and removes
+                      it from this screen — a different kind of act from saying
+                      whether it worked. */}
+                  <button
+                    type="button"
+                    onClick={() => flag.mutate(strategy.id)}
+                    disabled={flag.isPending}
+                    className="min-h-11 ml-auto inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1.5 text-sm font-medium text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
+                  >
+                    <Icon name="flag" className="h-4 w-4" />
+                    {flag.isPending ? 'Sending…' : 'Flag for review'}
+                  </button>
+                </div>
+              )}
             </div>
           </li>
         ))}
       </ul>
+
+      {/* ONCE, NOT ONCE PER SUGGESTION — the same fault as the privacy notice,
+          and it survived that fix.
+
+          All three suggestions come from ONE request with ONE payload, so
+          rendering this under each of them repeated the identical disclosure
+          three times. Worse, it invited the reading that each suggestion had
+          its own input, which is false.
+
+          One request, one record of what was sent, placed where it belongs:
+          under the set it produced. */}
+      {strategies[0]?.anonymised_input && (
+        <SentToAi raw={strategies[0].anonymised_input} />
+      )}
+
 
       {/* Errors were never rendered for these mutations, so a failure looked
           identical to a button that did nothing. */}
@@ -373,18 +522,91 @@ export default function StrategyPanel({
         </p>
       )}
 
-      <div className="mt-3 rounded-card bg-background p-4">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Icon name="privacy" className="h-4 w-4 text-muted-foreground" />
-          Privacy and compliance notice
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          These are general strategies for observed classroom behaviour. The AI
-          receives no student names or identifying details, and cannot provide
-          clinical advice or a diagnosis. If an intervention is not working,
-          flag it to request a personalised review from your school specialist.
-        </p>
-      </div>
+      {/* --- Ask again (db/129) ----------------------------------------
+          THE THIRD BUTTON FROM THE ORIGINAL DESIGN. db/006 wrote down all
+          three — "Strategy Applied", "Flag this response", "Show Different
+          Strategy" — and only two were built, so a teacher who did not like
+          any of the three had nowhere to go: "Not useful" recorded a verdict
+          and left the screen identical.
+
+          The "because" box is the classroom version of db/110, which has let
+          an individual say "I cannot do that because I share a room" since it
+          was written. A teacher with no quiet corner in their room had no way
+          to say so. Optional, because being made to justify yourself before
+          getting help is a tax. */}
+      {strategies.length > 0 && (
+        <div className="mt-3 border-t border-border pt-3">
+          {!askingOpen ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={generate.isPending}
+                onClick={() => generate.mutate({})}
+                className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-background disabled:opacity-50"
+              >
+                {generate.isPending ? 'Thinking…' : 'Show me different ones'}
+              </button>
+              <button
+                type="button"
+                disabled={generate.isPending}
+                onClick={() => setAskingOpen(true)}
+                className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-background disabled:opacity-50"
+              >
+                These will not work because…
+              </button>
+            </div>
+          ) : (
+            <div>
+              <label
+                htmlFor={`because-${logId}`}
+                className="text-sm font-semibold text-foreground"
+              >
+                What stops these working in your room?
+              </label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                One sentence. &ldquo;There is no quiet corner&rdquo;,
+                &ldquo;we have already tried the timer&rdquo;, &ldquo;I am on my
+                own with thirty of them&rdquo;.
+              </p>
+              <input
+                id={`because-${logId}`}
+                value={because}
+                maxLength={500}
+                onChange={(e) => setBecause(e.target.value)}
+                className="mt-2 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={because.trim() === '' || generate.isPending}
+                  onClick={() => generate.mutate({ because })}
+                  className="pressable min-h-11 rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {generate.isPending ? 'Thinking…' : 'Try again with that'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAskingOpen(false)}
+                  className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* THE PRIVACY NOTICE MOVED OUT OF HERE — one per page, not one per log.
+          This panel renders once per behaviour log, so a student with five
+          logs carried five identical copies of an 85-word notice: 425 words of
+          verbatim boilerplate on one screen. Text that reassures at the first
+          reading becomes an anxiety signal by the fifth.
+
+          It now sits once at the foot of the Activity card. What stays on each
+          suggestion is the part that is about THAT suggestion — the provenance
+          line, and "What the AI was told". */}
+
     </div>
   )
 }

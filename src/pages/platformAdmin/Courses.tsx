@@ -15,7 +15,11 @@ import {
 } from '../../lib/api'
 import { csvCell } from '../../lib/csv'
 import { ROLE_CONFIG, ROLES, type Role } from '../../lib/roles'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
 
@@ -75,7 +79,9 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         e.preventDefault()
         if (title.trim() === '') return setError('Give the course a title.')
         if (summary.trim() === '')
-          return setError('Say what it is for — this is what people read first.')
+          return setError(
+            'Say what it is for — this is what people read first.',
+          )
         if (audiences.length === 0)
           return setError('Choose at least one audience, or nobody can see it.')
         setError(null)
@@ -95,7 +101,10 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
 
       <div className="mt-4 grid gap-4">
         <div>
-          <label htmlFor="course-title" className="block text-sm font-medium text-foreground">
+          <label
+            htmlFor="course-title"
+            className="block text-sm font-medium text-foreground"
+          >
             Title
           </label>
           <input
@@ -108,7 +117,10 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         </div>
 
         <div>
-          <label htmlFor="course-summary" className="block text-sm font-medium text-foreground">
+          <label
+            htmlFor="course-summary"
+            className="block text-sm font-medium text-foreground"
+          >
             What it is for
           </label>
           <textarea
@@ -126,7 +138,9 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         </div>
 
         <fieldset>
-          <legend className="text-sm font-medium text-foreground">Who it is for</legend>
+          <legend className="text-sm font-medium text-foreground">
+            Who it is for
+          </legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {AUDIENCE_CHOICES.map((role) => (
               <label
@@ -447,7 +461,10 @@ function PriceControl({ course }: { course: Course }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="mt-1 inline-flex min-h-6 items-center text-xs font-semibold text-primary hover:underline"
+        /* `min-h-6` — 24px on the control that opens pricing for a course
+           people are charged for. Found by the Gate 1.3 grep in
+           docs/21 before the browser was opened. */
+        className="pressable -ml-2 mt-1 inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-primary hover:bg-background hover:underline"
       >
         {course.price_cents === null ? 'Set a price' : 'Change the price'}
       </button>
@@ -537,7 +554,15 @@ function Engagement() {
     // formula injection — see src/lib/csv.ts. Same shape, one import.
     const esc = csvCell
     const csv = [
-      ['Course', 'State', 'Audiences', 'Modules', 'Enrolled', 'Finished', 'Finished %'].join(','),
+      [
+        'Course',
+        'State',
+        'Audiences',
+        'Modules',
+        'Enrolled',
+        'Finished',
+        'Finished %',
+      ].join(','),
       ...data.map((r) =>
         [
           r.title,
@@ -546,7 +571,9 @@ function Engagement() {
           r.modules,
           r.enrolments,
           r.completed,
-          r.enrolments === 0 ? '' : Math.round((r.completed / r.enrolments) * 100),
+          r.enrolments === 0
+            ? ''
+            : Math.round((r.completed / r.enrolments) * 100),
         ]
           .map(esc)
           .join(','),
@@ -617,7 +644,10 @@ function Engagement() {
                 ? null
                 : Math.round((r.completed / r.enrolments) * 100)
             return (
-              <li key={r.course_id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <li
+                key={r.course_id}
+                className="flex flex-wrap items-center gap-x-4 gap-y-1"
+              >
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                   {r.title}
                 </span>
@@ -662,7 +692,10 @@ export default function Courses() {
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
 
-  const courses = useQuery({ queryKey: queryKeys.courses, queryFn: fetchCourses })
+  const courses = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: fetchCourses,
+  })
 
   const publish = useMutation({
     mutationFn: ({ id, next }: { id: string; next: boolean }) =>
@@ -734,7 +767,9 @@ export default function Courses() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold text-foreground">{course.title}</h2>
+                    <h2 className="font-semibold text-foreground">
+                      {course.title}
+                    </h2>
                     <span
                       className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${
                         course.is_published
@@ -754,7 +789,9 @@ export default function Courses() {
                       .map((r) => ROLE_CONFIG[r]?.label ?? r)
                       .join(', ')}{' '}
                     · {(course.course_modules ?? []).length} module
-                    {(course.course_modules ?? []).length === 1 ? '' : 's'} ·{' '}
+                    {(course.course_modules ?? []).length === 1
+                      ? ''
+                      : 's'} ·{' '}
                     {course.price_cents === null
                       ? 'Free'
                       : `$${(course.price_cents / 100).toFixed(2)}`}
@@ -766,7 +803,9 @@ export default function Courses() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setOpen(open === course.id ? null : course.id)}
+                    onClick={() =>
+                      setOpen(open === course.id ? null : course.id)
+                    }
                     className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
                   >
                     {open === course.id ? 'Hide modules' : 'Modules'}

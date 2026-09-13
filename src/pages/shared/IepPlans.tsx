@@ -165,14 +165,18 @@ export default function IepPlans() {
 
   return (
     <div>
+      {/* The only way back, so it gets a hit area. It was 17px tall — and
+          this page is reached by three roles, one of which opens it on a
+          phone between classes. `-ml-1` keeps the arrow optically aligned
+          with the heading below now that there is padding. */}
       <Link
         to={`${roleBase}/students/${studentId}`}
-        className="text-sm font-medium text-primary hover:underline"
+        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-medium text-primary hover:underline"
       >
         ← Back to {name}
       </Link>
 
-      <header className="mt-4 mb-6">
+      <header className="mt-2 mb-6">
         <h1 className="text-title text-foreground">
           Education plans for {name}
         </h1>

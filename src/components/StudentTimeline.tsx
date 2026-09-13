@@ -22,6 +22,8 @@ import Icon, { type IconName } from './Icon'
 import Spinner from './Spinner'
 import StrategyPanel from './StrategyPanel'
 import EditBehaviourLogDialog from './EditBehaviourLogDialog'
+import HowDidItEnd from './HowDidItEnd'
+import ContextLine from './ContextLine'
 
 /**
  * One child's story, in date order.
@@ -211,11 +213,11 @@ function Entry({
                 Flagged
               </span>
             )}
-            {row.kind === 'behaviour' && row.shared_with_parents === true && (
-              <span className="rounded-btn bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                Shared with family
-              </span>
-            )}
+            {/* THE "Shared with family" BADGE IS GONE FROM THE ROW.
+                It appeared on four of five entries — a badge on the default
+                state is not a badge, it is noise with a border. The fact is
+                still on the row's own share control, one tap away, where it is
+                actionable rather than merely present. */}
 
             {time && (
               <span className="ml-auto text-sm text-muted-foreground">
@@ -224,10 +226,56 @@ function Entry({
             )}
           </div>
 
+          {/* ONE LINE UNTIL SOMEBODY OPENS IT.
+              Ten entries, each showing its full notes, its context line, a
+              badge row and a button, is a wall — a teacher opening a record to
+              find out what has been happening has to read everything to find
+              anything. Clamped, the page becomes a list of dates and headlines
+              that can be scanned, and the detail is one click away where it
+              already was. Expanding the row (Sharing and strategies) also
+              reveals the whole note, so nothing is reachable only by hover or
+              only by guessing. */}
           {row.detail && (
-            <p className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground">
+            <p
+              /* TWO LINES, NOT ONE. One line hid three of four on mobile —
+                 clamping is meant to tame a wall of text, not to withhold the
+                 substance of an incident. Two keeps the list scannable and
+                 still shows what happened. */
+              className={`mt-1 text-sm text-muted-foreground ${
+                open ? 'whitespace-pre-wrap' : 'line-clamp-2'
+              }`}
+            >
               {row.detail}
             </p>
+          )}
+
+          {/* db/123. What was going on around the incident.
+              RENDERED AS SENTENCE FRAGMENTS, NOT LABELLED FIELDS. "Just
+              before: transition" is a database row read aloud; "after
+              changing activity" is what a colleague would actually say, and
+              this line is read far more often than it is written.
+              Absent entirely when nothing was recorded, which is the case for
+              every log written before db/122 — an empty "Just before —" would
+              turn history into a page of blanks. */}
+          {/* Shown collapsed too: it is one short line and it is the part a
+              teacher scanning for a pattern actually wants. */}
+          <ContextLine row={row} />
+
+          {/* docs/19 §3.2. Asked here because it cannot be answered in the log
+              modal — at the moment of logging, the incident has not ended.
+              Only on behaviour rows, only where nobody has answered yet, and
+              only for somebody who can actually edit the log. */}
+          {/* ONLY ON AN OPEN ROW. Ten unanswered logs otherwise meant ten
+              chip rows stacked down the page, which is the opposite of the
+              gentle nudge this is meant to be. */}
+          {row.kind === 'behaviour' && actionable && open && !row.what_helped && (
+            <HowDidItEnd
+              logId={row.source_id}
+              studentId={studentId}
+              behaviourType={row.behaviour_type!}
+              intensity={row.intensity!}
+              notes={row.detail}
+            />
           )}
 
           {actionable && (
@@ -235,26 +283,43 @@ function Entry({
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="mt-2 text-sm font-medium text-primary hover:underline"
+              /* FIVE OF THESE RENDER ON ONE PAGE with identical text, so a
+                 screen reader announced the same nameless control five times.
+                 The visible label stays short; the accessible name says which
+                 entry it opens. */
+              aria-label={`${open ? 'Hide' : 'Show'} details for ${headline(row)}${
+                time ? `, ${time}` : ''
+              }`}
+              className="min-h-11 mt-1 inline-flex items-center text-sm font-medium text-primary hover:underline"
             >
-              {open ? 'Hide details' : 'Sharing and strategies'}
+              {open ? 'Hide details' : 'Details'}
             </button>
           )}
 
           {actionable && open && (
             <div className="mt-3 border-t border-border pt-3">
-              <label className="flex cursor-pointer items-center gap-2">
+              {/* THE HIGHEST-CONSEQUENCE CONTROL ON THE PAGE — it publishes a
+                  child's incident to their family — and it was a 16px checkbox
+                  whose label DESCRIBED A STATE and flipped between "Visible to
+                  parents" and "Not shared with parents". A teacher could not
+                  tell whether the words named the current state or the result
+                  of clicking.
+
+                  Now the label is fixed and names the action, the state is the
+                  checkbox itself, and the target is 44px. */}
+              <label className="min-h-11 flex cursor-pointer items-center gap-2.5">
                 <input
                   type="checkbox"
                   checked={row.shared_with_parents === true}
+                  /* SCOPED TO THIS ROW. `sharing` was the whole mutation's
+                     pending flag, passed to every row — so toggling one entry
+                     disabled the control on all five at once. */
                   disabled={sharing}
                   onChange={(e) => onShare(row.source_id, e.target.checked)}
-                  className="h-4 w-4"
+                  className="h-5 w-5 shrink-0"
                 />
                 <span className="text-sm text-foreground">
-                  {row.shared_with_parents
-                    ? 'Visible to parents'
-                    : 'Not shared with parents'}
+                  Share with family
                 </span>
               </label>
 
@@ -270,7 +335,7 @@ function Entry({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="mt-3 text-sm font-semibold text-primary hover:underline"
+                className="min-h-11 mt-2 inline-flex items-center text-sm font-semibold text-primary hover:underline"
               >
                 Correct this observation
               </button>
@@ -302,6 +367,7 @@ function Entry({
 
 export default function StudentTimeline({ studentId }: { studentId: string }) {
   const [kinds, setKinds] = useState<TimelineKind[]>([])
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [showAll, setShowAll] = useState(false)
   const queryClient = useQueryClient()
@@ -385,40 +451,76 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      {/* ONE CONTROL, NOT SIX — and shut unless it is being used.
+
+          Six chips at min-h-11 occupied two full rows at 375px, permanently,
+          for something a teacher touches rarely: they open a student record to
+          read what has happened, not to slice it by type. Worse, on most
+          children nearly every entry is a behaviour log, so the filter usually
+          has nothing to separate.
+
+          Nothing is removed. Collapsed it is one line; open it is the same
+          five chips it always was. When a filter IS on, the summary says which
+          — a hidden filter that silently shortens a child's history is the one
+          state this control must never reach. */}
+      <div className="mt-3">
         <button
           type="button"
-          onClick={() => {
-            setKinds([])
-            setPage(0)
-          }}
-          aria-pressed={!filtered}
-          className={`min-h-11 rounded-btn px-2.5 py-1 text-xs font-semibold ${
-            !filtered
-              ? 'bg-primary text-primary-foreground'
-              : 'border border-border text-muted-foreground hover:bg-background'
-          }`}
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          className="min-h-11 inline-flex items-center gap-1.5 rounded-btn border border-border px-3 text-sm font-medium text-foreground hover:bg-background"
         >
-          All
+          {/* chevronDown, not an invented filter glyph: this IS a disclosure,
+              and the icon set has no filter mark. Borrowing an unrelated one
+              or dropping in a unicode character would both be worse than
+              naming what the control does. */}
+          <Icon
+            name="chevronDown"
+            className={`h-4 w-4 shrink-0 transition-transform ${
+              filtersOpen ? 'rotate-180' : ''
+            }`}
+            aria-hidden
+          />
+          {filtered
+            ? `Showing ${kinds.map((k) => TIMELINE_KIND_LABEL[k].toLowerCase()).join(', ')}`
+            : 'Filter'}
         </button>
-        {KINDS.map((kind) => {
-          const on = kinds.includes(kind)
-          return (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => toggle(kind)}
-              aria-pressed={on}
-              className={`min-h-11 rounded-btn px-2.5 py-1 text-xs font-semibold ${
-                on
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border text-muted-foreground hover:bg-background'
-              }`}
-            >
-              {TIMELINE_KIND_LABEL[kind]}
-            </button>
-          )
-        })}
+
+        {filtered && (
+          <button
+            type="button"
+            onClick={() => {
+              setKinds([])
+              setPage(0)
+            }}
+            className="min-h-11 ml-2 inline-flex items-center px-2 text-sm font-medium text-primary hover:underline"
+          >
+            Clear
+          </button>
+        )}
+
+        {filtersOpen && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {KINDS.map((kind) => {
+              const on = kinds.includes(kind)
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => toggle(kind)}
+                  aria-pressed={on}
+                  className={`min-h-11 rounded-btn px-3 text-xs font-semibold ${
+                    on
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-border text-muted-foreground hover:bg-background'
+                  }`}
+                >
+                  {TIMELINE_KIND_LABEL[kind]}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {timeline.isPending && (
@@ -467,7 +569,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
                 status={(strategyStatus.data ?? {})[row.source_id]}
                 statusUnknown={strategyStatus.isError}
                 onShare={(id, shared) => share.mutate({ id, shared })}
-                sharing={share.isPending}
+                sharing={share.isPending && share.variables?.id === row.source_id}
               />
             ))}
           </ul>
@@ -480,7 +582,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+          className="pressable min-h-11 mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
         >
           See {hidden} more on this page
         </button>
@@ -521,6 +623,32 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
           </span>
         </div>
       )}
+
+      {/* ONCE PER PAGE, NOT ONCE PER LOG — the single largest source of the
+          clutter on this screen.
+
+          StrategyPanel used to carry an 85-word privacy notice, and it renders
+          once per behaviour log. A student with five logs therefore carried
+          425 words of verbatim boilerplate. Collapsed and stated once, it is
+          one line until somebody wants it, and it is still on the page the
+          promise is made on. */}
+      <details className="mt-5 border-t border-border pt-3">
+        <summary className="min-h-11 flex cursor-pointer items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+          <Icon name="privacy" className="h-4 w-4 shrink-0" aria-hidden />
+          How suggestions here use this child&rsquo;s information
+        </summary>
+        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+          Suggestions are written for this child, from the incident, what was
+          happening around it, their own history at this school, and what staff
+          have recorded about them. Their name, date of birth and student ID are
+          never sent. The exact text that was sent is kept, and you can read it
+          on any suggestion under &ldquo;What the AI was told&rdquo;. The AI
+          cannot give clinical advice or a diagnosis, and it does not replace
+          your judgement &mdash; if a suggestion is wrong for this child, flag
+          it for your school specialist.
+        </p>
+      </details>
+
     </section>
   )
 }

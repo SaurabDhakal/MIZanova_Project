@@ -13,6 +13,7 @@ import { pathForRole } from '../../lib/roles'
 import { EmptyState, ErrorState } from '../../components/QueryState'
 import Avatar from '../../components/Avatar'
 import Icon from '../../components/Icon'
+import TodayContext from '../../components/TodayContext'
 import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
@@ -31,9 +32,9 @@ export default function StudentRoster() {
   const [search, setSearch] = useState('')
   const [yearLevel, setYearLevel] = useState('')
   const [attention, setAttention] = useState('')
-  const [sortBy, setSortBy] = useState<'name' | 'year' | 'activity' | 'attention'>(
-    'name',
-  )
+  const [sortBy, setSortBy] = useState<
+    'name' | 'year' | 'activity' | 'attention'
+  >('name')
   const { profile } = useAuth()
 
   const students = useQuery({
@@ -73,7 +74,10 @@ export default function StudentRoster() {
   const logsByStudent = new Map<string, number>()
   const flagsByStudent = new Map<string, number>()
   for (const log of logs.data ?? []) {
-    logsByStudent.set(log.student_id, (logsByStudent.get(log.student_id) ?? 0) + 1)
+    logsByStudent.set(
+      log.student_id,
+      (logsByStudent.get(log.student_id) ?? 0) + 1,
+    )
     // OPEN flags only — a flag an administrator has already acknowledged is
     // history, not something waiting for this teacher.
     if (log.is_risk_flagged && log.safeguarding_acknowledged_at === null) {
@@ -114,7 +118,8 @@ export default function StudentRoster() {
       const matchesYear = yearLevel === '' || student.year_level === yearLevel
       const matchesAttention =
         attention === '' ||
-        (attention === 'flagged' && (flagsByStudent.get(student.id) ?? 0) > 0) ||
+        (attention === 'flagged' &&
+          (flagsByStudent.get(student.id) ?? 0) > 0) ||
         (attention === 'home' && (homeByStudent.get(student.id) ?? 0) > 0)
       return matchesTerm && matchesYear && matchesAttention
     })
@@ -135,10 +140,8 @@ export default function StudentRoster() {
       }
       if (sortBy === 'attention') {
         return (
-          (flagsByStudent.get(b.id) ?? 0) -
-            (flagsByStudent.get(a.id) ?? 0) ||
-          (homeByStudent.get(b.id) ?? 0) -
-            (homeByStudent.get(a.id) ?? 0) ||
+          (flagsByStudent.get(b.id) ?? 0) - (flagsByStudent.get(a.id) ?? 0) ||
+          (homeByStudent.get(b.id) ?? 0) - (homeByStudent.get(a.id) ?? 0) ||
           byName
         )
       }
@@ -180,6 +183,20 @@ export default function StudentRoster() {
         )}
       </header>
 
+      {/* docs/19 §3.3. Only for the people who actually write logs, which
+          StudentDetail defines as educators and specialists — a school
+          administrator reviewing records is not having a day in a classroom,
+          and the row is attached to the logs its setter writes.
+
+          The first version checked for 'educator' alone, which left every
+          specialist logging from their caseload with no way to say a day was
+          different. Kept in step with `canLogBehaviour` in StudentDetail. */}
+      {(profile?.role === 'educator' || profile?.role === 'specialist') && (
+        <div className="mb-5">
+          <TodayContext />
+        </div>
+      )}
+
       {students.isError && (
         <ErrorState
           message={students.error.message}
@@ -206,7 +223,9 @@ export default function StudentRoster() {
         <>
           <dl className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-card border border-border bg-card p-4 shadow-raised">
-              <dt className="text-sm text-muted-foreground">Assigned students</dt>
+              <dt className="text-sm text-muted-foreground">
+                Assigned students
+              </dt>
               <dd className="mt-1 text-2xl font-semibold text-foreground">
                 {students.data.length}
               </dd>
@@ -236,7 +255,11 @@ export default function StudentRoster() {
               <dt className="text-sm text-muted-foreground">Open flags</dt>
               <dd
                 className={`mt-1 text-2xl font-semibold ${logs.isError ? 'text-muted-foreground' : 'text-danger-foreground'}`}
-                title={logs.isError ? 'Not known — this could not be loaded' : undefined}
+                title={
+                  logs.isError
+                    ? 'Not known — this could not be loaded'
+                    : undefined
+                }
               >
                 {logs.isError ? '—' : openFlagCount}
               </dd>
@@ -245,7 +268,11 @@ export default function StudentRoster() {
               <dt className="text-sm text-muted-foreground">Notes from home</dt>
               <dd
                 className={`mt-1 text-2xl font-semibold ${homeNotes.isError ? 'text-muted-foreground' : 'text-success-foreground'}`}
-                title={homeNotes.isError ? 'Not known — this could not be loaded' : undefined}
+                title={
+                  homeNotes.isError
+                    ? 'Not known — this could not be loaded'
+                    : undefined
+                }
               >
                 {homeNotes.isError ? '—' : homeNoteCount}
               </dd>
@@ -301,10 +328,7 @@ export default function StudentRoster() {
                 onChange={(event) =>
                   setSortBy(
                     event.target.value as
-                      | 'name'
-                      | 'year'
-                      | 'activity'
-                      | 'attention',
+                      'name' | 'year' | 'activity' | 'attention',
                   )
                 }
                 className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
@@ -385,7 +409,13 @@ export default function StudentRoster() {
                             <div className="min-w-0">
                               <Link
                                 to={`${basePath}/students/${student.id}`}
-                                className="block truncate font-medium text-primary hover:underline"
+                                /* 24px, and the primary way into every child
+                                   on the roster — 34 of them on this school's
+                                   list, stacked, so the wrong one is always
+                                   a few pixels away. Shared by educator and
+                                   school_admin, which is why it shows up on
+                                   both roster sweeps. */
+                                className="flex min-h-11 items-center truncate font-medium text-primary hover:underline"
                               >
                                 {student.first_name} {student.last_name}
                               </Link>
@@ -415,7 +445,10 @@ export default function StudentRoster() {
                           <div className="flex flex-wrap gap-1.5">
                             {flags > 0 && (
                               <span className="inline-flex items-center gap-1 rounded-btn bg-danger-subtle px-2 py-0.5 text-xs font-semibold text-danger-foreground">
-                                <Icon name="safeguarding" className="h-3.5 w-3.5" />
+                                <Icon
+                                  name="safeguarding"
+                                  className="h-3.5 w-3.5"
+                                />
                                 {flags} flagged
                               </span>
                             )}

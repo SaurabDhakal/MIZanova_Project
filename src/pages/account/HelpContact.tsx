@@ -63,7 +63,7 @@ export default function HelpContact() {
         <div className="flex items-start gap-3">
           <Icon name="hand" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-foreground">
+            <h2 className="text-section text-foreground">
               Questions people actually arrive with
             </h2>
             <p className="mt-1 max-w-prose text-muted-foreground">
@@ -132,7 +132,7 @@ export default function HelpContact() {
       </section>
 
       <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
-        <h2 className="text-lg font-bold text-foreground">Reaching a person</h2>
+        <h2 className="text-section text-foreground">Reaching a person</h2>
 
         {/* ------------------------------------------------------------------
             SOMEBODY AT A SCHOOL HAS SOMEBODY, AND IT IS NOT SPECIAL MILES.

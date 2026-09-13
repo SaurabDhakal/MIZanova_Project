@@ -33,7 +33,7 @@ export default function NotBuiltYet({
 }) {
   return (
     <details className="mt-6 rounded-card border border-border bg-background px-6 py-4">
-      <summary className="cursor-pointer font-medium text-primary">
+      <summary className="min-h-11 flex cursor-pointer items-center font-medium text-primary">
         {title}
       </summary>
       <div className="mt-2 max-w-prose space-y-2 text-sm text-muted-foreground">

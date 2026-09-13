@@ -42,6 +42,7 @@ import {
   generateHomeStrategies,
   SELF_PROMPT_VERSION,
   HOME_PROMPT_VERSION,
+  CLASSROOM_PROMPT_VERSION,
 } from './claude.js'
 
 // 8887, not the conventional 8787 — see the note in vite.config.ts.
@@ -653,89 +654,29 @@ app.get('/api/health', async (_req, res) => {
  * sources of truth that can drift apart, and the one in JavaScript would be
  * the one nobody re-tests.
  */
-/**
- * The curated answer, for when the model cannot give one — db/118, E02.
- *
- * Shaped exactly like a generated response so `StrategyPanel` renders either
- * without knowing which it got, and marked `source: 'evidence'` so it can SAY
- * which it got. A teacher handed advice in a crisis is entitled to know it
- * came from a library rather than from a model reading their notes.
- *
- * The usage row is written with the same `source`, because A04 asks for "the
- * ratio of AI-generated strategies versus Database-only usage" and without it
- * that ratio cannot be computed at all.
- */
-async function evidenceFallback(log, actorId) {
-  /*
-   * The school is looked up here rather than passed in. The first version took
-   * a `student` the caller had already fetched — and the kill-switch branch
-   * runs BEFORE that fetch, so it read a `const` in its temporal dead zone.
-   * Neither the linter nor `node --check` sees that; it throws at runtime, in
-   * the branch that only runs during a crisis, which is the worst possible
-   * place to find out.
-   */
-  const { data: student } = await admin
-    .from('students')
-    .select('school_id')
-    .eq('id', log.student_id)
-    .maybeSingle()
-
-  const { data: rows, error } = await admin
-    .from('evidence_strategies')
-    .select('id, title, body, rationale, provenance')
-    .eq('behaviour_type', log.behaviour_type)
-    .eq('is_current', true)
-    .is('retired_at', null)
-    .limit(3)
-
-  if (error) {
-    console.error('Evidence fallback failed:', error.message)
-    return { strategies: [] }
-  }
-
-  const strategies = (rows ?? []).map((r) => ({
-    id: r.id,
-    title: r.title,
-    body: r.body,
-    rationale: r.rationale ?? [],
-    /*
-     * No confidence score. A number here would be invented: these were written
-     * by a person and chosen by a specialist, and a made-up 0.9 beside them
-     * would put them on the same scale as something a model scored itself on.
-     */
-    confidence: null,
-    status: 'published',
-    provenance: r.provenance,
-  }))
-
-  if (strategies.length > 0) {
-    await admin.from('ai_generation_events').insert({
-      school_id: student?.school_id ?? null,
-      requested_by: actorId,
-      behaviour_log_id: log.id,
-      strategies_returned: strategies.length,
-      model: null,
-      source: 'evidence',
-    })
-  }
-
-  return {
-    strategies,
-    heldForReview: 0,
-    rejected: 0,
-    riskFlagged: false,
-    redactions: 0,
-    source: 'evidence',
-  }
-}
 
 app.post('/api/strategies', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
 
-  const { behaviourLogId } = req.body ?? {}
+  /*
+   * db/129. `askAgain` is the "Show different ones" button the design named in
+   * db/006 and nobody built; `because` is the obstacle a teacher typed, which
+   * db/110 has let an individual do since it was written.
+   *
+   * Both optional, so the ordinary first request is unchanged.
+   */
+  const { behaviourLogId, askAgain, because } = req.body ?? {}
   if (!behaviourLogId) {
     return res.status(400).json({ error: 'behaviourLogId is required.' })
+  }
+  if (because !== undefined && typeof because !== 'string') {
+    return res.status(400).json({ error: 'because must be text.' })
+  }
+  if (typeof because === 'string' && because.length > 500) {
+    return res.status(400).json({
+      error: 'That is longer than this field takes. A sentence is plenty.',
+    })
   }
 
   try {
@@ -752,7 +693,16 @@ app.post('/api/strategies', async (req, res) => {
     // Read AS THE USER. RLS is the authorisation check.
     const { data: log, error: logError } = await userClient
       .from('behaviour_logs')
-      .select('id, student_id, behaviour_type, intensity, notes, duration_seconds')
+      .select(
+        // antecedent, what_helped and setting_events are db/122. They are what
+        // makes the difference between advice about an incident and advice
+        // about a child, and they are null on every log written before it.
+        'id, student_id, behaviour_type, intensity, notes, duration_seconds, ' +
+          'antecedent, what_helped, setting_events, ' +
+          // db/125. The 'other' escape hatch. Free text, so it is redacted
+          // alongside the notes rather than asserted like the codes.
+          'antecedent_note, what_helped_note, setting_events_note',
+      )
       .eq('id', behaviourLogId)
       .maybeSingle()
 
@@ -767,7 +717,8 @@ app.post('/api/strategies', async (req, res) => {
     // screen silently spends another API call and creates duplicate rows.
     const { data: existing } = await admin
       .from('ai_strategies')
-      .select('id, title, body, rationale, confidence, status, routing_reason')
+      .select('id, title, body, rationale, confidence, status, routing_reason, anonymised_input')
+      .is('superseded_at', null)
       .eq('behaviour_log_id', log.id)
 
     // Rejected rows do NOT count as "already generated".
@@ -782,7 +733,19 @@ app.post('/api/strategies', async (req, res) => {
     const live = (existing ?? []).filter((s) => s.status !== 'rejected')
     const rejectedCount = (existing ?? []).length - live.length
 
-    if (live.length > 0) {
+    /*
+     * db/129. ASKING AGAIN IS NOT A SECOND PRESS OF THE SAME BUTTON.
+     *
+     * This guard exists so a double-click does not spend a second generation,
+     * and it was right until "Show me different ones" existed — at which point
+     * it silently returned the identical three suggestions the teacher had
+     * just rejected, which looks exactly like the feature being broken.
+     *
+     * `askAgain` is a deliberate second request with the first answer named in
+     * the payload, so it must be allowed through. The quota check below is what
+     * stops it being abused; this guard was never the spend control.
+     */
+    if (live.length > 0 && !askAgain) {
       const visible = live.filter(
         (s) => s.status === 'published' || s.status === 'approved',
       )
@@ -808,20 +771,33 @@ app.post('/api/strategies', async (req, res) => {
 
     if (!controls?.ai_enabled) {
       /*
-       * E02: "Strategies must fall back to the curated Evidence Database (DB)
-       * if AI is blocked or offline."
+       * ---------------------------------------------------------------------
+       * E02 IS DELIBERATELY NOT MET, AND THIS IS THE ARGUMENT
+       * ---------------------------------------------------------------------
+       * E02 asked for a fallback to "the curated Evidence Database" when the
+       * AI is blocked or offline, and db/118 built one. It has been removed.
        *
-       * This used to be a 503 and nothing else — so FR21's kill switch, the
-       * one Special Miles pulls during a crisis, left every teacher in every
-       * classroom with no strategies at all, at the moment they were most
-       * likely to need one. db/118 is the net that was missing.
+       * Saurab: "there can be hundreds of different scenarios, so ... when
+       * there is no internet a sloopy ai recommendation is a bad feature to
+       * have". The numbers were on his side. The library held TWELVE rows,
+       * every one of them seeded by this project rather than written by a
+       * specialist, and not one AI suggestion had ever cited one. Twelve
+       * general paragraphs cannot cover what a classroom produces, so what
+       * the fallback actually delivered was a vague answer in the exact place
+       * a teacher had been promised a specific one.
+       *
+       * A teacher who is told "not right now" goes and asks a colleague. A
+       * teacher handed something generic tries it on a child, and this product
+       * put it in front of them. The honest refusal is the safer of the two,
+       * and it is also the one that does not quietly train people to ignore
+       * the panel.
+       *
+       * The log is already saved by this point — that is worth saying in the
+       * message, because it is the thing they would otherwise worry about.
        */
-      const fallback = await evidenceFallback(log, user.id)
-      if (fallback.strategies.length > 0) return res.json(fallback)
-
       return res.status(503).json({
         error:
-          'AI suggestions are switched off at the moment, and the evidence library has nothing recorded for this behaviour yet. Your school specialist can help.',
+          'AI suggestions are switched off at the moment. Your observation is saved and nothing is lost. For something urgent, your school specialist is the person to ask.',
       })
     }
 
@@ -892,12 +868,107 @@ app.post('/api/strategies', async (req, res) => {
       s.last_name,
     ])
 
+    /*
+     * WHAT THIS CHILD'S OWN HISTORY SAYS — db/122.
+     *
+     * Both are counted by Postgres, not by the model: a GROUP BY costs nothing
+     * and cannot get arithmetic wrong, and sending six weeks of raw logs to be
+     * counted would be expensive and worse.
+     *
+     * Neither is allowed to fail the request. A model answering with the
+     * incident alone is exactly what it did before this change — degraded, not
+     * broken — and a teacher standing in a classroom should not lose their
+     * strategies because a stats query timed out.
+     */
+    const [patternResult, outcomeResult, profileResult] = await Promise.all([
+      admin.rpc('student_behaviour_patterns', { p_student_id: log.student_id }),
+      admin.rpc('student_strategy_outcomes', { p_student_id: log.student_id }),
+      // db/127. What the school knew before anything happened — and the only
+      // thing in the payload that is not derived from something going wrong.
+      admin
+        .from('student_profiles')
+        .select('interests, strengths, finds_hard, helps, triggers')
+        .eq('student_id', log.student_id)
+        .maybeSingle(),
+    ])
+
+    if (patternResult.error) {
+      console.error('Patterns unavailable:', patternResult.error.message)
+    }
+    if (outcomeResult.error) {
+      console.error('Prior outcomes unavailable:', outcomeResult.error.message)
+    }
+    if (profileResult.error) {
+      console.error('Profile unavailable:', profileResult.error.message)
+    }
+
+    /*
+     * db/129. WHAT WAS ALREADY SHOWN FOR THIS INCIDENT.
+     *
+     * Read fresh rather than trusted from the request: a browser that could
+     * name the titles to avoid could also name titles that were never shown,
+     * and the model would then be steered by something no teacher saw.
+     */
+    let rejected = []
+    let supersedesId = null
+    if (askAgain) {
+      const { data: shown } = await admin
+        .from('ai_strategies')
+        .select('id, title')
+        .eq('behaviour_log_id', log.id)
+        .order('created_at', { ascending: false })
+        .limit(12)
+      rejected = (shown ?? []).map((r) => r.title)
+      // The most recent one it is replacing, so the chain is walkable.
+      supersedesId = shown?.[0]?.id ?? null
+
+      /*
+       * db/131. RETIRE THE WHOLE SET, not just the one `supersedes_id` names.
+       *
+       * Without this the new three are ADDED to the old three and the teacher
+       * reads six, then nine — every suggestion they just rejected still on
+       * screen under the ones that replaced it.
+       *
+       * Marked, never deleted: a teacher may have pressed "I tried this" on one
+       * of them, student_strategy_outcomes reads them so a rejected idea is
+       * never offered again, and these rows are the record of what this product
+       * told somebody about a child.
+       */
+      const { error: retireError } = await admin
+        .from('ai_strategies')
+        .update({ superseded_at: new Date().toISOString() })
+        .eq('behaviour_log_id', log.id)
+        .is('superseded_at', null)
+
+      if (retireError) {
+        // Fail the request rather than show six. A teacher who asked for
+        // different ones and got the old ones back as well would reasonably
+        // conclude the button is broken.
+        console.error('Could not retire the previous set:', retireError.message)
+        return res.status(500).json({
+          error:
+            'Could not replace the previous suggestions, so nothing was changed. Try again in a moment.',
+        })
+      }
+    }
+
     const payload = buildAnonymousPayload({
       behaviourType: log.behaviour_type,
       intensity: log.intensity,
       notes: log.notes,
       durationSeconds: log.duration_seconds,
       yearLevel: student.year_level,
+      antecedent: log.antecedent,
+      whatHelped: log.what_helped,
+      settingEvents: log.setting_events,
+      antecedentNote: log.antecedent_note,
+      whatHelpedNote: log.what_helped_note,
+      settingEventsNote: log.setting_events_note,
+      patterns: patternResult.error ? null : patternResult.data,
+      priorOutcomes: outcomeResult.error ? null : outcomeResult.data,
+      profile: profileResult.error ? null : profileResult.data,
+      rejected,
+      askedFor: typeof because === 'string' && because.trim() ? because : null,
       namesToRemove,
     })
 
@@ -935,6 +1006,19 @@ app.post('/api/strategies', async (req, res) => {
         anonymised_input: JSON.stringify(payload),
         redaction_count: payload.redactions,
         model: result.model,
+        // Set explicitly for the first time. This path always relied on the
+        // column default, so every existing row reads 'v1' — which is true,
+        // and now means something: a v1 row was produced by a prompt that knew
+        // nothing about the child beyond the incident.
+        prompt_version: CLASSROOM_PROMPT_VERSION,
+        /*
+         * db/129. What this was generated instead of, and what the teacher
+         * said. Kept so "we asked three times and none of it fitted" is a
+         * readable fact rather than three unexplained sets of suggestions.
+         */
+        supersedes_id: supersedesId,
+        asked_for:
+          typeof because === 'string' && because.trim() ? because.trim() : null,
       }
     })
 
@@ -943,7 +1027,8 @@ app.post('/api/strategies', async (req, res) => {
     const { data: inserted, error: insertError } = await admin
       .from('ai_strategies')
       .insert(rows)
-      .select('id, title, body, rationale, confidence, status, routing_reason')
+      .select('id, title, body, rationale, confidence, status, routing_reason, anonymised_input')
+      .is('superseded_at', null)
 
     if (insertError) return dbFailed(res, 'insertError', insertError)
 
@@ -2259,6 +2344,36 @@ app.post('/api/home-strategies', async (req, res) => {
       })
     }
 
+    /* --- Has a guardian consented for THIS CHILD? ------------------------
+     *
+     * `/api/strategies` has always checked this and this route never did, so
+     * the switch on the family's own privacy screen stopped teachers and did
+     * not stop the home button. That mattered most where it was least
+     * visible: a child can have TWO guardians, so one could withdraw consent
+     * for AI processing and the other could still send that child's
+     * observation to the model. One "no" was not a "no".
+     *
+     * The consent is about the CHILD's data, not about a teacher's workflow.
+     * Whose hand is on the button does not change whose information is sent,
+     * so the same gate applies to both doors. CONSENT_COPY was reworded in the
+     * same change, because enforcing a promise the screen never made would be
+     * its own surprise — see src/lib/consent.ts.
+     *
+     * The 403 names the screen the reader can act on, because the person who
+     * sees this message is often not the person who switched it off.
+     */
+    const { data: consented } = await admin.rpc('has_active_consent', {
+      p_student_id: observation.student_id,
+      p_type: 'ai_strategy_generation',
+    })
+
+    if (!consented) {
+      return res.status(403).json({
+        error:
+          'Suggestions are switched off for this child because consent for AI has not been given, or has been withdrawn. Your observation is saved and the school can still see it. This can be changed under Privacy & Consent.',
+      })
+    }
+
     // --- Is the AI switched on at all? (FR20/21 kill switch) ---------------
     const { data: controls } = await admin
       .from('ai_controls')
@@ -2344,10 +2459,78 @@ app.post('/api/home-strategies', async (req, res) => {
       namesToRemove,
     )
 
+    /*
+     * WHAT THE SCHOOL HAS SEEN, READ AS THE PARENT — db/122, db/124.
+     *
+     * The classroom path calls this with the service client, because it is
+     * answering a teacher who is entitled to the whole record. This one is
+     * answering a parent, and `userClient` is deliberate rather than
+     * incidental: `student_behaviour_patterns` is `security invoker`, so
+     * called this way it counts ONLY the logs this guardian may already read.
+     *
+     * The alternative — counting everything as admin — would build advice on
+     * observations the school chose not to share (db/005 keeps raw notes
+     * private by default), and then hand that advice to the family. Nothing
+     * would leak a sentence, and the recommendation would still be shaped by
+     * something they were never shown. A parent asking why they were told to
+     * try movement deserves an answer that points at something they can see.
+     *
+     * So a school that shares nothing gets home advice with no school history
+     * in it, which is the correct consequence of that choice rather than a
+     * limitation.
+     *
+     * PEAK HOUR IS DROPPED. "Incidents cluster around 11:00" is a fact about a
+     * school timetable and means nothing at a kitchen table; passing it would
+     * invite the model to reason about a school day the parent is not in.
+     */
+    const [
+      { data: schoolPatterns, error: patternError },
+      { data: childProfile, error: profileError },
+    ] = await Promise.all([
+      userClient.rpc('student_behaviour_patterns', {
+        p_student_id: observation.student_id,
+      }),
+      /*
+       * db/127, READ AS THE PARENT for the same reason the patterns are.
+       * `student_profiles` admits a guardian, so this returns the row they
+       * could already open on their own About-your-child screen — nothing here
+       * tells a family something the school kept from them.
+       *
+       * It transfers better than the patterns do: a child who loves horses
+       * loves them at bath time, and "what usually helps" is the same list of
+       * human things in a kitchen as in a classroom.
+       */
+      userClient
+        .from('student_profiles')
+        .select('interests, strengths, finds_hard, helps, triggers')
+        .eq('student_id', observation.student_id)
+        .maybeSingle(),
+    ])
+    if (patternError) {
+      console.error('Home patterns unavailable:', patternError.message)
+    }
+    if (profileError) {
+      console.error('Home profile unavailable:', profileError.message)
+    }
+
+    const shared =
+      patternError || !schoolPatterns || !schoolPatterns.total
+        ? null
+        : {
+            total: schoolPatterns.total,
+            window_days: schoolPatterns.window_days,
+            top_antecedent: schoolPatterns.top_antecedent,
+            what_has_helped: schoolPatterns.what_has_helped,
+            common_setting_events: schoolPatterns.common_setting_events,
+            nothing_worked: schoolPatterns.nothing_worked,
+          }
+
     const payload = {
       text: redacted,
       redactions,
       category: observation.category ?? null,
+      schoolPatterns: shared,
+      profile: profileError ? null : childProfile,
     }
 
     // --- Generate, escalating when the cheap model comes back empty --------

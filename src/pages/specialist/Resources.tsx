@@ -10,14 +10,18 @@ import {
   queryKeys,
   resourceDownloadUrl,
   revokeResourceShare,
-  shareResource,
   uploadResource,
   type ResourceCategory,
   type ResourceRow,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import FormField from '../../components/FormField'
+import ShareWithStudents from '../../components/ShareWithStudents'
 import SignedFileLink from '../../components/SignedFileLink'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
@@ -102,14 +106,10 @@ export default function Resources() {
     },
   })
 
-  const share = useMutation({
-    mutationFn: (input: { resourceId: string; studentId: string }) =>
-      shareResource(input.resourceId, input.studentId, profile!.id),
-    onSuccess: () => {
-      refresh()
-      showToast('Shared. The family and the assigned teacher can see it now.')
-    },
-  })
+  /* The per-child share mutation lived here. ShareWithStudents owns sharing
+     now — it batches, reports per child, and holds its own error state beside
+     its own button, which is where a failure belongs. Left as a note because a
+     reader looking for "where does sharing happen" should be sent there. */
 
   const revoke = useMutation({
     mutationFn: (shareId: string) => revokeResourceShare(shareId),
@@ -255,7 +255,9 @@ export default function Resources() {
               <select
                 id="resource-category"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as ResourceCategory)}
+                onChange={(e) =>
+                  setCategory(e.target.value as ResourceCategory)
+                }
                 className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
               >
                 {CATEGORIES.map((c) => (
@@ -278,10 +280,11 @@ export default function Resources() {
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg,.webp,.mp4,.mov,.mp3,.m4a"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
+                className="mt-1.5 min-h-11 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground file:mr-3 file:min-h-9 file:rounded-btn file:border-0 file:bg-primary file:px-4 file:text-sm file:font-semibold file:text-primary-foreground"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                PDF, image, MP4 or audio, up to {formatBytes(RESOURCE_MAX_BYTES)}.
+                PDF, image, MP4 or audio, up to{' '}
+                {formatBytes(RESOURCE_MAX_BYTES)}.
                 {file && ` Selected: ${formatBytes(file.size)}.`}
               </p>
             </div>
@@ -324,20 +327,22 @@ export default function Resources() {
       {all.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap gap-2">
-            {(['all', ...CATEGORIES.map((c) => c.value)] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFilter(value)}
-                className={`min-h-11 rounded-btn border px-3 py-1.5 text-sm font-semibold ${
-                  filter === value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                {value === 'all' ? 'All files' : CATEGORY_LABEL[value]}
-              </button>
-            ))}
+            {(['all', ...CATEGORIES.map((c) => c.value)] as const).map(
+              (value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFilter(value)}
+                  className={`min-h-11 rounded-btn border px-3 py-1.5 text-sm font-semibold ${
+                    filter === value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  {value === 'all' ? 'All files' : CATEGORY_LABEL[value]}
+                </button>
+              ),
+            )}
           </div>
           <input
             type="search"
@@ -483,7 +488,14 @@ export default function Resources() {
                               type="button"
                               onClick={() => revoke.mutate(s.id)}
                               disabled={revoke.isPending}
-                              className="ml-auto text-xs font-semibold text-danger-foreground underline disabled:opacity-60"
+                              /* 18px tall before this, on a control that takes
+                                 a resource back off a family. A destructive
+                                 action is the last thing that should be hard
+                                 to hit deliberately and easy to hit by
+                                 accident. It only ever measured as a fault
+                                 once something was actually shared, which is
+                                 why a sweep over an empty list missed it. */
+                              className="pressable ml-auto inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-danger-foreground underline hover:bg-danger-subtle disabled:opacity-60"
                             >
                               Revoke access
                             </button>
@@ -507,42 +519,21 @@ export default function Resources() {
                   </p>
                 )}
 
+                {/* db: ShareWithStudents. This was a native <select> that
+                    shared on `onChange` — one child per interaction, and
+                    selecting was committing, so a mis-click handed a clinical
+                    resource to the wrong family with no confirm and no undo
+                    beyond Revoke. The component carries the reasoning. */}
                 {isOwner(resource) && students.isSuccess && (
-                  <div className="mt-3">
-                    <label
-                      htmlFor={`share-${resource.id}`}
-                      className="sr-only"
-                    >
-                      Share {resource.title} with a child
-                    </label>
-                    <select
-                      id={`share-${resource.id}`}
-                      value=""
-                      disabled={share.isPending}
-                      onChange={(e) => {
-                        if (!e.target.value) return
-                        share.mutate({
-                          resourceId: resource.id,
-                          studentId: e.target.value,
-                        })
-                      }}
-                      className="rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
-                    >
-                      <option value="">Share with a child…</option>
-                      {students.data
-                        .filter(
-                          (student) =>
-                            !resource.resource_shares.some(
-                              (s) => s.student_id === student.id,
-                            ),
-                        )
-                        .map((student) => (
-                          <option key={student.id} value={student.id}>
-                            {student.first_name} {student.last_name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
+                  <ShareWithStudents
+                    resourceId={resource.id}
+                    resourceTitle={resource.title}
+                    students={students.data}
+                    alreadySharedIds={resource.resource_shares.map(
+                      (s) => s.student_id,
+                    )}
+                    sharedBy={profile!.id}
+                  />
                 )}
               </div>
             </li>
@@ -553,12 +544,11 @@ export default function Resources() {
       {/* A delete that failed while the dialog is open reports itself there,
           beside the button that caused it. Showing it twice would read as two
           separate faults. */}
-      {(share.isError ||
-        revoke.isError ||
+      {(revoke.isError ||
         (remove.isError && deleting === null) ||
         confirmRead.isError) && (
         <p role="alert" className="mt-4 text-sm text-danger-foreground">
-          {(share.error ?? revoke.error ?? remove.error ?? confirmRead.error)?.message}
+          {(revoke.error ?? remove.error ?? confirmRead.error)?.message}
         </p>
       )}
 
@@ -600,8 +590,8 @@ export default function Resources() {
               <strong>Nobody will remind you.</strong> MiZanova sends no email
               about resources, so a new material will not reach your inbox — it
               appears here and nowhere else. And confirming you have read
-              something is a note to your child’s specialist, not a signature
-              or an agreement to anything.
+              something is a note to your child’s specialist, not a signature or
+              an agreement to anything.
             </>
           ) : (
             <>

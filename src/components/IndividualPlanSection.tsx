@@ -104,7 +104,7 @@ export default function IndividualPlanSection() {
 
   return (
     <section className="mt-10">
-      <h2 className="mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mb-3 text-section text-foreground">
         What an individual pays
       </h2>
 

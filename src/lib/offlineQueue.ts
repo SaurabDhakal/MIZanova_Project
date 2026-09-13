@@ -3,6 +3,11 @@ import {
   type BehaviourIntensity,
   type BehaviourType,
 } from './api'
+import type {
+  Antecedent,
+  SettingEvent,
+  WhatHelped,
+} from './behaviourContext'
 
 /**
  * Behaviour logs written while the network was unavailable — NFR2.
@@ -48,6 +53,23 @@ export type QueuedLog = {
   endedAt: string | null
   riskFlagged: boolean
   riskNote: string
+  /**
+   * db/122, and OPTIONAL FOR A REASON BEYOND THE FORM.
+   *
+   * This queue is read out of localStorage, where entries written by an older
+   * build of the app are already sitting on teachers' devices. Those have no
+   * such keys. Marking these required would not break the compiler — the
+   * values are parsed from JSON, not constructed — it would break the flush,
+   * silently, for logs that were saved before the update and have been waiting
+   * for a signal ever since. Optional means an old entry still uploads.
+   */
+  antecedent?: Antecedent | null
+  whatHelped?: WhatHelped | null
+  settingEvents?: SettingEvent[]
+  /** db/125, and optional for the same reason as the three above. */
+  antecedentNote?: string
+  whatHelpedNote?: string
+  settingEventsNote?: string
   queuedAt: string
   /**
    * Set when the server considered this log and refused it — which will not
@@ -177,6 +199,12 @@ async function attemptSave(log: QueuedLog): Promise<void> {
         startedAt: new Date(log.startedAt),
         endedAt: log.endedAt === null ? null : new Date(log.endedAt),
         clientRef: log.clientRef,
+        antecedent: log.antecedent ?? null,
+        whatHelped: log.whatHelped ?? null,
+        settingEvents: log.settingEvents ?? [],
+        antecedentNote: log.antecedentNote ?? '',
+        whatHelpedNote: log.whatHelpedNote ?? '',
+        settingEventsNote: log.settingEventsNote ?? '',
         riskFlagged: log.riskFlagged,
         riskNote: log.riskNote,
       }),

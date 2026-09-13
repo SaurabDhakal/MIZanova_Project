@@ -7,7 +7,13 @@ import {
   type BehaviourIntensity,
   type SafeguardingRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
+import ContextLine from '../../components/ContextLine'
+import Icon, { type IconName } from '../../components/Icon'
 
 /**
  * Safeguarding queue - docs/Figma Pages Design/Safeguarding & Compliance Hub.png.
@@ -29,22 +35,22 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
 
 const SEVERITY: Record<
   BehaviourIntensity,
-  { label: string; className: string; icon: string }
+  { label: string; className: string; icon: IconName }
 > = {
   high: {
     label: 'High severity',
     className: 'bg-danger-subtle text-danger-foreground',
-    icon: '⚡',
+    icon: 'bolt',
   },
   medium: {
     label: 'Medium severity',
     className: 'bg-warning-subtle text-warning-foreground',
-    icon: '⚠',
+    icon: 'flag',
   },
   standard: {
     label: 'Standard severity',
     className: 'bg-primary-subtle text-primary',
-    icon: 'ℹ',
+    icon: 'privacy',
   },
 }
 
@@ -78,8 +84,12 @@ function IncidentCard({
     mutationFn: () => acknowledgeIncident(incident.id, note),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.safeguarding(true) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.safeguarding(false) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.safeguarding(true),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.safeguarding(false),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.schoolSummary }),
       ])
     },
@@ -92,7 +102,7 @@ function IncidentCard({
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${severity.className}`}
           aria-hidden="true"
         >
-          {severity.icon}
+          <Icon name={severity.icon} className="h-4 w-4" />
         </span>
 
         <div className="min-w-0">
@@ -127,6 +137,11 @@ function IncidentCard({
       {incident.notes && (
         <p className="mt-2 text-foreground">{incident.notes}</p>
       )}
+      {/* docs/20 §3.1. The screen where context mattered most was the only one
+          that had none: what to prevent, and whether anything an adult did
+          worked. A flagged incident where nothing worked is a different
+          decision from one that settled. */}
+      <ContextLine row={incident} />
 
       {open ? (
         <div className="mt-4 border-t border-border pt-3">
@@ -184,17 +199,25 @@ function IncidentCard({
         </div>
       ) : (
         <div className="mt-4 border-t border-border pt-3">
-          <p className="text-sm font-semibold text-success-foreground">
-            ✓ Acknowledged{' '}
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-success-foreground">
+            {/* WHO, not just when. "Acknowledged" with nobody attached is a
+                state the software reached rather than a decision a person
+                made, and this is a safeguarding record. */}
+            <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+            Acknowledged
+            {incident.acknowledged_by?.full_name
+              ? ` by ${incident.acknowledged_by.full_name}`
+              : ''}{' '}
             {incident.safeguarding_acknowledged_at &&
-              new Date(
-                incident.safeguarding_acknowledged_at,
-              ).toLocaleString('en-AU', {
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              new Date(incident.safeguarding_acknowledged_at).toLocaleString(
+                'en-AU',
+                {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                },
+              )}
           </p>
           {incident.safeguarding_note && (
             <p className="mt-1 text-sm text-foreground">
@@ -269,7 +292,9 @@ export default function Safeguarding() {
 
       {incidents.isSuccess && incidents.data.total === 0 && (
         <EmptyState
-          title={open ? 'Nothing waiting for review' : 'Nothing acknowledged yet'}
+          title={
+            open ? 'Nothing waiting for review' : 'Nothing acknowledged yet'
+          }
           detail={
             open
               ? 'Incidents appear here when a teacher or the AI flags one as needing a safeguarding lead to look at it.'
@@ -302,11 +327,7 @@ export default function Safeguarding() {
           </p>
           <ul className="space-y-4">
             {incidents.data.rows.map((incident) => (
-              <IncidentCard
-                key={incident.id}
-                incident={incident}
-                open={open}
-              />
+              <IncidentCard key={incident.id} incident={incident} open={open} />
             ))}
           </ul>
         </>

@@ -14,6 +14,7 @@ import { useSelectedChild } from '../../hooks/useMyChildren'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import { fullName } from '../../lib/displayName'
+import Icon from '../../components/Icon'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-AU', {
@@ -99,9 +100,7 @@ export default function Privacy() {
   }
 
   if (!child) {
-    return (
-      <NoChildYet thing="Your privacy and consent choices" />
-    )
+    return <NoChildYet thing="Your privacy and consent choices" />
   }
 
   const rows = consents.data ?? []
@@ -116,16 +115,12 @@ export default function Privacy() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Privacy &amp; Consent
-        </h1>
+        <h1 className="text-title text-foreground">Privacy &amp; Consent</h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
-          What you have agreed to for {fullName(child)}, and how to change
-          it. You can withdraw any of these at any time.
+          What you have agreed to for {fullName(child)}, and how to change it.
+          You can withdraw any of these at any time.
         </p>
       </header>
-
-
 
       {consents.isPending && <LoadingCards count={3} />}
       {consents.isError && (
@@ -170,8 +165,9 @@ export default function Privacy() {
                   </div>
 
                   {active ? (
-                    <span className="rounded-btn bg-success-subtle px-3 py-1.5 text-sm font-semibold text-success-foreground">
-                      ✓ Given {formatDate(active.granted_at)}
+                    <span className="inline-flex items-center gap-1.5 rounded-btn bg-success-subtle px-3 py-1.5 text-sm font-semibold text-success-foreground">
+                      <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+                      Given {formatDate(active.granted_at)}
                     </span>
                   ) : (
                     <span className="rounded-btn bg-background px-3 py-1.5 text-sm font-semibold text-muted-foreground">
@@ -245,12 +241,15 @@ export default function Privacy() {
                     able to see their own history without asking the school. */}
                 {past.length > 0 && (
                   <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-muted-foreground">
+                    <summary className="min-h-11 flex cursor-pointer items-center text-sm text-muted-foreground">
                       History ({past.length})
                     </summary>
                     <ul className="mt-2 space-y-1">
                       {past.map((row) => (
-                        <li key={row.id} className="text-sm text-muted-foreground">
+                        <li
+                          key={row.id}
+                          className="text-sm text-muted-foreground"
+                        >
                           Given {formatDate(row.granted_at)} · withdrawn{' '}
                           {formatDate(row.revoked_at!)} · notice{' '}
                           {row.policy_version}

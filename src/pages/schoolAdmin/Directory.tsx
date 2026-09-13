@@ -15,7 +15,12 @@ import {
 } from '../../lib/api'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import Icon from '../../components/Icon'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import InviteStaffSection from '../../components/InviteStaffSection'
 import InviteFamilySection from '../../components/InviteFamilySection'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
@@ -52,8 +57,9 @@ export default function Directory() {
 
   const [studentId, setStudentId] = useState('')
   const [profileId, setProfileId] = useState('')
-  const [assignment, setAssignment] =
-    useState<'class_teacher' | 'support' | 'specialist'>('class_teacher')
+  const [assignment, setAssignment] = useState<
+    'class_teacher' | 'support' | 'specialist'
+  >('class_teacher')
 
   const staff = useQuery({
     queryKey: queryKeys.schoolStaff,
@@ -155,8 +161,7 @@ export default function Directory() {
   const studentList = students.data ?? []
 
   const all = assignments.data ?? []
-  const caseload = (id: string) =>
-    all.filter((a) => a.profile_id === id).length
+  const caseload = (id: string) => all.filter((a) => a.profile_id === id).length
 
   /**
    * Can this viewer see assignments at all?
@@ -182,9 +187,7 @@ export default function Directory() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="text-title text-foreground">
-          Directory &amp; access
-        </h1>
+        <h1 className="text-title text-foreground">Directory &amp; access</h1>
         <p className="mt-1 max-w-prose text-muted-foreground">
           Who works at your school, and which students each of them can reach.
         </p>
@@ -281,7 +284,10 @@ export default function Directory() {
                                 screen-reader user, who is left with a stray
                                 dash. The dash is hidden and the reason is
                                 said. */}
-                            <span aria-hidden="true" className="text-muted-foreground">
+                            <span
+                              aria-hidden="true"
+                              className="text-muted-foreground"
+                            >
                               —
                             </span>
                             <span className="sr-only">
@@ -292,8 +298,9 @@ export default function Directory() {
                       </td>
                       <td className="px-5 py-3">
                         {person.is_verified ? (
-                          <span className="rounded-btn bg-success-subtle px-2.5 py-1 text-sm font-semibold text-success-foreground">
-                            ✓ Verified
+                          <span className="inline-flex items-center gap-1.5 rounded-btn bg-success-subtle px-2.5 py-1 text-sm font-semibold text-success-foreground">
+                            <Icon name="tick" aria-hidden className="h-4 w-4" />
+                            Verified
                           </span>
                         ) : (
                           <span className="rounded-btn bg-warning-subtle px-2.5 py-1 text-sm font-semibold text-warning-foreground">
@@ -427,7 +434,8 @@ export default function Directory() {
                   value={assignment}
                   onChange={(e) =>
                     setAssignment(
-                      e.target.value as 'class_teacher' | 'support' | 'specialist',
+                      e.target.value as
+                        'class_teacher' | 'support' | 'specialist',
                     )
                   }
                   className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
@@ -546,13 +554,18 @@ export default function Directory() {
                   onChange={(e) => setRelationship(e.target.value)}
                   className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
                 >
-                  {['parent', 'mother', 'father', 'carer', 'guardian', 'other'].map(
-                    (r) => (
-                      <option key={r} value={r}>
-                        {r[0].toUpperCase() + r.slice(1)}
-                      </option>
-                    ),
-                  )}
+                  {[
+                    'parent',
+                    'mother',
+                    'father',
+                    'carer',
+                    'guardian',
+                    'other',
+                  ].map((r) => (
+                    <option key={r} value={r}>
+                      {r[0].toUpperCase() + r.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -569,8 +582,8 @@ export default function Directory() {
             {parents.data?.total === 0 && parents.isSuccess && (
               <p className="mt-2 text-sm text-muted-foreground">
                 No parent accounts linked to your school yet. A parent appears
-                here once a child of theirs at your school is connected to
-                them — db/052.
+                here once a child of theirs at your school is connected to them
+                — db/052.
               </p>
             )}
 
@@ -634,7 +647,8 @@ export default function Directory() {
                                 setConfirming({
                                   kind: 'access',
                                   id: a.id,
-                                  person: a.profiles?.full_name || 'This person',
+                                  person:
+                                    a.profiles?.full_name || 'This person',
                                   child: student.first_name,
                                 })
                               }}
@@ -686,8 +700,8 @@ export default function Directory() {
                           if (theirs.length === 0) {
                             return (
                               <p className="mt-1 text-sm text-warning-foreground">
-                                No guardian connected — this child&rsquo;s family
-                                cannot see anything.
+                                No guardian connected — this child&rsquo;s
+                                family cannot see anything.
                               </p>
                             )
                           }

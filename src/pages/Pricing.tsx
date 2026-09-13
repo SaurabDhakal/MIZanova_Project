@@ -20,7 +20,20 @@ import {
  * agreement it recorded contradicted this page. Keep the two in step: this page
  * is what a customer is shown, and that screen is what they are charged.
  *
- * Every figure here is copied from those designs. Nothing is estimated,
+ * THE SCHOOL FIGURES NOW COME FROM THE MARKET RESEARCH, NOT THE DESIGNS.
+ *
+ * docs/Team 6 Presentation (Final Report) - 2025.12.17 is the willingness-to-pay
+ * study the brief promised would "directly inform the design". It recommends
+ * AUD 1,500-2,000 per school per year for urban primaries and 1,000-1,500 for
+ * rural, against Australian competitors benchmarked at 395-3,030 — and calls
+ * "AUD 5k+ per school/year" enterprise territory to compete against rather than
+ * join. The designs' figures ($2,400 and $5,800 a term) sat well above that.
+ *
+ * src/lib/plans.ts carries the same numbers in cents and explains which figure
+ * was chosen from each band, and where the report disagrees with itself.
+ *
+ * Every OTHER figure here is still copied from those designs — the family plans
+ * and the add-ons, which the research does not cover. Nothing is estimated,
  * averaged or rounded, because a price is a statement to a customer and
  * inventing one is a different kind of wrong from inventing a dashboard
  * number.
@@ -64,9 +77,9 @@ const SCHOOL_PLANS: Plan[] = [
   {
     name: 'Small schools',
     subtitle: 'Up to 150 students',
-    price: '$2,400',
+    price: '$350',
     period: 'per term',
-    annual: 'or $8,000 a year, saving 16%',
+    annual: 'or $1,200 a year, saving 14%',
     cta: 'Talk to us about your school',
     key: 'small_school',
     features: [
@@ -81,9 +94,9 @@ const SCHOOL_PLANS: Plan[] = [
   {
     name: 'Mid-size schools',
     subtitle: '150 to 600 students',
-    price: '$5,800',
+    price: '$530',
     period: 'per term',
-    annual: 'or $19,500 a year, saving 15%',
+    annual: 'or $1,800 a year, saving 15%',
     featured: true,
     cta: 'Talk to us about your school',
     key: 'mid_school',

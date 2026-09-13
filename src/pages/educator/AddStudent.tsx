@@ -5,9 +5,14 @@ import {
   createEducatorStudent,
   fetchExistingStudentRefs,
   queryKeys,
+  saveStudentProfile,
+  EMPTY_PROFILE,
+  type StudentProfile,
 } from '../../lib/api'
 import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 import { useAuth } from '../../lib/auth'
+import AboutThisChild from '../../components/AboutThisChild'
+import { showToast } from '../../lib/toast'
 
 export default function AddStudent() {
   const navigate = useNavigate()
@@ -24,22 +29,67 @@ export default function AddStudent() {
     queryFn: fetchExistingStudentRefs,
   })
 
+  /*
+   * COLLAPSED, AND AFTER THE REQUIRED FIELDS — docs/19 §5.1.
+   *
+   * Adding a child stays two fields. This is here because an educator adding
+   * ONE student usually does know what that child loves, and typing it now is
+   * cheaper than coming back — but it must never look like part of the job, or
+   * the roll becomes something people put off.
+   */
+  const [aboutChild, setAboutChild] = useState<StudentProfile>(EMPTY_PROFILE)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const hasProfile =
+    Boolean(
+      aboutChild.interests?.trim() ||
+      aboutChild.strengths?.trim() ||
+      aboutChild.finds_hard?.trim(),
+    ) ||
+    aboutChild.helps.length > 0 ||
+    aboutChild.triggers.length > 0
+
   const normalisedRef = externalRef.trim().toLocaleLowerCase('en-AU')
   const duplicateRef =
     normalisedRef !== '' &&
     Array.from(existingRefs.data ?? []).some(
-      (reference) => reference.trim().toLocaleLowerCase('en-AU') === normalisedRef,
+      (reference) =>
+        reference.trim().toLocaleLowerCase('en-AU') === normalisedRef,
     )
 
   const create = useMutation({
-    mutationFn: () =>
-      createEducatorStudent({
+    mutationFn: async () => {
+      const studentId = await createEducatorStudent({
         firstName,
         lastName,
         yearLevel,
         externalRef,
         dateOfBirth,
-      }),
+      })
+
+      /*
+       * SECOND, AND NEVER ALLOWED TO UNDO THE FIRST — db/127.
+       *
+       * Adding a child to the roll is the thing that must succeed. If the
+       * profile write fails — a dropped connection, a policy that changed —
+       * the child is still on the roll and the teacher is told about the part
+       * that did not land, rather than being shown one error that makes it look
+       * as though nothing was created and inviting them to type it all again.
+       */
+      if (hasProfile) {
+        try {
+          await saveStudentProfile(studentId, aboutChild)
+        } catch (error) {
+          showToast(
+            `${firstName} was added, but the notes about them were not saved. You can add them from their record. (${
+              error instanceof Error ? error.message : 'Unknown error'
+            })`,
+            'error',
+          )
+        }
+      }
+
+      return studentId
+    },
     onSuccess: async (studentId) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.students })
       await queryClient.invalidateQueries({
@@ -59,7 +109,7 @@ export default function AddStudent() {
     <div className="mx-auto max-w-2xl">
       <Link
         to="/educator/students"
-        className="text-sm font-medium text-primary hover:underline"
+        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-medium text-primary hover:underline"
       >
         ← All students
       </Link>
@@ -164,7 +214,8 @@ export default function AddStudent() {
 
         <div className="mt-5 rounded-btn bg-background p-3 text-sm text-muted-foreground">
           Only add students currently assigned to you. A school administrator
-          remains responsible for guardian links, consent and wider staff access.
+          remains responsible for guardian links, consent and wider staff
+          access.
         </div>
 
         {create.isError && (
@@ -172,6 +223,54 @@ export default function AddStudent() {
             {create.error.message}
           </p>
         )}
+
+        {/* --- About this child (db/127) --------------------------------
+            SHUT BY DEFAULT. docs/19 §5.1: adding a child stays two required
+            fields, and a profile section that greets somebody adding their
+            fourteenth student is how a roll stops getting kept up to date.
+            Open, it is the same component the record uses — one place to
+            change when the fields change. */}
+        <div className="mt-5 rounded-card border border-border bg-background p-4">
+          {!aboutOpen ? (
+            <button
+              type="button"
+              onClick={() => setAboutOpen(true)}
+              className="pressable w-full text-left"
+            >
+              <span className="text-sm font-semibold text-foreground">
+                Anything about {firstName.trim() || 'them'} worth writing down?
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Optional. What they love, are good at, and find hard — it is
+                what makes the suggestions specific rather than general, and it
+                can be added later from their record.
+              </span>
+            </button>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold text-foreground">
+                  About {firstName.trim() || 'them'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setAboutOpen(false)}
+                  className="text-xs text-muted-foreground hover:underline"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-3">
+                <AboutThisChild
+                  idPrefix="add-student"
+                  firstName={firstName.trim() || undefined}
+                  value={aboutChild}
+                  onChange={setAboutChild}
+                />
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           <Link

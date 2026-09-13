@@ -16,7 +16,11 @@ import {
   type Enrolment,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import Icon from '../../components/Icon'
 import { showToast } from '../../lib/toast'
@@ -68,8 +72,8 @@ export default function Academy() {
      where the person had to find the course again in a list. The card named it;
      the link should open it. `?open=<courseId>` is read once as the initial
      state, so the URL is a way in rather than a thing to keep in sync. */
-  const [open, setOpen] = useState<string | null>(
-    () => new URLSearchParams(window.location.search).get('open'),
+  const [open, setOpen] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('open'),
   )
   /*
    * WHICH PART THEY ARE READING, not which course. Opening a course used to
@@ -84,7 +88,10 @@ export default function Academy() {
    */
   const [openModule, setOpenModule] = useState<string | null>(null)
 
-  const courses = useQuery({ queryKey: queryKeys.courses, queryFn: fetchCourses })
+  const courses = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: fetchCourses,
+  })
   const enrolments = useQuery({
     queryKey: queryKeys.myEnrolments,
     queryFn: fetchMyEnrolments,
@@ -121,14 +128,21 @@ export default function Academy() {
         const paid = await confirmCoursePurchase(returnedSession)
         if (!active) return
         if (paid) {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.myPurchases })
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.myPurchases,
+          })
           showToast('Paid. It is yours — start it whenever suits.')
         } else {
           showToast('That payment has not come through yet.', 'error')
         }
       } catch (err) {
         if (active) {
-          showToast(err instanceof Error ? err.message : 'Could not check that payment.', 'error')
+          showToast(
+            err instanceof Error
+              ? err.message
+              : 'Could not check that payment.',
+            'error',
+          )
         }
       } finally {
         if (active) {
@@ -309,7 +323,7 @@ export default function Academy() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-bold text-foreground">
+                      <h2 className="text-section text-foreground">
                         {course.title}
                       </h2>
                       {enrolment?.completed_at && (
@@ -329,7 +343,9 @@ export default function Academy() {
                         counting what happens to have come back. */}
                     <p className="mt-2 inline-flex items-center gap-1.5 rounded-btn bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
                       <Icon
-                        name={needsPaying && !enrolment ? 'invoices' : 'resources'}
+                        name={
+                          needsPaying && !enrolment ? 'invoices' : 'resources'
+                        }
                         className="h-3.5 w-3.5 shrink-0"
                       />
                       {needsPaying && !enrolment
@@ -476,7 +492,11 @@ export default function Academy() {
                                     : 'bg-background text-muted-foreground'
                               }`}
                             >
-                              {isDone ? '✓' : i + 1}
+                              {isDone ? (
+                                <Icon name="tick" className="h-3.5 w-3.5" />
+                              ) : (
+                                i + 1
+                              )}
                             </span>
                             <h3 className="font-semibold text-foreground">
                               {m.title}
@@ -536,11 +556,11 @@ export default function Academy() {
       <PageNote>
         Courses are written by Special Miles and published for particular
         audiences, so this list shows what is meant for your role rather than
-        everything that exists. Marking a module done is for your own
-        record — nothing is scored, nothing is timed, and going back over one
-        changes nothing. There are no certificates: a tick here says you read
-        it, which is not the same claim as having been assessed, and this
-        product does not make claims it cannot support.
+        everything that exists. Marking a module done is for your own record —
+        nothing is scored, nothing is timed, and going back over one changes
+        nothing. There are no certificates: a tick here says you read it, which
+        is not the same claim as having been assessed, and this product does not
+        make claims it cannot support.
       </PageNote>
     </div>
   )

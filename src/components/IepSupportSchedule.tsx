@@ -127,7 +127,7 @@ export default function IepSupportSchedule({ planId }: { planId: string }) {
       {/* The number that leaves the building, said once and prominently. */}
       {total.isSuccess && total.data && (
         <p className="mt-4 rounded-card border border-primary bg-primary-subtle px-4 py-3 text-foreground">
-          <span className="text-lg font-semibold">
+          <span className="text-section">
             {total.data.hours_per_week} hour
             {total.data.hours_per_week === 1 ? '' : 's'} a week
           </span>{' '}

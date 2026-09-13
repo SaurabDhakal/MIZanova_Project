@@ -34,7 +34,10 @@ import AuthLayout from './AuthLayout'
  */
 export default function Login() {
   const { signIn, session, profile, loading } = useAuth()
-  const location = useLocation() as { state?: { from?: string }; search: string }
+  const location = useLocation() as {
+    state?: { from?: string }
+    search: string
+  }
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -66,7 +69,8 @@ export default function Login() {
   // in-app paths, because an open redirect on a sign-in page is how phishing
   // links get to wear your domain.
   const next = new URLSearchParams(location.search).get('next')
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null
+  const safeNext =
+    next && next.startsWith('/') && !next.startsWith('//') ? next : null
 
   if (session && profile) {
     return (
@@ -86,7 +90,8 @@ export default function Login() {
       // No navigate() here: signing in updates the session, this component
       // re-renders, and the redirect above takes over. One code path.
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong'
 
       if (/invalid login credentials/i.test(message)) {
         // Supabase returns the same message for a wrong password and an
@@ -124,42 +129,45 @@ export default function Login() {
       subtitle="Sign in to continue."
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {error && (
-              // role="alert" makes a screen reader announce this the moment it
-              // appears, instead of the user wondering why nothing happened.
-              <div
-                role="alert"
-                className="rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
-              >
-                {error}
-              </div>
-            )}
+        {error && (
+          // role="alert" makes a screen reader announce this the moment it
+          // appears, instead of the user wondering why nothing happened.
+          <div
+            role="alert"
+            className="rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
+          >
+            {error}
+          </div>
+        )}
 
-            <FormField
-              label="Email address"
-              type="email"
-              name="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              /* A neutral example, for the same reason: a school address
+        <FormField
+          label="Email address"
+          type="email"
+          name="email"
+          autoComplete="email"
+          /* Nothing focused the first field, so every arrival at the sign-in
+                 screen began with a click. Found while chasing the 2FA one. */
+          autoFocus
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          /* A neutral example, for the same reason: a school address
                  is wrong for every family and every individual, and a
                  placeholder is a hint about what belongs here. */
-              placeholder="you@example.com"
-            />
+          placeholder="you@example.com"
+        />
 
-            <div>
-              <FormField
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              {/*
+        <div>
+          <FormField
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            name="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {/*
                 `min-h-11` — a 44px touch target instead of the 20px these used
                 to be, which was the height of their own text. Fine with a
                 mouse, poor with a thumb, and "Show password" is the worse of
@@ -176,30 +184,30 @@ export default function Login() {
                 The row is simply taller now. `mt-1.5` is gone because the
                 44px box already carries 12px of space above its own text.
               */}
-              <div className="flex flex-wrap items-center gap-x-4">
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
-                >
-                  {showPassword ? 'Hide password' : 'Show password'}
-                </button>
-                <Link
-                  to="/forgot-password"
-                  className="ml-auto inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-x-4">
             <button
-              type="submit"
-              disabled={submitting}
-              className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
             >
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {showPassword ? 'Hide password' : 'Show password'}
             </button>
+            <Link
+              to="/forgot-password"
+              className="ml-auto inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
+        >
+          {submitting ? 'Signing in…' : 'Sign in'}
+        </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
@@ -208,7 +216,10 @@ export default function Login() {
             Miles setting up a school, so the link asks the question this
             person actually has. */}
         Don’t have an account?{' '}
-        <Link to="/signup" className="font-semibold text-primary hover:underline">
+        <Link
+          to="/signup"
+          className="font-semibold text-primary hover:underline"
+        >
           How do I get one?
         </Link>
       </p>

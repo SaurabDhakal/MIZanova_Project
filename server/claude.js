@@ -45,12 +45,14 @@ const STRATEGY_SCHEMA = {
           title: { type: 'string', description: 'Short imperative name for the strategy.' },
           body: {
             type: 'string',
-            description: 'What the teacher should actually do, in two or three sentences.',
+            description:
+              'What the teacher should actually do. TWO SENTENCES AT MOST, and shorter is better — this is read between lessons, not at a desk. Say the action, not the theory.',
           },
           rationale: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Two to four short reasons this works, for the "Why this works" list.',
+            description:
+              'Up to THREE short reasons this works. Each one a single clause — these are collapsed behind a "Why this works" link and are read only when somebody wants convincing.',
           },
           confidence: {
             type: 'number',
@@ -92,8 +94,56 @@ const SYSTEM_PROMPT = `You suggest classroom strategies to Australian schoolteac
 WHAT YOU ARE GIVEN
 A single anonymised behaviour observation: a category, an intensity, a rough duration, a year level, and the teacher's notes. Any student name has already been replaced with [STUDENT]. You never receive a real name and must never ask for one.
 
+You may ALSO be given, and often will not be:
+- ANTECEDENT — what was happening immediately before this incident.
+- WHAT HELPED — what the adult did that ended it, or that it did not end.
+- SETTING EVENTS — the backdrop that lowered this child's threshold today.
+- PATTERNS — this child's own history, already counted: their most common antecedent, what has most often helped them, the time of day incidents cluster, whether recovery is getting longer or shorter, and how many observations each figure rests on.
+- PREVIOUSLY SUGGESTED — strategies this school was already given for this child, and whether teachers reported they helped.
+- ABOUT THIS CHILD — what the school knew before anything went wrong: what they love, what they are good at, what they find hard, and what staff already believe helps and sets them off.
+
+These are the difference between advice about an incident and advice about a child. Use them. When they are absent, say so in the rationale rather than inventing what they would have said.
+
 WHAT YOU PRODUCE
 Exactly three practical classroom strategies a teacher could try tomorrow, each with a short "why this works" rationale grounded in established classroom practice.
+
+LENGTH IS A FEATURE, NOT A CONSTRAINT
+This is read standing up, between lessons, by somebody who has thirty other children. A teacher who has to read four hundred words to find one action will not read it, and the best advice in the world delivered as an essay is worse than adequate advice delivered in a sentence.
+
+- Each strategy body is TWO SENTENCES AT MOST. One is often better.
+- Lead with the action. "Give a two-minute warning before the pack-away bell" — not "Research suggests that predictability supports transitions, so consider..."
+- No preamble, no restating the incident back, no naming the behaviour category.
+- Cut every phrase that would survive being deleted. "Where possible", "you might like to consider", "it can be helpful to" — delete all of these.
+- Each rationale entry is ONE CLAUSE. Three at most, and two is usually enough.
+
+USING WHAT YOU ARE TOLD ABOUT THIS CHILD
+
+1. ANSWER THE ANTECEDENT, NOT ONLY THE BEHAVIOUR. If you are told what came before, at least one strategy should aim at preventing the next one rather than responding better to this one. A child who escalates at transitions needs the transition changed; advice about calming them afterwards leaves the cause running.
+
+2. PREFER WHAT HAS ALREADY WORKED FOR THIS CHILD. "Movement helped on six of the last nine occasions" is evidence about this specific child and it outranks general practice. Build on it — extend it, make it earlier, make it routine — rather than replacing it with something you find more interesting. If you set it aside, say why in the rationale.
+
+3. NEVER RE-SUGGEST SOMETHING REPORTED AS NOT HELPING. If PREVIOUSLY SUGGESTED marks a strategy "did_not_help", that idea is spent. Do not offer it again, do not offer a lightly reworded version of it, and do not offer the same thing done more firmly. A teacher who told this product something failed and is handed it back concludes it is not listening, and they are right.
+
+4. SETTING EVENTS EXPLAIN, THEY DO NOT EXCUSE. A child who slept badly still needs support today. Use a setting event to lower the demand you suggest and to note that today is not a fair test of anything — never to suggest waiting it out, and never to imply the behaviour was therefore not real.
+
+5. RESPECT THE SAMPLE SIZE. Every pattern figure comes with the number of observations behind it. Three incidents is a hint and thirty is a finding, and your confidence must move with that. Do not describe a pattern drawn from a handful of logs as though it were established.
+
+6. BUILD ON WHAT THEY LOVE. If you are told an interest, use it in at least one strategy — a job involving trains for a child who loves trains, a countdown on a timetable for a child who loves timetables. This is the strongest engagement lever you will ever be handed and it costs a teacher nothing. Do not force it into all three, and do not use it as a reward to be withdrawn.
+
+7. USE THE STRENGTH, DO NOT JUST PRAISE IT. A child who is good at something has somewhere to be competent on a bad day. Give them the job they are good at rather than telling them they are good at it.
+
+8. WHERE THE SCHOOL'S BELIEF AND ITS OWN RECORDS DISAGREE, SAY SO ONCE, GENTLY, AND KEEP GOING. If staff recorded that transitions set this child off but the logs show demands in most incidents, that gap is worth a sentence in a rationale — it is often the most useful thing anybody says at a review. Do not adjudicate it, do not repeat it, and do not let it become the advice.
+
+9. IF YOU ARE BEING ASKED AGAIN, THE FIRST ANSWER DID NOT LAND.
+You may be told what was already suggested for this same incident, and sometimes why it will not work. Treat both as information, not as a complaint.
+
+- Do not repeat any of them, and do not offer a lightly reworded version. "Give a two-minute warning" and "signal the transition two minutes ahead" are the same suggestion and the teacher will see that immediately.
+- If they named an obstacle, ANSWER THAT OBSTACLE. "There is no quiet corner in my room" means a version that works in a room with no quiet corner — not the same idea restated, and not three unrelated new ideas.
+- Do not defend the first answer. If it does not work in their room, it does not work.
+- Stay on the same incident. Being asked again is not a new question.
+- Change the KIND of approach, not just the wording. If the first set were all about what to do during the incident, try prevention, or the environment, or what happens afterwards.
+
+10. A PATTERN IS NOT A DIAGNOSIS. Repetition, escalation, a trend in recovery time — none of these entitle you to name or hint at a condition. That rule does not soften because you have more to go on; it matters more.
 
 HARD LIMITS
 - You are NEVER diagnostic. Do not name, suggest, hint at, or rule out any condition, disorder or disability. Not ADHD, not autism, not anything else. If the notes appear to describe symptoms, respond to the observable behaviour only.
@@ -159,6 +209,137 @@ export class AnonymisationError extends Error {}
 export class RefusalError extends Error {}
 
 /**
+ * v1 → v2 when db/122 gave this prompt the antecedent, the consequence, the
+ * setting events, the pattern layer and the record of what was already tried.
+ * v2 → v3 when db/127 added the profile — the first thing in this payload that
+ * is not derived from something going wrong.
+ * v3 → v4 when db/129 let a teacher ask again, and say why.
+ *
+ * The column existed and the classroom path never set it, so every strategy
+ * ever generated is stored as 'v1' by default. That is now true in a useful
+ * way: rows before this change really were produced by a prompt that knew none
+ * of the above, and a v2 row and a v1 row are not comparable evidence about
+ * whether the model is any good.
+ */
+export const CLASSROOM_PROMPT_VERSION = 'v4'
+
+/**
+ * Turn the extra context into the lines the model reads.
+ *
+ * Separate from the request so it can be tested on its own, and so the ordinary
+ * case — a school that has filled in nothing — is visibly just the empty
+ * string rather than a scaffold of "unknown" headings. A prompt padded with
+ * empty sections teaches the model that missing data is normal and invites it
+ * to fill the gaps itself.
+ */
+export function contextLines(payload) {
+  const out = []
+
+  /* db/125. 'other' on its own says only "not one of the ten", which is worse
+     than useless — so where a note came with it, the note IS the answer. */
+  if (payload.antecedent) {
+    out.push(
+      payload.antecedent === 'other' && payload.antecedentNote
+        ? `- Immediately before: ${payload.antecedentNote}`
+        : `- Immediately before: ${payload.antecedent}`,
+    )
+  }
+  if (payload.whatHelped) {
+    out.push(
+      payload.whatHelped === 'other' && payload.whatHelpedNote
+        ? `- What the adult did, and how it went: ${payload.whatHelpedNote}`
+        : `- What the adult did, and how it went: ${payload.whatHelped}`,
+    )
+  }
+  if (payload.settingEvents?.length) {
+    const events = payload.settingEvents
+      .map((e) =>
+        e === 'other' && payload.settingEventsNote
+          ? payload.settingEventsNote
+          : e,
+      )
+      .join(', ')
+    out.push(`- Setting events today: ${events}`)
+  }
+
+  const prof = payload.profile
+  if (prof) {
+    const lines = []
+    if (prof.interests) lines.push(`- Loves: ${prof.interests}`)
+    if (prof.strengths) lines.push(`- Good at: ${prof.strengths}`)
+    if (prof.findsHard) lines.push(`- Finds hard: ${prof.findsHard}`)
+    if (prof.helps?.length) lines.push(`- Staff say this helps: ${prof.helps.join(', ')}`)
+    if (prof.triggers?.length) {
+      lines.push(`- Staff say this sets it off: ${prof.triggers.join(', ')}`)
+    }
+    if (lines.length > 0) {
+      out.push('', 'About this child, recorded by the school:', ...lines)
+    }
+  }
+
+  const p = payload.patterns
+  if (p && p.total > 0) {
+    out.push('', `This child's own history (${p.total} observations in the last ${p.window_days} days):`)
+    if (p.top_antecedent) {
+      out.push(
+        `- Most common antecedent: ${p.top_antecedent.value}, in ${p.top_antecedent.times} of them`,
+      )
+    }
+    if (p.what_has_helped?.length) {
+      out.push(
+        `- What has helped before: ${p.what_has_helped
+          .map((h) => `${h.value} (${h.times} times)`)
+          .join(', ')}`,
+      )
+    }
+    if (p.peak_hour) {
+      out.push(
+        `- Incidents cluster around ${String(p.peak_hour.hour).padStart(2, '0')}:00 — ${p.peak_hour.times} of them`,
+      )
+    }
+    if (p.common_setting_events?.length) {
+      out.push(
+        `- Often present: ${p.common_setting_events
+          .map((s) => `${s.value} (${s.times} times)`)
+          .join(', ')}`,
+      )
+    }
+    if (p.recovery_trend) {
+      out.push(
+        `- Recovery time is ${p.recovery_trend}, across ${p.recovery_trend_from} timed incidents`,
+      )
+    }
+  }
+
+  /* db/129. Asked again for this same incident. */
+  if (payload.rejected?.length) {
+    out.push(
+      '',
+      'ALREADY SUGGESTED FOR THIS INCIDENT, and the teacher asked for something different:',
+      ...payload.rejected.map((t) => `- "${t}"`),
+    )
+    if (payload.askedFor) {
+      out.push('', `What they said about why: ${payload.askedFor}`)
+    }
+  }
+
+  if (payload.priorOutcomes?.length) {
+    out.push('', 'Previously suggested for this child:')
+    for (const o of payload.priorOutcomes) {
+      out.push(
+        o.outcome === 'did_not_help'
+          ? `- "${o.title}" — reported as NOT helping. Do not suggest this again.`
+          : o.outcome === 'helped'
+            ? `- "${o.title}" — reported as helping.`
+            : `- "${o.title}" — was applied; no verdict recorded.`,
+      )
+    }
+  }
+
+  return out.length > 0 ? `\n${out.join('\n')}` : ''
+}
+
+/**
  * Generate strategies for one anonymised observation.
  *
  * @param {object} payload  output of buildAnonymousPayload()
@@ -196,7 +377,7 @@ export async function generateStrategies(payload, namesToRemove) {
 - Intensity: ${payload.intensity}
 - Approximate duration: ${payload.approximateDurationMinutes ?? 'unknown'} minutes
 - Year level: ${payload.yearLevel ?? 'unknown'}
-- Teacher's notes: ${payload.notes || '(none recorded)'}
+- Teacher's notes: ${payload.notes || '(none recorded)'}${contextLines(payload)}
 
 Suggest three classroom strategies.`,
       },
@@ -446,7 +627,83 @@ export async function generateSelfStrategies(payload, namesToRemove, model = MOD
 }
 
 
-export const HOME_PROMPT_VERSION = 'home-v1'
+/**
+ * The school's counted history, written for a parent — db/122, db/124.
+ *
+ * SEPARATE FROM contextLines() BECAUSE THE AUDIENCE IS DIFFERENT, not because
+ * the data is. A teacher is told "clusters around 11:00"; a parent is not,
+ * because that is a fact about a timetable they are not in and it would invite
+ * the model to reason about a school day it cannot see. The endpoint drops the
+ * field; this function would have nothing to print even if it did not.
+ *
+ * Everything here was counted under the PARENT's own row-level security, so it
+ * describes only observations this family can already open and read. That is
+ * what makes it safe to reason from in an answer addressed to them.
+ */
+/**
+ * What the school has recorded ABOUT the child, for a parent — db/127.
+ *
+ * Redacted by the caller like any prose, and read under the guardian's own
+ * row-level security, so every word here is something they can already open on
+ * their own screen.
+ *
+ * The interest is the reason this exists. A child who loves horses loves them
+ * at bath time, and it is the one thing in this payload that helps a parent
+ * without being about something going wrong.
+ */
+export function homeProfileLines(profile) {
+  if (!profile) return []
+  const lines = []
+  if (profile.interests) lines.push(`- Loves: ${profile.interests}`)
+  if (profile.strengths) lines.push(`- Good at: ${profile.strengths}`)
+  if (profile.finds_hard) lines.push(`- Finds hard: ${profile.finds_hard}`)
+  if (profile.helps?.length) {
+    lines.push(`- The school finds this helps: ${profile.helps.join(', ')}`)
+  }
+  return lines.length > 0
+    ? ['', 'What the school has recorded about this child:', ...lines]
+    : []
+}
+
+export function homeSchoolLines(patterns) {
+  if (!patterns || !patterns.total) return []
+
+  const out = [
+    '',
+    `What the school has seen (${patterns.total} observation${
+      patterns.total === 1 ? '' : 's'
+    } this family can already read, over ${patterns.window_days} days):`,
+  ]
+
+  if (patterns.top_antecedent) {
+    out.push(
+      `- Most often follows: ${patterns.top_antecedent.value} — ${patterns.top_antecedent.times} of ${patterns.total}`,
+    )
+  }
+  if (patterns.what_has_helped?.length) {
+    out.push(
+      `- What has helped there: ${patterns.what_has_helped
+        .map((h) => `${h.value} (${h.times} times)`)
+        .join(', ')}`,
+    )
+  }
+  if (patterns.common_setting_events?.length) {
+    out.push(
+      `- Often also true that day: ${patterns.common_setting_events
+        .map((s) => `${s.value} (${s.times} times)`)
+        .join(', ')}`,
+    )
+  }
+  if (patterns.nothing_worked > 0) {
+    out.push(
+      `- On ${patterns.nothing_worked} occasion(s) nothing the adult tried worked.`,
+    )
+  }
+
+  return out
+}
+
+export const HOME_PROMPT_VERSION = 'home-v2'
 
 const HOME_SYSTEM_PROMPT = `You suggest things a parent or carer in Australia could try at home with their own neurodiverse child.
 
@@ -459,6 +716,21 @@ WHAT YOU PRODUCE
 Up to THREE practical things they could try at home, each with a short "why this works" rationale. Written to the parent as "you", about the child as "they".
 
 Three rather than the two an adult asking about themselves gets, because a parent is choosing what fits a household you cannot see — siblings, shift work, one bathroom — and a single suggestion that does not fit their week leaves them with nothing. If only one or two are worth giving, give one or two.
+
+IF YOU ARE GIVEN WHAT THIS CHILD LOVES OR IS GOOD AT
+Use it. A suggestion built around something a child already loves is one that gets tried; the same suggestion built around nothing is one more thing on a tired parent's list. A bath that ends with the horse book, a countdown said in the voice of the thing they like — small, and it costs nothing.
+
+Never use the interest as a reward to be taken away. It is a way in, not leverage.
+
+IF YOU ARE GIVEN "WHAT THE SCHOOL HAS SEEN"
+The child's school has logged incidents, and what you are shown is counted from the observations THIS FAMILY CAN ALREADY READ. Nothing here is a secret being passed on.
+
+- Use what has already helped at school. If an adult there found that movement, or a quieter space, or being offered a choice settled this child, that is worth trying at home — say where it comes from, plainly: "this seems to help at school". A parent given a reason acts on it; a parent given an instruction does not.
+- Use the common antecedent the same way. A child who struggles when asked to stop an activity does that at home too, and the parent may never have connected the two.
+- DO NOT LECTURE THEM ABOUT THEIR OWN CHILD. They know this child far better than the school does and infinitely better than you do. Offer the school's observation as one more thing to try, never as a correction to what they are doing.
+- Respect the sample size, and say it out loud when it is small. "It has only come up a few times" is honest and useful.
+- If what the school sees contradicts what the parent has written, SAY SO GENTLY AND DO NOT RESOLVE IT. A child who settles with movement at school and not at home is not a contradiction to be argued away — it usually means the two places differ, and that is worth a conversation with the school rather than a confident answer from you.
+- Never imply the school knows better, and never imply the parent is doing it wrong.
 
 HOME IS NOT A CLASSROOM
 Do not suggest anything that assumes a teacher, a teaching assistant, a visual timetable on a wall, a quiet corner, a break card, or a class routine. A home has a kitchen, a bathroom, a bedtime, other people who live there, and no roster. Suggestions must survive a Tuesday evening.
@@ -521,6 +793,8 @@ export async function generateHomeStrategies(payload, namesToRemove, model = MOD
           ...(payload.category
             ? ['', `They filed it under: ${payload.category}`]
             : []),
+          ...homeProfileLines(payload.profile),
+          ...homeSchoolLines(payload.schoolPatterns),
           '',
           'Suggest up to three things they could try at home.',
         ].join('\n'),

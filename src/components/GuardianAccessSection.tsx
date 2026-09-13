@@ -124,7 +124,7 @@ export default function GuardianAccessSection({
 
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold text-foreground">Family access</h2>
+      <h2 className="text-section text-foreground">Family access</h2>
       {/* NOT "you name them": there is no name field, and there never was.
           The form takes an address and a relationship, and `createGuardianCode`
           accepts nothing else — the person names themselves when they redeem

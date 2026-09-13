@@ -27,11 +27,11 @@ export type ConsentCopy = {
 
 export const CONSENT_COPY: Record<ConsentType, ConsentCopy> = {
   ai_strategy_generation: {
-    label: 'AI-suggested classroom strategies',
+    label: 'AI-suggested strategies',
     allows:
-      'When a teacher logs an incident, an anonymised description of what happened may be sent to an AI service to suggest classroom strategies. Your child’s name, your family’s names, and any contact details are removed before it is sent.',
+      'An anonymised description of something that happened may be sent to an AI service to suggest things to try. This covers both a teacher logging an incident at school and a family writing an observation at home. Your child’s name, your family’s names, and any contact details are removed before it is sent.',
     ifWithdrawn:
-      'Teachers stop receiving AI suggestions for your child immediately. They can still log behaviour and everything else works as normal.',
+      'All AI suggestions about your child stop immediately — for teachers at school and for families at home, including the person who wrote the observation. Everything else works as normal: staff can still log behaviour and you can still write home observations, they just come back without suggestions.',
     enforced: true,
   },
   data_processing: {

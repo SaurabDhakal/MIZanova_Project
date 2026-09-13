@@ -1,12 +1,21 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  fetchStudentPatterns,
+  fetchTodayContext,
   queryKeys,
   type BehaviourIntensity,
   type BehaviourType,
   type StudentRow,
 } from '../lib/api'
 import { saveBehaviourLog } from '../lib/offlineQueue'
+import ChipRow from './ChipRow'
+import {
+  ANTECEDENTS,
+  SETTING_EVENTS,
+  labelFor,
+  type Antecedent,
+} from '../lib/behaviourContext'
 import { showToast } from '../lib/toast'
 import { withFullStop } from '../lib/displayName'
 import { useAuth } from '../lib/auth'
@@ -29,6 +38,29 @@ import { useModalDialog } from '../hooks/useModalDialog'
  * to close, and inert background content for free — all things that are easy
  * to get subtly wrong by hand and that matter for keyboard and screen reader
  * users.
+ *
+ * ---------------------------------------------------------------------------
+ * THIS SCREEN HAS A HEIGHT BUDGET: ONE VIEWPORT OF SCROLL
+ * ---------------------------------------------------------------------------
+ * Nobody decided this modal should be 1428px tall. It arrived there one
+ * individually-reasonable addition at a time, and by the time anybody measured
+ * it, db/122's three-question fieldset was 486px sitting 899px below the fold —
+ * simultaneously too long and invisible, so the cost was being paid and the
+ * benefit was not being collected.
+ *
+ * Measured with the modal open, at a 694px viewport:
+ *
+ *              before docs/19    after
+ *   content         1428px       1153px
+ *   chips              28           11
+ *
+ * The budget is roughly 1050px of content — one screenful of scrolling. A new
+ * field has to earn its place by displacing something, or find a different
+ * moment: docs/19 §2 sets out why "what helped" belongs after the save and why
+ * a setting event belongs to a day rather than to a child.
+ *
+ * MEASURE IT, DO NOT ESTIMATE IT. Open the modal and read
+ * `scrollHeight` off the scrolling element.
  */
 
 const BEHAVIOURS: {
@@ -104,6 +136,54 @@ export default function BehaviourLogModal({
   const [riskFlagged, setRiskFlagged] = useState(false)
   const [riskNote, setRiskNote] = useState('')
 
+  /*
+   * db/122, narrowed by docs/19 §3.
+   *
+   * ONLY THE ANTECEDENT IS ASKED HERE. `what_helped` cannot be answered during
+   * an incident — it has not ended — so it is asked afterwards, on the timeline
+   * row. `setting_events` is a fact about a day and a room rather than a child,
+   * so it is set once on the roster and arrives here already filled in.
+   *
+   * Neither gates Save, and neither ever will.
+   */
+  const [antecedent, setAntecedent] = useState<Antecedent | null>(null)
+  // Only ever set when "Something else…" is chosen — see the note at the field.
+  const [antecedentNote, setAntecedentNote] = useState('')
+
+  // Today's, said once by this person on the roster. Read-only here: the modal
+  // shows what will be attached rather than asking again, and a per-log
+  // correction is available in the correction dialog.
+  const today = useQuery({
+    queryKey: queryKeys.todayContext,
+    queryFn: fetchTodayContext,
+  })
+
+  /*
+   * WHAT IS USUALLY TRUE FOR THIS CHILD — docs/19 §3.4.
+   *
+   * The pattern layer already counts it, so confirming "usually a transition
+   * for this one" costs a tap where scanning ten options costs several. It
+   * also gives that layer a second job: it stops being only an output and
+   * starts making the input cheaper.
+   *
+   * RANKED, NEVER PRE-SELECTED. A default saved unchanged is not evidence — it
+   * is the system agreeing with itself, and it would corrupt the very counts
+   * the ranking was drawn from.
+   *
+   * Not awaited and never blocking: offline, or on a child with no history,
+   * this is simply null and the row renders in its written order.
+   */
+  const patterns = useQuery({
+    queryKey: queryKeys.studentPatterns(student.id),
+    queryFn: () => fetchStudentPatterns(student.id),
+    retry: false,
+  })
+  const usual = (patterns.data?.top_antecedent?.value ?? null) as Antecedent | null
+
+  const todaysEvents = (today.data?.setting_events ?? [])
+    .map((e) => labelFor(SETTING_EVENTS, e))
+    .filter((e): e is string => Boolean(e))
+
   // Generated once, before any request. A retry after a dropped connection
   // reuses it, so the same observation cannot be saved twice.
   const [clientRef] = useState(() => crypto.randomUUID())
@@ -160,6 +240,14 @@ export default function BehaviourLogModal({
         startedAt: (timer.startedAt ?? new Date()).toISOString(),
         endedAt: timer.endedAt()?.toISOString() ?? null,
         clientRef,
+        antecedent,
+        // Only the free-typed case needs the words kept: for a tapped
+        // suggestion the code already carries them, and storing the label back
+        // would be the same fact written twice.
+        antecedentNote: antecedent === 'other' ? antecedentNote : '',
+        // Copied from the day, not asked again. db/125.
+        settingEvents: today.data?.setting_events ?? [],
+        settingEventsNote: today.data?.note ?? '',
         riskFlagged,
         riskNote,
         queuedAt: new Date().toISOString(),
@@ -183,6 +271,11 @@ export default function BehaviourLogModal({
       // per-student counts update without a page refresh.
       void queryClient.invalidateQueries({ queryKey: queryKeys.classroomStats })
       void queryClient.invalidateQueries({ queryKey: queryKeys.recentLogs })
+      // db/123. The panel counts these logs, so it is wrong the moment one
+      // is written or corrected.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.studentPatterns(student.id),
+      })
 
       // The modal closes on success, so without this the whole interaction
       // ends in silence and the teacher has to go looking for the log to
@@ -245,7 +338,15 @@ export default function BehaviourLogModal({
           </div>
         </div>
 
-        {/* --- Timer ---------------------------------------------------- */}
+        {/* --- Timer ------------------------------------------------------
+            BACK IN FULL, as it was before docs/19 §6 collapsed it.
+
+            It was hidden behind a link to buy height. Saurab wants it visible,
+            and he is right that the saving was not worth it: a teacher who
+            IS watching an incident happen needs Start under their thumb, and a
+            link is one more decision at the worst moment. The height came back
+            from A1 instead — removing the duplicate text field saved more than
+            this ever did. */}
         <div className="mt-4 flex items-center gap-3 rounded-card bg-background p-4">
           <div className="min-w-0">
             {/* OPTIONAL, AND IT SAYS SO. The timer used to start on its own,
@@ -372,6 +473,58 @@ export default function BehaviourLogModal({
           </div>
         </fieldset>
 
+        {/* --- Just before (db/122, docs/19) ---------------------------
+            CHIPS, NOT A TEXT FIELD — reverted 2026-09-12.
+
+            The previous version led with a dictated text box and put the
+            suggestions under it. On its own that was a good shape; on THIS
+            screen it was not, because the Observation notes textarea sits
+            directly beneath with its own Voice-to-text link. Two writing areas
+            in a row, both dictatable, and nothing telling a teacher which one
+            the sentence belongs in.
+
+            Prose about the incident goes in the notes, which already existed
+            and is where a teacher looks for it. This row is here to make the
+            answer COUNTABLE, which is a different job and a one-tap one.
+
+            The escape hatch survives as "Something else…", which reveals a
+            single short input only when tapped — an exit from the vocabulary
+            rather than a rival to the notes field. */}
+        <fieldset className="mt-5">
+          <legend className="text-xs font-semibold text-foreground">
+            What was happening just before?
+          </legend>
+          <p className="mb-2 text-xs text-muted-foreground">
+            One tap, optional. It is what makes the suggestions specific to{' '}
+            {student.display_name}.
+          </p>
+          <ChipRow
+            name="log-antecedent"
+            label=""
+            options={ANTECEDENTS}
+            selected={antecedent}
+            onSelect={setAntecedent}
+            usual={usual}
+            usualHint={usual ? 'usually' : undefined}
+            /* Five, because ranking puts this child's most frequent answer
+               first and the next four cover most of the rest. The other eight
+               are one tap away and a chosen one is never hidden. */
+            maxVisible={5}
+            otherValue={antecedentNote}
+            onOtherChange={setAntecedentNote}
+            otherLabel="What happened?"
+          />
+
+          {todaysEvents.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Attached from today:{' '}
+              <span className="font-medium text-foreground">
+                {todaysEvents.join(', ').toLowerCase()}
+              </span>
+            </p>
+          )}
+        </fieldset>
+
         {/* --- Notes ---------------------------------------------------- */}
         <div className="mt-5">
           <div className="flex items-center justify-between">
@@ -481,6 +634,15 @@ export default function BehaviourLogModal({
               />
             </div>
           )}
+
+          {/* A DISABLED BUTTON THAT DOES NOT SAY WHY IS A DEAD END. It opened
+              at 50% opacity with nothing naming the two taps required. */}
+          {!canSave && !queued && !save.isPending && (
+            <p className="mt-2 w-full text-center text-xs text-muted-foreground">
+              Choose a behaviour and an intensity to save.
+            </p>
+          )}
+
         </div>
 
         {save.isError && (
@@ -533,18 +695,25 @@ export default function BehaviourLogModal({
             </button>
           ) : (
             <>
+              {/* "Cancel", not "Discard". Discard names destruction and sat at
+                  equal visual weight beside the save — on a form whose whole
+                  purpose is not to lose an observation. */}
               <button
                 type="button"
                 onClick={close}
                 className="pressable min-h-11 flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
               >
-                Discard
+                Cancel
               </button>
+              {/* bg-primary, like every other primary action in the product.
+                  This was the one green primary on the whole surface, which
+                  made the most-used button on the most-used screen the least
+                  consistent one. */}
               <button
                 type="button"
                 onClick={() => save.mutate()}
                 disabled={!canSave}
-                className="pressable min-h-11 flex-[2] rounded-btn bg-success-strong px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="pressable min-h-11 flex-[2] rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {save.isPending ? 'Saving…' : 'Save log'}
               </button>

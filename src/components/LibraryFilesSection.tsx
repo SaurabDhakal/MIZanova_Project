@@ -89,7 +89,7 @@ export default function LibraryFilesSection() {
 
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold text-foreground">Downloads</h2>
+      <h2 className="text-section text-foreground">Downloads</h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">
         Toolkits, handouts and images that go with what Special Miles publishes.
       </p>
@@ -123,14 +123,19 @@ export default function LibraryFilesSection() {
           e.preventDefault()
           if (!file) return setError('Choose a file.')
           if (title.trim() === '')
-            return setError('Give it a title — the filename is not a description.')
+            return setError(
+              'Give it a title — the filename is not a description.',
+            )
           setError(null)
           upload.mutate()
         }}
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="library-title" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="library-title"
+              className="block text-sm font-medium text-foreground"
+            >
               Title
             </label>
             <input
@@ -142,7 +147,10 @@ export default function LibraryFilesSection() {
             />
           </div>
           <div>
-            <label htmlFor="library-desc" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="library-desc"
+              className="block text-sm font-medium text-foreground"
+            >
               What it is
             </label>
             <input
@@ -162,7 +170,10 @@ export default function LibraryFilesSection() {
         </div>
 
         <div className="mt-3">
-          <label htmlFor="library-file" className="block text-sm font-medium text-foreground">
+          <label
+            htmlFor="library-file"
+            className="block text-sm font-medium text-foreground"
+          >
             The file
           </label>
           <input
@@ -170,7 +181,10 @@ export default function LibraryFilesSection() {
             ref={fileInput}
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-sm text-foreground"
+            /* A visible file input renders its own button, and the browser
+               sizes that button from the element. 20px here; the floor has to
+               be set on the input itself. */
+            className="mt-1 block min-h-11 w-full text-sm text-foreground file:mr-3 file:min-h-11 file:rounded-btn file:border-0 file:bg-primary file:px-4 file:text-sm file:font-semibold file:text-primary-foreground"
           />
           <p className="mt-1 text-xs text-muted-foreground">
             Up to {Math.round(LIBRARY_MAX_BYTES / (1024 * 1024))} MB. PDF,

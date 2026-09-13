@@ -104,7 +104,9 @@ export default function AddStudents() {
         : `No headings found, so the columns were read in order: ${IMPORT_COLUMNS.join(', ')}.`,
     )
     if (unknownHeaders.length > 0)
-      messages.push(`Ignored column${unknownHeaders.length === 1 ? '' : 's'}: ${unknownHeaders.join(', ')}.`)
+      messages.push(
+        `Ignored column${unknownHeaders.length === 1 ? '' : 's'}: ${unknownHeaders.join(', ')}.`,
+      )
 
     setRows(checkRows(parsed, existing.data ?? new Set()))
     setSource(describedAs)
@@ -180,7 +182,13 @@ export default function AddStudents() {
     setRows([])
     setOutcome(null)
     setPasted('')
-    setOne({ first_name: '', last_name: '', year_level: '', external_ref: '', date_of_birth: '' })
+    setOne({
+      first_name: '',
+      last_name: '',
+      year_level: '',
+      external_ref: '',
+      date_of_birth: '',
+    })
   }
 
   const field =
@@ -188,9 +196,11 @@ export default function AddStudents() {
 
   return (
     <div className="max-w-4xl">
+      {/* 17px, and the only way out of this page. Same fault and same fix as
+          the IEP back link in shared/IepPlans. */}
       <Link
         to="/school-admin/students"
-        className="text-sm font-medium text-primary hover:underline"
+        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-medium text-primary hover:underline"
       >
         ← All students
       </Link>
@@ -230,7 +240,9 @@ export default function AddStudents() {
                 <input
                   className={`${field} mt-1`}
                   value={one.first_name}
-                  onChange={(e) => setOne({ ...one, first_name: e.target.value })}
+                  onChange={(e) =>
+                    setOne({ ...one, first_name: e.target.value })
+                  }
                 />
               </label>
               <label className="block">
@@ -240,7 +252,9 @@ export default function AddStudents() {
                 <input
                   className={`${field} mt-1`}
                   value={one.last_name}
-                  onChange={(e) => setOne({ ...one, last_name: e.target.value })}
+                  onChange={(e) =>
+                    setOne({ ...one, last_name: e.target.value })
+                  }
                 />
               </label>
               <label className="block">
@@ -250,7 +264,9 @@ export default function AddStudents() {
                 <input
                   className={`${field} mt-1`}
                   value={one.year_level}
-                  onChange={(e) => setOne({ ...one, year_level: e.target.value })}
+                  onChange={(e) =>
+                    setOne({ ...one, year_level: e.target.value })
+                  }
                   placeholder="4"
                 />
               </label>
@@ -261,7 +277,9 @@ export default function AddStudents() {
                 <input
                   className={`${field} mt-1`}
                   value={one.external_ref}
-                  onChange={(e) => setOne({ ...one, external_ref: e.target.value })}
+                  onChange={(e) =>
+                    setOne({ ...one, external_ref: e.target.value })
+                  }
                   placeholder="4021"
                 />
               </label>
@@ -316,7 +334,9 @@ export default function AddStudents() {
               rows={5}
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
-              placeholder={'Ada\tLovelace\t4\t4001\t2015-12-10\nAlan\tTuring\t3\t4002\t2016-06-23'}
+              placeholder={
+                'Ada\tLovelace\t4\t4001\t2015-12-10\nAlan\tTuring\t3\t4002\t2016-06-23'
+              }
               className={`${field} mt-3 font-mono`}
             />
             <button
@@ -381,9 +401,7 @@ export default function AddStudents() {
       {/* ------------------------------------------------------------------ */}
       {stage === 'preview' && (
         <section className="rounded-card border border-border bg-card p-5 shadow-raised">
-          <h2 className="text-section text-foreground">
-            Check before adding
-          </h2>
+          <h2 className="text-section text-foreground">Check before adding</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {rows.length} row{rows.length === 1 ? '' : 's'} read from {source}.
             Nothing has been created yet.
@@ -400,16 +418,22 @@ export default function AddStudents() {
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${VERDICT_STYLE.ready}`}>
+            <span
+              className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${VERDICT_STYLE.ready}`}
+            >
               {counts.ready} will be added
             </span>
             {counts.duplicate > 0 && (
-              <span className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${VERDICT_STYLE.duplicate}`}>
+              <span
+                className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${VERDICT_STYLE.duplicate}`}
+              >
                 {counts.duplicate} already on the roll
               </span>
             )}
             {counts.error > 0 && (
-              <span className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${VERDICT_STYLE.error}`}>
+              <span
+                className={`rounded-btn px-2.5 py-1 text-sm font-semibold ${VERDICT_STYLE.error}`}
+              >
                 {counts.error} cannot be added
               </span>
             )}
@@ -425,18 +449,35 @@ export default function AddStudents() {
               </caption>
               <thead className="sticky top-0 bg-background">
                 <tr className="border-b border-border">
-                  <th scope="col" className="px-3 py-2 font-semibold">Line</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">Name</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">Year</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">ID</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">Born</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">What happens</th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Line
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Name
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Year
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    ID
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Born
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    What happens
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.line} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2 text-muted-foreground">{r.line}</td>
+                  <tr
+                    key={r.line}
+                    className="border-b border-border last:border-0"
+                  >
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {r.line}
+                    </td>
                     <td className="px-3 py-2 text-foreground">
                       {`${r.first_name} ${r.last_name}`.trim() || '—'}
                     </td>
@@ -447,10 +488,13 @@ export default function AddStudents() {
                       {r.external_ref || '—'}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {readDate(r.date_of_birth).value ?? (r.date_of_birth || '—')}
+                      {readDate(r.date_of_birth).value ??
+                        (r.date_of_birth || '—')}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${VERDICT_STYLE[r.verdict.status]}`}>
+                      <span
+                        className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${VERDICT_STYLE[r.verdict.status]}`}
+                      >
                         {VERDICT_LABEL[r.verdict.status]}
                       </span>
                       {r.verdict.status !== 'ready' && (

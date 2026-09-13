@@ -13,7 +13,11 @@ import {
   type InvoiceRow,
   type StudentRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import FormField from '../../components/FormField'
 import { showToast } from '../../lib/toast'
 
@@ -43,13 +47,24 @@ import { showToast } from '../../lib/toast'
  * at the database rather than trusting this file to keep hiding the buttons.
  */
 
-const STATUS_STYLE: Record<InvoiceRow['status'], { label: string; className: string }> =
-  {
-    draft: { label: 'Draft', className: 'bg-background text-muted-foreground' },
-    open: { label: 'Issued', className: 'bg-warning-subtle text-warning-foreground' },
-    paid: { label: 'Paid', className: 'bg-success-subtle text-success-foreground' },
-    void: { label: 'Cancelled', className: 'bg-background text-muted-foreground' },
-  }
+const STATUS_STYLE: Record<
+  InvoiceRow['status'],
+  { label: string; className: string }
+> = {
+  draft: { label: 'Draft', className: 'bg-background text-muted-foreground' },
+  open: {
+    label: 'Issued',
+    className: 'bg-warning-subtle text-warning-foreground',
+  },
+  paid: {
+    label: 'Paid',
+    className: 'bg-success-subtle text-success-foreground',
+  },
+  void: {
+    label: 'Cancelled',
+    className: 'bg-background text-muted-foreground',
+  },
+}
 
 type Draft = {
   studentId: string
@@ -132,7 +147,7 @@ function InvoiceForm({
       className="rounded-card border border-border bg-card shadow-raised p-6"
       noValidate
     >
-      <h2 className="text-lg font-bold text-foreground">{heading}</h2>
+      <h2 className="text-section text-foreground">{heading}</h2>
 
       {(formError || serverError) && (
         <p
@@ -224,8 +239,14 @@ export default function Invoices() {
   /** The draft whose editor is open, by id. One at a time. */
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  const invoices = useQuery({ queryKey: queryKeys.invoices, queryFn: fetchInvoices })
-  const students = useQuery({ queryKey: queryKeys.students, queryFn: fetchStudents })
+  const invoices = useQuery({
+    queryKey: queryKeys.invoices,
+    queryFn: fetchInvoices,
+  })
+  const students = useQuery({
+    queryKey: queryKeys.students,
+    queryFn: fetchStudents,
+  })
   const school = useQuery({
     queryKey: queryKeys.schoolSummary,
     queryFn: fetchSchoolSummary,
@@ -292,12 +313,15 @@ export default function Invoices() {
     },
   })
 
-  if (invoices.isPending || students.isPending) return <LoadingCards count={2} />
+  if (invoices.isPending || students.isPending)
+    return <LoadingCards count={2} />
   if (invoices.isError) return <ErrorState message={invoices.error.message} />
 
   const nameFor = (id: string) => {
     const student = students.data?.find((s) => s.id === id)
-    return student ? `${student.first_name} ${student.last_name}` : 'Unknown student'
+    return student
+      ? `${student.first_name} ${student.last_name}`
+      : 'Unknown student'
   }
 
   const outstanding = invoices.data
@@ -363,13 +387,19 @@ export default function Invoices() {
       )}
 
       {changeStatus.isError && (
-        <p role="alert" className="mb-4 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mb-4 text-sm font-medium text-danger-foreground"
+        >
           {changeStatus.error.message}
         </p>
       )}
 
       {discard.isError && (
-        <p role="alert" className="mb-4 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mb-4 text-sm font-medium text-danger-foreground"
+        >
           {discard.error.message}
         </p>
       )}
@@ -401,9 +431,7 @@ export default function Invoices() {
                     footnote="Still a draft. The family sees nothing until you issue it."
                     pending={edit.isPending}
                     serverError={edit.error?.message}
-                    onSubmit={(draft) =>
-                      edit.mutate({ id: invoice.id, draft })
-                    }
+                    onSubmit={(draft) => edit.mutate({ id: invoice.id, draft })}
                     onCancel={() => setEditingId(null)}
                   />
                 </li>
@@ -451,7 +479,10 @@ export default function Invoices() {
                       <button
                         type="button"
                         onClick={() =>
-                          changeStatus.mutate({ id: invoice.id, status: 'open' })
+                          changeStatus.mutate({
+                            id: invoice.id,
+                            status: 'open',
+                          })
                         }
                         disabled={changeStatus.isPending}
                         className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
@@ -473,7 +504,9 @@ export default function Invoices() {
                           }
                         }}
                         disabled={discard.isPending}
-                        className="rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                        /* 38px. It destroys a draft invoice that "cannot be
+                           recovered" by its own confirm text. */
+                        className="pressable inline-flex min-h-11 items-center rounded-btn border border-danger px-3 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                       >
                         Discard
                       </button>

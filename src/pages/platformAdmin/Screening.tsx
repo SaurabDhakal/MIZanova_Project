@@ -352,7 +352,7 @@ function PersonCard({ checks }: { checks: ScreeningRow[] }) {
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-lg font-bold text-foreground">
+        <h3 className="text-section text-foreground">
           {person.full_name ?? person.email}
         </h3>
         {/* Whether they can already reach children changes what to do about
@@ -412,9 +412,7 @@ export default function Screening() {
   // 'unknown' is not valid, so this already includes it — stated because the
   // whole point of db/051 is that an unknown expiry must never be filed under
   // "nothing to do here".
-  const urgent = (checks.data ?? []).filter(
-    (c) => c.state_of_check !== 'valid',
-  )
+  const urgent = (checks.data ?? []).filter((c) => c.state_of_check !== 'valid')
   const valid = (checks.data ?? []).filter((c) => c.state_of_check === 'valid')
 
   return (
@@ -456,7 +454,7 @@ export default function Screening() {
           would ever appear in the list below. */}
       {missing.isSuccess && missing.data.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-1 text-lg font-semibold text-danger-foreground">
+          <h2 className="mb-1 text-section text-danger-foreground">
             Approved with no check on file ({missing.data.length})
           </h2>
           <p className="mb-3 text-sm text-muted-foreground">
@@ -514,7 +512,7 @@ export default function Screening() {
       {/* --- Expired and expiring ------------------------------------------ */}
       {checks.isSuccess && urgent.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             Needs attention ({byPerson(urgent).length})
           </h2>
           <ul className="space-y-4">
@@ -544,7 +542,7 @@ export default function Screening() {
       {/* --- Everything else ----------------------------------------------- */}
       {valid.length > 0 && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             Current ({byPerson(valid).length})
           </h2>
           <ul className="space-y-4">

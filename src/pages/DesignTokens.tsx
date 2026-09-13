@@ -55,7 +55,10 @@ function Swatch({ name, note }: { name: string; note?: string }) {
 export default function DesignTokens() {
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-10">
-      <Link to="/" className="text-sm font-medium text-primary hover:underline">
+      <Link
+        to="/"
+        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-medium text-primary hover:underline"
+      >
         ← Back
       </Link>
 
@@ -92,14 +95,10 @@ export default function DesignTokens() {
         {/* The state worth showing on a reference page: a figure that could
             not be loaded. It is an em-dash and says why, because a zero here
             would be a lie the rest of this product works hard to avoid. */}
-        <StatTile
-          label="Recent logs"
-          value={undefined}
-          icon="observations"
-        />
+        <StatTile label="Recent logs" value={undefined} icon="observations" />
       </div>
 
-      <h2 className="mt-10 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 text-section text-foreground">
         Status colours
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -125,7 +124,7 @@ export default function DesignTokens() {
           drawn by hand drift: a stroke that is heavier than its neighbours or
           a drawing that sits smaller in its box is invisible one at a time and
           obvious in a grid. */}
-      <h2 className="mt-10 text-lg font-semibold text-foreground">Icons</h2>
+      <h2 className="mt-10 text-section text-foreground">Icons</h2>
       <p className="mt-1 max-w-prose text-sm text-muted-foreground">
         Inline SVG, no library — an icon font is a second request that has to
         succeed before a screen is readable, and this app opens with the wifi
@@ -146,7 +145,7 @@ export default function DesignTokens() {
         ))}
       </ul>
 
-      <h2 className="mt-10 text-lg font-semibold text-foreground">Buttons</h2>
+      <h2 className="mt-10 text-section text-foreground">Buttons</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Press <kbd className="font-mono">Tab</kbd> — a blue focus ring must
         appear on each.
@@ -166,7 +165,7 @@ export default function DesignTokens() {
         </button>
       </div>
 
-      <h2 className="mt-10 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 text-section text-foreground">
         Every token
       </h2>
       <div className="mt-3 overflow-x-auto rounded-card border border-border bg-card shadow-raised p-5">
@@ -176,42 +175,21 @@ export default function DesignTokens() {
           </caption>
           <tbody>
             <Swatch name="sidebar" note="Left navigation" />
-            <Swatch
-              name="primary"
-              note="Buttons, active nav, links"
-            />
+            <Swatch name="primary" note="Buttons, active nav, links" />
             <Swatch name="primary-subtle" note="Icon tiles" />
             <Swatch name="background" note="Page behind cards" />
             <Swatch name="card" note="Panels" />
             <Swatch name="border" note="Outlines, dividers" />
-            <Swatch
-              name="foreground"
-              note="Headings, body text"
-            />
-            <Swatch
-              name="muted-foreground"
-              note="Helper text"
-            />
+            <Swatch name="foreground" note="Headings, body text" />
+            <Swatch name="muted-foreground" note="Helper text" />
             <Swatch name="success" note="Shapes only" />
-            <Swatch
-              name="success-foreground"
-              note="Success text"
-            />
+            <Swatch name="success-foreground" note="Success text" />
             <Swatch name="warning" note="Shapes only" />
-            <Swatch
-              name="warning-foreground"
-              note="Warning text"
-            />
+            <Swatch name="warning-foreground" note="Warning text" />
             <Swatch name="danger" note="Shapes only" />
-            <Swatch
-              name="danger-foreground"
-              note="Danger text"
-            />
+            <Swatch name="danger-foreground" note="Danger text" />
             <Swatch name="accent" note="IEP / calendar chips" />
-            <Swatch
-              name="accent-foreground"
-              note="Accent text"
-            />
+            <Swatch name="accent-foreground" note="Accent text" />
           </tbody>
         </table>
       </div>

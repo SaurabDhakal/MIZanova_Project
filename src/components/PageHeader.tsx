@@ -55,7 +55,9 @@ export default function PageHeader({
       */}
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <h1 className="text-title text-foreground">{title}</h1>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        )}
       </div>
       {/*
         Full width, deliberately. It was `max-w-prose`, which is right for a
@@ -122,7 +124,7 @@ export function PageNote({
 }) {
   return (
     <details className="mt-10 rounded-card border border-border bg-background/60 px-5 py-4">
-      <summary className="cursor-pointer text-sm font-medium text-primary">
+      <summary className="min-h-11 flex cursor-pointer items-center text-sm font-medium text-primary">
         {summary}
       </summary>
       {/* `text-sm`, not `text-xs`. This is the paragraph that says what the

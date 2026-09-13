@@ -71,7 +71,7 @@ export default function SessionRequestsSection() {
 
   return (
     <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
-      <h2 className="text-lg font-bold text-foreground">Session requests</h2>
+      <h2 className="text-section text-foreground">Session requests</h2>
       <p className="mt-1 max-w-prose text-muted-foreground">
         People with no school attached, asking for time with you. Accepting
         puts it in your calendar and emails them your answer &mdash; they are
@@ -94,8 +94,13 @@ export default function SessionRequestsSection() {
             <p className="mt-1 text-sm text-muted-foreground">
               {b.profiles?.full_name ?? 'Somebody'} asked
             </p>
+            {/* 1px, not 2. The craft floor allows a coloured left rule on a
+                quotation at a hairline and bans it above that, and this IS a
+                quotation — the words the person actually typed when they
+                asked. Same call as the 4px violet bar removed from the review
+                queue, one size down. */}
             {b.purpose && (
-              <p className="mt-2 max-w-prose border-l-2 border-brand-green pl-3 text-sm text-foreground">
+              <p className="mt-2 max-w-prose border-l border-brand-green pl-3 text-sm text-foreground">
                 {b.purpose}
               </p>
             )}

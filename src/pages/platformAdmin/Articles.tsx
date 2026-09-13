@@ -10,7 +10,11 @@ import {
   type ArticleKind,
 } from '../../lib/api'
 import { ROLE_CONFIG, ROLES, type Role } from '../../lib/roles'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
 import LibraryFilesSection from '../../components/LibraryFilesSection'
@@ -82,7 +86,9 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         e.preventDefault()
         if (title.trim() === '') return setError('Give it a title.')
         if (summary.trim() === '')
-          return setError('Say what it is about — this is what people read first.')
+          return setError(
+            'Say what it is about — this is what people read first.',
+          )
         if (audiences.length === 0)
           return setError('Choose at least one audience, or nobody can see it.')
         setError(null)
@@ -101,7 +107,9 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
       )}
 
       <fieldset className="mt-4">
-        <legend className="text-sm font-medium text-foreground">What it is</legend>
+        <legend className="text-sm font-medium text-foreground">
+          What it is
+        </legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {(['article', 'case_study'] as ArticleKind[]).map((k) => (
             <label
@@ -133,7 +141,10 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
 
       <div className="mt-4 grid gap-4">
         <div>
-          <label htmlFor="article-title" className="block text-sm font-medium text-foreground">
+          <label
+            htmlFor="article-title"
+            className="block text-sm font-medium text-foreground"
+          >
             Title
           </label>
           <input
@@ -145,7 +156,10 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         </div>
 
         <div>
-          <label htmlFor="article-summary" className="block text-sm font-medium text-foreground">
+          <label
+            htmlFor="article-summary"
+            className="block text-sm font-medium text-foreground"
+          >
             What it is about
           </label>
           <textarea
@@ -158,7 +172,10 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         </div>
 
         <div>
-          <label htmlFor="article-body" className="block text-sm font-medium text-foreground">
+          <label
+            htmlFor="article-body"
+            className="block text-sm font-medium text-foreground"
+          >
             The text
           </label>
           <textarea
@@ -172,7 +189,9 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
         </div>
 
         <fieldset>
-          <legend className="text-sm font-medium text-foreground">Who it is for</legend>
+          <legend className="text-sm font-medium text-foreground">
+            Who it is for
+          </legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {AUDIENCE_CHOICES.map((role) => (
               <label
@@ -328,7 +347,9 @@ export default function Articles() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-semibold text-foreground">{a.title}</h2>
+                      <h2 className="font-semibold text-foreground">
+                        {a.title}
+                      </h2>
                       <span className="rounded-btn bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                         {KIND_LABEL[a.kind]}
                       </span>
@@ -346,14 +367,19 @@ export default function Articles() {
                       {a.summary}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      For {a.audiences.map((r) => ROLE_CONFIG[r]?.label ?? r).join(', ')}
+                      For{' '}
+                      {a.audiences
+                        .map((r) => ROLE_CONFIG[r]?.label ?? r)
+                        .join(', ')}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={publish.isPending || (blocked && !a.is_published)}
+                      disabled={
+                        publish.isPending || (blocked && !a.is_published)
+                      }
                       onClick={() =>
                         publish.mutate({ id: a.id, next: !a.is_published })
                       }

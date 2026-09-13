@@ -39,8 +39,14 @@ import StatTile from '../../components/StatTile'
  */
 export default function GlobalOverview() {
   const queryClient = useQueryClient()
-  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
-  const staff = useQuery({ queryKey: queryKeys.allStaff, queryFn: fetchAllStaff })
+  const schools = useQuery({
+    queryKey: queryKeys.schools,
+    queryFn: fetchSchools,
+  })
+  const staff = useQuery({
+    queryKey: queryKeys.allStaff,
+    queryFn: fetchAllStaff,
+  })
   const controls = useQuery({
     queryKey: queryKeys.aiControls,
     queryFn: fetchAiControls,
@@ -565,7 +571,7 @@ export default function GlobalOverview() {
       {/* --- Who is waiting ------------------------------------------------- */}
       {awaiting.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mt-10 mb-3 text-section text-foreground">
             Waiting on you
           </h2>
           <ul className="space-y-2">
@@ -597,7 +603,7 @@ export default function GlobalOverview() {
       )}
 
       {/* --- Activity ------------------------------------------------------- */}
-      <h2 className="mt-10 mb-1 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-1 text-section text-foreground">
         Administrative activity
       </h2>
       <p className="mb-3 text-sm text-muted-foreground">
@@ -623,7 +629,7 @@ export default function GlobalOverview() {
       </div>
 
       {/* --- Recent administrative actions ---------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Recent administrative actions
       </h2>
       {audit.isPending ? (
@@ -645,15 +651,26 @@ export default function GlobalOverview() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-background/60">
               <tr className="text-xs tracking-wide text-muted-foreground uppercase">
-                <th scope="col" className="px-4 py-2.5 font-semibold">When</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Action</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Who</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">To whom</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">
+                  When
+                </th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">
+                  Action
+                </th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">
+                  Who
+                </th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">
+                  To whom
+                </th>
               </tr>
             </thead>
             <tbody>
               {byPeople.slice(0, 6).map((event) => (
-                <tr key={event.id} className="border-b border-border last:border-0">
+                <tr
+                  key={event.id}
+                  className="border-b border-border last:border-0"
+                >
                   <td className="px-4 py-2.5 whitespace-nowrap tabular-nums text-muted-foreground">
                     {new Date(event.occurred_at).toLocaleString('en-AU', {
                       day: 'numeric',
@@ -688,7 +705,7 @@ export default function GlobalOverview() {
       )}
       <Link
         to="/platform-admin/audit"
-        className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+        className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
       >
         Full audit log →
       </Link>

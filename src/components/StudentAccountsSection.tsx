@@ -126,7 +126,7 @@ export default function StudentAccountsSection() {
 
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold text-foreground">
+      <h2 className="text-section text-foreground">
         Student sign-ins
       </h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">

@@ -213,7 +213,7 @@ export default function Subscription() {
           <div className="flex items-start gap-3">
             <Icon name="tick" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-foreground">
+              <h2 className="text-section text-foreground">
                 You are already on the capable model
               </h2>
               <p className="mt-1 max-w-prose text-muted-foreground">
@@ -247,7 +247,7 @@ export default function Subscription() {
             className="mt-0.5 h-5 w-5 shrink-0 text-primary"
           />
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-foreground">Receipts</h2>
+            <h2 className="text-section text-foreground">Receipts</h2>
 
             {purchases.isPending && (
               <p className="mt-1 text-muted-foreground">Loading&hellip;</p>

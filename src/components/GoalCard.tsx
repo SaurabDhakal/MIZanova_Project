@@ -130,7 +130,13 @@ export default function GoalCard({
                         : 'text-muted-foreground'
                     }
                   >
-                    {milestone.is_done ? '✓' : '○'}
+                    {/* Drawn, not '✓'/'○'. Two glyphs from two different
+                        parts of the font, aligned by luck. */}
+                    {milestone.is_done ? (
+                      <Icon name="tick" className="h-4 w-4" />
+                    ) : (
+                      <span className="block h-3 w-3 rounded-full border border-current" />
+                    )}
                   </span>
                   <span
                     className={
@@ -166,7 +172,10 @@ export default function GoalCard({
             value={goal.status}
             disabled={busy}
             onChange={(e) => onStatusChange(e.target.value as GoalStatus)}
-            className="mt-1 ml-2 rounded-btn border border-border bg-card px-2 py-1.5 text-sm text-foreground"
+            /* min-h-11 to match every other control on this page. A native
+               select styled to 17px is a 17px target on a tablet, and this one
+               changes the status of a child's goal. */
+            className="min-h-11 mt-1 ml-2 rounded-btn border border-border bg-card px-2 py-1.5 text-sm text-foreground"
           >
             {(Object.keys(GOAL_STATUS_STYLE) as GoalStatus[]).map((value) => (
               <option key={value} value={value}>

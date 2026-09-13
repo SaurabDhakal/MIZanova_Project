@@ -147,6 +147,128 @@ if (payload.behaviourType !== 'disruptive' || payload.intensity !== 'high') {
   console.log('  ok  behaviour, intensity and duration survived')
 }
 
+/* ---------------------------------------------------------------------------
+ * db/122 — the coded fields, which are asserted rather than redacted
+ * ---------------------------------------------------------------------------
+ * Redaction is a filter and therefore a guess, which is why everything above
+ * exists to check its work. A closed vocabulary needs no guessing: 'transition'
+ * cannot be a name in any school, ever.
+ *
+ * So the test is not "was it cleaned" but "would an unknown value be REFUSED".
+ * A field that quietly dropped what it did not recognise would pass a leak
+ * check while sending nothing, and the next person to read the code would
+ * believe the value had travelled.
+ * ------------------------------------------------------------------------ */
+console.log('\nCoded fields must refuse anything outside their vocabulary')
+
+const codedCases = [
+  ['antecedent', { antecedent: 'Ethan was cross' }],
+  ['what_helped', { whatHelped: 'sat with Mitchell' }],
+  ['setting_event', { settingEvents: ['called 0412 345 678'] }],
+]
+
+for (const [field, extra] of codedCases) {
+  let refused = false
+  try {
+    buildAnonymousPayload({
+      behaviourType: 'disruptive',
+      intensity: 'high',
+      notes: '',
+      namesToRemove: ROSTER,
+      ...extra,
+    })
+  } catch {
+    refused = true
+  }
+  if (refused) {
+    console.log(`  ok  unrecognised ${field} refused`)
+  } else {
+    failures++
+    console.log(`  *** FAIL *** an unrecognised ${field} was accepted`)
+  }
+}
+
+// And the legitimate values must survive, or the fields are decorative.
+const coded = buildAnonymousPayload({
+  behaviourType: 'physical',
+  intensity: 'high',
+  notes: 'Ethan Mitchell threw a chair.',
+  namesToRemove: ROSTER,
+  antecedent: 'other',
+  whatHelped: 'movement',
+  settingEvents: ['poor_sleep'],
+  /* db/125. The escape hatch is the ONE part of these fields that is prose,
+     so it is the one part that can carry a name — and a teacher reaching for
+     "something else" is describing something unusual, which is exactly when a
+     name is likeliest to appear. */
+  antecedentNote: 'Ethan Mitchell arrived late and Maya had taken his seat.',
+  // A title the model wrote. It never saw a name, so in principle this cannot
+  // carry one — "in principle" is how leaks happen, and it makes a second trip
+  // to the API, so it is redacted like any other prose.
+  priorOutcomes: [{ title: 'Visual timetable for Ethan', outcome: 'did_not_help' }],
+  /* db/127. The profile is the most name-dense text in the payload: an incident
+     note describes a moment, a profile invites the sentences that carry other
+     people into it. */
+  profile: {
+    interests: 'Trains. Also anything Maya is doing.',
+    strengths: 'Reads better than Annabelle.',
+    finds_hard: 'Being rushed. Ring 0412 345 678 to discuss.',
+    helps: ['movement'],
+    triggers: ['transition'],
+  },
+})
+
+const codedLeaks = findLeaks(JSON.stringify(coded), ROSTER)
+if (codedLeaks.length > 0) {
+  failures++
+  console.log('  *** FAIL *** identifiers found in the db/122 payload')
+  for (const leak of codedLeaks) console.log(`      ${leak}`)
+} else if (
+  coded.antecedent !== 'other' ||
+  coded.whatHelped !== 'movement' ||
+  coded.settingEvents[0] !== 'poor_sleep'
+) {
+  failures++
+  console.log('  *** FAIL *** valid coded values did not survive')
+} else if (!coded.antecedentNote || !/\[STUDENT\]/.test(coded.antecedentNote)) {
+  failures++
+  console.log(
+    `  *** FAIL *** the 'other' note was dropped or not redacted: ${coded.antecedentNote}`,
+  )
+} else if (
+  !coded.profile ||
+  /Maya|Annabelle/.test(JSON.stringify(coded.profile)) ||
+  coded.profile.helps[0] !== 'movement'
+) {
+  failures++
+  console.log(
+    `  *** FAIL *** the profile leaked or was dropped: ${JSON.stringify(coded.profile)}`,
+  )
+} else {
+  console.log('  ok  profile prose redacted, profile codes survived')
+  console.log(`      ${JSON.stringify(coded.profile)}`)
+  console.log('  ok  valid coded values survived; notes and prior titles redacted')
+  console.log(`      note: ${coded.antecedentNote}`)
+  console.log(`      ${JSON.stringify(coded.priorOutcomes)}`)
+}
+
+/* A note without its code is an orphaned sentence the model cannot place, and
+   it must not travel just because somebody typed it and changed their mind. */
+const orphan = buildAnonymousPayload({
+  behaviourType: 'disruptive',
+  intensity: 'high',
+  notes: '',
+  namesToRemove: ROSTER,
+  antecedent: 'transition',
+  antecedentNote: 'Ethan Mitchell said something',
+})
+if (orphan.antecedentNote !== null) {
+  failures++
+  console.log("  *** FAIL *** a note travelled without its 'other' code")
+} else {
+  console.log("  ok  a note is dropped when 'other' was not the answer")
+}
+
 console.log(
   failures === 0
     ? '\nPASS — no identifier reached the payload in any case.'

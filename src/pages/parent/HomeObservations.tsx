@@ -12,13 +12,59 @@ import {
 import { useAuth } from '../../lib/auth'
 import { downloadCsv, toCsv } from '../../lib/csv'
 import { observationCategoryStyle } from '../../lib/observationCategories'
-import { toLocalDateValue, todayLocal } from '../../lib/localTime'
+import {
+  toLocalDateValue,
+  todayLocal,
+  yesterdayLocal,
+} from '../../lib/localTime'
 import { useSelectedChild } from '../../hooks/useMyChildren'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
+import DictatedTextarea from '../../components/DictatedTextarea'
 import FormField from '../../components/FormField'
 import HomeObservationList from '../../components/HomeObservationList'
 import { OBSERVATION_CATEGORIES } from '../../lib/observationCategories'
+
+/**
+ * A short name for an observation, taken from what the parent already wrote.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE TITLE IS NO LONGER A QUESTION
+ * ---------------------------------------------------------------------------
+ * The form used to ask "What happened?" as a one-line title AND "Tell us more"
+ * as the description. Both required. The two real entries families had written
+ * by 12 September show what that produces:
+ *
+ *     title "he was scared"  body "he was scared after breaking a vase"
+ *     title "Angry"          body "Angry at siblings"
+ *
+ * The title is a truncation of the body in both. It collected no information;
+ * it made a parent say the same thing twice, and it did so as the FIRST thing
+ * asked, before they had said anything at all. A parent writing at nine in the
+ * evening is not composing a headline.
+ *
+ * `home_observations.title` is NOT NULL, so a title still has to exist. It is
+ * derived here instead of demanded, and shown pre-filled under "Add more" so
+ * it stays visible and correctable rather than becoming a hidden machine
+ * field. Nobody is blocked by it.
+ *
+ * First sentence where there is one, otherwise a word-boundary trim, because
+ * cutting mid-word reads as a bug in the educator's list.
+ */
+function deriveTitle(body: string): string {
+  const text = body.trim().replace(/\s+/g, ' ')
+  if (!text) return ''
+  const sentence = text.match(/^(.{1,72}?)(?:[.!?]|$)/)
+  const first = sentence?.[1]?.trim() ?? text
+  if (first.length <= 72 && first.length > 0) return first
+  const cut = text.slice(0, 72)
+  const boundary = cut.lastIndexOf(' ')
+  return (boundary > 30 ? cut.slice(0, boundary) : cut).trim()
+}
 
 /**
  * Home Observations — docs/Figma Pages Design/Parent Home Observations.png.
@@ -44,6 +90,21 @@ export default function HomeObservations() {
   } = useSelectedChild()
 
   const [open, setOpen] = useState(false)
+
+  /*
+   * FOCUS FOLLOWS THE PANEL.
+   *
+   * This card swaps a prompt for a form in the same place. Nothing moved
+   * focus, so pressing "Log observation" left a keyboard or screen-reader user
+   * standing on a button that had just stopped existing, with a form they were
+   * never told had opened. Both entry points go through here.
+   */
+  function openForm() {
+    setOpen(true)
+    requestAnimationFrame(() => {
+      document.getElementById('observation-body')?.focus()
+    })
+  }
   /*
    * THE SAME FORM, IN TWO MODES.
    *
@@ -57,7 +118,7 @@ export default function HomeObservations() {
   const [search, setSearch] = useState('')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [category, setCategory] = useState<ObservationCategory>('social_emotional')
+  const [category, setCategory] = useState<ObservationCategory>('other')
   const [observedOn, setObservedOn] = useState(todayLocal)
 
   const observations = useQuery({
@@ -82,7 +143,9 @@ export default function HomeObservations() {
     mutationFn: () =>
       createHomeObservation({
         studentId: child!.id,
-        title,
+        // db: title is NOT NULL. It is derived rather than demanded — see
+        // deriveTitle. A parent who never opened "Add more" still gets one.
+        title: title.trim() || deriveTitle(body),
         body,
         category,
         observedOn,
@@ -90,7 +153,7 @@ export default function HomeObservations() {
     onSuccess: async () => {
       setTitle('')
       setBody('')
-      setCategory('social_emotional')
+      setCategory('other')
       setOpen(false)
       await queryClient.invalidateQueries({
         queryKey: queryKeys.homeObservations(child!.id),
@@ -101,7 +164,7 @@ export default function HomeObservations() {
   const update = useMutation({
     mutationFn: () =>
       updateHomeObservation(editingId!, {
-        title,
+        title: title.trim() || deriveTitle(body),
         body,
         category,
         observedOn,
@@ -110,7 +173,7 @@ export default function HomeObservations() {
       setEditingId(null)
       setTitle('')
       setBody('')
-      setCategory('social_emotional')
+      setCategory('other')
       setOpen(false)
       await queryClient.invalidateQueries({
         queryKey: queryKeys.homeObservations(child!.id),
@@ -152,7 +215,14 @@ export default function HomeObservations() {
       toLocalDateValue(new Date(o.created_at)),
     ])
     const csv = toCsv(
-      ['Happened on', 'Category', 'What happened', 'Details', 'Written by', 'Written on'],
+      [
+        'Happened on',
+        'Category',
+        'What happened',
+        'Details',
+        'Written by',
+        'Written on',
+      ],
       rows,
     )
     downloadCsv(
@@ -188,16 +258,12 @@ export default function HomeObservations() {
   }
 
   if (!child) {
-    return (
-      <NoChildYet thing="Observations you share from home" />
-    )
+    return <NoChildYet thing="Observations you share from home" />
   }
 
   const term = search.trim().toLowerCase()
   const visible = (observations.data ?? []).filter((o) =>
-    term === ''
-      ? true
-      : `${o.title} ${o.body}`.toLowerCase().includes(term),
+    term === '' ? true : `${o.title} ${o.body}`.toLowerCase().includes(term),
   )
 
   return (
@@ -210,24 +276,22 @@ export default function HomeObservations() {
         </p>
       </header>
 
-
-
       {/* --- Prompt / form ------------------------------------------------- */}
       <div className="rounded-card border border-border bg-card shadow-raised p-5">
         {!open ? (
           <div className="sm:flex sm:items-center sm:gap-4">
             <div>
-              <p className="text-lg font-bold text-foreground">
+              <p className="text-section text-foreground">
                 Something happened at home?
               </p>
               <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-                A breakthrough, a challenge, or a change in routine. Small things
-                are useful — patterns matter more than single events.
+                A breakthrough, a challenge, or a change in routine. Small
+                things are useful — patterns matter more than single events.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setOpen(true)}
+              onClick={openForm}
               className="pressable mt-4 w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground sm:mt-0 sm:ml-auto sm:w-auto"
             >
               + Log observation
@@ -251,67 +315,121 @@ export default function HomeObservations() {
               </p>
             )}
 
-            <FormField
+            {/* ---------------------------------------------------------------
+                ONE QUESTION, AND IT IS THE ONE THEY CAME TO ANSWER.
+                --------------------------------------------------------------
+                Saurab: "i dont like the way a parent enters the log". The old
+                order asked for a one-line title FIRST, then a description,
+                then a clinical category, then a date — four questions before
+                anything was said, and the first of them a headline.
+
+                Now the description is the form. It is the only required
+                field, it is focused when the panel opens, and it takes
+                DICTATION — which eight other places in this app already had
+                and the parent, the one person most likely to be typing
+                one-handed on a phone at nine at night, did not. --------- */}
+            <DictatedTextarea
+              id="observation-body"
               label="What happened?"
+              rows={5}
               required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Improved morning routine independence"
+              value={body}
+              onChange={setBody}
+              placeholder="Every evening around 7 the bath becomes a fight. Once they are in the water they are usually fine."
+              hint="Write it how you would say it. The more you write, the more specific the ideas you get back."
             />
 
-            <div>
-              <label
-                htmlFor="observation-body"
-                className="block text-sm font-semibold text-foreground"
-              >
-                Tell us more
-              </label>
-              <textarea
-                id="observation-body"
-                required
-                rows={4}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="What you saw, and anything that seemed to help…"
-                className="mt-1.5 w-full rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-
+            {/* WHEN — two taps for the two answers that cover almost every
+                case. A parent writing tonight about this morning should not
+                have to open a date picker to say "today". */}
             <fieldset>
               <legend className="text-sm font-semibold text-foreground">
-                Category
+                When did it happen?
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {OBSERVATION_CATEGORIES.map((option) => (
-                  <label
-                    key={option.value}
-                    className={`cursor-pointer rounded-btn px-3 py-2 text-sm font-medium ${
-                      category === option.value
-                        ? `${option.className} ring-2 ring-primary`
-                        : 'bg-background text-muted-foreground'
+                {[
+                  { label: 'Today', value: todayLocal() },
+                  { label: 'Yesterday', value: yesterdayLocal() },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    aria-pressed={observedOn === option.value}
+                    onClick={() => setObservedOn(option.value)}
+                    className={`pressable min-h-11 rounded-btn px-4 text-sm font-semibold ${
+                      observedOn === option.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'border border-border text-foreground hover:bg-background'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="category"
-                      value={option.value}
-                      checked={category === option.value}
-                      onChange={() => setCategory(option.value)}
-                      className="sr-only"
-                    />
                     {option.label}
-                  </label>
+                  </button>
                 ))}
+                <label className="min-h-11 inline-flex items-center gap-2 rounded-btn border border-border px-3 text-sm text-foreground">
+                  <span className="sr-only">Another day</span>
+                  <input
+                    type="date"
+                    value={observedOn}
+                    max={todayLocal()}
+                    onChange={(e) => setObservedOn(e.target.value)}
+                    className="bg-transparent text-sm text-foreground"
+                  />
+                </label>
               </div>
             </fieldset>
 
-            <FormField
-              label="When did it happen?"
-              type="date"
-              value={observedOn}
-              max={todayLocal()}
-              onChange={(e) => setObservedOn(e.target.value)}
-            />
+            {/* EVERYTHING OPTIONAL, BEHIND ONE DISCLOSURE.
+                The short name is derived from what they wrote (see
+                deriveTitle) and shown here pre-filled so it stays visible and
+                fixable rather than being a hidden machine field.
+
+                The category stays because the educator's list reads it, but it
+                is no longer asked as though a parent owes the school a
+                developmental classification. "Scared after breaking a vase"
+                was filed by a real user under Cognitive; the honest default is
+                the one the database already had, which is Other. */}
+            <details className="rounded-btn border border-border">
+              <summary className="min-h-11 flex cursor-pointer items-center px-3 text-sm font-medium text-primary hover:underline">
+                Add a short name or a category (optional)
+              </summary>
+              <div className="space-y-4 border-t border-border p-3">
+                <FormField
+                  label="Short name"
+                  value={title || deriveTitle(body)}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={deriveTitle(body) || 'A few words'}
+                  hint="This is what staff see in the list. Taken from what you wrote unless you change it."
+                />
+
+                <fieldset>
+                  <legend className="text-sm font-semibold text-foreground">
+                    Was it mostly about one of these?
+                  </legend>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {OBSERVATION_CATEGORIES.map((option) => (
+                      <label
+                        key={option.value}
+                        className={`pressable min-h-11 inline-flex cursor-pointer items-center rounded-btn px-3 text-sm font-medium ${
+                          category === option.value
+                            ? `${option.className} ring-2 ring-primary`
+                            : 'border border-border text-muted-foreground'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="category"
+                          value={option.value}
+                          checked={category === option.value}
+                          onChange={() => setCategory(option.value)}
+                          className="sr-only"
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+            </details>
 
             <div className="flex flex-wrap gap-3">
               <button
@@ -342,7 +460,9 @@ export default function HomeObservations() {
             <p className="text-xs text-muted-foreground">
               {editingId
                 ? 'The staff assigned to your child see the corrected version. Observations are corrected rather than deleted.'
-                : `This is shared with the staff assigned to ${withFullStop(fullName(child))}`}
+                : `Two things happen when you share this. The staff assigned to ${fullName(
+                    child,
+                  )} can read it, and you get a few things you could try at home — written from what you wrote, with names removed before it is sent.`}
             </p>
           </form>
         )}
@@ -350,7 +470,7 @@ export default function HomeObservations() {
 
       {/* --- History -------------------------------------------------------- */}
       <div className="mt-10 mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-section text-foreground">
           Observation history
         </h2>
         {/* Absent rather than disabled when there is nothing to export. A
@@ -412,7 +532,7 @@ export default function HomeObservations() {
                 setBody(o.body)
                 setCategory(o.category)
                 setObservedOn(o.observed_on)
-                setOpen(true)
+                openForm()
               }}
             />
           )}

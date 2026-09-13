@@ -16,7 +16,11 @@ import {
   type InvoiceStatus,
   type SchoolBillingTotals,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import Pagination from '../../components/Pagination'
 import { showToast } from '../../lib/toast'
@@ -259,9 +263,7 @@ export default function Billing() {
       {/* --- Revenue by school ------------------------------------------- */}
       {withRevenue.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-            By school
-          </h2>
+          <h2 className="mt-10 mb-3 text-section text-foreground">By school</h2>
           <div className="overflow-x-auto rounded-card border border-border bg-card shadow-raised">
             {/*
               The school name is the only column here holding words; the other
@@ -291,13 +293,22 @@ export default function Billing() {
                   <th scope="col" className="p-4 text-sm font-semibold">
                     Invoices
                   </th>
-                  <th scope="col" className="p-4 text-right text-sm font-semibold">
+                  <th
+                    scope="col"
+                    className="p-4 text-right text-sm font-semibold"
+                  >
                     Collected
                   </th>
-                  <th scope="col" className="p-4 text-right text-sm font-semibold">
+                  <th
+                    scope="col"
+                    className="p-4 text-right text-sm font-semibold"
+                  >
                     Outstanding
                   </th>
-                  <th scope="col" className="p-4 text-right text-sm font-semibold">
+                  <th
+                    scope="col"
+                    className="p-4 text-right text-sm font-semibold"
+                  >
                     Overdue
                   </th>
                   {/* "Actions", matching the invoices table below. A screen
@@ -350,7 +361,7 @@ export default function Billing() {
                         onClick={() =>
                           changeFilter(() => setSchoolId(row.school_id))
                         }
-                        className="text-sm font-semibold text-primary hover:underline"
+                        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
                       >
                         See invoices
                       </button>
@@ -364,10 +375,7 @@ export default function Billing() {
       )}
 
       {/* --- The invoices themselves -------------------------------------- */}
-      <h2
-        ref={listTop}
-        className="mt-10 mb-3 text-lg font-semibold text-foreground"
-      >
+      <h2 ref={listTop} className="mt-10 mb-3 text-section text-foreground">
         Invoices
       </h2>
 
@@ -405,7 +413,9 @@ export default function Billing() {
             id="billing-status"
             value={status}
             onChange={(e) =>
-              changeFilter(() => setStatus(e.target.value as 'all' | InvoiceStatus))
+              changeFilter(() =>
+                setStatus(e.target.value as 'all' | InvoiceStatus),
+              )
             }
             className="mt-1.5 rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
           >
@@ -450,7 +460,10 @@ export default function Billing() {
                   <th scope="col" className="p-4 text-sm font-semibold">
                     Status
                   </th>
-                  <th scope="col" className="p-4 text-right text-sm font-semibold">
+                  <th
+                    scope="col"
+                    className="p-4 text-right text-sm font-semibold"
+                  >
                     Amount
                   </th>
                   <th scope="col" className="p-4 text-sm font-semibold">
@@ -536,7 +549,9 @@ export default function Billing() {
                             Void
                           </button>
                         ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </td>
                     </tr>

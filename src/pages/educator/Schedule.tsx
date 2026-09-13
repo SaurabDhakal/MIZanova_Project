@@ -253,7 +253,7 @@ export default function Schedule() {
           the reason and links to where the date is set. */}
       {goals.data.length === 0 && (
         <div className="rounded-card border border-border bg-card shadow-raised p-8 text-center">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-section text-foreground">
             None of your goals has a target date
           </h2>
           <p className="mx-auto mt-2 max-w-prose text-sm text-muted-foreground">
@@ -378,7 +378,7 @@ export default function Schedule() {
       {visibleGoals.length > 0 && (
         <section className="mb-8">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-section text-foreground">
               When they fall due
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -434,7 +434,7 @@ export default function Schedule() {
 
       {goals.data.length > 0 && visibleGoals.length === 0 && (
         <div className="mb-8 rounded-card border border-border bg-card p-8 text-center shadow-raised">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-section text-foreground">
             No goals match these filters
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -456,7 +456,7 @@ export default function Schedule() {
 
       {overdue.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold text-danger-foreground">
+          <h2 className="mb-3 text-section text-danger-foreground">
             Overdue ({overdue.length})
           </h2>
           <ul className="space-y-3">
@@ -469,7 +469,7 @@ export default function Schedule() {
 
       {soon.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             Next 60 days ({soon.length})
           </h2>
           <ul className="space-y-3">
@@ -482,7 +482,7 @@ export default function Schedule() {
 
       {later.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             Later ({later.length})
           </h2>
           <ul className="space-y-3">

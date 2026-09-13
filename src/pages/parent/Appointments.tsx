@@ -252,7 +252,7 @@ export default function Appointments() {
               own question, and the only control on the page. */}
           {waiting.length > 0 && (
             <>
-              <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mt-8 mb-3 text-section text-foreground">
                 Waiting for an answer{' '}
                 <span className="font-normal text-muted-foreground">
                   ({waiting.length})
@@ -279,7 +279,7 @@ export default function Appointments() {
             </>
           )}
 
-          <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mt-8 mb-3 text-section text-foreground">
             Coming up{' '}
             <span className="font-normal text-muted-foreground">
               ({upcoming.length})
@@ -299,7 +299,7 @@ export default function Appointments() {
 
           {past.length > 0 && (
             <>
-              <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mt-8 mb-3 text-section text-foreground">
                 Earlier{' '}
                 <span className="font-normal text-muted-foreground">
                   ({past.length})

@@ -136,7 +136,7 @@ export default function Payments() {
         <div className="flex items-start gap-3">
           <Icon name="ai" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-foreground">Subscription</h2>
+            <h2 className="text-section text-foreground">Subscription</h2>
             <p className="mt-1 max-w-prose text-muted-foreground">
               What it costs, what it changes and how to stop it are all on one
               page &mdash; <b className="text-foreground">Subscription</b> in
@@ -166,7 +166,7 @@ export default function Payments() {
             className="mt-0.5 h-5 w-5 shrink-0 text-primary"
           />
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-foreground">Receipts</h2>
+            <h2 className="text-section text-foreground">Receipts</h2>
 
             {purchases.isPending && (
               <p className="mt-1 text-muted-foreground">Loading&hellip;</p>
