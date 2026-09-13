@@ -16,7 +16,11 @@ import {
   type PlatformSubscription,
   type SchoolRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import IndividualPlanSection from '../../components/IndividualPlanSection'
 import SchoolBadge from '../../components/SchoolBadge'
@@ -104,7 +108,9 @@ function AgreementForm({
   const [rate, setRate] = useState(
     current ? String(current.rate_cents / 100) : '',
   )
-  const [period, setPeriod] = useState<BillingPeriod>(current?.period ?? 'annual')
+  const [period, setPeriod] = useState<BillingPeriod>(
+    current?.period ?? 'annual',
+  )
   const [note, setNote] = useState(current?.note ?? '')
   const [error, setError] = useState<string | null>(null)
 
@@ -126,15 +132,17 @@ function AgreementForm({
   })
 
   const rateNumber = Number(rate)
-  const rateValid = rate.trim() !== '' && Number.isFinite(rateNumber) && rateNumber >= 0
+  const rateValid =
+    rate.trim() !== '' && Number.isFinite(rateNumber) && rateNumber >= 0
 
   /*
    * WHAT THE COMPANY ADVERTISES FOR THIS PLAN, if the label names one.
    *
    * The first agreement recorded on this screen read "Mid-size schools —
-   * $2,400 per year". Mid-size is published at $5,800 per TERM, and $2,400 per
-   * term is SMALL schools: wrong plan, wrong period, wrong amount, and nothing
-   * here could tell because the form had never been shown the price list.
+   * $2,400 per year". Mid-size was published at $5,800 per TERM at the time,
+   * and $2,400 per term was SMALL schools: wrong plan, wrong period, wrong
+   * amount, and nothing here could tell because the form had never been shown
+   * the price list. (The figures have since changed; the failure has not.)
    *
    * It COMPARES, it does not constrain. A pilot, a discount and whatever the
    * pricing research changes are all legitimate — the screen only says when the
@@ -246,8 +254,8 @@ function AgreementForm({
           {differsFromPublished && publishedCents !== null && (
             <p className="mt-1 text-xs text-warning-foreground">
               Advertised at ${(publishedCents / 100).toLocaleString('en-AU')}{' '}
-              {period === 'annual' ? 'a year' : 'a term'}. Say why in the note if
-              this is different on purpose.
+              {period === 'annual' ? 'a year' : 'a term'}. Say why in the note
+              if this is different on purpose.
             </p>
           )}
           {published && publishedCents === null && period === 'monthly' && (
@@ -303,7 +311,11 @@ function AgreementForm({
           disabled={save.isPending}
           className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {save.isPending ? 'Saving…' : current ? 'Change the agreement' : 'Record it'}
+          {save.isPending
+            ? 'Saving…'
+            : current
+              ? 'Change the agreement'
+              : 'Record it'}
         </button>
         <button
           type="button"
@@ -359,8 +371,12 @@ function RaiseInvoiceForm({
         dueDate: dueDate || null,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformInvoices })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformRevenue })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformInvoices,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformRevenue,
+      })
       showToast('Raised as a draft. Issue it when you are ready.')
       onDone()
     },
@@ -390,7 +406,10 @@ function RaiseInvoiceForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-foreground" htmlFor={`ps-${school.id}`}>
+          <label
+            className="block text-sm font-medium text-foreground"
+            htmlFor={`ps-${school.id}`}
+          >
             Period from
           </label>
           <input
@@ -402,7 +421,10 @@ function RaiseInvoiceForm({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground" htmlFor={`pe-${school.id}`}>
+          <label
+            className="block text-sm font-medium text-foreground"
+            htmlFor={`pe-${school.id}`}
+          >
             to
           </label>
           <input
@@ -416,7 +438,10 @@ function RaiseInvoiceForm({
       </div>
 
       <div className="mt-3">
-        <label className="block text-sm font-medium text-foreground" htmlFor={`d-${school.id}`}>
+        <label
+          className="block text-sm font-medium text-foreground"
+          htmlFor={`d-${school.id}`}
+        >
           What it is for
         </label>
         <input
@@ -429,7 +454,10 @@ function RaiseInvoiceForm({
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-foreground" htmlFor={`a-${school.id}`}>
+          <label
+            className="block text-sm font-medium text-foreground"
+            htmlFor={`a-${school.id}`}
+          >
             Amount
           </label>
           <div className="mt-1 flex items-center gap-1">
@@ -444,7 +472,10 @@ function RaiseInvoiceForm({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground" htmlFor={`dd-${school.id}`}>
+          <label
+            className="block text-sm font-medium text-foreground"
+            htmlFor={`dd-${school.id}`}
+          >
             Due
           </label>
           <input
@@ -494,7 +525,10 @@ export default function Subscriptions() {
   const [editing, setEditing] = useState<string | null>(null)
   const [raising, setRaising] = useState<string | null>(null)
 
-  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const schools = useQuery({
+    queryKey: queryKeys.schools,
+    queryFn: fetchSchools,
+  })
   const subs = useQuery({
     queryKey: queryKeys.subscriptions,
     queryFn: fetchSubscriptions,
@@ -511,8 +545,12 @@ export default function Subscriptions() {
   const issue = useMutation({
     mutationFn: issuePlatformInvoice,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformInvoices })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformRevenue })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformInvoices,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformRevenue,
+      })
       showToast('Issued. The school can see it now.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -521,8 +559,12 @@ export default function Subscriptions() {
   const voidIt = useMutation({
     mutationFn: voidPlatformInvoice,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformInvoices })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformRevenue })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformInvoices,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformRevenue,
+      })
       showToast('Voided. The row is kept.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -604,8 +646,9 @@ export default function Subscriptions() {
         <strong className="font-semibold text-foreground">
           This is our money.
         </strong>{' '}
-        Billing &amp; Revenue is the other kind — a school invoicing a family for
-        a named child. Nothing on the two screens should ever be added together.
+        Billing &amp; Revenue is the other kind — a school invoicing a family
+        for a named child. Nothing on the two screens should ever be added
+        together.
       </p>
 
       {/*
@@ -672,7 +715,7 @@ export default function Subscriptions() {
       <IndividualPlanSection />
 
       {/* --- Agreements ---------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         What each school has agreed
       </h2>
 
@@ -694,7 +737,9 @@ export default function Subscriptions() {
                   <div className="flex items-start gap-3">
                     <SchoolBadge id={school.id} name={school.name} size="sm" />
                     <div>
-                      <p className="font-semibold text-foreground">{school.name}</p>
+                      <p className="font-semibold text-foreground">
+                        {school.name}
+                      </p>
                       {live ? (
                         <p className="mt-0.5 text-sm text-muted-foreground">
                           <span className="font-medium text-foreground">
@@ -779,7 +824,7 @@ export default function Subscriptions() {
       )}
 
       {/* --- Invoices ------------------------------------------------------ */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         What we have billed
       </h2>
 
@@ -808,11 +853,21 @@ export default function Subscriptions() {
             </caption>
             <thead className="border-b border-border bg-background/60">
               <tr className="text-xs tracking-wide text-muted-foreground uppercase">
-                <th scope="col" className="px-4 py-3 font-semibold">School</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Period</th>
-                <th scope="col" className="px-4 py-3 font-semibold">For</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Status</th>
-                <th scope="col" className="px-4 py-3 text-right font-semibold">Amount</th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  School
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  Period
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  For
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  Status
+                </th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">
+                  Amount
+                </th>
                 <th scope="col" className="px-4 py-3 font-semibold">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -820,14 +875,19 @@ export default function Subscriptions() {
             </thead>
             <tbody>
               {invoices.data.map((inv) => (
-                <tr key={inv.id} className="border-b border-border last:border-0">
+                <tr
+                  key={inv.id}
+                  className="border-b border-border last:border-0"
+                >
                   <td className="px-4 py-3 align-top break-words font-medium text-foreground">
                     {schoolName(inv.school_id)}
                   </td>
                   <td className="px-4 py-3 align-top text-muted-foreground">
                     {day(inv.period_start)} – {day(inv.period_end)}
                     {inv.due_date ? (
-                      <span className="block text-xs">due {day(inv.due_date)}</span>
+                      <span className="block text-xs">
+                        due {day(inv.due_date)}
+                      </span>
                     ) : (
                       inv.status === 'open' && (
                         <span className="block text-xs text-warning-foreground">
@@ -884,17 +944,18 @@ export default function Subscriptions() {
       )}
 
       <PageNote>
-        No prices are built into this product. Special Miles&rsquo; own pricing is
-        still being researched — the brief names willingness to pay and pricing
-        strategy as open questions — so a rate here is what somebody agreed with
-        a school, typed in by a person, and a plan is a label rather than a value
-        from a fixed list. Zero is a real agreement: the brief names subsidised
-        access, and a pilot at no charge is a decision, so say why in the note.
-        An invoice cannot be marked paid from this screen — db/072 refuses it, the
-        same rule db/020 applies to a family&rsquo;s invoice, because &ldquo;paid&rdquo;
-        is a claim that money moved and only something holding a payment key can
-        make it. A school can read its own agreement and its issued invoices, but
-        never a draft and never another school&rsquo;s.
+        No prices are built into this product. Special Miles&rsquo; own pricing
+        is still being researched — the brief names willingness to pay and
+        pricing strategy as open questions — so a rate here is what somebody
+        agreed with a school, typed in by a person, and a plan is a label rather
+        than a value from a fixed list. Zero is a real agreement: the brief
+        names subsidised access, and a pilot at no charge is a decision, so say
+        why in the note. An invoice cannot be marked paid from this screen —
+        db/072 refuses it, the same rule db/020 applies to a family&rsquo;s
+        invoice, because &ldquo;paid&rdquo; is a claim that money moved and only
+        something holding a payment key can make it. A school can read its own
+        agreement and its issued invoices, but never a draft and never another
+        school&rsquo;s.
       </PageNote>
     </div>
   )

@@ -1,5 +1,8 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { speechToTextSupported, useSpeechToText } from '../hooks/useSpeechToText'
+import {
+  speechToTextSupported,
+  useSpeechToText,
+} from '../hooks/useSpeechToText'
 import Icon from './Icon'
 
 /**
@@ -130,7 +133,11 @@ export default function DictatedTextarea({
             onClick={speech.listening ? speech.stop : speech.start}
             aria-pressed={speech.listening}
             aria-controls={id}
-            className="text-sm font-semibold text-primary hover:underline"
+            /* 23px tall before this. Used in eight places across every
+               role, and the one control this project keeps calling the big
+               win for somebody typing one-handed on a phone — which is
+               precisely the situation where a 23px target fails. */
+            className="pressable -mr-2 inline-flex min-h-11 items-center rounded-btn px-2 text-sm font-semibold text-primary hover:underline"
           >
             <span className="inline-flex items-center gap-1.5">
               <Icon name="mic" className="h-4 w-4" />
@@ -170,7 +177,10 @@ export default function DictatedTextarea({
       </p>
 
       {speech.error && (
-        <p role="alert" className="mt-1 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mt-1 text-sm font-medium text-danger-foreground"
+        >
           {speech.error}
         </p>
       )}

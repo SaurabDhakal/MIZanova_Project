@@ -58,6 +58,23 @@ export default function EducatorSchoolContext() {
     )
   }
 
+  /*
+   * SILENT WHEN THERE IS NOTHING TO DISAMBIGUATE.
+   *
+   * The three states above stay: a missing school, a failed lookup and a
+   * pending one all change what the reader should trust, and they must be
+   * said. This last one did not — an educator who belongs to exactly one
+   * school already knows which school they work at, and the line was repeating
+   * it on every screen. On the student record at 375px it wrapped to three
+   * lines and was the single largest contributor to a 248px header, pushing
+   * the child's actual record below the fold.
+   *
+   * It still appears the moment it carries information: somebody with more
+   * than one membership genuinely needs to know which one is active, because
+   * it decides which students exist.
+   */
+  if (!hasSeveral) return null
+
   return (
     <div className="mt-3 flex max-w-prose items-start gap-2 text-sm text-muted-foreground">
       <Icon name="schools" className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -66,7 +83,7 @@ export default function EducatorSchoolContext() {
         <strong className="font-semibold text-foreground">
           {current.organisation_name}
         </strong>
-        {hasSeveral && '. Only this school’s students and conversations are shown.'}
+        . Only this school&rsquo;s students and conversations are shown.
       </p>
     </div>
   )

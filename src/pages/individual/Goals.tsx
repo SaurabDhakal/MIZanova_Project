@@ -49,12 +49,15 @@ import WhatWorksLink from '../../components/WhatWorksLink'
  * true.
  */
 
-const HOW: { value: GoalCheckin['how_it_went']; label: string; tone: string }[] =
-  [
-    { value: 'good', label: 'Went well', tone: 'text-success-foreground' },
-    { value: 'mixed', label: 'Mixed', tone: 'text-foreground' },
-    { value: 'hard', label: 'Hard going', tone: 'text-warning-foreground' },
-  ]
+const HOW: {
+  value: GoalCheckin['how_it_went']
+  label: string
+  tone: string
+}[] = [
+  { value: 'good', label: 'Went well', tone: 'text-success-foreground' },
+  { value: 'mixed', label: 'Mixed', tone: 'text-foreground' },
+  { value: 'hard', label: 'Hard going', tone: 'text-warning-foreground' },
+]
 
 export default function Goals() {
   const queryClient = useQueryClient()
@@ -73,7 +76,10 @@ export default function Goals() {
   /* db/107. This screen promises nobody else can see any of this, and that
      stops being true the moment somebody lets the AI read it. The promise has
      to know. */
-  const memory = useQuery({ queryKey: queryKeys.aiMemory, queryFn: fetchAiMemory })
+  const memory = useQuery({
+    queryKey: queryKeys.aiMemory,
+    queryFn: fetchAiMemory,
+  })
 
   /*
    * THE BELL COUNTS THE SAME GOALS THIS SCREEN SHOWS, so it has to be told
@@ -187,66 +193,77 @@ export default function Goals() {
       )}
 
       {showForm && (
-      <section className="rounded-card border border-border bg-card p-5 shadow-raised">
-        <h2 className="font-semibold text-foreground">Set something</h2>
-        <label htmlFor="goal-title" className="mt-3 block text-sm font-medium text-foreground">
-          What do you want to be different?
-        </label>
-        <input
-          id="goal-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Start the day without losing the morning"
-          className="mt-1 w-full rounded-btn border border-input-border bg-background p-2.5 text-foreground"
-        />
+        <section className="rounded-card border border-border bg-card p-5 shadow-raised">
+          <h2 className="font-semibold text-foreground">Set something</h2>
+          <label
+            htmlFor="goal-title"
+            className="mt-3 block text-sm font-medium text-foreground"
+          >
+            What do you want to be different?
+          </label>
+          <input
+            id="goal-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Start the day without losing the morning"
+            className="mt-1 w-full rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+          />
 
-        <label htmlFor="goal-why" className="mt-4 block text-sm font-medium text-foreground">
-          Why it matters to you{' '}
-          <span className="font-normal text-muted-foreground">
-            &mdash; optional, and the part you will be glad of in six weeks
-          </span>
-        </label>
-        <textarea
-          id="goal-why"
-          rows={2}
-          value={why}
-          onChange={(e) => setWhy(e.target.value)}
-          placeholder="Because I keep promising myself Tuesday will be different."
-          className="mt-1 w-full rounded-btn border border-input-border bg-background p-2.5 text-foreground"
-        />
+          <label
+            htmlFor="goal-why"
+            className="mt-4 block text-sm font-medium text-foreground"
+          >
+            Why it matters to you{' '}
+            <span className="font-normal text-muted-foreground">
+              &mdash; optional, and the part you will be glad of in six weeks
+            </span>
+          </label>
+          <textarea
+            id="goal-why"
+            rows={2}
+            value={why}
+            onChange={(e) => setWhy(e.target.value)}
+            placeholder="Because I keep promising myself Tuesday will be different."
+            className="mt-1 w-full rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+          />
 
-        <label htmlFor="goal-date" className="mt-4 block text-sm font-medium text-foreground">
-          A date to look back on{' '}
-          <span className="font-normal text-muted-foreground">&mdash; optional</span>
-        </label>
-        <input
-          id="goal-date"
-          type="date"
-          value={targetDate}
-          onChange={(e) => setTargetDate(e.target.value)}
-          className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
-        />
+          <label
+            htmlFor="goal-date"
+            className="mt-4 block text-sm font-medium text-foreground"
+          >
+            A date to look back on{' '}
+            <span className="font-normal text-muted-foreground">
+              &mdash; optional
+            </span>
+          </label>
+          <input
+            id="goal-date"
+            type="date"
+            value={targetDate}
+            onChange={(e) => setTargetDate(e.target.value)}
+            className="mt-1 rounded-btn border border-input-border bg-background p-2.5 text-foreground"
+          />
 
-        <button
-          type="button"
-          disabled={!title.trim() || add.isPending}
-          onClick={() =>
-            add.mutate({ title, why, targetDate: targetDate || null })
-          }
-          className="pressable min-h-11 mt-4 block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
-        >
-          {add.isPending ? 'Saving…' : 'Add it'}
-        </button>
-        {goals.data.length > 0 && (
           <button
             type="button"
-            onClick={() => setAdding(false)}
-            className="mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
+            disabled={!title.trim() || add.isPending}
+            onClick={() =>
+              add.mutate({ title, why, targetDate: targetDate || null })
+            }
+            className="pressable min-h-11 mt-4 block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50"
           >
-            Never mind
+            {add.isPending ? 'Saving…' : 'Add it'}
           </button>
-        )}
-      </section>
+          {goals.data.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setAdding(false)}
+              className="mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
+            >
+              Never mind
+            </button>
+          )}
+        </section>
       )}
 
       {/* --- the live ones ------------------------------------------------- */}
@@ -259,9 +276,7 @@ export default function Goals() {
 
       {active.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-            On the go
-          </h2>
+          <h2 className="mt-10 mb-3 text-section text-foreground">On the go</h2>
           <ul className="space-y-4">
             {active.map((goal) => (
               <GoalCard
@@ -279,7 +294,7 @@ export default function Goals() {
 
       {finished.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mt-10 mb-3 text-section text-foreground">
             Finished and parked
           </h2>
           <ul className="space-y-3">
@@ -406,9 +421,9 @@ function GoalCard({
 
   return (
     <li className="rounded-card border border-border bg-card p-5 shadow-raised">
-      <h3 className="text-lg font-bold text-foreground">{goal.title}</h3>
+      <h3 className="text-section text-foreground">{goal.title}</h3>
       {goal.why && (
-        <p className="mt-1 max-w-prose border-l-2 border-brand-green pl-3 text-muted-foreground italic">
+        <p className="mt-1 max-w-prose border-l border-brand-green pl-3 text-muted-foreground italic">
           {goal.why}
         </p>
       )}
@@ -630,16 +645,16 @@ function GoalCard({
                 />
               ))}
             </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            {(['good', 'mixed', 'hard'] as const)
-              .map((v) => ({
-                n: checkins.filter((c) => c.how_it_went === v).length,
-                label: HOW.find((h) => h.value === v)!.label.toLowerCase(),
-              }))
-              .filter((x) => x.n > 0)
-              .map((x) => `${x.n} ${x.label}`)
-              .join(' · ')}
-          </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {(['good', 'mixed', 'hard'] as const)
+                .map((v) => ({
+                  n: checkins.filter((c) => c.how_it_went === v).length,
+                  label: HOW.find((h) => h.value === v)!.label.toLowerCase(),
+                }))
+                .filter((x) => x.n > 0)
+                .map((x) => `${x.n} ${x.label}`)
+                .join(' · ')}
+            </p>
           </div>
 
           {/* Three, not five. The strip above already carries the shape; this

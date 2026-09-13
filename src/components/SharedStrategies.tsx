@@ -65,7 +65,7 @@ export default function SharedStrategies({
 
   return (
     <details className="mt-3 rounded-card bg-background px-4 py-3">
-      <summary className="cursor-pointer text-sm font-semibold text-primary">
+      <summary className="min-h-11 flex cursor-pointer items-center text-sm font-semibold text-primary">
         What the school is trying{' '}
         <span className="font-normal text-muted-foreground">
           ({strategies.length})
@@ -102,8 +102,8 @@ export default function SharedStrategies({
         happened — no names or contact details are sent — and shown to you only
         after the school settled it. Written for a classroom, so some of it will
         not transfer to a weekday evening: for something to try at home, write
-        what happened on Home Observations and ask there. Not clinical advice
-        or a diagnosis.
+        what happened on Home Observations and ask there. Not clinical advice or
+        a diagnosis.
       </p>
     </details>
   )

@@ -88,7 +88,7 @@ function NeedsYou({
   ].filter(Boolean) as string[]
 
   const items = [
-    ((flaggedOpen ?? 0) > 0) && {
+    (flaggedOpen ?? 0) > 0 && {
       key: 'flags',
       icon: 'safeguarding' as const,
       tone: 'danger' as const,
@@ -97,7 +97,7 @@ function NeedsYou({
         'You can still add detail until an administrator acknowledges it. After that it is locked.',
       to: '/educator/students',
     },
-    ((overdueGoals ?? 0) > 0) && {
+    (overdueGoals ?? 0) > 0 && {
       key: 'goals',
       icon: 'goals' as const,
       tone: 'warning' as const,
@@ -105,7 +105,7 @@ function NeedsYou({
       detail: 'Either the date moves or the goal does.',
       to: '/educator/schedule',
     },
-    ((unreadMessages ?? 0) > 0) && {
+    (unreadMessages ?? 0) > 0 && {
       key: 'messages',
       icon: 'messages' as const,
       tone: 'default' as const,
@@ -113,12 +113,13 @@ function NeedsYou({
       detail: 'Replies from families you have not opened yet.',
       to: '/educator/messages',
     },
-    ((homeNotes ?? 0) > 0) && {
+    (homeNotes ?? 0) > 0 && {
       key: 'home',
       icon: 'home' as const,
       tone: 'default' as const,
       text: `${homeNotes} note${homeNotes === 1 ? '' : 's'} shared from home`,
-      detail: 'Available in the students’ records. These are not labelled unread.',
+      detail:
+        'Available in the students’ records. These are not labelled unread.',
       to: '/educator/students',
     },
   ].filter(Boolean) as {
@@ -178,7 +179,7 @@ function NeedsYou({
             <li key={item.key}>
               <Link
                 to={item.to}
-                className={`flex gap-3 border-l-2 py-2 pl-3 hover:bg-background ${RAIL[item.tone]}`}
+                className={`flex min-h-11 items-center gap-3 border-l py-2 pl-3 hover:bg-background ${RAIL[item.tone]}`}
               >
                 <Icon
                   name={item.icon}
@@ -230,11 +231,11 @@ export default function EducatorDashboard() {
   const unreadMessages = !threads.isSuccess
     ? undefined
     : profile
-    ? (threads.data ?? []).reduce(
-        (total, thread) => total + unreadMessagesInThread(thread, profile.id),
-        0,
-      )
-    : 0
+      ? (threads.data ?? []).reduce(
+          (total, thread) => total + unreadMessagesInThread(thread, profile.id),
+          0,
+        )
+      : 0
 
   /**
    * Goals whose target date has gone.
@@ -273,7 +274,8 @@ export default function EducatorDashboard() {
   const q = quota.data
   const nearLimit =
     q != null &&
-    (q.user_used >= q.user_limit * 0.75 || q.school_used >= q.school_limit * 0.75)
+    (q.user_used >= q.user_limit * 0.75 ||
+      q.school_used >= q.school_limit * 0.75)
 
   // How many recent logs each student has, so the cards can say something
   // truthful instead of showing a decorative trend line with no data behind it.
@@ -306,7 +308,9 @@ export default function EducatorDashboard() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Classroom overview</h1>
         <p className="mt-1 text-muted-foreground">
-          {profile?.first_name ? `Good to see you, ${profile.first_name}. ` : ''}
+          {profile?.first_name
+            ? `Good to see you, ${profile.first_name}. `
+            : ''}
           Here is where your class is up to today.
         </p>
         <EducatorSchoolContext />
@@ -350,9 +354,7 @@ export default function EducatorDashboard() {
       )}
 
       {/* --- Students ------------------------------------------------------ */}
-      <h2 className="text-section mt-10 mb-3 text-foreground">
-        Your students
-      </h2>
+      <h2 className="text-section mt-10 mb-3 text-foreground">Your students</h2>
 
       {students.isPending ? (
         <LoadingCards count={4} />

@@ -7,7 +7,11 @@ import {
   queryKeys,
   type StudentRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import GoalReviewQueue from '../../components/GoalReviewQueue'
 
 /**
@@ -46,10 +50,13 @@ function CaseloadCard({
   const averageProgress =
     active.length > 0
       ? Math.round(
-          active.reduce((sum, g) => sum + g.progress_percent, 0) / active.length,
+          active.reduce((sum, g) => sum + g.progress_percent, 0) /
+            active.length,
         )
       : null
-  const needsReview = (goals.data ?? []).some((g) => g.status === 'needs_review')
+  const needsReview = (goals.data ?? []).some(
+    (g) => g.status === 'needs_review',
+  )
 
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
@@ -115,7 +122,7 @@ function CaseloadCard({
 
       <Link
         to={`/specialist/students/${student.id}`}
-        className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        className="pressable mt-4 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 text-sm font-semibold text-primary-foreground"
       >
         Open student
       </Link>
@@ -138,7 +145,10 @@ export default function Caseload() {
 
   const logsByStudent = new Map<string, number>()
   for (const log of logs.data ?? []) {
-    logsByStudent.set(log.student_id, (logsByStudent.get(log.student_id) ?? 0) + 1)
+    logsByStudent.set(
+      log.student_id,
+      (logsByStudent.get(log.student_id) ?? 0) + 1,
+    )
   }
 
   return (
@@ -155,8 +165,8 @@ export default function Caseload() {
           showing 0 was the old behaviour and it is the more dangerous one. */}
       {logs.isError && (
         <p className="mb-5 rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
-          Recent activity could not be loaded, so the log counts below show
-          “—” rather than a number. The caseload itself is unaffected.
+          Recent activity could not be loaded, so the log counts below show “—”
+          rather than a number. The caseload itself is unaffected.
         </p>
       )}
 

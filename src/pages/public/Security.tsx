@@ -49,7 +49,12 @@ export default function Security() {
           {
             icon: 'ai',
             title: 'Names come off before the AI',
-            body: 'Names, contact details and dates of birth are stripped before an observation is sent — and the exact text that went is stored.',
+            /* Still true, and now says what DOES go as well as what does not.
+               The old sentence described a payload of five coarse fields; the
+               model is now given a child's history and profile too, and a
+               claim that only lists removals invites the reader to assume the
+               rest is nothing. */
+            body: 'Names, contact details and dates of birth are stripped before anything is sent. What goes is the behaviour, its context, and what the school has recorded — and the exact text is stored, so it can be checked rather than taken on trust.',
           },
           {
             icon: 'recordAccess',

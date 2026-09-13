@@ -88,12 +88,18 @@ export default function RecordAccess() {
     queryFn: () => fetchStudentAccessEvents(page, buildFilters()),
     placeholderData: keepPreviousData,
   })
-  const staff = useQuery({ queryKey: queryKeys.allStaff, queryFn: fetchAllStaff })
+  const staff = useQuery({
+    queryKey: queryKeys.allStaff,
+    queryFn: fetchAllStaff,
+  })
   const students = useQuery({
     queryKey: queryKeys.students,
     queryFn: fetchStudents,
   })
-  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const schools = useQuery({
+    queryKey: queryKeys.schools,
+    queryFn: fetchSchools,
+  })
 
   /* THE HEADING IS NOT PART OF THE DATA — see the note on the same change in
      Library.tsx. The export button IS: it reads `events.data.total`, which does
@@ -254,7 +260,7 @@ export default function RecordAccess() {
         </p>
       </div>
 
-        {/*
+      {/*
           THE THREE QUESTIONS THIS PAGE IS ASKED.
 
           A parent asking who has seen their child's file is the commonest
@@ -270,98 +276,132 @@ export default function RecordAccess() {
           bounded — a complaint, an incident, a term. "Everything recorded" is
           available and is not the starting point.
         */}
-        <div className="mb-4 flex flex-wrap items-end gap-4">
-          {/* School first: on a screen spanning every tenant, "where" is the
+      <div className="mb-4 flex flex-wrap items-end gap-4">
+        {/* School first: on a screen spanning every tenant, "where" is the
               question that narrows hardest. */}
-          <div>
-            <label htmlFor="access-school" className="block text-sm font-medium text-muted-foreground">
-              School
-            </label>
-            <select
-              id="access-school"
-              value={schoolId}
-              onChange={(e) => { setSchoolId(e.target.value); setPage(0) }}
-              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-            >
-              <option value="">Every school</option>
-              {(schools.data ?? []).map((school) => (
-                <option key={school.id} value={school.id}>{school.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="access-child" className="block text-sm font-medium text-muted-foreground">
-              Child
-            </label>
-            <select
-              id="access-child"
-              value={studentId}
-              onChange={(e) => { setStudentId(e.target.value); setPage(0) }}
-              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-            >
-              <option value="">Any child</option>
-              {(students.data ?? []).map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.first_name} {child.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="access-who" className="block text-sm font-medium text-muted-foreground">
-              Opened by
-            </label>
-            <select
-              id="access-who"
-              value={actorId}
-              onChange={(e) => { setActorId(e.target.value); setPage(0) }}
-              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-            >
-              <option value="">Anybody</option>
-              {(staff.data ?? []).map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.full_name || person.email}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="access-period" className="block text-sm font-medium text-muted-foreground">
-              Period
-            </label>
-            <select
-              id="access-period"
-              value={period}
-              onChange={(e) => { setPeriod(e.target.value as typeof period); setPage(0) }}
-              className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-            >
-              {PERIODS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Announced, because narrowing with a keyboard otherwise changes
-              the table in silence. */}
-          <p role="status" className="py-2 text-sm text-muted-foreground">
-            {events.data.total === 0
-              ? 'No access matches that'
-              : `${events.data.total} ${events.data.total === 1 ? 'entry' : 'entries'}`}
-          </p>
-
-          {(actorId || studentId || schoolId || period !== '30') && (
-            <button
-              type="button"
-              onClick={() => { setActorId(''); setStudentId(''); setSchoolId(''); setPeriod('30'); setPage(0) }}
-              className="py-2 text-sm font-semibold text-primary hover:underline"
-            >
-              Clear
-            </button>
-          )}
+        <div>
+          <label
+            htmlFor="access-school"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            School
+          </label>
+          <select
+            id="access-school"
+            value={schoolId}
+            onChange={(e) => {
+              setSchoolId(e.target.value)
+              setPage(0)
+            }}
+            className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          >
+            <option value="">Every school</option>
+            {(schools.data ?? []).map((school) => (
+              <option key={school.id} value={school.id}>
+                {school.name}
+              </option>
+            ))}
+          </select>
         </div>
+
+        <div>
+          <label
+            htmlFor="access-child"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            Child
+          </label>
+          <select
+            id="access-child"
+            value={studentId}
+            onChange={(e) => {
+              setStudentId(e.target.value)
+              setPage(0)
+            }}
+            className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          >
+            <option value="">Any child</option>
+            {(students.data ?? []).map((child) => (
+              <option key={child.id} value={child.id}>
+                {child.first_name} {child.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="access-who"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            Opened by
+          </label>
+          <select
+            id="access-who"
+            value={actorId}
+            onChange={(e) => {
+              setActorId(e.target.value)
+              setPage(0)
+            }}
+            className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          >
+            <option value="">Anybody</option>
+            {(staff.data ?? []).map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.full_name || person.email}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="access-period"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            Period
+          </label>
+          <select
+            id="access-period"
+            value={period}
+            onChange={(e) => {
+              setPeriod(e.target.value as typeof period)
+              setPage(0)
+            }}
+            className="mt-1 rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+          >
+            {PERIODS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Announced, because narrowing with a keyboard otherwise changes
+              the table in silence. */}
+        <p role="status" className="py-2 text-sm text-muted-foreground">
+          {events.data.total === 0
+            ? 'No access matches that'
+            : `${events.data.total} ${events.data.total === 1 ? 'entry' : 'entries'}`}
+        </p>
+
+        {(actorId || studentId || schoolId || period !== '30') && (
+          <button
+            type="button"
+            onClick={() => {
+              setActorId('')
+              setStudentId('')
+              setSchoolId('')
+              setPeriod('30')
+              setPage(0)
+            }}
+            className="py-2 text-sm font-semibold text-primary hover:underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
       {events.data.total === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -371,7 +411,7 @@ export default function RecordAccess() {
         <>
           <h2
             ref={listTop}
-            className="mb-3 scroll-mt-6 text-lg font-semibold text-foreground"
+            className="mb-3 scroll-mt-6 text-section text-foreground"
           >
             Entries
           </h2>
@@ -383,19 +423,34 @@ export default function RecordAccess() {
               </caption>
               <thead>
                 <tr className="border-b border-border">
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     When
                   </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     Who
                   </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     School
                   </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     Opened
                   </th>
-                  <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                  <th
+                    scope="col"
+                    className="p-4 text-sm font-semibold text-foreground"
+                  >
                     What
                   </th>
                 </tr>
@@ -456,9 +511,9 @@ export default function RecordAccess() {
       <p className="mt-6 max-w-prose text-xs text-muted-foreground">
         Children appear in the shortened form, &ldquo;Ethan M.&rdquo; — enough
         to tell two apart and follow a pattern, without turning a screen that
-        spans every school into a directory of full names. The
-        school&rsquo;s own Record Access page shows them in full, because the
-        school already knows them.
+        spans every school into a directory of full names. The school&rsquo;s
+        own Record Access page shows them in full, because the school already
+        knows them.
       </p>
     </div>
   )

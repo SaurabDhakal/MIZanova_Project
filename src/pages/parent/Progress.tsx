@@ -224,7 +224,7 @@ export default function ParentProgress() {
 
 
       {/* --- Skill progress ------------------------------------------------ */}
-      <h2 className="mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mb-3 text-section text-foreground">
         Skill progress
       </h2>
 
@@ -319,7 +319,7 @@ export default function ParentProgress() {
       <SessionsSection studentId={child.id} />
 
       {/* --- Recent highlights ---------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Lately
       </h2>
 

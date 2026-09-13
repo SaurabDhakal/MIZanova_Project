@@ -71,7 +71,7 @@ export default function FamilyRequestsSection() {
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mb-3 text-section text-foreground">
         Families asking for a time
       </h2>
 

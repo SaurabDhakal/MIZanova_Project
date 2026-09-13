@@ -65,7 +65,7 @@ export default function GoalReviewSection({
 
   return (
     <>
-      <h2 className="mt-10 mb-1 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-1 text-section text-foreground">
         Asking a specialist
       </h2>
       <p className="mb-3 max-w-prose text-sm text-muted-foreground">

@@ -12,6 +12,8 @@ import { useSelectedChild } from '../../hooks/useMyChildren'
 import { fullName } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import StudentProfileCard from '../../components/StudentProfileCard'
+import Icon from '../../components/Icon'
 
 /**
  * About your child — the record, and who can open it.
@@ -167,8 +169,29 @@ export default function AboutChild() {
       </header>
 
 
+      {/* --- What the school knows (db/127) --------------------------------
+          THE FAMILY WAS GIVEN PERMISSION TO READ THIS AND NO WAY TO DO IT.
+          db/127's policy admits a guardian on purpose, and a test asserts it —
+          and then the only screen rendering it was the educator's. So the
+          school could write "loves horses, finds noisy rooms hard" and the
+          family would discover it at a meeting, which is the exact thing this
+          field exists to prevent.
+
+          FIRST ON THE PAGE, above the identity details. A parent opening their
+          child's record should meet a description of their child before a
+          date of birth and a list of who can see the file.
+
+          Read-only: `canEdit` is false because db/127 gives writing to staff.
+          What a family knows about home is a separate slice with its own
+          provenance — docs/17 §3.3 — and is not this. */}
+      <StudentProfileCard
+        studentId={studentId}
+        firstName={child?.first_name ?? 'your child'}
+        canEdit={false}
+      />
+
       {/* --- Their details ------------------------------------------------- */}
-      <h2 className="mt-8 mb-2 text-lg font-semibold text-foreground">
+      <h2 className="mt-8 mb-2 text-section text-foreground">
         Their details
       </h2>
 
@@ -246,8 +269,9 @@ export default function AboutChild() {
                 not tell whether anything followed. */}
             <Fact label="Their own sign-in">
               {detail?.profile_id ? (
-                <span className="text-success-foreground">
-                  ✓ Set up — they can sign in and see their own goals
+                <span className="inline-flex items-center gap-1.5 text-success-foreground">
+                  <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+                  Set up — they can sign in and see their own goals
                 </span>
               ) : (
                 <>
@@ -296,7 +320,7 @@ export default function AboutChild() {
       )}
 
       {/* --- Who can see this record ---------------------------------------- */}
-      <h2 className="mt-10 mb-2 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-2 text-section text-foreground">
         Who can see this record
       </h2>
       <p className="mb-3 max-w-prose text-sm text-muted-foreground">

@@ -7,10 +7,15 @@ import {
   type PersonRow,
 } from '../../lib/api'
 import { useDebounced } from '../../hooks/useDebounced'
+import Icon from '../../components/Icon'
 import Pagination from '../../components/Pagination'
 import { ROLE_CONFIG } from '../../lib/roles'
 import { useAuth } from '../../lib/auth'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import StudentAccountsSection from '../../components/StudentAccountsSection'
 
 /**
@@ -86,8 +91,9 @@ function PersonCard({
             different kind of proof and is shown as the children below. */}
         {isStaff &&
           (person.is_verified ? (
-            <span className="rounded-btn bg-success-subtle px-2.5 py-0.5 text-xs font-semibold text-success-foreground">
-              ✓ Verified
+            <span className="inline-flex items-center gap-1 rounded-btn bg-success-subtle px-2.5 py-0.5 text-xs font-semibold text-success-foreground">
+              <Icon name="tick" aria-hidden className="h-3.5 w-3.5" />
+              Verified
             </span>
           ) : (
             <span className="rounded-btn bg-warning-subtle px-2.5 py-0.5 text-xs font-semibold text-warning-foreground">
@@ -138,7 +144,9 @@ function PersonCard({
               {person.children.map((child, i) => (
                 <span key={child.id}>
                   {i > 0 && ', '}
-                  <strong className="font-semibold">{child.display_name}</strong>
+                  <strong className="font-semibold">
+                    {child.display_name}
+                  </strong>
                   <span className="text-muted-foreground">
                     {' '}
                     ({child.relationship})
@@ -252,7 +260,11 @@ export default function People() {
           {FILTERS.map((option) => (
             <label
               key={option.value}
-              className={`cursor-pointer rounded-btn px-4 py-2 text-sm font-semibold ${
+              /* The radio is correctly sr-only, so the LABEL is the control
+                 and the label was 36px. A visually hidden input does not
+                 excuse the thing standing in for it from the hit-area floor —
+                 it just moves where the floor has to be met. */
+              className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn px-4 text-sm font-semibold ${
                 filter === option.value
                   ? 'bg-primary text-primary-foreground'
                   : 'text-foreground'

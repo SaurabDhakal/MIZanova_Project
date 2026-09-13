@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { showToast } from '../../lib/toast'
 import {
   acknowledgeIepDocument,
   fetchGoals,
@@ -11,10 +12,15 @@ import { useSelectedChild } from '../../hooks/useMyChildren'
 import FamilyIepPlans from '../../components/FamilyIepPlans'
 import GoalCard from '../../components/GoalCard'
 import GoalReviewSection from '../../components/GoalReviewSection'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import NoChildYet from '../../components/NoChildYet'
 import SignedFileLink from '../../components/SignedFileLink'
 import { fullName } from '../../lib/displayName'
+import Icon from '../../components/Icon'
 
 /**
  * Goals & IEP for a parent — docs/Figma Pages Design/Parent Goals & IEP.png.
@@ -46,12 +52,32 @@ export default function GoalsAndIep() {
     enabled: Boolean(child),
   })
 
+  /*
+   * "Confirm I have read this" IS RECORDED AGAINST THIS PARENT'S NAME, and it
+   * used to be the only mutation in the parent portal that could fail in total
+   * silence.
+   *
+   * There was no `onError`, nothing rendered `acknowledge.isError`, and no
+   * toast. On failure the button simply stayed where it was — and the button
+   * staying is ALSO what it looks like while nothing has been pressed, so a
+   * parent had no way to tell a refusal from a no-op. They would either assume
+   * it worked, or press it again.
+   *
+   * It matters more here than on the pages around it because this writes an
+   * acknowledgement of a legal document to `iep_acknowledgements`. Every other
+   * parent mutation already said something: Appointments and Finance toast,
+   * Privacy renders the failure inline and flips the row, and Link a child
+   * shows a persistent panel naming the child. This one said nothing at all.
+   */
   const acknowledge = useMutation({
     mutationFn: (documentId: string) => acknowledgeIepDocument(documentId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
+    onSuccess: () => {
+      showToast('Recorded. Your school can see that you have read it.')
+      return queryClient.invalidateQueries({
         queryKey: queryKeys.iepDocuments(child!.id),
-      }),
+      })
+    },
+    onError: (error) => showToast(error.message, 'error'),
   })
 
   if (childrenPending) return <LoadingCards count={2} />
@@ -81,9 +107,7 @@ export default function GoalsAndIep() {
   }
 
   if (!child) {
-    return (
-      <NoChildYet thing="Goals and IEP documents" />
-    )
+    return <NoChildYet thing="Goals and IEP documents" />
   }
 
   const active = (goals.data ?? []).filter(
@@ -103,10 +127,8 @@ export default function GoalsAndIep() {
         </p>
       </header>
 
-
-
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Active goals</h2>
+        <h2 className="text-section text-foreground">Active goals</h2>
         {goals.isSuccess && (
           <span className="pressable rounded-btn bg-primary-subtle px-2.5 py-1 text-sm font-semibold text-primary">
             {active.length} active objective{active.length === 1 ? '' : 's'}
@@ -139,7 +161,7 @@ export default function GoalsAndIep() {
 
       {finished.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mt-10 mb-3 text-section text-foreground">
             Completed &amp; closed
           </h2>
           <ul className="grid gap-4 lg:grid-cols-2">
@@ -158,7 +180,7 @@ export default function GoalsAndIep() {
       <FamilyIepPlans studentId={child.id} />
 
       {/* --- IEP documents ------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         IEP documents
       </h2>
 
@@ -211,8 +233,9 @@ export default function GoalsAndIep() {
                     />
                   )}
                   {mine ? (
-                    <span className="rounded-btn bg-success-subtle px-3 py-2 text-sm font-semibold text-success-foreground">
-                      ✓ You confirmed reading this
+                    <span className="inline-flex items-center gap-1.5 rounded-btn bg-success-subtle px-3 py-2 text-sm font-semibold text-success-foreground">
+                      <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+                      You confirmed reading this
                     </span>
                   ) : (
                     <button

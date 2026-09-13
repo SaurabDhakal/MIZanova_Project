@@ -213,7 +213,7 @@ export default function Finance() {
                   >
                     {style.label}
                   </span>
-                  <span className="text-lg font-bold text-foreground">
+                  <span className="text-section text-foreground">
                     {formatMoney(invoice.amount_cents, invoice.currency)}
                   </span>
                   {invoice.status === 'open' && (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../lib/auth'
@@ -33,6 +33,42 @@ export default function VerifyTwoFactor() {
     enabled: Boolean(session),
   })
 
+  const factor = (factors.data ?? []).find((f) => f.verified)
+
+  /*
+   * ---------------------------------------------------------------------------
+   * THE CODE BOX IS WHERE THE CURSOR BELONGS, AND `autoFocus` WAS NOT ENOUGH
+   * ---------------------------------------------------------------------------
+   * Saurab: "after loggin in the option to type number should be at first but
+   * that it is not the case".
+   *
+   * The input has carried `autoFocus` all along, and it genuinely works one
+   * screen over — /recover-2fa focuses its field every time. The difference is
+   * WHEN the element appears. Recovery renders its form on the first commit.
+   * This screen renders `{factors.isPending ? <Spinner/> : <form/>}`, so the
+   * input does not exist until a React Query resolves, which is a later commit
+   * — by then the browser has settled focus on <body> after the navigation and
+   * the mount-time autoFocus does not reclaim it.
+   *
+   * An effect keyed on the form actually being there does not care about commit
+   * order. `autoFocus` stays as the belt to this braces.
+   *
+   * BOTH HOOKS SIT ABOVE THE EARLY RETURNS. The first version put them after,
+   * which is a Rules of Hooks violation eslint caught and `tsc` did not: this
+   * component returns early three times, so the hook order changed the moment
+   * the session finished loading. Reading `factors.data` before the guards is
+   * safe — it is undefined while the query is pending, which makes `factor`
+   * undefined, which is exactly the condition the effect waits on.
+   *
+   * It matters more here than on most screens: somebody arrives holding a phone
+   * with a six-digit code that expires in under thirty seconds, and being made
+   * to click a box first is the wrong thing to ask at that moment.
+   */
+  const codeRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (factor) codeRef.current?.focus()
+  }, [factor])
+
   if (loading) return <Spinner label="Checking your session" />
   if (!session) return <Navigate to="/login" replace />
 
@@ -40,8 +76,6 @@ export default function VerifyTwoFactor() {
   if (mfaRequired === false) {
     return <Navigate to={location.state?.from ?? '/'} replace />
   }
-
-  const factor = (factors.data ?? []).find((f) => f.verified)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -108,6 +142,7 @@ export default function VerifyTwoFactor() {
             </label>
             <input
               id="totp"
+              ref={codeRef}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               inputMode="numeric"

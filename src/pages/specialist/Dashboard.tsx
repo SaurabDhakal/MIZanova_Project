@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../../lib/auth'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import StatTile from '../../components/StatTile'
+import Icon from '../../components/Icon'
 
 /**
  * Specialist command centre.
@@ -68,7 +69,9 @@ export default function SpecialistDashboard() {
   )
   const nameOf = (id: string) => {
     const student = students.data.find((s) => s.id === id)
-    return student ? `${student.first_name} ${student.last_name}` : 'Unknown student'
+    return student
+      ? `${student.first_name} ${student.last_name}`
+      : 'Unknown student'
   }
 
   return (
@@ -87,7 +90,7 @@ export default function SpecialistDashboard() {
           role="alert"
           className="mb-6 rounded-card border border-warning bg-warning-subtle p-5"
         >
-          <p className="text-lg font-bold text-warning-foreground">
+          <p className="text-section text-warning-foreground">
             {waiting} AI suggestion{waiting === 1 ? '' : 's'} waiting for your
             review
           </p>
@@ -105,8 +108,9 @@ export default function SpecialistDashboard() {
         </div>
       ) : (
         <div className="mb-6 rounded-card border border-border bg-card shadow-raised p-5">
-          <p className="font-semibold text-success-foreground">
-            ✓ Nothing waiting for review
+          <p className="flex items-center gap-2 font-semibold text-success-foreground">
+            <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+            Nothing waiting for review
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Every AI suggestion so far cleared the confidence threshold on its
@@ -124,7 +128,7 @@ export default function SpecialistDashboard() {
           <h2 className="font-semibold text-foreground">Today</h2>
           <Link
             to="/specialist/schedule"
-            className="ml-auto text-sm font-semibold text-primary hover:underline"
+            className="ml-auto inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
           >
             Open the schedule →
           </Link>
@@ -157,14 +161,17 @@ export default function SpecialistDashboard() {
                   className="flex flex-wrap items-center gap-x-3 text-sm"
                 >
                   <span className="font-semibold text-foreground">
-                    {new Date(appointment.starts_at).toLocaleTimeString('en-AU', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
+                    {new Date(appointment.starts_at).toLocaleTimeString(
+                      'en-AU',
+                      {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      },
+                    )}
                   </span>
                   <Link
                     to={`/specialist/students/${appointment.student_id}`}
-                    className="font-medium text-primary hover:underline"
+                    className="inline-flex min-h-11 items-center font-medium text-primary hover:underline"
                   >
                     {nameOf(appointment.student_id)}
                   </Link>
@@ -209,7 +216,6 @@ export default function SpecialistDashboard() {
         />
       </div>
 
-
       {/* --- Flagged incidents ----------------------------------------------
           A FAILED LOGS QUERY MUST NOT LOOK LIKE AN EMPTY ONE. This section used
           to hang off `flagged.length > 0` alone, so when the query failed it
@@ -218,7 +224,7 @@ export default function SpecialistDashboard() {
           already honest about it; this was not. */}
       {(logs.isError || flagged.length > 0) && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mt-10 mb-3 text-section text-foreground">
             Flagged on your caseload
           </h2>
 
@@ -236,7 +242,9 @@ export default function SpecialistDashboard() {
               </p>
               <ul className="space-y-3">
                 {flagged.slice(0, 10).map((log) => {
-                  const student = students.data.find((s) => s.id === log.student_id)
+                  const student = students.data.find(
+                    (s) => s.id === log.student_id,
+                  )
                   return (
                     <li
                       key={log.id}
@@ -249,18 +257,21 @@ export default function SpecialistDashboard() {
                         {student && (
                           <Link
                             to={`/specialist/students/${student.id}`}
-                            className="font-medium text-primary hover:underline"
+                            className="inline-flex min-h-11 items-center font-medium text-primary hover:underline"
                           >
                             {student.first_name} {student.last_name}
                           </Link>
                         )}
                         <span className="ml-auto text-sm text-muted-foreground">
-                          {new Date(log.occurred_at).toLocaleDateString('en-AU', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {new Date(log.occurred_at).toLocaleDateString(
+                            'en-AU',
+                            {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            },
+                          )}
                         </span>
                       </div>
                     </li>

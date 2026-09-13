@@ -49,9 +49,29 @@ export function useModalDialog(onDismiss: () => void) {
      */
     if (!dialog.open) dialog.showModal()
 
+    /*
+     * LOCK THE PAGE BEHIND IT.
+     *
+     * `showModal()` makes the rest of the document inert — it cannot be
+     * clicked or focused — but inert says nothing about SCROLLING. Every
+     * browser still scrolls the body under an open dialog, so a teacher
+     * reaching the bottom of the log form carries on into the student record
+     * behind it and loses their place in the thing they were filling in. On a
+     * tablet, where the whole gesture is a flick, it happens constantly.
+     *
+     * The previous value is restored rather than assumed to be '': a page that
+     * was deliberately locked by something else must not be unlocked by this
+     * dialog closing.
+     */
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
     const handleClose = () => onDismiss()
     dialog.addEventListener('close', handleClose)
-    return () => dialog.removeEventListener('close', handleClose)
+    return () => {
+      dialog.removeEventListener('close', handleClose)
+      document.body.style.overflow = previousOverflow
+    }
   }, [onDismiss])
 
   return ref

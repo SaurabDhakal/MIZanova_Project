@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchMyGoals, queryKeys, type StudentGoal } from '../../lib/api'
 import { GOAL_CATEGORY_LABEL } from '../../lib/goalCategories'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import Icon from '../../components/Icon'
 
 /**
  * What a student sees — db/074.
@@ -108,7 +113,7 @@ export default function MyGoals() {
         />
       ) : (
         <>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             Working on{' '}
             <span className="font-normal text-muted-foreground">
               ({working.length})
@@ -128,7 +133,7 @@ export default function MyGoals() {
 
           {done.length > 0 && (
             <>
-              <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mt-8 mb-3 text-section text-foreground">
                 Done{' '}
                 <span className="font-normal text-muted-foreground">
                   ({done.length})
@@ -193,7 +198,10 @@ function GoalCard({ goal }: { goal: StudentGoal }) {
                       : 'border-border text-transparent'
                   }`}
                 >
-                  ✓
+                  {/* Rendered only when done, rather than always present and
+                      painted transparent — a tick hidden by colour is still
+                      in the accessibility tree. */}
+                  {m.is_done && <Icon name="tick" className="h-3 w-3" />}
                 </span>
                 <span
                   className={

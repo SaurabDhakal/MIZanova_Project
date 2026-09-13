@@ -20,6 +20,7 @@ import {
   type IepGoalRow,
   type IepPlanDetail,
   type IepReviewOutcome,
+  fetchStudentProfile,
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
@@ -530,7 +531,9 @@ function AddGoal({
     onSuccess: () => {
       setForm({ area: '', longTerm: '', shortTerm: '', strategies: '' })
       setOpen(false)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.iepPlan(planId) })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.iepPlan(planId),
+      })
       void queryClient.invalidateQueries({
         queryKey: queryKeys.iepPlans(studentId),
       })
@@ -642,7 +645,11 @@ function Participants({
 
   const add = useMutation({
     mutationFn: () =>
-      addIepParticipant({ planId: plan.id, personName: name, personRole: role }),
+      addIepParticipant({
+        planId: plan.id,
+        personName: name,
+        personRole: role,
+      }),
     onSuccess: () => {
       setName('')
       setRole('')
@@ -744,6 +751,28 @@ function Participants({
 // ---------------------------------------------------------------------------
 export default function IepPlanEditor() {
   const { studentId = '', planId = '' } = useParams()
+
+  /* db/127. What the school already records about this child, offered into the
+     baseline rather than written there — see the note at the field.
+
+     NOT named `profile`: this component already has one from useAuth(), which
+     is the signed-in PERSON. Two different subjects under one name in one
+     scope is how a screen ends up showing a teacher's own details on a
+     child's plan. */
+  const childProfile = useQuery({
+    queryKey: queryKeys.studentProfile(studentId),
+    queryFn: () => fetchStudentProfile(studentId),
+  })
+  const profileText = [
+    childProfile.data?.interests
+      ? `Loves: ${childProfile.data.interests}`
+      : null,
+    childProfile.data?.strengths
+      ? `Good at: ${childProfile.data.strengths}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
   const queryClient = useQueryClient()
   const { profile } = useAuth()
   const roleBase = profile ? pathForRole(profile.role) : ''
@@ -770,7 +799,9 @@ export default function IepPlanEditor() {
         proposed_review_date: details!.proposed_review_date || null,
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.iepPlan(planId) })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.iepPlan(planId),
+      })
       void queryClient.invalidateQueries({
         queryKey: queryKeys.iepPlans(studentId),
       })
@@ -809,7 +840,9 @@ export default function IepPlanEditor() {
     },
     onSuccess: () => {
       setConfirmingAgree(false)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.iepPlan(planId) })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.iepPlan(planId),
+      })
       void queryClient.invalidateQueries({
         queryKey: queryKeys.iepPlans(studentId),
       })
@@ -832,18 +865,15 @@ export default function IepPlanEditor() {
     baseline: p.baseline ?? '',
     proposed_review_date: p.proposed_review_date ?? '',
   }
-  const set = (patch: Partial<typeof form>) =>
-    setDetails({ ...form, ...patch })
+  const set = (patch: Partial<typeof form>) => setDetails({ ...form, ...patch })
 
-  const goals = p.iep_goals
-    .slice()
-    .sort((a, b) => a.sort_order - b.sort_order)
+  const goals = p.iep_goals.slice().sort((a, b) => a.sort_order - b.sort_order)
 
   return (
     <div className="max-w-4xl">
       <Link
         to={listPath}
-        className="text-sm font-medium text-primary hover:underline"
+        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-medium text-primary hover:underline"
       >
         ← All plans
       </Link>
@@ -949,12 +979,46 @@ export default function IepPlanEditor() {
                 {p.baseline || '—'}
               </p>
             ) : (
-              <textarea
-                rows={4}
-                className={inputClass}
-                value={form.baseline}
-                onChange={(e) => set({ baseline: e.target.value })}
-              />
+              <>
+                <textarea
+                  rows={4}
+                  className={inputClass}
+                  value={form.baseline}
+                  onChange={(e) => set({ baseline: e.target.value })}
+                />
+
+                {/* ONE CHILD, TWO PLACES TO SAY WHAT THEY ARE GOOD AT.
+                    db/127's profile carries interests and strengths as a
+                    living record; this field asks the same question and
+                    freezes the answer when the plan is agreed. Left
+                    unconnected they drift, and nobody can say which is true.
+
+                    COPIED ON PURPOSE, NEVER SYNCED. db/054 is explicit that an
+                    IEP is an agreement and that nothing in it should be
+                    autocompleted — "a formal commitment made to a family".
+                    Text appearing in an agreement that nobody typed is exactly
+                    that fault, and a live sync would also un-freeze an agreed
+                    plan every time somebody edited the profile.
+
+                    So: offered, only on a draft, only when there is something
+                    on file, and it lands as ordinary editable text that a
+                    person then owns. */}
+                {profileText && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      set({
+                        baseline: form.baseline.trim()
+                          ? `${form.baseline.trim()}\n\n${profileText}`
+                          : profileText,
+                      })
+                    }
+                    className="pressable mt-2 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-background"
+                  >
+                    Bring in what is on file
+                  </button>
+                )}
+              </>
             )}
           </Field>
         </div>
@@ -999,7 +1063,9 @@ export default function IepPlanEditor() {
                 button to be read as broken. Agreeing saves these anyway, but a
                 person should be able to see that nothing is pending. */}
             <span className="text-sm text-muted-foreground">
-              {details === null ? 'No changes to save.' : 'You have unsaved changes.'}
+              {details === null
+                ? 'No changes to save.'
+                : 'You have unsaved changes.'}
             </span>
           </div>
         )}

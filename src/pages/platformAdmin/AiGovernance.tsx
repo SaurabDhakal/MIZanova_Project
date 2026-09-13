@@ -7,6 +7,7 @@ import {
   fetchAiControlEvents,
   fetchAiControls,
   fetchStrategyConfidence,
+  fetchAiActivity,
   queryKeys,
   updateAiControls,
 } from '../../lib/api'
@@ -137,8 +138,7 @@ export default function AiGovernance() {
         <div className="flex flex-wrap items-start gap-4">
           <div className="min-w-0">
             <p className="font-bold text-foreground">
-              AI strategy generation is{' '}
-              {current.ai_enabled ? 'ON' : 'OFF'}
+              AI strategy generation is {current.ai_enabled ? 'ON' : 'OFF'}
             </p>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
               {current.ai_enabled
@@ -146,7 +146,6 @@ export default function AiGovernance() {
                 : 'No strategies can be generated anywhere. Teachers see an explanation and are directed to their specialist.'}
             </p>
           </div>
-
         </div>
 
         {/* The reason sits with the control it explains, so the sentence in
@@ -155,7 +154,8 @@ export default function AiGovernance() {
           htmlFor="switch-reason"
           className="mt-4 block text-sm font-semibold text-foreground"
         >
-          Why are you {current.ai_enabled ? 'turning this off' : 'turning this back on'}?
+          Why are you{' '}
+          {current.ai_enabled ? 'turning this off' : 'turning this back on'}?
         </label>
         <textarea
           id="switch-reason"
@@ -224,7 +224,7 @@ export default function AiGovernance() {
           step={5}
           value={Math.round(pendingThreshold * 100)}
           onChange={(e) => setThreshold(Number(e.target.value) / 100)}
-          className="mt-3 w-full max-w-md"
+          className="mt-3 h-11 w-full max-w-md"
         />
 
         {/* The reason and the button appear together, only once the slider has
@@ -283,7 +283,10 @@ export default function AiGovernance() {
       </div>
 
       {save.isError && (
-        <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mt-3 text-sm font-medium text-danger-foreground"
+        >
           {save.error.message}
         </p>
       )}
@@ -291,7 +294,7 @@ export default function AiGovernance() {
       {/* --- What the threshold is actually doing ---------------------------- */}
       {/* Under the control rather than beside it: you change the number above,
           and the shape it produces is the next thing you see. */}
-      <h2 className="mt-10 mb-1 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-1 text-section text-foreground">
         Where the suggestions are landing
       </h2>
       <p className="mb-3 max-w-prose text-sm text-muted-foreground">
@@ -324,7 +327,7 @@ export default function AiGovernance() {
       <UsageSection />
 
       {/* --- Audit log ------------------------------------------------------ */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Change history
       </h2>
 
@@ -379,7 +382,6 @@ export default function AiGovernance() {
   )
 }
 
-
 /**
  * What the AI is being used for, and what may be spent — db/078.
  *
@@ -415,7 +417,10 @@ function UsageSection() {
     queryFn: fetchAiControls,
   })
   const usage = useQuery({ queryKey: queryKeys.aiUsage, queryFn: fetchAiUsage })
-  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const schools = useQuery({
+    queryKey: queryKeys.schools,
+    queryFn: fetchSchools,
+  })
 
   const save = useMutation({
     mutationFn: () =>
@@ -427,13 +432,23 @@ function UsageSection() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.aiControls })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.aiControlEvents })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.aiControlEvents,
+      })
       setEditing(false)
       setReason('')
       setError(null)
       showToast('Limits changed, and recorded against your name.')
     },
     onError: (e) => setError(e.message),
+  })
+
+  /* docs/20 §3.3. Here rather than in its own component because it answers the
+     same question this section already asks — what the AI is doing — and a
+     second screen for three counts would be a worse answer than a third card. */
+  const activity = useQuery({
+    queryKey: queryKeys.aiActivity,
+    queryFn: fetchAiActivity,
   })
 
   const limit = controls.data?.daily_limit_per_school ?? null
@@ -443,256 +458,290 @@ function UsageSection() {
       : (schools.data?.find((s) => s.id === id)?.name ?? 'A school')
 
   return (
-    <section className="mt-10">
-      <h2 className="mb-1 text-lg font-semibold text-foreground">
-        Spend and limits
-      </h2>
-      <p className="mb-4 max-w-prose text-sm text-muted-foreground">
-        One row is counted for every request that reaches the model, which is
-        the thing that costs money. The window is the last 24 hours, matching
-        the quota that does the refusing.
-      </p>
+    <>
+      <section className="mt-10">
+        <h2 className="mb-1 text-section text-foreground">Spend and limits</h2>
+        <p className="mb-4 max-w-prose text-sm text-muted-foreground">
+          One row is counted for every request that reaches the model, which is
+          the thing that costs money. The window is the last 24 hours, matching
+          the quota that does the refusing.
+        </p>
 
-      {/* --- the limits ---------------------------------------------------- */}
-      <div className="rounded-card border border-border bg-card shadow-raised p-5">
-        {controls.isPending ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : controls.isError ? (
-          <p className="text-sm text-danger-foreground">
-            The limits could not be read, so the figures below have nothing to
-            be measured against.
-          </p>
-        ) : !editing ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* THERE ARE TWO PER-PERSON LIMITS AND THIS SHOWED ONE. db/099
+        {/* --- the limits ---------------------------------------------------- */}
+        <div className="rounded-card border border-border bg-card shadow-raised p-5">
+          {controls.isPending ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : controls.isError ? (
+            <p className="text-sm text-danger-foreground">
+              The limits could not be read, so the figures below have nothing to
+              be measured against.
+            </p>
+          ) : !editing ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* THERE ARE TWO PER-PERSON LIMITS AND THIS SHOWED ONE. db/099
                 split them: somebody who has paid gets `daily_limit_per_user`,
                 everybody else gets `free_daily_limit_per_user`, and they are
                 answered by different models. This line read "N per person",
                 so a platform admin setting spend controls believed the paid
                 figure applied to everyone. */}
-            <div className="text-sm text-foreground">
-              <p>
-                <span className="font-semibold">
-                  {controls.data?.daily_limit_per_school}
-                </span>{' '}
-                requests a day per school.
-              </p>
-              <p className="mt-1">
-                Per person:{' '}
-                <span className="font-semibold">
-                  {controls.data?.free_daily_limit_per_user}
-                </span>{' '}
-                on the free tier,{' '}
-                <span className="font-semibold">
-                  {controls.data?.daily_limit_per_user}
-                </span>{' '}
-                for somebody who has paid.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Free is answered by {controls.data?.free_model}, paid by{' '}
-                {controls.data?.paid_model} — and a free answer that is
-                risk-flagged or empty is re-run on the paid model anyway, so
-                the cheaper one is never the last word on the cases that
-                matter. Paid means a live subscription or a course bought.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSchoolLimit(String(controls.data?.daily_limit_per_school ?? ''))
-                setUserLimit(String(controls.data?.daily_limit_per_user ?? ''))
-                setFreeUserLimit(
-                  String(controls.data?.free_daily_limit_per_user ?? ''),
-                )
-                setEditing(true)
-              }}
-              className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
-            >
-              Change the limits
-            </button>
-          </div>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (reason.trim() === '')
-                return setError(
-                  'Say why. A limit decides how much can be spent, and the reason is recorded with it.',
-                )
-              setError(null)
-              save.mutate()
-            }}
-          >
-            {error && (
-              <p
-                role="alert"
-                className="mb-3 rounded-btn border border-danger bg-danger-subtle p-2.5 text-sm text-danger-foreground"
-              >
-                {error}
-              </p>
-            )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="ai-school-limit" className="block text-sm font-medium text-foreground">
-                  Per school, per day
-                </label>
-                <input
-                  id="ai-school-limit"
-                  value={schoolLimit}
-                  onChange={(e) => setSchoolLimit(e.target.value)}
-                  inputMode="numeric"
-                  className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-                />
-              </div>
-              <div>
-                <label htmlFor="ai-user-limit" className="block text-sm font-medium text-foreground">
-                  Per person, per day — paid
-                </label>
-                <input
-                  id="ai-user-limit"
-                  value={userLimit}
-                  onChange={(e) => setUserLimit(e.target.value)}
-                  inputMode="numeric"
-                  className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-                />
-              </div>
-              <div>
-                <label htmlFor="ai-free-user-limit" className="block text-sm font-medium text-foreground">
-                  Per person, per day — free
-                </label>
-                <input
-                  id="ai-free-user-limit"
-                  value={freeUserLimit}
-                  onChange={(e) => setFreeUserLimit(e.target.value)}
-                  inputMode="numeric"
-                  className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-                />
-                {/* db/099's check constraint refuses a free limit above the
-                    paid one, so this is worth saying before the save fails. */}
+              <div className="text-sm text-foreground">
+                <p>
+                  <span className="font-semibold">
+                    {controls.data?.daily_limit_per_school}
+                  </span>{' '}
+                  requests a day per school.
+                </p>
+                <p className="mt-1">
+                  Per person:{' '}
+                  <span className="font-semibold">
+                    {controls.data?.free_daily_limit_per_user}
+                  </span>{' '}
+                  on the free tier,{' '}
+                  <span className="font-semibold">
+                    {controls.data?.daily_limit_per_user}
+                  </span>{' '}
+                  for somebody who has paid.
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Cannot be higher than the paid limit.
+                  Free is answered by {controls.data?.free_model}, paid by{' '}
+                  {controls.data?.paid_model} — and a free answer that is
+                  risk-flagged or empty is re-run on the paid model anyway, so
+                  the cheaper one is never the last word on the cases that
+                  matter. Paid means a live subscription or a course bought.
                 </p>
               </div>
-            </div>
-            <div className="mt-3">
-              <label htmlFor="ai-limit-reason" className="block text-sm font-medium text-foreground">
-                Why
-              </label>
-              <input
-                id="ai-limit-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Raised for the pilot at Parramatta West"
-                className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
-              />
-              {/* Not this form's politeness: db/012's trigger refuses a change
-                  with no reason, and db/078 made it record the limits too. */}
-              <p className="mt-1 text-xs text-muted-foreground">
-                Required, and kept on the change history below.
-              </p>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={save.isPending}
-                className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-              >
-                {save.isPending ? 'Saving…' : 'Change the limits'}
-              </button>
               <button
                 type="button"
                 onClick={() => {
-                  setEditing(false)
-                  setError(null)
+                  setSchoolLimit(
+                    String(controls.data?.daily_limit_per_school ?? ''),
+                  )
+                  setUserLimit(
+                    String(controls.data?.daily_limit_per_user ?? ''),
+                  )
+                  setFreeUserLimit(
+                    String(controls.data?.free_daily_limit_per_user ?? ''),
+                  )
+                  setEditing(true)
                 }}
                 className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
               >
-                Cancel
+                Change the limits
               </button>
             </div>
-          </form>
-        )}
-      </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (reason.trim() === '')
+                  return setError(
+                    'Say why. A limit decides how much can be spent, and the reason is recorded with it.',
+                  )
+                setError(null)
+                save.mutate()
+              }}
+            >
+              {error && (
+                <p
+                  role="alert"
+                  className="mb-3 rounded-btn border border-danger bg-danger-subtle p-2.5 text-sm text-danger-foreground"
+                >
+                  {error}
+                </p>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="ai-school-limit"
+                    className="block text-sm font-medium text-foreground"
+                  >
+                    Per school, per day
+                  </label>
+                  <input
+                    id="ai-school-limit"
+                    value={schoolLimit}
+                    onChange={(e) => setSchoolLimit(e.target.value)}
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="ai-user-limit"
+                    className="block text-sm font-medium text-foreground"
+                  >
+                    Per person, per day — paid
+                  </label>
+                  <input
+                    id="ai-user-limit"
+                    value={userLimit}
+                    onChange={(e) => setUserLimit(e.target.value)}
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="ai-free-user-limit"
+                    className="block text-sm font-medium text-foreground"
+                  >
+                    Per person, per day — free
+                  </label>
+                  <input
+                    id="ai-free-user-limit"
+                    value={freeUserLimit}
+                    onChange={(e) => setFreeUserLimit(e.target.value)}
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                  />
+                  {/* db/099's check constraint refuses a free limit above the
+                    paid one, so this is worth saying before the save fails. */}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Cannot be higher than the paid limit.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <label
+                  htmlFor="ai-limit-reason"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  Why
+                </label>
+                <input
+                  id="ai-limit-reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Raised for the pilot at Parramatta West"
+                  className="mt-1 w-full rounded-btn border border-border bg-card px-3 py-2 text-foreground"
+                />
+                {/* Not this form's politeness: db/012's trigger refuses a change
+                  with no reason, and db/078 made it record the limits too. */}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Required, and kept on the change history below.
+                </p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={save.isPending}
+                  className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                >
+                  {save.isPending ? 'Saving…' : 'Change the limits'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false)
+                    setError(null)
+                  }}
+                  className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
 
-      {/* --- who is using it ----------------------------------------------- */}
-      {usage.isPending ? (
-        <p className="mt-4 text-sm text-muted-foreground">Loading usage…</p>
-      ) : usage.isError ? (
-        <ErrorState
-          message={usage.error.message}
-          onRetry={() => void usage.refetch()}
-        />
-      ) : usage.data.length === 0 ? (
-        <p className="mt-4 rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
-          No school has asked for a strategy yet. This fills in as soon as one
-          does — an empty list here means nothing has been requested, not that
-          counting failed.
-        </p>
-      ) : (
-        <div className="mt-4 overflow-x-auto rounded-card border border-border bg-card shadow-raised">
-          <table className="w-full min-w-[44rem] table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[34%]" />
-              <col className="w-[20%]" />
-              <col className="w-[15%]" />
-              <col className="w-[15%]" />
-              <col className="w-[16%]" />
-            </colgroup>
-            <caption className="sr-only">
-              AI requests by school, against the daily limit
-            </caption>
-            <thead className="border-b border-border bg-background/60">
-              <tr className="text-xs tracking-wide text-muted-foreground uppercase">
-                <th scope="col" className="px-4 py-3 font-semibold">School</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Last 24 hours</th>
-                <th scope="col" className="px-4 py-3 font-semibold">7 days</th>
-                <th scope="col" className="px-4 py-3 font-semibold">30 days</th>
-                <th scope="col" className="px-4 py-3 font-semibold">People</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usage.data.map((row) => {
-                /*
-                 * AT the limit, not merely near it. db/026 refuses the request
-                 * that would exceed the cap, so a school on 200 of 200 is
-                 * already being turned away — and that is the row somebody has
-                 * to see before the phone rings.
-                 */
-                const atLimit = limit !== null && row.requests_24h >= limit
-                const near = limit !== null && !atLimit && row.requests_24h >= limit * 0.8
-                return (
-                  <tr key={row.school_id ?? 'none'} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 align-top break-words font-medium text-foreground">
-                      {nameOf(row.school_id)}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <span
-                        className={
-                          atLimit
-                            ? 'font-semibold text-danger-foreground'
-                            : near
-                              ? 'font-semibold text-warning-foreground'
-                              : 'text-foreground'
-                        }
-                      >
-                        {row.requests_24h}
-                        {limit !== null && (
-                          <span className="text-muted-foreground"> of {limit}</span>
-                        )}
-                      </span>
-                      {atLimit && (
-                        <span className="block text-xs text-danger-foreground">
-                          Being refused
+        {/* --- who is using it ----------------------------------------------- */}
+        {usage.isPending ? (
+          <p className="mt-4 text-sm text-muted-foreground">Loading usage…</p>
+        ) : usage.isError ? (
+          <ErrorState
+            message={usage.error.message}
+            onRetry={() => void usage.refetch()}
+          />
+        ) : usage.data.length === 0 ? (
+          <p className="mt-4 rounded-card border border-border bg-card p-4 text-sm text-muted-foreground">
+            No school has asked for a strategy yet. This fills in as soon as one
+            does — an empty list here means nothing has been requested, not that
+            counting failed.
+          </p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-card border border-border bg-card shadow-raised">
+            <table className="w-full min-w-[44rem] table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[34%]" />
+                <col className="w-[20%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[16%]" />
+              </colgroup>
+              <caption className="sr-only">
+                AI requests by school, against the daily limit
+              </caption>
+              <thead className="border-b border-border bg-background/60">
+                <tr className="text-xs tracking-wide text-muted-foreground uppercase">
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    School
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    Last 24 hours
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    7 days
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    30 days
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    People
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.data.map((row) => {
+                  /*
+                   * AT the limit, not merely near it. db/026 refuses the request
+                   * that would exceed the cap, so a school on 200 of 200 is
+                   * already being turned away — and that is the row somebody has
+                   * to see before the phone rings.
+                   */
+                  const atLimit = limit !== null && row.requests_24h >= limit
+                  const near =
+                    limit !== null &&
+                    !atLimit &&
+                    row.requests_24h >= limit * 0.8
+                  return (
+                    <tr
+                      key={row.school_id ?? 'none'}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="px-4 py-3 align-top break-words font-medium text-foreground">
+                        {nameOf(row.school_id)}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <span
+                          className={
+                            atLimit
+                              ? 'font-semibold text-danger-foreground'
+                              : near
+                                ? 'font-semibold text-warning-foreground'
+                                : 'text-foreground'
+                          }
+                        >
+                          {row.requests_24h}
+                          {limit !== null && (
+                            <span className="text-muted-foreground">
+                              {' '}
+                              of {limit}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-top text-muted-foreground">
-                      {row.requests_7d}
-                    </td>
-                    <td className="px-4 py-3 align-top text-muted-foreground">
-                      {row.requests_30d}
-                    </td>
-                    {/*
+                        {atLimit && (
+                          <span className="block text-xs text-danger-foreground">
+                            Being refused
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top text-muted-foreground">
+                        {row.requests_7d}
+                      </td>
+                      <td className="px-4 py-3 align-top text-muted-foreground">
+                        {row.requests_30d}
+                      </td>
+                      {/*
                       ZERO PEOPLE AND SOME REQUESTS IS NOT A CONTRADICTION, and
                       it must not read as one. `requested_by` is `on delete set
                       null` (db/026, so a usage record survives the account),
@@ -700,22 +749,123 @@ function UsageSection() {
                       whose staff have since left reports requests with nobody
                       behind them. Rendering that as "0" says nobody made them.
                     */}
-                    <td className="px-4 py-3 align-top text-muted-foreground">
-                      {row.people_30d === 0 && row.requests_30d > 0 ? (
-                        <span title="The accounts that made these requests have since been deleted, so they can no longer be counted.">
-                          —
-                        </span>
-                      ) : (
-                        row.people_30d
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="px-4 py-3 align-top text-muted-foreground">
+                        {row.people_30d === 0 && row.requests_30d > 0 ? (
+                          <span title="The accounts that made these requests have since been deleted, so they can no longer be counted.">
+                            —
+                          </span>
+                        ) : (
+                          row.people_30d
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* --- A04: what actually answered, and which prompt wrote it ---------
+          docs/20 §3.3. `ai_generation_events.source` has recorded this since
+          db/118 for exactly this requirement, and nothing has ever asked. The
+          prompt versions are here for the harder question underneath it: three
+          versions now exist and "did v3 beat v2" is the only honest way to know
+          whether any of the work on the prompt helped.
+
+          COUNTS, NOT A SCORE. db/006 refused a fabricated accuracy figure; this
+          keeps that bargain. The numbers are what happened and what they mean
+          is left to the reader. */}
+      <section className="mt-8">
+        <h2 className="text-section text-foreground">
+          What answered, and with what
+        </h2>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          Requirement A04 asks for the ratio of AI-generated strategies to
+          Database-only usage. These are raw counts across every school, for the
+          life of the system &mdash; not a score, and not a quality claim.
+        </p>
+
+        {activity.isPending && (
+          <p className="mt-3 text-sm text-muted-foreground">Counting&hellip;</p>
+        )}
+        {activity.isError && (
+          <ErrorState
+            message={activity.error.message}
+            onRetry={() => void activity.refetch()}
+          />
+        )}
+
+        {activity.data && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <Tally
+              title="What answered"
+              empty="No generations recorded yet."
+              rows={activity.data.bySource.map((r) => ({
+                label:
+                  r.source === 'evidence' ? 'Evidence library' : 'The model',
+                value: r.runs,
+              }))}
+            />
+            <Tally
+              title="Which prompt wrote it"
+              empty="No strategies recorded yet."
+              rows={activity.data.byPrompt.map((r) => ({
+                label: r.prompt_version,
+                value: r.strategies,
+              }))}
+            />
+            <Tally
+              title="What teachers said back"
+              empty="No feedback yet."
+              rows={activity.data.feedback.map((r) => ({
+                label:
+                  r.action === 'dismissed'
+                    ? 'Not useful'
+                    : r.action === 'applied'
+                      ? 'Applied'
+                      : r.action,
+                value: r.times,
+              }))}
+            />
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
+
+/** A small labelled count list. Nothing is divided, averaged or scored. */
+function Tally({
+  title,
+  rows,
+  empty,
+}: {
+  title: string
+  rows: { label: string; value: number }[]
+  empty: string
+}) {
+  return (
+    <div className="rounded-card border border-border bg-card p-4">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <dl className="mt-2 space-y-1">
+          {rows.map((r) => (
+            <div
+              key={r.label}
+              className="flex items-baseline justify-between gap-3"
+            >
+              <dt className="text-sm text-muted-foreground">{r.label}</dt>
+              <dd className="text-sm font-semibold text-foreground">
+                {r.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
-    </section>
+    </div>
   )
 }

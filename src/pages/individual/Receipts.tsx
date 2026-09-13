@@ -269,7 +269,7 @@ export default function Receipts() {
                     <dt className="font-semibold text-foreground">
                       Amount paid
                     </dt>
-                    <dd className="text-lg font-bold tabular-nums text-foreground">
+                    <dd className="text-section tabular-nums text-foreground">
                       {formatMoney(purchase.amount_cents, purchase.currency)}
                     </dd>
                   </div>

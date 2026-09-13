@@ -14,9 +14,14 @@ import {
 import Pagination from '../../components/Pagination'
 import { adminResetMfa, fetchStaffMfaStatus } from '../../lib/mfa'
 import { ROLE_CONFIG } from '../../lib/roles'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
+import Icon from '../../components/Icon'
 
 /**
  * Teacher verification (FR18).
@@ -69,7 +74,10 @@ export default function Verification() {
    * a school with nobody awaiting verification must still be selectable, or the
    * filter cannot be used to establish that there is nobody.
    */
-  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const schools = useQuery({
+    queryKey: queryKeys.schools,
+    queryFn: fetchSchools,
+  })
   const schoolName = (id: string | null) =>
     id === null
       ? null
@@ -161,7 +169,10 @@ export default function Verification() {
       </div>
 
       {verify.isError && (
-        <p role="alert" className="mb-4 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mb-4 text-sm font-medium text-danger-foreground"
+        >
           {verify.error.message}
         </p>
       )}
@@ -209,7 +220,7 @@ export default function Verification() {
 
       <h2
         ref={waitingTop}
-        className="mb-3 scroll-mt-6 text-lg font-semibold text-foreground"
+        className="mb-3 scroll-mt-6 text-section text-foreground"
       >
         Awaiting verification ({waiting.data.total})
       </h2>
@@ -274,7 +285,7 @@ export default function Verification() {
 
       <h2
         ref={verifiedTop}
-        className="mt-10 mb-3 scroll-mt-6 text-lg font-semibold text-foreground"
+        className="mt-10 mb-3 scroll-mt-6 text-section text-foreground"
       >
         Verified ({verified.data.total})
       </h2>
@@ -291,8 +302,13 @@ export default function Verification() {
               <div className="min-w-0">
                 <p className="font-semibold text-foreground">
                   {person.full_name || 'Unnamed'}
-                  <span className="ml-2 text-sm font-medium text-success-foreground">
-                    ✓ verified
+                  <span className="ml-2 inline-flex items-center gap-1 text-sm font-medium text-success-foreground">
+                    <Icon
+                      name="tick"
+                      aria-hidden
+                      className="h-4 w-4 shrink-0"
+                    />
+                    verified
                   </span>
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -331,8 +347,8 @@ export default function Verification() {
                     </span>
                   ) : mfa.data?.[person.id]?.hasAuthenticator ? (
                     <span className="font-medium text-success-foreground">
-                      🔒 Two-factor on ·{' '}
-                      {mfa.data[person.id].codesRemaining} recovery code
+                      🔒 Two-factor on · {mfa.data[person.id].codesRemaining}{' '}
+                      recovery code
                       {mfa.data[person.id].codesRemaining === 1 ? '' : 's'} left
                     </span>
                   ) : (
@@ -415,7 +431,10 @@ export default function Verification() {
       />
 
       {resetMfa.isError && (
-        <p role="alert" className="mt-4 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mt-4 text-sm font-medium text-danger-foreground"
+        >
           {resetMfa.error.message}
         </p>
       )}

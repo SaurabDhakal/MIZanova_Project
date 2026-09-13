@@ -34,3 +34,20 @@ export function toLocalDateValue(date: Date): string {
 export function todayLocal(): string {
   return toLocalDateValue(new Date())
 }
+
+/**
+ * Yesterday, on the same local clock `todayLocal` reads.
+ *
+ * Added for the parent's observation form, where "Today" and "Yesterday" are
+ * two taps that cover almost every entry — somebody writing up last night's
+ * meltdown before the school run should not have to open a date picker.
+ *
+ * It goes through `toLocalDateValue` for the same reason `todayLocal` does:
+ * subtracting a day and then calling `toISOString()` would shift back into UTC
+ * and hand an Australian user the wrong date for most of the morning.
+ */
+export function yesterdayLocal(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return toLocalDateValue(d)
+}

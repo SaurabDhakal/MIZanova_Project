@@ -12,29 +12,62 @@ import type { EnquiryPlan } from './api'
  * free-text field with nothing to check it against.
  *
  * That is not a tidiness problem. The first agreement recorded on the new
- * screen read "Mid-size schools — $2,400 per year". The published price for
- * Mid-size is $5,800 PER TERM; $2,400 per term is SMALL schools. Wrong plan,
- * wrong period, wrong amount — and the screen had no way to notice, because it
- * had never been told what the company advertises.
+ * screen read "Mid-size schools — $2,400 per year". Mid-size was published at
+ * $5,800 PER TERM at the time, and $2,400 per term was SMALL schools. Wrong
+ * plan, wrong period, wrong amount — and the screen had no way to notice,
+ * because it had never been told what the company advertises. (Those figures
+ * have since been replaced; see below. The failure they illustrate has not.)
  *
  * One source, both screens.
  *
  * ---------------------------------------------------------------------------
  * WHERE THE NUMBERS COME FROM, AND HOW MUCH THEY ARE WORTH
  * ---------------------------------------------------------------------------
- * They are copied from the client's own designs — P-005 Pricing — and are
- * already published on the public site, so they are a statement customers have
- * been shown. Nothing here is estimated or rounded.
+ * THE RESEARCH ARRIVED, AND THESE CHANGED BECAUSE OF IT.
  *
- * BUT THEY ARE NOT SETTLED. Joe Abboud's brief lists "willingness to pay,
- * pricing strategies, and market segmentation" as open questions being
- * researched with Practera, whose findings "will directly inform the design".
- * So these are what is advertised today, not what a school must be charged.
+ * The earlier figures — $2,400 and $5,800 per term, $8,000 and $19,500 a year —
+ * were copied from the client's own designs (P-005 Pricing). This file said at
+ * the time that they were "not settled", because Joe Abboud's brief listed
+ * "willingness to pay, pricing strategies, and market segmentation" as open
+ * questions being researched with Practera, whose findings "will directly
+ * inform the design".
  *
- * That is exactly why Subscriptions compares rather than constrains: a platform
- * admin can agree any figure — a pilot, a discount, whatever the research
- * changes it to — and the screen simply says when it differs from the page a
- * customer can read.
+ * That research is docs/Team 6 Presentation (Final Report) - 2025.12.17. It
+ * recommends, for the Australian market this product sells into:
+ *
+ *   - AUD 1,500-2,000 per school per year for urban primary and Catholic
+ *     schools (its named target segment, 250-800 enrolments)
+ *   - AUD 1,000-1,500 per school per year for rural schools
+ *   - a target band of roughly AUD 1.5k-2.5k per school per year overall
+ *   - Australian competitors benchmarked at AUD 395-3,030 per school per year
+ *
+ * and it characterises "often AUD 5k+ per school/year" as enterprise budget
+ * territory — the weakness it tells us to attack in Compass Education, not to
+ * occupy. The old annual figures sat four to ten times above that band.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT WAS CHOSEN, AND WHAT WAS NOT
+ * ---------------------------------------------------------------------------
+ * The report gives bands, not figures, so a number inside a band had to be
+ * picked. Small schools take the rural band (a sub-150 school is rarely a
+ * metropolitan one); mid-size takes the middle of the urban band. Term rates
+ * are the annual rate plus the same annual-payment discount the page always
+ * advertised, so the two lines still agree with each other.
+ *
+ * THE REPORT CONTRADICTS ITSELF and this file follows the headline. Its
+ * per-student figure of AUD 13-15 implies roughly AUD 7,800 for a 600-student
+ * school, which is four times its own per-school recommendation for the same
+ * school. The per-school band is the one stated as the "target effective
+ * price", so that is what is published here. Worth resolving with Joe.
+ *
+ * Large schools and early years still carry no figure. The report prices
+ * neither, and putting a number against them would be inventing one — the
+ * fault this file was written to prevent.
+ *
+ * These remain what is ADVERTISED, not what a school must be charged. That is
+ * why Subscriptions compares rather than constrains: a platform admin can agree
+ * any figure — a pilot, a discount, a later revision — and the screen simply
+ * says when it differs from the page a customer can read.
  */
 
 export type PublishedPlan = {
@@ -58,15 +91,19 @@ export const PUBLISHED_PLANS: PublishedPlan[] = [
     key: 'small_school',
     name: 'Small schools',
     subtitle: 'Up to 150 students',
-    termCents: 240000,
-    annualCents: 800000,
+    // AUD 1,200/year — the rural band (1,000-1,500). $350 x 4 terms = $1,400,
+    // so paying annually saves 14%.
+    termCents: 35000,
+    annualCents: 120000,
   },
   {
     key: 'mid_school',
     name: 'Mid-size schools',
     subtitle: '150 to 600 students',
-    termCents: 580000,
-    annualCents: 1950000,
+    // AUD 1,800/year — the middle of the urban band (1,500-2,000). $530 x 4
+    // terms = $2,120, so paying annually saves 15%.
+    termCents: 53000,
+    annualCents: 180000,
   },
   {
     key: 'large_school',

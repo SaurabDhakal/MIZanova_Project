@@ -107,7 +107,7 @@ export default function PushNotificationsSection() {
 
   return (
     <section className="rounded-card border border-border bg-card p-6 shadow-raised">
-      <h2 className="text-lg font-bold text-foreground">
+      <h2 className="text-section text-foreground">
         Notifications on this device
       </h2>
 

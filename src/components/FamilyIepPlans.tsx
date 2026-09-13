@@ -157,7 +157,7 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
 
   return (
     <>
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Individual education plans
       </h2>
 

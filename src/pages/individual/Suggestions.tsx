@@ -80,7 +80,10 @@ export default function Suggestions() {
   /* db/107. Read here rather than taken from the profile the app already
      holds, so what the button does matches what the switch says at the moment
      it is pressed. */
-  const memory = useQuery({ queryKey: queryKeys.aiMemory, queryFn: fetchAiMemory })
+  const memory = useQuery({
+    queryKey: queryKeys.aiMemory,
+    queryFn: fetchAiMemory,
+  })
   const goals = useQuery({
     queryKey: queryKeys.myPersonalGoals,
     queryFn: fetchMyGoalsPersonal,
@@ -102,7 +105,9 @@ export default function Suggestions() {
       /* A follow-up's answer is the newest thing in the list, and the list
          opens whichever is newest — so nothing has to be told to open it. */
       setOpenAsk(null)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.mySelfRequests })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.mySelfRequests,
+      })
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   })
@@ -111,7 +116,9 @@ export default function Suggestions() {
     mutationFn: deleteSelfRequest,
     onSuccess: async () => {
       showToast('Deleted.')
-      await queryClient.invalidateQueries({ queryKey: queryKeys.mySelfRequests })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.mySelfRequests,
+      })
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   })
@@ -186,7 +193,10 @@ export default function Suggestions() {
               type="button"
               onClick={() => setOpenFact(openFact === f.key ? null : f.key)}
               aria-expanded={openFact === f.key}
-              className={`flex w-full items-center gap-2 rounded-btn border px-3 py-2 text-sm font-semibold ${
+              /* 38px. These two answer "will it tell me what is wrong with
+                 me" and "who reads this" — the questions somebody asks before
+                 typing anything personal, on the screen where they type it. */
+              className={`flex min-h-11 w-full items-center gap-2 rounded-btn border px-3 text-sm font-semibold ${
                 openFact === f.key
                   ? 'border-primary bg-primary-subtle text-foreground'
                   : 'border-border bg-card text-foreground'
@@ -215,8 +225,8 @@ export default function Suggestions() {
               : 'The part of MiZanova that generates suggestions cannot be reached. Everything else on your account works normally — the courses, the reading and your goals are all still there.'}
           </p>
           <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-            You are being told now rather than after you have written
-            something. Nothing you type would have been sent.
+            You are being told now rather than after you have written something.
+            Nothing you type would have been sent.
           </p>
           <button
             type="button"
@@ -375,7 +385,11 @@ export default function Suggestions() {
       )}
 
       {/* --- what came back ------------------------------------------------ */}
-      {history.isPending && <div className="mt-8"><LoadingCards count={1} /></div>}
+      {history.isPending && (
+        <div className="mt-8">
+          <LoadingCards count={1} />
+        </div>
+      )}
 
       {history.isError && (
         <div className="mt-8">
@@ -394,7 +408,7 @@ export default function Suggestions() {
 
       {history.isSuccess && history.data.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 flex items-center gap-2 text-lg font-semibold text-foreground">
+          <h2 className="mt-10 mb-3 flex items-center gap-2 text-section text-foreground">
             <Icon name="ai" className="h-5 w-5 shrink-0 text-primary" />
             What you have asked
             <span className="text-sm font-normal text-muted-foreground">
@@ -405,30 +419,30 @@ export default function Suggestions() {
             {history.data
               .slice(0, showAllAsks ? undefined : 3)
               .map((request) => (
-              <RequestCard
-                key={request.id}
-                request={request}
-                onDelete={() => remove.mutate(request.id)}
-                deleting={remove.isPending && remove.variables === request.id}
-                onAskAbout={(id, question) =>
-                  ask.mutate({ text: question, about: id })
-                }
-                asking={ask.isPending}
-                onChanged={() =>
-                  void queryClient.invalidateQueries({
-                    queryKey: queryKeys.mySelfRequests,
-                  })
-                }
-                open={(openAsk ?? history.data[0]?.id) === request.id}
-                onToggle={() =>
-                  setOpenAsk(
-                    (openAsk ?? history.data[0]?.id) === request.id
-                      ? ''
-                      : request.id,
-                  )
-                }
-              />
-            ))}
+                <RequestCard
+                  key={request.id}
+                  request={request}
+                  onDelete={() => remove.mutate(request.id)}
+                  deleting={remove.isPending && remove.variables === request.id}
+                  onAskAbout={(id, question) =>
+                    ask.mutate({ text: question, about: id })
+                  }
+                  asking={ask.isPending}
+                  onChanged={() =>
+                    void queryClient.invalidateQueries({
+                      queryKey: queryKeys.mySelfRequests,
+                    })
+                  }
+                  open={(openAsk ?? history.data[0]?.id) === request.id}
+                  onToggle={() =>
+                    setOpenAsk(
+                      (openAsk ?? history.data[0]?.id) === request.id
+                        ? ''
+                        : request.id,
+                    )
+                  }
+                />
+              ))}
           </ul>
 
           {history.data.length > 3 && !showAllAsks && (
@@ -869,7 +883,7 @@ function RequestCard({
                 </span>
                 <p className="font-bold text-foreground">{s.title}</p>
               </div>
-              <p className="mt-2 border-l-4 border-accent pl-3 text-foreground">
+              <p className="mt-4 text-[0.9375rem] leading-relaxed text-foreground">
                 {s.body}
               </p>
               <SuggestionActions
@@ -887,7 +901,10 @@ function RequestCard({
                   </p>
                   <ul className="mt-1 space-y-1">
                     {s.rationale.map((reason, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-foreground">
+                      <li
+                        key={i}
+                        className="flex gap-2 text-sm text-foreground"
+                      >
                         <Icon
                           name="tick"
                           className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-foreground"

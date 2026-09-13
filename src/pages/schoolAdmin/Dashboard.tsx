@@ -68,7 +68,7 @@ export default function SchoolAdminDashboard() {
           role="alert"
           className="mb-6 rounded-card border border-danger bg-danger-subtle p-5"
         >
-          <p className="text-lg font-bold text-danger-foreground">
+          <p className="text-section text-danger-foreground">
             {openCount} safeguarding incident{openCount === 1 ? '' : 's'} waiting
             for review
           </p>

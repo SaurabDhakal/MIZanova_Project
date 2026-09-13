@@ -170,7 +170,7 @@ export default function Library() {
       ) : (
         (files.data ?? []).length > 0 && (
           <>
-            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mt-10 mb-3 text-section text-foreground">
               Downloads
             </h2>
             <ul className="space-y-2">

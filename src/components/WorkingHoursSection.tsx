@@ -131,7 +131,7 @@ export default function WorkingHoursSection({
   return (
     <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">Your working hours</h2>
+        <h2 className="text-section text-foreground">Your working hours</h2>
         {bands.isSuccess && (bands.data ?? []).length > 0 && (
           <button
             type="button"

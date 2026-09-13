@@ -48,7 +48,7 @@ export default function GoalReviewQueue() {
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mb-3 text-section text-foreground">
         Families asking about a goal
       </h2>
 

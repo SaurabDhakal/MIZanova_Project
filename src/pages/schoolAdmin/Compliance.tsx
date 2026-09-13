@@ -10,7 +10,12 @@ import {
   type ConsentType,
 } from '../../lib/api'
 import { CONSENT_COPY, CONSENT_ORDER } from '../../lib/consent'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
+import Icon from '../../components/Icon'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import { showToast } from '../../lib/toast'
 
@@ -58,7 +63,8 @@ export default function Compliance() {
         // Stored on the row itself. Without it, the record says a member of
         // staff gave consent for a child, which is not what happened and not
         // something a school would want to have to explain later.
-        notes: 'Recorded by school staff from a consent given outside MiZanova.',
+        notes:
+          'Recorded by school staff from a consent given outside MiZanova.',
       }),
     onSuccess: () => {
       invalidate()
@@ -74,7 +80,8 @@ export default function Compliance() {
     },
   })
 
-  if (students.isPending || consents.isPending) return <LoadingCards count={3} />
+  if (students.isPending || consents.isPending)
+    return <LoadingCards count={3} />
   if (students.isError) return <ErrorState message={students.error.message} />
   if (consents.isError) return <ErrorState message={consents.error.message} />
 
@@ -186,7 +193,10 @@ export default function Compliance() {
             </caption>
             <thead>
               <tr className="border-b border-border">
-                <th scope="col" className="p-4 text-sm font-semibold text-foreground">
+                <th
+                  scope="col"
+                  className="p-4 text-sm font-semibold text-foreground"
+                >
                   Student
                 </th>
                 {CONSENT_ORDER.map((type) => (
@@ -207,14 +217,19 @@ export default function Compliance() {
             </thead>
             <tbody>
               {students.data.map((student) => (
-                <tr key={student.id} className="border-b border-border last:border-0">
+                <tr
+                  key={student.id}
+                  className="border-b border-border last:border-0"
+                >
                   <th
                     scope="row"
                     className="p-4 align-top font-semibold text-foreground"
                   >
                     {student.first_name} {student.last_name}
                     <span className="block text-sm font-normal text-muted-foreground">
-                      {student.year_level ? `Year ${student.year_level}` : 'Year —'}
+                      {student.year_level
+                        ? `Year ${student.year_level}`
+                        : 'Year —'}
                     </span>
                   </th>
 
@@ -226,20 +241,40 @@ export default function Compliance() {
                       <td key={type} className="p-4 align-top">
                         {active ? (
                           <>
-                            <span className="block text-sm font-semibold text-success-foreground">
-                              ✓ Given
+                            {/* The drawn tick, not the "✓" character — 29 of
+                                them on this page, each borrowing whatever the
+                                reader's font decides and sitting on its own
+                                baseline. */}
+                            <span className="flex items-center gap-1.5 text-sm font-semibold text-success-foreground">
+                              <Icon
+                                name="tick"
+                                aria-hidden
+                                className="h-4 w-4 shrink-0"
+                              />
+                              Given
                             </span>
                             <span className="block text-xs text-muted-foreground">
                               {new Date(active.granted_at).toLocaleDateString(
                                 'en-AU',
-                                { day: 'numeric', month: 'short', year: 'numeric' },
+                                {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                },
                               )}
                             </span>
                             <button
                               type="button"
                               disabled={busy}
                               onClick={() => withdraw.mutate(active.id)}
-                              className="mt-1 inline-flex min-h-6 items-center text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
+                              /* `min-h-6` — 24px, set deliberately to keep
+                                 the consent matrix dense. Withdrawing a
+                                 consent is a legally significant act recorded
+                                 against a family, and 29 of these sit stacked
+                                 in one table where the neighbouring cell is a
+                                 different child. Density is not worth a
+                                 mis-click here. */
+                              className="pressable -ml-2 mt-1 inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-danger-foreground hover:bg-danger-subtle hover:underline disabled:opacity-60"
                             >
                               Withdraw
                             </button>
@@ -298,9 +333,8 @@ export default function Compliance() {
           percentages, and buttons to draft reports and send reminders. There
           are no review cycles, due dates or therapy minutes in the database,
           and no report generator, so none of those numbers could be anything
-          but invented. Two of them the product deliberately does not do at
-          all: MiZanova records that a document was read, never that it was
-          signed.
+          but invented. Two of them the product deliberately does not do at all:
+          MiZanova records that a document was read, never that it was signed.
         </p>
       </NotBuiltYet>
     </div>

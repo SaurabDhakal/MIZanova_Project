@@ -6,6 +6,7 @@ import GoalsSection from '../../components/GoalsSection'
 import StudentTimeline from '../../components/StudentTimeline'
 import GuardianAccessSection from '../../components/GuardianAccessSection'
 import IepDocumentsSection from '../../components/IepDocumentsSection'
+import SessionsSection from '../../components/SessionsSection'
 import { EmptyState, ErrorState } from '../../components/QueryState'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
@@ -13,6 +14,8 @@ import BehaviourLogModal from '../../components/BehaviourLogModal'
 import Spinner from '../../components/Spinner'
 import Icon from '../../components/Icon'
 import Avatar from '../../components/Avatar'
+import BehaviourPatterns from '../../components/BehaviourPatterns'
+import StudentProfileCard from '../../components/StudentProfileCard'
 import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 
 /**
@@ -36,7 +39,8 @@ function PlanStatus({ studentId }: { studentId: string }) {
   if (plans.isPending) return <span className="text-muted-foreground">…</span>
   // A failure here must not be reported as "no plan" — that is a claim about
   // the child, and this only knows something about the request.
-  if (plans.isError) return <span className="text-muted-foreground">unknown</span>
+  if (plans.isError)
+    return <span className="text-muted-foreground">unknown</span>
 
   const current = plans.data.find(
     (p) => p.status === 'agreed' || p.status === 'in_review',
@@ -51,7 +55,8 @@ function PlanStatus({ studentId }: { studentId: string }) {
 
   const due = current.proposed_review_date
   const overdue =
-    due != null && new Date(due).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)
+    due != null &&
+    new Date(due).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)
 
   return (
     <span
@@ -89,6 +94,20 @@ export default function StudentDetail() {
   // educator's and the school admin's are both called Students, and RLS is
   // what makes those different lists.
   const isSpecialist = profile?.role === 'specialist'
+
+  /*
+   * WHO MAY EDIT THE PROFILE — db/127, and NOT the same question as who may log.
+   *
+   * The first version passed `canLogBehaviour`, which is educator-or-specialist,
+   * so a school administrator opening a record could read the profile and not
+   * touch it — while db/127's policy (`can_staff_view_student`) admits them
+   * perfectly well. Borrowing a nearby boolean because it was in scope is how a
+   * screen ends up enforcing a rule the database never made.
+   */
+  const canEditProfile =
+    profile?.role === 'educator' ||
+    profile?.role === 'specialist' ||
+    profile?.role === 'school_admin'
   const roleBase = profile ? pathForRole(profile.role) : ''
 
   /**
@@ -122,14 +141,10 @@ export default function StudentDetail() {
     queryFn: () => fetchStudent(studentId),
   })
 
-
-
-
   // What happened to suggestions this account is not allowed to read. Without
   // it, "never generated" and "generated and rejected" look identical on
   // screen. A failure here must not take the page down — the history below is
   // still worth showing — so it is read with `.data ?? {}` and nothing else.
-
 
   if (student.isPending) return <Spinner label="Loading student" />
 
@@ -157,7 +172,7 @@ export default function StudentDetail() {
     <div>
       <Link
         to={backTo}
-        className="text-sm font-medium text-primary hover:underline"
+        className="min-h-11 -ml-2 inline-flex items-center px-2 text-sm font-medium text-primary hover:underline"
       >
         ← {backLabel}
       </Link>
@@ -248,8 +263,20 @@ export default function StudentDetail() {
           HAPPENED; the right column holds what is TRUE NOW — goals, the plan,
           who is connected. State never grows without bound, so it never needs
           scrolling past. */}
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
-        <div className="space-y-5">
+      {/* md, NOT lg — and the state column comes FIRST on a narrow screen.
+
+          `lg` is 1024px, so an iPad in portrait (820px) — the device the
+          market research names as the primary one — fell to a single column.
+          "About Elsie" then began at 2,286px and Patterns at 2,603px: two and
+          a half screens below the timeline they exist to explain.
+
+          Two changes. The breakpoint drops to md (768px) so iPad portrait
+          keeps both columns. And below that, `order` puts the standing
+          context above the timeline, because the profile and patterns are one
+          screen of bounded content while the timeline scrolls without end —
+          anything after it is effectively unreachable. */}
+      <div className="mt-6 grid gap-5 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:items-start">
+        <div className="order-2 space-y-5 md:order-1">
           {/* The timeline leads, because a student record is opened to find out
               what has been happening. Goals sit under it — but the timeline now
               shows a recent window with a control to go further back, so
@@ -257,9 +284,56 @@ export default function StudentDetail() {
               was at 6,594px on a child with a long history before that cap. */}
           <StudentTimeline studentId={studentId} />
           <GoalsSection studentId={studentId} />
+
+          {/* -----------------------------------------------------------------
+              WHERE A SPECIALIST RECORDS A SESSION
+              -----------------------------------------------------------------
+              Saurab: "where does the specialist record logs during sessions?
+              and what sort of system do we have for specialist to save logs?"
+
+              Half of the answer already worked: a session that came from a
+              BOOKED appointment is written up from the Schedule — open the
+              appointment, "Record session", clinical notes plus a summary you
+              choose whether to share. That path is fine.
+
+              The other half was built and then mounted where its user cannot
+              stand. `SessionsSection` renders a "+ Log session" button gated on
+              `role === 'specialist'`, for the session that never had an
+              appointment — the corridor conversation, the unplanned visit, the
+              observation squeezed into a free period. It was rendered in
+              exactly ONE place: `pages/parent/Progress.tsx`. A specialist has
+              no route to that page, so the button existed, was correct, and
+              could not be pressed by the only role permitted to press it.
+
+              This is the write-path-with-no-read-path mistake wearing different
+              clothes — not a column nothing reads, a CONTROL nobody can reach.
+              The component is already role-aware, so mounting it on the record
+              a specialist actually opens is the whole fix: they get "+ Log
+              session", an educator gets the shared list and no button.
+              ----------------------------------------------------------------- */}
+          <SessionsSection studentId={studentId} />
         </div>
 
-        <div className="space-y-5">
+        <div className="order-1 space-y-5 md:order-2">
+          {/* WHAT THE LOGS ADD UP TO, and first in this column on purpose.
+              It belongs on the state side by the rule above — it is what is
+              TRUE NOW about a child rather than something that happened — and
+              it goes at the top because the whole reason it exists is to be
+              read without being hunted for. It renders nothing while loading
+              or on failure, so it never pushes the plan card down over an
+              empty box. */}
+          {/* ABOVE THE PATTERNS, because it is the standing description of a
+              child and the patterns are what has happened to them. It is also
+              the one card a guardian opening this record can read as a
+              description rather than a list of incidents. */}
+          <StudentProfileCard
+            studentId={studentId}
+            firstName={s.first_name}
+            canEdit={canEditProfile}
+          />
+
+          <BehaviourPatterns studentId={studentId} studentName={s.first_name} />
+
           {/* ONE CARD, NOT TWO. Saurab: "what does even having open plan button
               do and what is iep documents there for?" — a fair question, and
               the answer was that they had no hierarchy between them.
@@ -283,9 +357,9 @@ export default function StudentDetail() {
             </p>
             <Link
               to={`${roleBase}/students/${studentId}/iep`}
-              className="pressable mt-3 inline-block rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
+              className="pressable min-h-11 mt-3 inline-flex items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
             >
-              Open plans
+              Open {s.first_name}&rsquo;s plan
             </Link>
 
             <div className="mt-5 border-t border-border pt-4">
@@ -299,7 +373,6 @@ export default function StudentDetail() {
           <GuardianAccessSection studentId={studentId} />
         </div>
       </div>
-
 
       {logging && canLogBehaviour && (
         <BehaviourLogModal

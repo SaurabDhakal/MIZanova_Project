@@ -10,7 +10,11 @@ import {
   type EnquiryRow,
   type EnquiryStatus,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import QueueTabs from '../../components/QueueTabs'
 import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
@@ -86,7 +90,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
   return (
     <li className="rounded-card border border-border bg-card shadow-raised p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="text-lg font-bold text-foreground">{title}</h2>
+        <h2 className="text-section text-foreground">{title}</h2>
         <span
           className={`rounded-btn px-2.5 py-0.5 text-xs font-semibold uppercase ${STATUS_STYLE[enquiry.status]}`}
         >
@@ -115,7 +119,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           <dd>
             <a
               href={`mailto:${enquiry.contact_email}`}
-              className="font-medium text-primary hover:underline"
+              className="-ml-1 inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
             >
               {enquiry.contact_email}
             </a>
@@ -127,7 +131,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
             <dd>
               <a
                 href={`tel:${enquiry.contact_phone}`}
-                className="font-medium text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
               >
                 {enquiry.contact_phone}
               </a>
@@ -242,9 +246,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
               }
               className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
-              {update.isPending
-                ? 'Saving…'
-                : NEXT_STEP_LABEL[enquiry.status]}
+              {update.isPending ? 'Saving…' : NEXT_STEP_LABEL[enquiry.status]}
             </button>
           )}
 
@@ -305,7 +307,12 @@ export default function Enquiries() {
   const counts = useQuery({
     queryKey: queryKeys.queueCounts('enquiries'),
     queryFn: () =>
-      fetchQueueCounts('enquiries', ['new', 'contacted', 'onboarded', 'declined']),
+      fetchQueueCounts('enquiries', [
+        'new',
+        'contacted',
+        'onboarded',
+        'declined',
+      ]),
   })
 
   return (

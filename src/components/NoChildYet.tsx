@@ -32,7 +32,7 @@ export default function NoChildYet({
 }) {
   return (
     <div className="mx-auto max-w-xl rounded-card border border-border bg-card shadow-raised p-8">
-      <h2 className="text-lg font-semibold text-foreground">
+      <h2 className="text-section text-foreground">
         Your account is set up. No child is linked to it yet.
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">

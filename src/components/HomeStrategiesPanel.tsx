@@ -1,5 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { requestHomeStrategies, type HomeAiRequestRow } from '../lib/api'
+import {
+  ApiError,
+  requestHomeStrategies,
+  type HomeAiRequestRow,
+} from '../lib/api'
 import SupportContacts from './SupportContacts'
 
 /**
@@ -79,21 +83,38 @@ export default function HomeStrategiesPanel({
         >
           {ask.isPending ? 'Thinking…' : 'What could we try?'}
         </button>
-        {ask.isError && (
-          <p
-            role="alert"
-            className="mt-2 rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
-          >
-            {ask.error.message}
-          </p>
-        )}
+        {/* A DECISION AND A CRASH DO NOT GET THE SAME COLOUR.
+            Every rejection used to render in the danger palette, so "consent
+            for AI has not been given" reached a parent in the same red as a
+            server fault — and the software had in fact done exactly what
+            somebody in their family asked of it. `isPolicy` is the three
+            answers where nothing is wrong and retrying will not help; they get
+            a neutral surface and `role="status"`, which announces politely
+             instead of interrupting. Real failures keep the red and the
+            assertive `role="alert"`. */}
+        {ask.isError &&
+          (ask.error instanceof ApiError && ask.error.isPolicy ? (
+            <p
+              role="status"
+              className="mt-2 rounded-btn border border-border bg-background p-3 text-sm text-muted-foreground"
+            >
+              {ask.error.message}
+            </p>
+          ) : (
+            <p
+              role="alert"
+              className="mt-2 rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
+            >
+              {ask.error.message}
+            </p>
+          ))}
       </div>
     )
   }
 
   return (
     <details className="mt-3 rounded-card bg-background px-4 py-3">
-      <summary className="cursor-pointer text-sm font-semibold text-primary">
+      <summary className="min-h-11 flex cursor-pointer items-center text-sm font-semibold text-primary">
         {strategies.length > 0
           ? 'Things you could try at home'
           : 'What came back'}{' '}

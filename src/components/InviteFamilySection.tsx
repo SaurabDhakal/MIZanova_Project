@@ -65,7 +65,7 @@ export default function InviteFamilySection() {
 
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold text-foreground">Invite a family</h2>
+      <h2 className="text-section text-foreground">Invite a family</h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">
         Give a parent or carer their own account for one child. They get a code
         that works once, and only from the address you enter here.

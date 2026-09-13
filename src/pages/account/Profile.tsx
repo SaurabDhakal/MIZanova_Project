@@ -14,6 +14,7 @@ import { ErrorState } from '../../components/QueryState'
 import PushNotificationsSection from '../../components/PushNotificationsSection'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import { MFA_REQUIRED_ROLES } from '../../lib/roles'
+import Icon from '../../components/Icon'
 
 /**
  * The Account tab — who this account is, and the facts about it you cannot
@@ -65,7 +66,13 @@ function Pill({
 }
 
 /** One label/value row in the right-hand column. */
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+function Fact({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-b-0">
       <span className="text-sm text-muted-foreground">{label}</span>
@@ -232,7 +239,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
         <section className={card}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Your details</h2>
+              <h2 className="text-section text-foreground">
+                Your details
+              </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {isStaff
                   ? 'How you appear to colleagues and families on every screen.'
@@ -273,11 +282,23 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
                 <Pill>{ROLE_CONFIG[profile.role].label}</Pill>
                 {verificationApplies &&
                   (profile.is_verified ? (
-                    <Pill tone="good">✓ Verified</Pill>
+                    <Pill tone="good">
+                      <span className="inline-flex items-center gap-1">
+                        <Icon name="tick" aria-hidden className="h-3.5 w-3.5" />
+                        Verified
+                      </span>
+                    </Pill>
                   ) : (
                     <Pill tone="warn">Awaiting verification</Pill>
                   ))}
-                {mfaEnrolment === 'enrolled' && <Pill tone="good">✓ 2FA on</Pill>}
+                {mfaEnrolment === 'enrolled' && (
+                  <Pill tone="good">
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="tick" aria-hidden className="h-3.5 w-3.5" />
+                      2FA on
+                    </span>
+                  </Pill>
+                )}
                 {/* REQUIRED OF FOUR ROLES, NOT OF EVERYONE. This warned anybody
                     without an authenticator, so a family — for whom two-factor
                     is deliberately optional, because locking them out of the
@@ -339,8 +360,13 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
                 : 'PNG, JPEG or WebP, up to 2 MB. Nobody shares this account, so this is for the corner of your own screen.'}
           </p>
           {(photoError || upload.isError || removePhoto.isError) && (
-            <p role="alert" className="mt-2 text-sm font-medium text-danger-foreground">
-              {photoError ?? upload.error?.message ?? removePhoto.error?.message}
+            <p
+              role="alert"
+              className="mt-2 text-sm font-medium text-danger-foreground"
+            >
+              {photoError ??
+                upload.error?.message ??
+                removePhoto.error?.message}
             </p>
           )}
 
@@ -373,7 +399,10 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           </div>
 
           {saveName.isError && (
-            <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+            <p
+              role="alert"
+              className="mt-3 text-sm font-medium text-danger-foreground"
+            >
               {saveName.error.message}
             </p>
           )}
@@ -381,7 +410,7 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
 
         {/* --- Email, its own card because it behaves differently ---------- */}
         <section className={card}>
-          <h2 className="text-lg font-bold text-foreground">Email address</h2>
+          <h2 className="text-section text-foreground">Email address</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
             {isStaff
               ? 'What you sign in with, and where invitations and password resets go.'
@@ -477,7 +506,10 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
           </p>
 
           {emailChange.isError && (
-            <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+            <p
+              role="alert"
+              className="mt-3 text-sm font-medium text-danger-foreground"
+            >
               {emailChange.error.message}
             </p>
           )}
@@ -510,7 +542,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
       {/* ================= RIGHT: what you cannot change ================== */}
       <div className="space-y-6">
         <section className={card}>
-          <h2 className="text-lg font-bold text-foreground">Role and session</h2>
+          <h2 className="text-section text-foreground">
+            Role and session
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Set by the platform, not by you.
           </p>
@@ -520,7 +554,10 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             {verificationApplies && (
               <Fact label="Verified">
                 {profile.is_verified ? (
-                  <span className="text-success-foreground">✓ Yes</span>
+                  <span className="inline-flex items-center gap-1 text-success-foreground">
+                    <Icon name="tick" aria-hidden className="h-3.5 w-3.5" />
+                    Yes
+                  </span>
                 ) : (
                   <span className="text-warning-foreground">Not yet</span>
                 )}
@@ -528,7 +565,10 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
             )}
             <Fact label="Two-factor">
               {mfaEnrolment === 'enrolled' ? (
-                <span className="text-success-foreground">✓ Enabled</span>
+                <span className="inline-flex items-center gap-1 text-success-foreground">
+                  <Icon name="tick" aria-hidden className="h-3.5 w-3.5" />
+                  Enabled
+                </span>
               ) : mfaEnrolment === 'none' ? (
                 <span className="text-warning-foreground">Not set up</span>
               ) : (
@@ -573,9 +613,9 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
                 all", which stopped being true with db/081. A note about what
                 is missing has to be maintained as carefully as the features,
                 or it becomes the most confident wrong sentence on the page. */}
-            Notification switches were on that list until the section above
-            them existed. What is still missing there is email: the server can
-            send it, but nothing yet sends a digest of what is waiting.
+            Notification switches were on that list until the section above them
+            existed. What is still missing there is email: the server can send
+            it, but nothing yet sends a digest of what is waiting.
           </p>
         </NotBuiltYet>
 

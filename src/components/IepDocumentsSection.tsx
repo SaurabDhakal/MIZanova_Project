@@ -107,7 +107,12 @@ export default function IepDocumentsSection({
   return (
     <section className="mt-10">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">IEP documents</h2>
+        {/* A SUB-HEADING INSIDE A CARD, so it sits BELOW the card's own heading.
+            It was `text-lg` (18px) while the "Education plan" heading it lives
+            under is `text-section` (17px) — the child louder than its parent.
+            db/054 folded documents into the plan card precisely because they
+            are one subject, and the type was still saying they were two. */}
+        <h3 className="text-sm font-semibold text-foreground">IEP documents</h3>
         {!open && (
           <button
             type="button"
@@ -194,7 +199,7 @@ export default function IepDocumentsSection({
               type="file"
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
+              className="mt-1.5 min-h-11 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground file:mr-3 file:min-h-9 file:rounded-btn file:border-0 file:bg-primary file:px-4 file:text-sm file:font-semibold file:text-primary-foreground"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               PDF, Word or an image, up to {formatBytes(IEP_MAX_BYTES)}. Only

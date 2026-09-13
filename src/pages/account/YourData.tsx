@@ -73,7 +73,7 @@ function ExportSection() {
 
   return (
     <section className="mt-10 rounded-card border border-border bg-card p-6 shadow-raised">
-      <h2 className="text-lg font-bold text-foreground">Take your data</h2>
+      <h2 className="text-section text-foreground">Take your data</h2>
       <p className="mt-2 max-w-prose text-muted-foreground">
         Everything on this account in one file: what you have read, what you
         have paid, what you asked the AI and what it said, and every goal with
@@ -148,7 +148,7 @@ function CloseAccountSection() {
 
   return (
     <section className="mt-10 rounded-card border border-danger bg-card p-6 shadow-raised">
-      <h2 className="text-lg font-bold text-foreground">Close your account</h2>
+      <h2 className="text-section text-foreground">Close your account</h2>
       <p className="mt-2 max-w-prose text-muted-foreground">
         This deletes your account and everything on it. It cannot be undone,
         and we cannot get any of it back for you afterwards.

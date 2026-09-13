@@ -1,9 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import {
-  dismissToast,
-  getToasts,
-  subscribeToToasts,
-} from '../lib/toast'
+import { dismissToast, getToasts, subscribeToToasts } from '../lib/toast'
+import Icon from './Icon'
 
 /**
  * Where confirmations appear. Rendered once, by AppShell.
@@ -43,13 +40,19 @@ export default function Toasts() {
         >
           <span
             aria-hidden="true"
-            className={`text-lg leading-none ${
+            className={`inline-flex leading-none ${
               toast.tone === 'error'
                 ? 'text-danger-foreground'
                 : 'text-success-foreground'
             }`}
           >
-            {toast.tone === 'error' ? '⚠' : '✓'}
+            {/* Drawn icons. '⚠' and '✓' come from whatever the reader's
+                font offers, at whatever baseline it chooses — on the one
+                component that appears over every screen in the product. */}
+            <Icon
+              name={toast.tone === 'error' ? 'flag' : 'tick'}
+              className="h-4 w-4"
+            />
           </span>
           <p
             className={`min-w-0 flex-1 text-sm font-medium ${
@@ -90,7 +93,7 @@ export default function Toasts() {
                 : 'text-success-foreground'
             }`}
           >
-            ✕
+            <Icon name="cross" aria-hidden className="h-4 w-4" />
           </button>
         </div>
       ))}

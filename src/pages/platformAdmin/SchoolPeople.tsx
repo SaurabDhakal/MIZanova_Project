@@ -6,7 +6,11 @@ import {
   queryKeys,
   type PersonRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import InviteStaffSection from '../../components/InviteStaffSection'
 import PageHeader from '../../components/PageHeader'
 import SchoolBadge from '../../components/SchoolBadge'
@@ -74,7 +78,8 @@ function NameList({ label, names }: { label: string; names: string[] }) {
 
   return (
     <p className="mt-1 text-sm text-muted-foreground">
-      {label} <span className="font-medium text-foreground">{names.length}</span> —{' '}
+      {label}{' '}
+      <span className="font-medium text-foreground">{names.length}</span> —{' '}
       <span className="text-foreground">{shown.join(', ')}</span>
       {rest > 0 && <span>, and {rest} more</span>}
     </p>
@@ -96,7 +101,7 @@ function PersonLine({ person }: { person: PersonRow }) {
         {person.email && (
           <a
             href={`mailto:${person.email}`}
-            className="ml-auto text-sm text-primary hover:underline"
+            className="ml-auto inline-flex min-h-11 items-center px-1 text-sm text-primary hover:underline"
           >
             {person.email}
           </a>
@@ -104,10 +109,16 @@ function PersonLine({ person }: { person: PersonRow }) {
       </div>
 
       {person.children.length > 0 && (
-        <NameList label="Guardian of" names={person.children.map((c) => c.display_name)} />
+        <NameList
+          label="Guardian of"
+          names={person.children.map((c) => c.display_name)}
+        />
       )}
       {person.caseload.length > 0 && (
-        <NameList label="Works with" names={person.caseload.map((c) => c.display_name)} />
+        <NameList
+          label="Works with"
+          names={person.caseload.map((c) => c.display_name)}
+        />
       )}
     </li>
   )
@@ -144,7 +155,7 @@ export default function SchoolPeople() {
     <div>
       <Link
         to="/platform-admin/tenants"
-        className="text-sm font-semibold text-primary hover:underline"
+        className="-ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
       >
         ← All schools
       </Link>
@@ -227,7 +238,7 @@ export default function SchoolPeople() {
 
               return (
                 <section key={group.role} className="mb-8">
-                  <h2 className="text-lg font-semibold text-foreground">
+                  <h2 className="text-section text-foreground">
                     {group.heading}{' '}
                     <span className="font-normal text-muted-foreground">
                       ({members.length})

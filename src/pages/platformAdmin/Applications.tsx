@@ -9,7 +9,11 @@ import {
   type ApplicationRow,
   type ApplicationStatus,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import QueueTabs from '../../components/QueueTabs'
 import PageHeader from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
@@ -166,7 +170,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {/* h2: the page title is the only heading above these, so an h3 was
             skipping a level. Each application IS a top-level section here. */}
-        <h2 className="text-lg font-bold text-foreground">
+        <h2 className="text-section text-foreground">
           {application.full_name}
         </h2>
         <span
@@ -188,7 +192,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           <dd>
             <a
               href={`mailto:${application.email}`}
-              className="font-medium text-primary hover:underline"
+              className="-ml-1 inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
             >
               {application.email}
             </a>
@@ -200,7 +204,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
             <dd>
               <a
                 href={`tel:${application.phone}`}
-                className="font-medium text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
               >
                 {application.phone}
               </a>
@@ -218,7 +222,9 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
         {application.regions && (
           <div className="flex gap-2">
             <dt className="text-muted-foreground">Works in</dt>
-            <dd className="font-medium text-foreground">{application.regions}</dd>
+            <dd className="font-medium text-foreground">
+              {application.regions}
+            </dd>
           </div>
         )}
       </dl>
@@ -279,10 +285,13 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
             <dd className="font-mono font-medium text-foreground">
               {application.registration_number ? (
                 <>
-                  {application.registration_body} {application.registration_number}
+                  {application.registration_body}{' '}
+                  {application.registration_number}
                 </>
               ) : (
-                <span className="font-sans text-muted-foreground">not given</span>
+                <span className="font-sans text-muted-foreground">
+                  not given
+                </span>
               )}
             </dd>
           </div>
@@ -333,7 +342,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
             href="https://ocg.nsw.gov.au/working-children-check/wwcc-information-organisations/help-register-and-verify"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-primary hover:underline"
+            className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
           >
             Verify a NSW WWCC — employer portal ↗
           </a>
@@ -341,7 +350,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
             href="https://www.ahpra.gov.au/registration/registers-of-practitioners.aspx"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-primary hover:underline"
+            className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
           >
             AHPRA register ↗
           </a>

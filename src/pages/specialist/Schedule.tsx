@@ -9,7 +9,11 @@ import {
   queryKeys,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import StatTile from '../../components/StatTile'
 import AppointmentCalendar from '../../components/AppointmentCalendar'
 import BookAppointmentForm from '../../components/BookAppointmentForm'
@@ -87,7 +91,9 @@ export default function Schedule() {
 
   const nameOf = (id: string) => {
     const student = students.data?.find((s) => s.id === id)
-    return student ? `${student.first_name} ${student.last_name}` : 'Unknown student'
+    return student
+      ? `${student.first_name} ${student.last_name}`
+      : 'Unknown student'
   }
 
   const thisMonth = new Date().toISOString().slice(0, 7)
@@ -111,7 +117,9 @@ export default function Schedule() {
     ? students.data.filter((s) => !seenThisMonth.has(s.id))
     : []
 
-  const scheduled = (appointments.data ?? []).filter((a) => a.status === 'scheduled')
+  const scheduled = (appointments.data ?? []).filter(
+    (a) => a.status === 'scheduled',
+  )
   /* ------------------------------------------------------------------
      BOOKED AHEAD COUNTED HALF THE DIARY.
      ------------------------------------------------------------------
@@ -194,11 +202,12 @@ export default function Schedule() {
           icon="caseload"
           tone={caseloadKnown && notSeen.length > 0 ? 'warning' : 'default'}
           hint={
-            caseloadKnown ? `of ${students.data.length} on your caseload` : undefined
+            caseloadKnown
+              ? `of ${students.data.length} on your caseload`
+              : undefined
           }
         />
       </div>
-
 
       {/* ------------------------------------------------------------------
           ABOVE THE CALENDAR, BECAUSE SOMEBODY IS WAITING ON IT.
@@ -218,7 +227,7 @@ export default function Schedule() {
 
       {/* --- The calendar --------------------------------------------------- */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Appointments</h2>
+        <h2 className="text-section text-foreground">Appointments</h2>
         <p className="text-sm text-muted-foreground">
           Click a slot to book, or an appointment to open it.
         </p>
@@ -300,12 +309,22 @@ export default function Schedule() {
           <p className="font-semibold text-warning-foreground">
             No session recorded this month for:
           </p>
-          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {/* FOURTEEN NAMES IS A LIST OF TARGETS, NOT A SENTENCE.
+              These were bare underlined links, 17px tall, in a `gap-y-1` wrap
+              — a 21px pitch, so on two rows the rows all but touched and the
+              nearest wrong name was a couple of pixels away. They are also the
+              only thing to DO about this warning: each one goes to the record
+              where the missing session gets written up.
+
+              So they are chips with a real hit area. The underline goes
+              because the border and the hover now carry the affordance, and an
+              underline inside a bordered pill is two signals for one fact. */}
+          <ul className="mt-3 flex flex-wrap gap-2">
             {notSeen.map((student) => (
               <li key={student.id}>
                 <Link
                   to={`/specialist/students/${student.id}`}
-                  className="text-sm font-medium text-warning-foreground underline"
+                  className="pressable inline-flex min-h-11 items-center rounded-btn border border-warning bg-card px-3 text-sm font-medium text-warning-foreground hover:bg-warning-subtle"
                 >
                   {student.first_name} {student.last_name}
                 </Link>
@@ -337,7 +356,7 @@ export default function Schedule() {
                 <button
                   type="button"
                   onClick={() => setSelectedId(appointment.id)}
-                  className="text-sm font-medium text-warning-foreground underline"
+                  className="pressable inline-flex min-h-11 items-center rounded-btn border border-warning bg-card px-3 text-left text-sm font-medium text-warning-foreground hover:bg-warning-subtle"
                 >
                   {nameOf(appointment.student_id)}
                   {' · '}
@@ -361,7 +380,7 @@ export default function Schedule() {
         </div>
       )}
 
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Sessions delivered
       </h2>
 
@@ -380,7 +399,7 @@ export default function Schedule() {
               <div className="min-w-0">
                 <Link
                   to={`/specialist/students/${session.student_id}`}
-                  className="font-semibold text-primary hover:underline"
+                  className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
                 >
                   {nameOf(session.student_id)}
                 </Link>
@@ -415,9 +434,7 @@ export default function Schedule() {
         </ul>
       )}
 
-      {profile && (
-        <WorkingHoursSection specialistId={profile.id} canEdit />
-      )}
+      {profile && <WorkingHoursSection specialistId={profile.id} canEdit />}
 
       <NotBuiltYet>
         <p>

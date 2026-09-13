@@ -230,11 +230,8 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   })
 
   const share = useMutation({
-    mutationFn: (input: {
-      id: string
-      teacher: boolean
-      parents: boolean
-    }) => setSessionSharing(input.id, input),
+    mutationFn: (input: { id: string; teacher: boolean; parents: boolean }) =>
+      setSessionSharing(input.id, input),
     // Same prefix, same reason: the Schedule screen badges each session with
     // who it was shared with.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sessions'] }),
@@ -270,7 +267,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   return (
     <section className="mt-10">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-section text-foreground">
           Specialist sessions
         </h2>
         {isSpecialist && (
@@ -407,20 +404,28 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
             />
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-5">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+          {/* THESE TWO DECIDE WHO READS A CLINICAL SUMMARY, and they were
+              13px boxes inside 20px labels. Size should follow consequence:
+              of every control on this form these are the two that reach
+              outside the specialist team, and they were the smallest things
+              on it. The label now carries the hit area, so the words are
+              part of the target rather than decoration beside it. */}
+          <div className="mt-4 flex flex-wrap gap-x-5">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={shareTeacher}
                 onChange={(e) => setShareTeacher(e.target.checked)}
+                className="h-5 w-5 shrink-0 rounded border-border"
               />
               <span className="text-foreground">Share with the teacher</span>
             </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={shareParents}
                 onChange={(e) => setShareParents(e.target.checked)}
+                className="h-5 w-5 shrink-0 rounded border-border"
               />
               <span className="text-foreground">Share with the family</span>
             </label>
@@ -473,7 +478,8 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
                     <span className="pressable rounded-btn bg-primary-subtle px-2.5 py-1 text-sm font-semibold text-primary">
                       {session.trials_successful} of {session.trials_total} ·{' '}
                       {Math.round(
-                        (session.trials_successful / session.trials_total) * 100,
+                        (session.trials_successful / session.trials_total) *
+                          100,
                       )}
                       %
                     </span>

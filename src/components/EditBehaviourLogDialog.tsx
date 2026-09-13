@@ -14,6 +14,15 @@ import { useAuth } from '../lib/auth'
 import { showToast } from '../lib/toast'
 import { ErrorState } from './QueryState'
 import { useModalDialog } from '../hooks/useModalDialog'
+import ChipRow from './ChipRow'
+import {
+  ANTECEDENTS,
+  SETTING_EVENTS,
+  WHAT_HELPED,
+  type Antecedent,
+  type SettingEvent,
+  type WhatHelped,
+} from '../lib/behaviourContext'
 
 /**
  * Correcting an observation — db/010's update policy, which had no screen.
@@ -70,18 +79,49 @@ function CorrectionForm({
   const [notes, setNotes] = useState(log.notes ?? '')
   const [error, setError] = useState<string | null>(null)
 
+  // db/122. Initialised from the stored row like everything else here, so a
+  // correction that changes only the notes does not silently clear them.
+  const [antecedent, setAntecedent] = useState<Antecedent | null>(
+    log.antecedent ?? null,
+  )
+  const [whatHelped, setWhatHelped] = useState<WhatHelped | null>(
+    log.what_helped ?? null,
+  )
+  const [settingEvents, setSettingEvents] = useState<SettingEvent[]>(
+    log.setting_events ?? [],
+  )
+  // db/125. The escape hatch, and the only part of these fields that can carry
+  // a name — so it is redacted before the model like any other prose.
+  // Only meaningful alongside the matching 'other' code.
+  const [antecedentNote, setAntecedentNote] = useState(log.antecedent_note ?? '')
+  const [whatHelpedNote, setWhatHelpedNote] = useState(log.what_helped_note ?? '')
+  const [settingEventsNote, setSettingEventsNote] = useState(
+    log.setting_events_note ?? '',
+  )
+
   const save = useMutation({
     mutationFn: () =>
       updateBehaviourLog(log.id, {
         behaviourType: behaviour,
         intensity,
         notes,
+        antecedent,
+        whatHelped,
+        settingEvents,
+        antecedentNote: antecedent === 'other' ? antecedentNote : '',
+        whatHelpedNote: whatHelped === 'other' ? whatHelpedNote : '',
+        settingEventsNote,
       }),
     onSuccess: async () => {
       // The same prefix StudentTimeline invalidates after a share, so every
       // page and kind-filter combination of the timeline is refreshed rather
       // than only the one that happens to be on screen.
       await queryClient.invalidateQueries({ queryKey: ['timeline', studentId] })
+      // db/123. The panel counts these logs, so it is wrong the moment one
+      // is written or corrected.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.studentPatterns(studentId),
+      })
       await queryClient.invalidateQueries({
         queryKey: queryKeys.behaviourLog(log.id),
       })
@@ -187,6 +227,66 @@ function CorrectionForm({
             version.
           </p>
         </div>
+
+        {/* --- What was going on (db/122) --------------------------------
+            THE PLACE THIS DATA WILL ACTUALLY COME FROM. A teacher in the
+            middle of an incident is the worst-placed person in the building to
+            answer what was happening just before it — they were dealing with
+            it. The same teacher at lunchtime answers it in four seconds, and
+            this dialog is where they already come to tidy the wording.
+
+            Empty on every log written before db/122, which is what the
+            sentence under the legend is for: it reads as an invitation rather
+            than as three fields somebody forgot to fill in. */}
+        <fieldset className="mt-5 rounded-card border border-border bg-background p-4">
+          <legend className="px-1 text-sm font-semibold text-foreground">
+            What was going on
+          </legend>
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Optional, and worth adding now if it was too busy at the time. It
+            is what makes the AI&rsquo;s suggestions specific to this child
+            rather than general advice.
+          </p>
+
+          {/* CHIPS HERE TOO, for the reason the log modal reverted: this
+              dialog also carries a "What happened" textarea, so a dictated
+              text field beside it would pose the same question twice. The two
+              screens must ask in the same shape or the correction screen reads
+              as a different thing from the logging screen. */}
+          <ChipRow
+            name="edit-antecedent"
+            label="Just before"
+            options={ANTECEDENTS}
+            selected={antecedent}
+            onSelect={setAntecedent}
+            otherValue={antecedentNote}
+            onOtherChange={setAntecedentNote}
+            otherLabel="What happened?"
+          />
+          <ChipRow
+            name="edit-helped"
+            label="What helped"
+            options={WHAT_HELPED}
+            selected={whatHelped}
+            onSelect={setWhatHelped}
+            className="mt-4"
+            otherValue={whatHelpedNote}
+            onOtherChange={setWhatHelpedNote}
+            otherLabel="What did you do?"
+          />
+          <ChipRow
+            name="edit-events"
+            label="Anything different that day"
+            options={SETTING_EVENTS}
+            selected={settingEvents}
+            onSelect={setSettingEvents}
+            multi
+            className="mt-4"
+            otherValue={settingEventsNote}
+            onOtherChange={setSettingEventsNote}
+            otherLabel="What was it?"
+          />
+        </fieldset>
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button

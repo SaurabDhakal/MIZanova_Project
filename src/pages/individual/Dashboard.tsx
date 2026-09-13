@@ -49,7 +49,10 @@ import { ErrorState, LoadingCards } from '../../components/QueryState'
 export default function IndividualHome() {
   const { profile } = useAuth()
 
-  const courses = useQuery({ queryKey: queryKeys.courses, queryFn: fetchCourses })
+  const courses = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: fetchCourses,
+  })
   const enrolments = useQuery({
     queryKey: queryKeys.myEnrolments,
     queryFn: fetchMyEnrolments,
@@ -69,7 +72,10 @@ export default function IndividualHome() {
     queryKey: queryKeys.individualPlan,
     queryFn: fetchIndividualPlan,
   })
-  const tier = useQuery({ queryKey: queryKeys.myAiTier, queryFn: fetchMyAiTier })
+  const tier = useQuery({
+    queryKey: queryKeys.myAiTier,
+    queryFn: fetchMyAiTier,
+  })
   /* Which of the two reasons they are on the paid tier. Asked rather than
      inferred from the purchase list, because a subscription is the answer that
      changes what the card offers to do next. */
@@ -183,27 +189,27 @@ export default function IndividualHome() {
         cta: 'How did it go?',
       }
     : activeGoals[0]
-    ? {
-        eyebrow: 'Pick up where you left off',
-        title: activeGoals[0].title,
-        to: '/individual/goals',
-        cta: 'Check in',
-      }
-    : unfinished
       ? {
-          eyebrow: 'Carry on',
-          title: unfinished.course.title,
-          to: '/individual/academy',
-          cta: `Part ${Math.min(unfinished.done + 1, unfinished.total)} of ${unfinished.total}`,
+          eyebrow: 'Pick up where you left off',
+          title: activeGoals[0].title,
+          to: '/individual/goals',
+          cta: 'Check in',
         }
-      : available[0]
+      : unfinished
         ? {
-            eyebrow: 'Somewhere to start',
-            title: available[0].title,
+            eyebrow: 'Carry on',
+            title: unfinished.course.title,
             to: '/individual/academy',
-            cta: 'Open it',
+            cta: `Part ${Math.min(unfinished.done + 1, unfinished.total)} of ${unfinished.total}`,
           }
-        : null
+        : available[0]
+          ? {
+              eyebrow: 'Somewhere to start',
+              title: available[0].title,
+              to: '/individual/academy',
+              cta: 'Open it',
+            }
+          : null
 
   /*
    * COUNTED, NEVER ESTIMATED, and shown only where the number means something.
@@ -216,9 +222,18 @@ export default function IndividualHome() {
    */
   const partsDone = started.reduce((n, s) => n + s.done, 0)
   const stats = [
-    { n: activeGoals.length, label: activeGoals.length === 1 ? 'goal on the go' : 'goals on the go' },
-    { n: started.length, label: started.length === 1 ? 'course started' : 'courses started' },
-    { n: partsDone, label: partsDone === 1 ? 'part finished' : 'parts finished' },
+    {
+      n: activeGoals.length,
+      label: activeGoals.length === 1 ? 'goal on the go' : 'goals on the go',
+    },
+    {
+      n: started.length,
+      label: started.length === 1 ? 'course started' : 'courses started',
+    },
+    {
+      n: partsDone,
+      label: partsDone === 1 ? 'part finished' : 'parts finished',
+    },
   ]
 
   return (
@@ -305,7 +320,7 @@ export default function IndividualHome() {
               {/* Two lines rather than one truncated. Somebody's own words for
                   their own goal are the last thing that should be cut off
                   mid-word on the narrow screen most people open this on. */}
-              <p className="mt-1 line-clamp-2 text-lg font-semibold text-foreground">
+              <p className="mt-1 line-clamp-2 text-section text-foreground">
                 {nextThing.title}
               </p>
             </div>
@@ -326,24 +341,34 @@ export default function IndividualHome() {
           </h2>
           <ol className="mt-3 space-y-3 text-sm text-foreground">
             <li>
-              <Link to="/individual/goals" className="font-semibold text-primary hover:underline">
+              <Link
+                to="/individual/goals"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
+              >
                 Set one thing you want to be different
               </Link>{' '}
               &mdash; and write down why, because that is the part you will be
               glad of in six weeks.
             </li>
             <li>
-              <Link to="/individual/suggestions" className="font-semibold text-primary hover:underline">
+              <Link
+                to="/individual/suggestions"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
+              >
                 Describe something you are finding hard
               </Link>{' '}
               &mdash; you get a few practical things to try. It will not tell
               you what you have, and nobody else can read it.
             </li>
             <li>
-              <Link to="/individual/academy" className="font-semibold text-primary hover:underline">
+              <Link
+                to="/individual/academy"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
+              >
                 Start a course
               </Link>{' '}
-              &mdash; short, untimed, unscored, and yours to leave half-finished.
+              &mdash; short, untimed, unscored, and yours to leave
+              half-finished.
             </li>
           </ol>
         </section>
@@ -367,56 +392,58 @@ export default function IndividualHome() {
           --------------------------------------------------------------- */}
       <div className="grid gap-x-8 gap-y-10 lg:grid-cols-3">
         <div className="lg:col-span-2">
-        {/* --- what they are working on ------------------------------------- */}
-        {activeGoals.length > 0 && (
-          <>
-            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-              What you are working on
-            </h2>
-            <ul className="space-y-3">
-              {activeGoals.slice(0, 2).map((goal) => {
-                const last = [...goal.individual_goal_checkins].sort(
-                  (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
-                )[0]
-                return (
-                  <li
-                    key={goal.id}
-                    className="rounded-card border border-border bg-card p-5 shadow-raised"
-                  >
-                    <h3 className="font-semibold text-foreground">{goal.title}</h3>
-                    {goal.why && (
-                      <p className="mt-1 max-w-prose border-l-2 border-brand-green pl-3 text-sm text-muted-foreground italic">
-                        {goal.why}
-                      </p>
-                    )}
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {/* THE LAST CHECK-IN, NOT A COUNT. "3 check-ins" says
+          {/* --- what they are working on ------------------------------------- */}
+          {activeGoals.length > 0 && (
+            <>
+              <h2 className="mt-10 mb-3 text-section text-foreground">
+                What you are working on
+              </h2>
+              <ul className="space-y-3">
+                {activeGoals.slice(0, 2).map((goal) => {
+                  const last = [...goal.individual_goal_checkins].sort(
+                    (a, b) => +new Date(b.created_at) - +new Date(a.created_at),
+                  )[0]
+                  return (
+                    <li
+                      key={goal.id}
+                      className="rounded-card border border-border bg-card p-5 shadow-raised"
+                    >
+                      <h3 className="font-semibold text-foreground">
+                        {goal.title}
+                      </h3>
+                      {goal.why && (
+                        <p className="mt-1 max-w-prose border-l border-brand-green pl-3 text-sm text-muted-foreground italic">
+                          {goal.why}
+                        </p>
+                      )}
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {/* THE LAST CHECK-IN, NOT A COUNT. "3 check-ins" says
                           nothing; when they last came back and how it went is
                           the thing that tells them where they are. */}
-                      {last
-                        ? `Last check-in ${new Date(last.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })} — ${
-                            last.how_it_went === 'good'
-                              ? 'went well'
-                              : last.how_it_went === 'mixed'
-                                ? 'mixed'
-                                : 'hard going'
-                          }`
-                        : 'No check-ins yet.'}
-                    </p>
-                    <Link
-                      to="/individual/goals"
-                      className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                    >
-                      Check in &rarr;
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </>
-        )}
+                        {last
+                          ? `Last check-in ${new Date(last.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })} — ${
+                              last.how_it_went === 'good'
+                                ? 'went well'
+                                : last.how_it_went === 'mixed'
+                                  ? 'mixed'
+                                  : 'hard going'
+                            }`
+                          : 'No check-ins yet.'}
+                      </p>
+                      <Link
+                        to="/individual/goals"
+                        className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+                      >
+                        Check in &rarr;
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
 
-        {/* --- what they have started ----------------------------------------
+          {/* --- what they have started ----------------------------------------
             THE HEADING WAS BELOW ITS OWN LIST. It sat after the closing tag of
             the <ul>, so whenever somebody actually had a course on the go the
             card rendered under "What you are working on" — reading as a goal —
@@ -424,149 +451,154 @@ export default function IndividualHome() {
             is the opposite thing. It only labelled the right content in the two
             states where the list does not render at all: the error and the
             empty one. A screen reader got the same wrong grouping, worse. */}
-        <h2 className="mt-8 mb-3 text-lg font-semibold text-foreground">
-          What you have started
-        </h2>
+          <h2 className="mt-8 mb-3 text-section text-foreground">
+            What you have started
+          </h2>
 
-        {enrolmentsKnown && started.length > 0 && (
-          <ul className="space-y-3">
-            {started.map(({ enrolment, course, total, done }) => {
-              const finished = enrolment.completed_at !== null
-              const percent = total === 0 ? 0 : Math.round((done / total) * 100)
-              return (
-                <li
-                  key={enrolment.id}
-                  className="rounded-card border border-border bg-card p-5 shadow-raised"
-                >
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h3 className="font-semibold text-foreground">
-                      {course.title}
-                    </h3>
-                    {finished && (
-                      <span className="rounded-btn bg-success-subtle px-2 py-0.5 text-xs font-semibold text-success-foreground">
-                        Finished
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-                    {course.summary}
-                  </p>
-
-                  <div className="mt-3 flex items-center gap-3">
-                    <div
-                      role="img"
-                      aria-label={`${done} of ${total} parts done`}
-                      className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-background"
-                    >
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${percent}%` }}
-                      />
+          {enrolmentsKnown && started.length > 0 && (
+            <ul className="space-y-3">
+              {started.map(({ enrolment, course, total, done }) => {
+                const finished = enrolment.completed_at !== null
+                const percent =
+                  total === 0 ? 0 : Math.round((done / total) * 100)
+                return (
+                  <li
+                    key={enrolment.id}
+                    className="rounded-card border border-border bg-card p-5 shadow-raised"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h3 className="font-semibold text-foreground">
+                        {course.title}
+                      </h3>
+                      {finished && (
+                        <span className="rounded-btn bg-success-subtle px-2 py-0.5 text-xs font-semibold text-success-foreground">
+                          Finished
+                        </span>
+                      )}
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {done} of {total} {total === 1 ? 'part' : 'parts'}
-                    </span>
-                  </div>
+                    <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+                      {course.summary}
+                    </p>
 
-                  {/* Opens the course it is sitting under, rather than the
+                    <div className="mt-3 flex items-center gap-3">
+                      <div
+                        role="img"
+                        aria-label={`${done} of ${total} parts done`}
+                        className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-background"
+                      >
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {done} of {total} {total === 1 ? 'part' : 'parts'}
+                      </span>
+                    </div>
+
+                    {/* Opens the course it is sitting under, rather than the
                       index. The card names a course and says how far through
                       it you are; landing on a list and hunting for it again is
                       the link not keeping its own promise. */}
-                  <Link
-                    to={`/individual/academy?open=${course.id}`}
-                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                  >
-                    {finished ? 'Read it again →' : 'Carry on →'}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        {!enrolmentsKnown && (
-          <ErrorState
-            message="Your courses could not be loaded, so this is unknown rather than empty. Nothing has been lost — this is a problem reaching the server."
-            onRetry={() => void enrolments.refetch()}
-          />
-        )}
-
-        {enrolmentsKnown && started.length === 0 && (
-          <div className="rounded-card border border-border bg-card p-6 shadow-raised">
-            <p className="max-w-prose text-muted-foreground">
-              Nothing yet. The Academy has short courses you can work through at
-              your own pace — nothing is timed, nothing is scored, and you can
-              stop and come back.
-            </p>
-            <Link
-              to="/individual/academy"
-              className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
-            >
-              Look at the courses
-            </Link>
-          </div>
-        )}
-        {/* --- what else there is -------------------------------------------- */}
-        {available.length > 0 && (
-          <>
-            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-              Also for you
-            </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {available.map((course) => (
-                <li
-                  key={course.id}
-                  className="rounded-card border border-border bg-card p-5 shadow-raised"
-                >
-                  <h3 className="font-semibold text-foreground">{course.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {course.summary}
-                  </p>
-                  <Link
-                    to={`/individual/academy?open=${course.id}`}
-                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                  >
-                    Start it →
-                  </Link>
-                </li>
-              ))}
+                    <Link
+                      to={`/individual/academy?open=${course.id}`}
+                      className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+                    >
+                      {finished ? 'Read it again →' : 'Carry on →'}
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
-          </>
-        )}
+          )}
+          {!enrolmentsKnown && (
+            <ErrorState
+              message="Your courses could not be loaded, so this is unknown rather than empty. Nothing has been lost — this is a problem reaching the server."
+              onRetry={() => void enrolments.refetch()}
+            />
+          )}
 
-        {articles.isSuccess && articles.data.length > 0 && (
-          <p className="mt-8 max-w-prose text-sm text-muted-foreground">
-            There {articles.data.length === 1 ? 'is' : 'are'}{' '}
-            {articles.data.length} short{' '}
-            {articles.data.length === 1 ? 'read' : 'reads'} in the{' '}
-            <Link
-              to="/individual/library"
-              className="font-medium text-primary hover:underline"
-            >
-              Library
-            </Link>{' '}
-            as well.
-          </p>
-        )}
+          {enrolmentsKnown && started.length === 0 && (
+            <div className="rounded-card border border-border bg-card p-6 shadow-raised">
+              <p className="max-w-prose text-muted-foreground">
+                Nothing yet. The Academy has short courses you can work through
+                at your own pace — nothing is timed, nothing is scored, and you
+                can stop and come back.
+              </p>
+              <Link
+                to="/individual/academy"
+                className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
+              >
+                Look at the courses
+              </Link>
+            </div>
+          )}
+          {/* --- what else there is -------------------------------------------- */}
+          {available.length > 0 && (
+            <>
+              <h2 className="mt-10 mb-3 text-section text-foreground">
+                Also for you
+              </h2>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {available.map((course) => (
+                  <li
+                    key={course.id}
+                    className="rounded-card border border-border bg-card p-5 shadow-raised"
+                  >
+                    <h3 className="font-semibold text-foreground">
+                      {course.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {course.summary}
+                    </p>
+                    <Link
+                      to={`/individual/academy?open=${course.id}`}
+                      className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+                    >
+                      Start it →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {articles.isSuccess && articles.data.length > 0 && (
+            <p className="mt-8 max-w-prose text-sm text-muted-foreground">
+              There {articles.data.length === 1 ? 'is' : 'are'}{' '}
+              {articles.data.length} short{' '}
+              {articles.data.length === 1 ? 'read' : 'reads'} in the{' '}
+              <Link
+                to="/individual/library"
+                className="font-medium text-primary hover:underline"
+              >
+                Library
+              </Link>{' '}
+              as well.
+            </p>
+          )}
         </div>
 
         <aside className="lg:col-span-1">
-        {/* A NEW SCREEN WITH ONLY A NAV ICON IS A SCREEN NOBODY OPENS, which is
+          {/* A NEW SCREEN WITH ONLY A NAV ICON IS A SCREEN NOBODY OPENS, which is
             the same fault as the missing public page db/088 shipped without. */}
-        <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
-          <h2 className="font-semibold text-foreground">Stuck on something?</h2>
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Describe it and get a few practical things to try. It will not tell
-            you what you have and it gives no medical advice &mdash; and nobody
-            else can read what you write there.
-          </p>
-          <Link
-            to="/individual/suggestions"
-            className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-          >
-            Ask for suggestions &rarr;
-          </Link>
-        </section>
-        {/* ------------------------------------------------------------------
+          <section className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
+            <h2 className="font-semibold text-foreground">
+              Stuck on something?
+            </h2>
+            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+              Describe it and get a few practical things to try. It will not
+              tell you what you have and it gives no medical advice &mdash; and
+              nobody else can read what you write there.
+            </p>
+            <Link
+              to="/individual/suggestions"
+              className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+            >
+              Ask for suggestions &rarr;
+            </Link>
+          </section>
+          {/* ------------------------------------------------------------------
             WHAT IT COSTS, ON THE SCREEN PEOPLE ACTUALLY OPEN.
             ------------------------------------------------------------------
             The price lived on the public pricing page and on the Payments tab
@@ -589,135 +621,143 @@ export default function IndividualHome() {
             withholding an offer, and it is the sort of thing Special Miles
             should see rather than discover from a support email.
             ------------------------------------------------------------------ */}
-        {/* `tier.data` is in the condition, not just the ternary below. A
+          {/* `tier.data` is in the condition, not just the ternary below. A
             ternary on `=== 'free'` sends undefined down the ELSE branch, so
             while the tier query is in flight — or if it fails — a free account
             would be told "you already have this", which is both wrong and the
             one thing that would stop them subscribing. No answer means no
             card. */}
-        {plan.data?.is_offered && plan.data.price_cents !== null && tier.data && (
-          <section className="mt-4 rounded-card border border-primary bg-primary-subtle p-5">
-            {tier.data === 'free' ? (
-              <>
-                <p className="text-xs font-bold tracking-wider text-primary uppercase">
-                  If you want more of them
-                </p>
-                <p className="mt-1 text-lg font-bold text-foreground">
-                  {formatMoney(plan.data.price_cents, plan.data.currency)}{' '}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    a {plan.data.bill_every}
-                  </span>
-                </p>
-                <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-                  {plan.data.trial_days
-                    ? `Free for the first ${plan.data.trial_days} days. `
-                    : ''}
-                  More suggestions a day, answered by the model that does not
-                  give up on the hard ones. Everything else here stays free
-                  either way.
-                </p>
-                <Link
-                  to="/individual/subscription"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                >
-                  What you get &rarr;
-                </Link>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-bold tracking-wider text-primary uppercase">
-                  You already have this
-                </p>
-                <p className="mt-1 max-w-prose text-sm text-foreground">
-                  {hasLiveSubscription
-                    ? 'You subscribe, so your suggestions are answered by the more capable model and you can ask more times a day.'
-                    : 'Because you have bought a course, your suggestions are answered by the more capable model and you can ask more times a day.'}
-                </p>
-                {/* THE PRICE IS STILL SHOWN. Somebody on the paid tier through
+          {plan.data?.is_offered &&
+            plan.data.price_cents !== null &&
+            tier.data && (
+              <section className="mt-4 rounded-card border border-primary bg-primary-subtle p-5">
+                {tier.data === 'free' ? (
+                  <>
+                    <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                      If you want more of them
+                    </p>
+                    <p className="mt-1 text-section text-foreground">
+                      {formatMoney(plan.data.price_cents, plan.data.currency)}{' '}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        a {plan.data.bill_every}
+                      </span>
+                    </p>
+                    <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+                      {plan.data.trial_days
+                        ? `Free for the first ${plan.data.trial_days} days. `
+                        : ''}
+                      More suggestions a day, answered by the model that does
+                      not give up on the hard ones. Everything else here stays
+                      free either way.
+                    </p>
+                    <Link
+                      to="/individual/subscription"
+                      className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+                    >
+                      What you get &rarr;
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-bold tracking-wider text-primary uppercase">
+                      You already have this
+                    </p>
+                    <p className="mt-1 max-w-prose text-sm text-foreground">
+                      {hasLiveSubscription
+                        ? 'You subscribe, so your suggestions are answered by the more capable model and you can ask more times a day.'
+                        : 'Because you have bought a course, your suggestions are answered by the more capable model and you can ask more times a day.'}
+                    </p>
+                    {/* THE PRICE IS STILL SHOWN. Somebody on the paid tier through
                     a course has not been told what the subscription costs, and
                     withholding it because they happen not to need it today
                     makes the figure feel like something being kept from them. */}
-                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-                  {hasLiveSubscription
-                    ? `${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every}.`
-                    : `The subscription is ${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every} and would give you the same thing, so there is nothing to pay for now.`}
-                </p>
-                <Link
-                  to="/individual/subscription"
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                >
-                  {hasLiveSubscription ? 'Manage it' : 'See the details'} &rarr;
-                </Link>
-              </>
+                    <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                      {hasLiveSubscription
+                        ? `${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every}.`
+                        : `The subscription is ${formatMoney(plan.data.price_cents, plan.data.currency)} a ${plan.data.bill_every} and would give you the same thing, so there is nothing to pay for now.`}
+                    </p>
+                    <Link
+                      to="/individual/subscription"
+                      className="mt-3 -ml-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
+                    >
+                      {hasLiveSubscription ? 'Manage it' : 'See the details'}{' '}
+                      &rarr;
+                    </Link>
+                  </>
+                )}
+              </section>
             )}
-          </section>
-        )}
 
-        {/* --- what they have paid for -------------------------------------- */}
-        {paid.length > 0 && (
-          <>
-            <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-              What you have paid for
-            </h2>
-            <ul className="divide-y divide-border rounded-card border border-border bg-card shadow-raised">
-              {paid.map((purchase) => {
-                /* The course is always readable here even if Special Miles has
+          {/* --- what they have paid for -------------------------------------- */}
+          {paid.length > 0 && (
+            <>
+              <h2 className="mt-10 mb-3 text-section text-foreground">
+                What you have paid for
+              </h2>
+              <ul className="divide-y divide-border rounded-card border border-border bg-card shadow-raised">
+                {paid.map((purchase) => {
+                  /* The course is always readable here even if Special Miles has
                    since unpublished it — that is what db/093 is for. The
                    fallback covers a course that was removed some other way, so
                    the amount is never orphaned. */
-                const course = courses.data.find((c) => c.id === purchase.course_id)
-                return (
-                  <li
-                    key={purchase.id}
-                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
-                  >
-                    <span className="font-medium text-foreground">
-                      {course?.title ?? 'A course that is no longer listed'}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatMoney(purchase.amount_cents, purchase.currency)}
-                      {purchase.paid_at &&
-                        ` · ${new Date(purchase.paid_at).toLocaleDateString('en-AU', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}`}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Yours to keep, even if a course stops being offered to anybody
-              else.
-            </p>
-            {/* The way through, now that receipts live in the account menu
+                  const course = courses.data.find(
+                    (c) => c.id === purchase.course_id,
+                  )
+                  return (
+                    <li
+                      key={purchase.id}
+                      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4"
+                    >
+                      <span className="font-medium text-foreground">
+                        {course?.title ?? 'A course that is no longer listed'}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {formatMoney(purchase.amount_cents, purchase.currency)}
+                        {purchase.paid_at &&
+                          ` · ${new Date(purchase.paid_at).toLocaleDateString(
+                            'en-AU',
+                            {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            },
+                          )}`}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                Yours to keep, even if a course stops being offered to anybody
+                else.
+              </p>
+              {/* The way through, now that receipts live in the account menu
                 rather than the main nav. */}
-            <Link
-              to="/individual/receipts"
-              className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
-            >
-              Receipts &rarr;
-            </Link>
-          </>
-        )}
-        {/* THIS PANEL HAS NOW OUTLIVED BOTH THINGS IT WAS WRITTEN ABOUT.
+              <Link
+                to="/individual/receipts"
+                className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+              >
+                Receipts &rarr;
+              </Link>
+            </>
+          )}
+          {/* THIS PANEL HAS NOW OUTLIVED BOTH THINGS IT WAS WRITTEN ABOUT.
             Paying went first (db/092), and booking went with db/102-104. What is
             left is narrower and true: you can ask for a session, and nothing
             sends anybody an email about it. Kept and narrowed rather than
             deleted, because a note about what is missing has to be maintained as
             carefully as the features or it becomes the most confident wrong
             sentence on the page. */}
-        <section className="mt-10 rounded-card border border-border bg-background p-6">
-          <h2 className="font-semibold text-foreground">Worth knowing</h2>
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            You can ask a specialist for a session, and they answer here. You
-            are emailed when they do, so you do not have to keep checking &mdash;
-            though what you wrote about what you are finding hard stays in this
-            account and never goes in the email. There is no price for a session
-            either, so nobody will ask you for a card.
-          </p>
-        </section>
+          <section className="mt-10 rounded-card border border-border bg-background p-6">
+            <h2 className="font-semibold text-foreground">Worth knowing</h2>
+            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+              You can ask a specialist for a session, and they answer here. You
+              are emailed when they do, so you do not have to keep checking
+              &mdash; though what you wrote about what you are finding hard
+              stays in this account and never goes in the email. There is no
+              price for a session either, so nobody will ask you for a card.
+            </p>
+          </section>
         </aside>
       </div>
     </div>

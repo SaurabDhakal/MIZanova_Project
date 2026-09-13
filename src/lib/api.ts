@@ -3,6 +3,48 @@ import { supabase } from './supabase'
 import { isOfflineFailure } from './offlineQueue'
 import { cacheRoster, readCachedRoster } from './rosterCache'
 import type { Role } from './roles'
+import type { Antecedent, SettingEvent, WhatHelped } from './behaviourContext'
+
+/**
+ * An error that remembers the HTTP status it came from.
+ *
+ * ---------------------------------------------------------------------------
+ * NOT EVERY NON-2xx IS A FAULT
+ * ---------------------------------------------------------------------------
+ * Saurab, on the consent message: "fix that red box". The home-suggestions
+ * panel rendered every rejection in the danger palette with `role="alert"`, so
+ * "consent for AI has not been given" arrived in the same red as a crash. A
+ * parent reading that concludes the product is broken and reports a bug, when
+ * in fact the software worked exactly as somebody in their family asked it to.
+ *
+ * Three answers from that route are decisions rather than failures:
+ *
+ *   403  consent has not been given, or was withdrawn
+ *   429  the daily suggestion limit is reached
+ *   503  an administrator has switched suggestions off
+ *
+ * In all three nothing is wrong, nothing was lost, and retrying now will not
+ * help. They deserve a neutral voice. 5xx and 422 keep the red.
+ *
+ * Only `askHomeStrategies` throws this today. The other twenty-four fetches in
+ * this file still throw a plain Error, and converting them was not part of
+ * this change — `instanceof` narrows safely either way, so a caller that has
+ * not been migrated simply gets the cautious styling it already had.
+ */
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+
+  /** Nothing is broken — a rule or a limit is saying no. */
+  get isPolicy(): boolean {
+    return this.status === 403 || this.status === 429 || this.status === 503
+  }
+}
 
 /**
  * Turn a zero-row update into a visible error.
@@ -14,10 +56,7 @@ import type { Role } from './roles'
  *
  * This has already cost real debugging time in this project, twice.
  */
-function assertChanged(
-  rows: unknown[] | null,
-  what: string,
-): void {
+function assertChanged(rows: unknown[] | null, what: string): void {
   if (!rows || rows.length === 0) {
     throw new Error(
       `${what} was not saved. The database refused the change — usually that means your account does not have permission for this record. Try signing out and back in; if it persists, the assignment behind it is probably missing.`,
@@ -205,13 +244,14 @@ export async function fetchChildGuardians(
 ): Promise<ChildGuardian[]> {
   const { data, error } = await supabase
     .from('student_guardians')
-    .select('profile_id, relationship, is_primary, profiles ( first_name, last_name )')
+    .select(
+      'profile_id, relationship, is_primary, profiles ( first_name, last_name )',
+    )
     .eq('student_id', studentId)
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as ChildGuardian[]
 }
-
 
 export async function fetchStudents(): Promise<StudentRow[]> {
   // Reads localStorage, not the network, so it still answers offline.
@@ -372,7 +412,9 @@ export async function fetchRecentLogs(limit = 20): Promise<RecentLogRow[]> {
     // type level to work out the row shape, and a `'a' + 'b'` expression
     // defeats that — it degrades to GenericStringError[] and the return type
     // stops matching RecentLogRow.
-    .select('id, student_id, behaviour_type, intensity, occurred_at, is_risk_flagged, safeguarding_acknowledged_at')
+    .select(
+      'id, student_id, behaviour_type, intensity, occurred_at, is_risk_flagged, safeguarding_acknowledged_at',
+    )
     .order('occurred_at', { ascending: false })
     .limit(limit)
 
@@ -380,7 +422,8 @@ export async function fetchRecentLogs(limit = 20): Promise<RecentLogRow[]> {
   return data ?? []
 }
 
-export type BehaviourType = 'disruptive' | 'withdrawn' | 'emotional' | 'physical'
+export type BehaviourType =
+  'disruptive' | 'withdrawn' | 'emotional' | 'physical'
 export type BehaviourIntensity = 'standard' | 'medium' | 'high'
 
 /**
@@ -422,6 +465,19 @@ export type NewBehaviourLog = {
    * same observation cannot be saved twice (NFR2).
    */
   clientRef: string
+  /**
+   * The A and the C of ABC — db/122. All three optional, and they stay that
+   * way: a teacher mid-incident taps a behaviour and an intensity and saves,
+   * exactly as before. A required field here would be answered with whatever
+   * is first in the list, which is worse than an honest null.
+   */
+  antecedent?: Antecedent | null
+  whatHelped?: WhatHelped | null
+  settingEvents?: SettingEvent[]
+  /** db/125. Only meaningful alongside the matching 'other' code. */
+  antecedentNote?: string
+  whatHelpedNote?: string
+  settingEventsNote?: string
   /**
    * The teacher's own judgement that this needs a senior person to look at it.
    *
@@ -470,27 +526,43 @@ export async function createBehaviourLog(log: NewBehaviourLog): Promise<void> {
   const { data, error } = await supabase
     .from('behaviour_logs')
     .insert({
-    student_id: log.studentId,
-    logged_by: log.loggedBy,
-    behaviour_type: log.behaviourType,
-    intensity: log.intensity,
-    notes: log.notes.trim() === '' ? null : log.notes.trim(),
-    notes_source: log.notesSource,
-    started_at: log.startedAt.toISOString(),
-    // Null leaves the generated duration_seconds null, which is the honest
-    // answer to "how long did it last?" for a log written up afterwards.
-    ended_at: log.endedAt?.toISOString() ?? null,
-    // The observation happened when the timer started, not when Save was
-    // pressed — a teacher may finish writing it up minutes later.
-    occurred_at: log.startedAt.toISOString(),
-    client_ref: log.clientRef,
-    is_risk_flagged: log.riskFlagged,
-    risk_note:
-      log.riskFlagged && log.riskNote.trim() !== ''
-        ? log.riskNote.trim()
-        : log.riskFlagged
-          ? 'Flagged by the teacher who logged it.'
-          : null,
+      student_id: log.studentId,
+      logged_by: log.loggedBy,
+      behaviour_type: log.behaviourType,
+      intensity: log.intensity,
+      notes: log.notes.trim() === '' ? null : log.notes.trim(),
+      notes_source: log.notesSource,
+      started_at: log.startedAt.toISOString(),
+      // Null leaves the generated duration_seconds null, which is the honest
+      // answer to "how long did it last?" for a log written up afterwards.
+      ended_at: log.endedAt?.toISOString() ?? null,
+      // The observation happened when the timer started, not when Save was
+      // pressed — a teacher may finish writing it up minutes later.
+      occurred_at: log.startedAt.toISOString(),
+      client_ref: log.clientRef,
+      // db/122. Undefined and null both mean "not answered"; the column is
+      // nullable and the array defaults to empty, so an old queued log that
+      // predates these fields still saves.
+      antecedent: log.antecedent ?? null,
+      what_helped: log.whatHelped ?? null,
+      setting_events: log.settingEvents ?? [],
+      // db/125. Kept only where the matching 'other' was actually chosen, so a
+      // teacher who types something then changes their mind does not leave an
+      // orphaned sentence attached to a code that no longer refers to it.
+      antecedent_note:
+        log.antecedent === 'other' ? log.antecedentNote?.trim() || null : null,
+      what_helped_note:
+        log.whatHelped === 'other' ? log.whatHelpedNote?.trim() || null : null,
+      setting_events_note: (log.settingEvents ?? []).includes('other')
+        ? log.settingEventsNote?.trim() || null
+        : null,
+      is_risk_flagged: log.riskFlagged,
+      risk_note:
+        log.riskFlagged && log.riskNote.trim() !== ''
+          ? log.riskNote.trim()
+          : log.riskFlagged
+            ? 'Flagged by the teacher who logged it.'
+            : null,
     })
     .select('id')
 
@@ -578,6 +650,24 @@ export type StudentLogRow = {
   duration_seconds: number | null
   shared_with_parents: boolean
   is_risk_flagged: boolean
+  /**
+   * db/122, db/125 — AND THE MOST HUMANE PART OF THE RECORD TO WITHHOLD.
+   *
+   * A family reading "Physical · high" and nothing else is reading something
+   * frightening with no shape to it. "After being asked to stop an activity; a
+   * familiar adult helped; they had slept badly" is the same incident as a
+   * story with a cause and a resolution — and it says an adult was there and
+   * did something that worked.
+   *
+   * No new access: these sit on a row the guardian policy in db/005 has
+   * already decided they may read.
+   */
+  antecedent: Antecedent | null
+  what_helped: WhatHelped | null
+  setting_events: SettingEvent[] | null
+  antecedent_note: string | null
+  what_helped_note: string | null
+  setting_events_note: string | null
 }
 
 /* fetchStudentLogs lived here. db/056 folded the four per-type lists into
@@ -631,6 +721,13 @@ export type EditableBehaviourLog = {
   occurred_at: string
   logged_by: string | null
   safeguarding_acknowledged_at: string | null
+  // db/122, and null on every log written before it.
+  antecedent: Antecedent | null
+  what_helped: WhatHelped | null
+  setting_events: SettingEvent[] | null
+  antecedent_note: string | null
+  what_helped_note: string | null
+  setting_events_note: string | null
 }
 
 export async function fetchBehaviourLog(
@@ -639,7 +736,10 @@ export async function fetchBehaviourLog(
   const { data, error } = await supabase
     .from('behaviour_logs')
     .select(
-      'id, behaviour_type, intensity, notes, occurred_at, logged_by, safeguarding_acknowledged_at',
+      // ONE STRING LITERAL, NOT A CONCATENATION. supabase-js derives the row
+      // type by parsing this at compile time, so `'a, b' + 'c'` types the
+      // result as GenericStringError and every field below becomes an error.
+      'id, behaviour_type, intensity, notes, occurred_at, logged_by, safeguarding_acknowledged_at, antecedent, what_helped, setting_events, antecedent_note, what_helped_note, setting_events_note',
     )
     .eq('id', logId)
     .single()
@@ -679,6 +779,28 @@ export async function updateBehaviourLog(
     behaviourType: BehaviourType
     intensity: BehaviourIntensity
     notes: string
+    /**
+     * db/122. THIS IS THE MORE IMPORTANT HALF OF THE FEATURE, not an
+     * afterthought to the log modal.
+     *
+     * A teacher in the middle of an incident is the worst-placed person in the
+     * building to answer "what was happening just before?" — they were dealing
+     * with it. The same teacher at lunchtime can answer it easily. So the
+     * correction dialog is where most of this data will actually come from,
+     * and leaving it out would have meant the fields existed and stayed empty.
+     */
+    /*
+     * OMIT TO LEAVE UNCHANGED. Passing the key — even as null — rewrites the
+     * column; leaving it out does not touch it. The correction dialog sends
+     * all of them because a cleared chip must clear the column; HowDidItEnd
+     * sends only `whatHelped`, and must not disturb the rest.
+     */
+    antecedent?: Antecedent | null
+    whatHelped?: WhatHelped | null
+    settingEvents?: SettingEvent[]
+    antecedentNote?: string
+    whatHelpedNote?: string
+    settingEventsNote?: string
   },
 ): Promise<void> {
   /*
@@ -700,6 +822,52 @@ export async function updateBehaviourLog(
       behaviour_type: fields.behaviourType,
       intensity: fields.intensity,
       notes: fields.notes.trim() === '' ? null : fields.notes.trim(),
+      /*
+       * ABSENT MEANS "LEAVE IT ALONE"; null MEANS "CLEAR IT".
+       *
+       * The first version wrote `fields.antecedent ?? null` unconditionally,
+       * which is right for the correction dialog — it sends every field, so a
+       * cleared chip must clear the column. It is catastrophic for anything
+       * that sends a subset: HowDidItEnd answers only "what helped", and it
+       * silently wiped the antecedent and the day's setting events off the log
+       * every time somebody used it.
+       *
+       * Found by saving a log with an antecedent, answering the follow-up, and
+       * reading the row back — the screen still showed the context because it
+       * had rendered before the update landed.
+       */
+      ...('antecedent' in fields
+        ? { antecedent: fields.antecedent ?? null }
+        : {}),
+      ...('whatHelped' in fields
+        ? { what_helped: fields.whatHelped ?? null }
+        : {}),
+      ...('settingEvents' in fields
+        ? { setting_events: fields.settingEvents ?? [] }
+        : {}),
+      ...('antecedent' in fields
+        ? {
+            antecedent_note:
+              fields.antecedent === 'other'
+                ? fields.antecedentNote?.trim() || null
+                : null,
+          }
+        : {}),
+      ...('whatHelped' in fields
+        ? {
+            what_helped_note:
+              fields.whatHelped === 'other'
+                ? fields.whatHelpedNote?.trim() || null
+                : null,
+          }
+        : {}),
+      ...('settingEvents' in fields
+        ? {
+            setting_events_note: (fields.settingEvents ?? []).includes('other')
+              ? fields.settingEventsNote?.trim() || null
+              : null,
+          }
+        : {}),
     })
     .eq('id', logId)
     .select('id')
@@ -878,7 +1046,6 @@ export async function disablePush(): Promise<void> {
 // One definition, in ./apiBase — see the note there about the two copies
 // that drifted apart and broke two-factor sign-in in production.
 
-
 export type StrategyRow = {
   id: string
   behaviour_log_id: string
@@ -888,6 +1055,31 @@ export type StrategyRow = {
   confidence: number
   status: 'published' | 'pending_review' | 'approved' | 'rejected'
   routing_reason: string | null
+  /**
+   * THE EVIDENCE FALLBACK'S OWN FIELDS — db/118, db/124, docs/20 §3.2.
+   *
+   * Present only when the curated library answered instead of the model, which
+   * is what happens during an outage or when the kill switch is pulled. Both
+   * were being returned by the server and rendered by nothing, so a teacher on
+   * the worst day got three unattributed paragraphs.
+   *
+   * db/118 made `provenance` not-null because "a strategy in an evidence
+   * database with no evidence is just an opinion with better placement". That
+   * is only true if somebody can read it.
+   */
+  provenance?: string | null
+  targeted?: boolean
+  /**
+   * The exact text that was sent for this suggestion — db/006.
+   *
+   * Was specialist-only, on the reasoning that reviewers need it. Teachers need
+   * it too, and for a better reason: the WDPBI brief asks for AI that is
+   * "transparent… and designed to support — rather than replace — professional
+   * judgment", and a teacher cannot judge advice whose input they cannot see.
+   * It is also the only way the anonymisation promise on this screen is
+   * checkable by the person the promise is made to.
+   */
+  anonymised_input?: string | null
 }
 
 /**
@@ -919,7 +1111,11 @@ async function nameTheStudent(
   rows: StrategyRow[],
   studentId: string,
 ): Promise<StrategyRow[]> {
-  if (!rows.some((r) => `${r.title}${r.body}${r.rationale.join('')}`.includes('[STUDENT]'))) {
+  if (
+    !rows.some((r) =>
+      `${r.title}${r.body}${r.rationale.join('')}`.includes('[STUDENT]'),
+    )
+  ) {
     return rows
   }
 
@@ -948,8 +1144,12 @@ export async function fetchStrategiesForStudent(
   const { data, error } = await supabase
     .from('ai_strategies')
     .select(
-      'id, behaviour_log_id, title, body, rationale, confidence, status, routing_reason',
+      'id, behaviour_log_id, title, body, rationale, confidence, status, routing_reason, anonymised_input',
     )
+    // db/131. The CURRENT set only. A replaced suggestion stays in the table —
+    // it carries feedback and it is the record of what was said — but it is not
+    // advice any more.
+    .is('superseded_at', null)
     .eq('student_id', studentId)
     .order('created_at', { ascending: false })
 
@@ -1014,147 +1214,18 @@ export async function fetchStrategyStatus(
  * the AI call — happens on the server, so nothing sensitive and no API key
  * passes through here.
  */
-// ---------------------------------------------------------------------------
-// The Evidence Database — db/118, FR12 and E02
-// ---------------------------------------------------------------------------
-
-export type EvidenceStrategy = {
-  id: string
-  lineage_id: string
-  version: number
-  is_current: boolean
-  behaviour_type: BehaviourType
-  title: string
-  body: string
-  rationale: string[]
-  provenance: string
-  created_at: string
-  retired_at: string | null
-  retired_reason: string | null
-}
-
-/** Everything current, for a specialist to manage or a screen to fall back on. */
-export async function fetchEvidenceStrategies(): Promise<EvidenceStrategy[]> {
-  const { data, error } = await supabase
-    .from('evidence_strategies')
-    .select(
-      'id, lineage_id, version, is_current, behaviour_type, title, body, rationale, provenance, created_at, retired_at, retired_reason',
-    )
-    .eq('is_current', true)
-    .order('behaviour_type')
-    .order('title')
-
-  if (error) throw new Error(error.message)
-  return (data ?? []) as EvidenceStrategy[]
-}
-
-/** Every version of one lineage, oldest first — the "version-controlled" half. */
-export async function fetchEvidenceHistory(
-  lineageId: string,
-): Promise<EvidenceStrategy[]> {
-  const { data, error } = await supabase
-    .from('evidence_strategies')
-    .select(
-      'id, lineage_id, version, is_current, behaviour_type, title, body, rationale, provenance, created_at, retired_at, retired_reason',
-    )
-    .eq('lineage_id', lineageId)
-    .order('version')
-
-  if (error) throw new Error(error.message)
-  return (data ?? []) as EvidenceStrategy[]
-}
-
-/**
- * Add a strategy, or a new version of one — db/118.
- *
- * There is no update. Revising inserts a row in the same lineage and takes the
- * previous one out of currency, which is what "version-controlled" means here:
- * a strategy that changed after a teacher used it is still readable as the
- * words they were given.
- *
- * The two writes are not a transaction, and the order is deliberate: the new
- * row goes in FIRST and would collide with the partial unique index if
- * anything went wrong, so a failure leaves the old version current rather than
- * leaving the library with nothing live for that behaviour.
- */
-export async function saveEvidenceStrategy(input: {
-  lineageId?: string
-  behaviourType: BehaviourType
-  title: string
-  body: string
-  rationale: string[]
-  provenance: string
-}): Promise<void> {
-  const { data: session } = await supabase.auth.getUser()
-  const me = session.user?.id
-  if (!me) throw new Error('You are not signed in.')
-
-  if (input.lineageId) {
-    const previous = await fetchEvidenceHistory(input.lineageId)
-    const current = previous.find((v) => v.is_current)
-    if (!current) throw new Error('That strategy has no current version to revise.')
-
-    // Retire the old one first so the partial index has room for the new.
-    const { data: freed, error: freeError } = await supabase
-      .from('evidence_strategies')
-      .update({ is_current: false })
-      .eq('id', current.id)
-      .select('id')
-    if (freeError) throw new Error(freeError.message)
-    assertChanged(freed, 'That revision')
-
-    const { error } = await supabase.from('evidence_strategies').insert({
-      lineage_id: input.lineageId,
-      version: current.version + 1,
-      behaviour_type: input.behaviourType,
-      title: input.title.trim(),
-      body: input.body.trim(),
-      rationale: input.rationale.filter((r) => r.trim()),
-      provenance: input.provenance.trim(),
-      created_by: me,
-    })
-    if (error) {
-      // Put the old one back rather than leaving the lineage with nothing
-      // current — a library that silently loses a strategy is worse than one
-      // that refuses an edit.
-      await supabase
-        .from('evidence_strategies')
-        .update({ is_current: true })
-        .eq('id', current.id)
-      throw new Error(error.message)
-    }
-    return
-  }
-
-  const { error } = await supabase.from('evidence_strategies').insert({
-    lineage_id: crypto.randomUUID(),
-    behaviour_type: input.behaviourType,
-    title: input.title.trim(),
-    body: input.body.trim(),
-    rationale: input.rationale.filter((r) => r.trim()),
-    provenance: input.provenance.trim(),
-    created_by: me,
-  })
-  if (error) throw new Error(error.message)
-}
-
-/** Withdraw one from use. Not a delete — see db/118. */
-export async function retireEvidenceStrategy(
-  id: string,
-  reason: string,
-): Promise<void> {
-  const { data, error } = await supabase
-    .from('evidence_strategies')
-    .update({ retired_at: new Date().toISOString(), retired_reason: reason.trim() || null })
-    .eq('id', id)
-    .select('id')
-
-  if (error) throw new Error(error.message)
-  assertChanged(data, 'That withdrawal')
-}
-
 export async function requestStrategies(
   behaviourLogId: string,
+  /**
+   * db/129. Asking again for the same incident — the "Show different ones"
+   * button db/006's design named and nobody built — optionally with the reason
+   * the first set did not fit.
+   *
+   * The server re-reads what was already shown rather than trusting a list from
+   * here: a browser that could name the titles to avoid could also name titles
+   * nobody ever saw, and steer the model with them.
+   */
+  again?: { because?: string },
 ): Promise<StrategyResponse> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -1168,7 +1239,11 @@ export async function requestStrategies(
       // decides whether you are entitled to it.
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ behaviourLogId }),
+    body: JSON.stringify({
+      behaviourLogId,
+      askAgain: again !== undefined,
+      because: again?.because,
+    }),
   }).catch(() => {
     throw new Error(
       'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
@@ -1358,7 +1433,14 @@ export async function requestHomeStrategies(
   })
 
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status}).`)
+  // ApiError, not Error: the panel styles a withdrawn consent or a reached
+  // limit differently from a crash. See ApiError above.
+  if (!res.ok) {
+    throw new ApiError(
+      body.error ?? `Request failed (${res.status}).`,
+      res.status,
+    )
+  }
   return body as HomeStrategyResponse
 }
 
@@ -1401,7 +1483,7 @@ export async function fetchSharedLogs(
   const { data, error } = await supabase
     .from('behaviour_logs')
     .select(
-      'id, behaviour_type, intensity, notes, notes_source, occurred_at, duration_seconds, shared_with_parents, is_risk_flagged',
+      'id, behaviour_type, intensity, notes, notes_source, occurred_at, duration_seconds, shared_with_parents, is_risk_flagged, antecedent, what_helped, setting_events, antecedent_note, what_helped_note, setting_events_note',
     )
     .eq('student_id', studentId)
     .order('occurred_at', { ascending: false })
@@ -1411,12 +1493,7 @@ export async function fetchSharedLogs(
 }
 
 export type ObservationCategory =
-  | 'language'
-  | 'social_emotional'
-  | 'motor'
-  | 'sensory'
-  | 'cognitive'
-  | 'other'
+  'language' | 'social_emotional' | 'motor' | 'sensory' | 'cognitive' | 'other'
 
 export type HomeObservationRow = {
   id: string
@@ -1464,7 +1541,9 @@ export async function fetchHomeObservations(
  * No student filter: RLS returns a teacher only the children they are assigned
  * to, and a guardian only their own. Used for at-a-glance counts.
  */
-export async function fetchAllHomeObservations(): Promise<HomeObservationRow[]> {
+export async function fetchAllHomeObservations(): Promise<
+  HomeObservationRow[]
+> {
   const { data, error } = await supabase
     .from('home_observations')
     .select(HOME_OBSERVATION_COLUMNS)
@@ -1553,11 +1632,7 @@ export type GoalCategory =
   | 'other'
 
 export type GoalStatus =
-  | 'not_started'
-  | 'on_track'
-  | 'needs_review'
-  | 'achieved'
-  | 'discontinued'
+  'not_started' | 'on_track' | 'needs_review' | 'achieved' | 'discontinued'
 
 export type MilestoneRow = {
   id: string
@@ -1893,8 +1968,7 @@ export async function fetchCareTeam(
   // generated types describe it as an array — hence the double cast.
   const rows = [...(staff.data ?? []), ...(guardians.data ?? [])]
     .map(
-      (row) =>
-        (row as unknown as { profiles: CareTeamMember | null }).profiles,
+      (row) => (row as unknown as { profiles: CareTeamMember | null }).profiles,
     )
     .filter((p): p is CareTeamMember => p !== null)
 
@@ -1913,7 +1987,11 @@ export type ThreadRow = {
   subject: string | null
   last_message_at: string
   /** Which child this conversation is about. Every thread has one. */
-  students: { display_name: string; first_name: string; last_name: string } | null
+  students: {
+    display_name: string
+    first_name: string
+    last_name: string
+  } | null
   thread_participants: {
     profile_id: string
     last_read_at: string | null
@@ -1986,7 +2064,8 @@ export function unreadMessagesInThread(
   return thread.messages.filter(
     (message) =>
       message.sender_id !== profileId &&
-      (lastRead === null || lastRead === undefined ||
+      (lastRead === null ||
+        lastRead === undefined ||
         new Date(message.created_at) > new Date(lastRead)),
   ).length
 }
@@ -2125,10 +2204,11 @@ export async function sendMessage(
         throw new Error(`${attachment.file.name} is not an accepted file type.`)
       }
 
-      const safeName = attachment.file.name
-        .normalize('NFKD')
-        .replace(/[^a-zA-Z0-9._-]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'attachment'
+      const safeName =
+        attachment.file.name
+          .normalize('NFKD')
+          .replace(/[^a-zA-Z0-9._-]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'attachment'
       const path = `${threadId}/${messageId}/${crypto.randomUUID()}-${safeName}`
       const { error: uploadError } = await supabase.storage
         .from('message-attachments')
@@ -2157,7 +2237,9 @@ export async function sendMessage(
     if (error) {
       if (
         attachments.length === 0 &&
-        /send_message_with_attachments|schema cache|function/i.test(error.message)
+        /send_message_with_attachments|schema cache|function/i.test(
+          error.message,
+        )
       ) {
         const { data: auth } = await supabase.auth.getUser()
         const senderId = auth.user?.id
@@ -2180,7 +2262,9 @@ export async function sendMessage(
   }
 }
 
-export async function messageAttachmentUrl(storagePath: string): Promise<string> {
+export async function messageAttachmentUrl(
+  storagePath: string,
+): Promise<string> {
   const { data, error } = await supabase.storage
     .from('message-attachments')
     .createSignedUrl(storagePath, 10 * 60)
@@ -2233,12 +2317,37 @@ export type SafeguardingRow = {
   occurred_at: string
   safeguarding_acknowledged_at: string | null
   safeguarding_note: string | null
+  /**
+   * db/122–125, and THIS IS THE SCREEN THAT NEEDED THEM MOST.
+   *
+   * A safeguarding lead deciding whether a child needs escalating was reading
+   * strictly LESS than the class teacher could see, about the incidents serious
+   * enough to be flagged. The antecedent says what to prevent; `what_helped`
+   * says whether anything an adult did worked — and 'still_escalated' on a
+   * flagged incident is itself a signal.
+   */
+  antecedent: Antecedent | null
+  what_helped: WhatHelped | null
+  setting_events: SettingEvent[] | null
+  antecedent_note: string | null
+  what_helped_note: string | null
+  setting_events_note: string | null
   students: {
     display_name: string
     external_ref: string | null
     year_level: string | null
   } | null
   profiles: { full_name: string } | null
+  /**
+   * WHO signed it off — db/010, and found by the docs/20 §4.1 guard test after
+   * being written and shown nowhere since it was added.
+   *
+   * The screen said "✓ Acknowledged 3 Mar, 14:22" and stopped. On a
+   * safeguarding queue the name is the accountability record: "acknowledged"
+   * with no person attached is a state the software reached, not a decision
+   * somebody made.
+   */
+  acknowledged_by: { full_name: string } | null
 }
 
 /**
@@ -2282,8 +2391,11 @@ export async function fetchSafeguardingQueue(
     .select(
       `id, behaviour_type, intensity, notes, risk_note, occurred_at,
        safeguarding_acknowledged_at, safeguarding_note,
+       antecedent, what_helped, setting_events,
+       antecedent_note, what_helped_note, setting_events_note,
        students ( display_name, external_ref, year_level ),
-       profiles!behaviour_logs_logged_by_fkey ( full_name )`,
+       profiles!behaviour_logs_logged_by_fkey ( full_name ),
+       acknowledged_by:profiles!behaviour_logs_safeguarding_acknowledged_by_fkey ( full_name )`,
       // Same round trip. The count is the whole queue; the rows are a window
       // onto it.
       { count: 'exact' },
@@ -2412,7 +2524,10 @@ export async function fetchMySchool(): Promise<MySchool | null> {
  */
 export async function updateSchoolPolicy(
   id: string,
-  fields: Partial<{ auto_share_updates: boolean; parent_invite_enabled: boolean }>,
+  fields: Partial<{
+    auto_share_updates: boolean
+    parent_invite_enabled: boolean
+  }>,
 ): Promise<void> {
   const { data, error } = await supabase
     .from('schools')
@@ -2760,13 +2875,11 @@ export type AssignmentRow = {
 
 /** Every staff-to-student assignment this admin can see. */
 export async function fetchAssignments(): Promise<AssignmentRow[]> {
-  const { data, error } = await supabase
-    .from('student_educators')
-    .select(
-      `id, student_id, profile_id, assignment,
+  const { data, error } = await supabase.from('student_educators').select(
+    `id, student_id, profile_id, assignment,
        profiles ( full_name, role ),
        students ( display_name )`,
-    )
+  )
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as AssignmentRow[]
@@ -3063,7 +3176,8 @@ function auditQuery(filters: AuditFilters) {
   if (filters.since) q = q.gte('occurred_at', filters.since)
   // search_text is assembled by the view and is not selected — filtering on a
   // column you do not read is allowed, and saves sending it over the wire.
-  if (filters.search) q = q.ilike('search_text', `%${escapeLike(filters.search)}%`)
+  if (filters.search)
+    q = q.ilike('search_text', `%${escapeLike(filters.search)}%`)
   return q
 }
 
@@ -3149,12 +3263,7 @@ export type OrganisationStatus = 'active' | 'trial' | 'suspended' | 'closed'
 
 /** What kind of organisation it is. Not every customer is a school. */
 export type OrganisationKind =
-  | 'school'
-  | 'ecec'
-  | 'montessori'
-  | 'ndis_provider'
-  | 'corporate'
-  | 'practice'
+  'school' | 'ecec' | 'montessori' | 'ndis_provider' | 'corporate' | 'practice'
 
 export type SchoolRow = {
   id: string
@@ -3220,15 +3329,21 @@ export const DELETION_BLOCKERS = [
   'invoices',
 ] as const
 
-export function whatBlocksDeletion(row: SchoolDeletability | undefined): string[] {
+export function whatBlocksDeletion(
+  row: SchoolDeletability | undefined,
+): string[] {
   if (!row) return ['still being counted']
-  return DELETION_BLOCKERS.filter((k) => row[k] > 0).map((k) => `${row[k]} ${k}`)
+  return DELETION_BLOCKERS.filter((k) => row[k] > 0).map(
+    (k) => `${row[k]} ${k}`,
+  )
 }
 
 export async function fetchSchoolDeletability(): Promise<SchoolDeletability[]> {
   const { data, error } = await supabase
     .from('organisation_deletability')
-    .select('id, students, people, memberships, resources, invoices, invitations')
+    .select(
+      'id, students, people, memberships, resources, invoices, invitations',
+    )
 
   if (error) throw new Error(error.message)
   return (data ?? []) as SchoolDeletability[]
@@ -3299,9 +3414,7 @@ export async function fetchSchool(id: string): Promise<SchoolRow | null> {
 export async function fetchAllSchoolKpis(): Promise<
   (KpiOverview & { school_id: string })[]
 > {
-  const { data, error } = await supabase
-    .from('school_kpi_overview')
-    .select('*')
+  const { data, error } = await supabase.from('school_kpi_overview').select('*')
 
   if (error) throw new Error(error.message)
   return (data ?? []) as (KpiOverview & { school_id: string })[]
@@ -3316,13 +3429,278 @@ export type PendingStrategyRow = {
   routing_reason: string | null
   created_at: string
   anonymised_input: string
+  /* Needed to link the card to the child's record. Saurab: "a link to see
+     students history so the ai sugegstion can be compared and reviewed
+     accordingly" — a reviewer judging advice about a child should be one press
+     from that child's timeline, not searching the caseload for them. */
+  student_id: string
+  /* WHERE THIS ROW CAME FROM. Saurab: "can you highlight the ai generated part
+     as well" — asked after finding that all 21 suggestions in his queue were
+     `demo-seed` and none were real model output. A reviewer cannot tell a
+     fabricated card from a genuine one by reading it, and the difference
+     changes what the review even means. */
+  prompt_version: string | null
+  model: string | null
   students: { display_name: string; first_name: string } | null
   behaviour_logs: {
     behaviour_type: BehaviourType
     intensity: BehaviourIntensity
     notes: string | null
     occurred_at: string
+    /* db/122's ABC. The queue showed type and intensity only, which is the
+       thin half of the log — "physical, medium" says nothing about whether it
+       followed a demand or a denied request, and that is the part that decides
+       whether a strategy fits. */
+    antecedent: Antecedent | null
+    what_helped: WhatHelped | null
+    setting_events: SettingEvent[] | null
   } | null
+}
+
+/**
+ * What this specialist has already decided — both paths, newest first.
+ *
+ * ---------------------------------------------------------------------------
+ * `reviewed_by`, `reviewed_at` AND `review_note` WERE WRITE-ONLY
+ * ---------------------------------------------------------------------------
+ * Every review wrote three columns and no specialist screen read any of them
+ * back. A decision was made, the card left the queue, and there was no way to
+ * answer "what did I release last week, and why did I say no to that one?"
+ *
+ * That is this project's recurring fault on the specialist's core
+ * professional act. It also has a consequence beyond tidiness: a review note
+ * is the reasoning behind a clinical judgement about a child, and a school
+ * asked to account for why a suggestion was withheld had nowhere to look.
+ *
+ * ---------------------------------------------------------------------------
+ * ONLY THIS REVIEWER'S OWN DECISIONS
+ * ---------------------------------------------------------------------------
+ * Filtered on `reviewed_by = me` rather than showing everything decided for
+ * the caseload. Two specialists sharing a child both see the queue, so an
+ * unfiltered list would mix their judgements together and read as though one
+ * person had made all of them. Whose call it was is the point of recording it.
+ */
+export type ReviewedStrategyRow = {
+  id: string
+  title: string
+  status: 'approved' | 'rejected'
+  review_note: string | null
+  reviewed_at: string
+  /** 'classroom' from ai_strategies, 'home' from home_ai_strategies. */
+  path: 'classroom' | 'home'
+  student_name: string | null
+  student_id: string | null
+}
+
+export async function fetchMyReviewDecisions(): Promise<ReviewedStrategyRow[]> {
+  const { data: auth } = await supabase.auth.getUser()
+  const me = auth.user?.id
+  if (!me) throw new Error('You are not signed in.')
+
+  /* Two queries rather than a view: the tables reach a student by different
+     routes (one directly, one through the request and the observation), and a
+     view would have to be migrated to add either column. */
+  const [classroom, home] = await Promise.all([
+    supabase
+      .from('ai_strategies')
+      .select(
+        `id, title, status, review_note, reviewed_at, student_id,
+         students ( display_name )`,
+      )
+      .eq('reviewed_by', me)
+      .in('status', ['approved', 'rejected'])
+      .order('reviewed_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('home_ai_strategies')
+      .select(
+        `id, title, status, review_note, reviewed_at,
+         home_ai_requests!inner ( student_id, students ( display_name ) )`,
+      )
+      .eq('reviewed_by', me)
+      .in('status', ['approved', 'rejected'])
+      .order('reviewed_at', { ascending: false })
+      .limit(100),
+  ])
+
+  if (classroom.error) throw new Error(classroom.error.message)
+  if (home.error) throw new Error(home.error.message)
+
+  type ClassroomShape = {
+    id: string
+    title: string
+    status: 'approved' | 'rejected'
+    review_note: string | null
+    reviewed_at: string
+    student_id: string | null
+    students: { display_name: string } | null
+  }
+  type HomeShape = {
+    id: string
+    title: string
+    status: 'approved' | 'rejected'
+    review_note: string | null
+    reviewed_at: string
+    home_ai_requests: {
+      student_id: string | null
+      students: { display_name: string } | null
+    } | null
+  }
+
+  const rows: ReviewedStrategyRow[] = [
+    ...((classroom.data ?? []) as unknown as ClassroomShape[]).map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      review_note: r.review_note,
+      reviewed_at: r.reviewed_at,
+      path: 'classroom' as const,
+      student_name: r.students?.display_name ?? null,
+      student_id: r.student_id,
+    })),
+    ...((home.data ?? []) as unknown as HomeShape[]).map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      review_note: r.review_note,
+      reviewed_at: r.reviewed_at,
+      path: 'home' as const,
+      student_name: r.home_ai_requests?.students?.display_name ?? null,
+      student_id: r.home_ai_requests?.student_id ?? null,
+    })),
+  ]
+
+  /* Merged after the fact, because the two queries each order themselves and
+     "newest first" has to hold across both. */
+  return rows.sort((a, b) => b.reviewed_at.localeCompare(a.reviewed_at))
+}
+
+/**
+ * Suggestions a FAMILY was given and a specialist has not released — db/114.
+ *
+ * ---------------------------------------------------------------------------
+ * THE WAITING ROOM HAD NO DOOR
+ * ---------------------------------------------------------------------------
+ * Saurab: "why cant i see the ai generated suggestion in the review queue".
+ *
+ * Because the queue only ever read `ai_strategies`, the classroom table.
+ * `/api/home-strategies` writes anything under the bar to
+ * `home_ai_strategies` as `pending_review` — FR9's whole point, that a family
+ * loses nothing and a professional decides — and the parent's screen says so
+ * out loud:
+ *
+ *     "One more suggestion has not been shown yet. Waiting for your child's
+ *      specialist to look at it. You will see it here if they release it."
+ *
+ * There was no screen anywhere that showed a specialist those rows. Three of
+ * them were sitting in the table when this was written. So the product was
+ * telling families to wait on a review that could not physically happen.
+ *
+ * db/114 had already built every permission needed —
+ * `home_ai_strategies_select_reviewer` returns pending rows to a specialist
+ * and `home_ai_strategies_review` lets them update the decision. The policies,
+ * the routing and the promise to the family were all written. Only the queue
+ * entry was missing, which is this project's recurring fault in its most
+ * expensive form: not a column nobody reads, a PERSON nobody can reach.
+ *
+ * It is a separate query rather than a union with the classroom queue because
+ * the two need judging differently. A teacher's log has an antecedent, an
+ * intensity and a confidence threshold; a family's observation has a parent's
+ * own words about their evening and no ABC at all. Merging them into one row
+ * shape would have to drop whichever half the other lacks.
+ */
+export type PendingHomeStrategyRow = {
+  id: string
+  title: string
+  body: string
+  rationale: string[]
+  confidence: number
+  routing_reason: string | null
+  created_at: string
+  home_ai_requests: {
+    id: string
+    student_id: string
+    risk_flagged: boolean
+    /* Which model answered. Shown for the same reason the classroom card
+       shows it: a reviewer should not have to assume where advice came from.
+       Every row on this path is real — the home generator has no seed — so
+       here the badge confirms rather than distinguishes. */
+    model: string | null
+    /* How many names or contact details the server stripped out of the
+       family's words before sending them. NOT `asked` — that column holds the
+       redacted title and body concatenated, which is the same observation
+       shown in full below it, so rendering both printed the family's evening
+       twice. The count is the one thing here a reviewer cannot already see. */
+    redaction_count: number
+    home_observations: {
+      title: string
+      body: string
+      observed_on: string
+    } | null
+    students: { display_name: string; first_name: string } | null
+  } | null
+}
+
+export async function fetchPendingHomeStrategies(): Promise<
+  PendingHomeStrategyRow[]
+> {
+  const { data, error } = await supabase
+    .from('home_ai_strategies')
+    .select(
+      `id, title, body, rationale, confidence, routing_reason, created_at,
+       home_ai_requests!inner (
+         id, student_id, risk_flagged, redaction_count, model,
+         home_observations ( title, body, observed_on ),
+         students ( display_name, first_name )
+       )`,
+    )
+    .eq('status', 'pending_review')
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as PendingHomeStrategyRow[]
+}
+
+/**
+ * Release a held home suggestion to the family, or decline it.
+ *
+ * The same optimistic lock as `reviewStrategy`, for the same reason: every
+ * specialist assigned to the child can act, so two of them can hold the same
+ * row open. Matching on the status means the second write affects nothing and
+ * is told why, rather than silently replacing a colleague's decision.
+ *
+ * 'approved' rather than 'published' — `home_ai_strategies_select_guardian`
+ * accepts either, and approved records that a human said yes, which is the
+ * fact worth keeping on a row that was held back.
+ */
+export async function reviewHomeStrategy(
+  strategyId: string,
+  decision: 'approved' | 'rejected',
+  note: string,
+): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser()
+  const reviewerId = auth.user?.id
+  if (!reviewerId) throw new Error('You are not signed in.')
+
+  const { data, error } = await supabase
+    .from('home_ai_strategies')
+    .update({
+      status: decision,
+      reviewed_by: reviewerId,
+      reviewed_at: new Date().toISOString(),
+      review_note: note.trim() === '' ? null : note.trim(),
+    })
+    .eq('id', strategyId)
+    .eq('status', 'pending_review')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      'This suggestion has already been reviewed — most likely by another specialist while you had it open. Reload the queue to see their decision.',
+    )
+  }
 }
 
 /**
@@ -3338,8 +3716,10 @@ export async function fetchPendingStrategies(): Promise<PendingStrategyRow[]> {
     .from('ai_strategies')
     .select(
       `id, title, body, rationale, confidence, routing_reason, created_at, anonymised_input,
+       student_id, prompt_version, model,
        students ( display_name, first_name ),
-       behaviour_logs ( behaviour_type, intensity, notes, occurred_at )`,
+       behaviour_logs ( behaviour_type, intensity, notes, occurred_at,
+                        antecedent, what_helped, setting_events )`,
     )
     .eq('status', 'pending_review')
     .order('created_at', { ascending: true })
@@ -3477,10 +3857,43 @@ export async function reviewStrategy(
       review_note: note.trim() === '' ? null : note.trim(),
     })
     .eq('id', strategyId)
+    /*
+     * ---------------------------------------------------------------------
+     * TWO SPECIALISTS, ONE SUGGESTION
+     * ---------------------------------------------------------------------
+     * Saurab: "what happend to the flagged ai suggestion if there are
+     * multiple specialist in the school?"
+     *
+     * RLS answers the first half: `ai_strategies_select_reviewer` and
+     * `ai_strategies_review` are gated on `can_staff_view_student`, so EVERY
+     * specialist assigned to that child sees the suggestion in their queue and
+     * every one of them may act on it. That is deliberate — a child with two
+     * specialists should not have their advice stuck behind whichever one is
+     * on leave.
+     *
+     * It answered the second half badly. This update matched on `id` alone, so
+     * if both opened the same row, the second decision silently overwrote the
+     * first — a different verdict, a different name in `reviewed_by`, and the
+     * first specialist's review note gone, with nobody told.
+     *
+     * Matching on the status as well makes the second write affect no rows,
+     * which `assertChanged` turns into a message. It is optimistic locking by
+     * the only column that matters: a decision may only be made from the
+     * undecided state.
+     */
+    .eq('status', 'pending_review')
     .select('id')
 
   if (error) throw new Error(error.message)
-  assertChanged(data, 'The review decision')
+
+  if (!data || data.length === 0) {
+    /* Distinguished from the generic permission message, because the likely
+       cause here is a colleague rather than a missing assignment — and the
+       recovery is to reload and read their note, not to sign out and in. */
+    throw new Error(
+      'This suggestion has already been reviewed — most likely by another specialist while you had it open. Reload the queue to see their decision and note.',
+    )
+  }
 }
 
 /**
@@ -3504,6 +3917,49 @@ export async function flagStrategyForReview(
 }
 
 /** "Strategy Applied" / "Not useful" — records an opinion, changes nothing. */
+/**
+ * What I have already said about these suggestions — db/006.
+ *
+ * The panel used to hold this in component state, so pressing "Applied" showed
+ * a sentence at the top of the list and a reload forgot it entirely. That is a
+ * lie by omission in both directions: the record IS durable — it feeds
+ * `student_strategy_outcomes`, which is why a dismissed suggestion is never
+ * offered for that child again — so the screen should show what the database
+ * actually holds.
+ *
+ * MINE, not the school's. Two teachers can disagree about a suggestion and
+ * both verdicts are kept; showing a colleague's answer as though it were yours
+ * would be wrong, and `student_strategy_outcomes` already handles the
+ * disagreement on the generation side.
+ */
+export async function fetchMyStrategyFeedback(
+  strategyIds: string[],
+): Promise<Record<string, 'applied' | 'dismissed'>> {
+  if (strategyIds.length === 0) return {}
+  const { data: sessionData } = await supabase.auth.getSession()
+  const me = sessionData.session?.user.id
+  if (!me) return {}
+
+  const { data, error } = await supabase
+    .from('strategy_feedback')
+    .select('strategy_id, action, created_at')
+    .in('strategy_id', strategyIds)
+    .eq('profile_id', me)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  // Last answer wins: changing your mind is allowed, and db/006 keeps every
+  // row rather than updating one, so the newest is the current verdict.
+  const out: Record<string, 'applied' | 'dismissed'> = {}
+  for (const row of data ?? []) {
+    if (row.action === 'applied' || row.action === 'dismissed') {
+      out[row.strategy_id] = row.action
+    }
+  }
+  return out
+}
+
 export async function recordStrategyFeedback(
   strategyId: string,
   action: 'applied' | 'dismissed',
@@ -3732,7 +4188,9 @@ export type SchoolBillingTotals = {
   no_due_date_cents: number
 }
 
-export async function fetchSchoolBillingTotals(): Promise<SchoolBillingTotals[]> {
+export async function fetchSchoolBillingTotals(): Promise<
+  SchoolBillingTotals[]
+> {
   const { data, error } = await supabase
     .from('school_billing_totals')
     .select('*')
@@ -4123,7 +4581,9 @@ export type CoursePurchase = {
 export async function fetchMyPurchases(): Promise<CoursePurchase[]> {
   const { data, error } = await supabase
     .from('course_purchases')
-    .select('id, course_id, amount_cents, currency, status, paid_at, receipt_number')
+    .select(
+      'id, course_id, amount_cents, currency, status, paid_at, receipt_number',
+    )
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as CoursePurchase[]
@@ -4409,7 +4869,9 @@ export async function setSubscriptionRenewal(
  * The fast path. The webhook is the reliable one and does not care what the
  * browser did — this exists so somebody who has just paid sees it immediately.
  */
-export async function confirmCoursePurchase(sessionId: string): Promise<boolean> {
+export async function confirmCoursePurchase(
+  sessionId: string,
+): Promise<boolean> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('You are not signed in.')
@@ -4517,7 +4979,10 @@ export async function setCoursePrice(
   id: string,
   priceCents: number | null,
 ): Promise<void> {
-  if (priceCents !== null && (!Number.isInteger(priceCents) || priceCents <= 0)) {
+  if (
+    priceCents !== null &&
+    (!Number.isInteger(priceCents) || priceCents <= 0)
+  ) {
     throw new Error('A price has to be a whole number of cents above zero.')
   }
 
@@ -4716,7 +5181,8 @@ export type StudentGoal = {
    * a later edit that adds it back to the markup without knowing why it went.
    */
   category: GoalCategory
-  status: 'not_started' | 'on_track' | 'needs_review' | 'achieved' | 'discontinued'
+  status:
+    'not_started' | 'on_track' | 'needs_review' | 'achieved' | 'discontinued'
   goal_milestones: { id: string; title: string; is_done: boolean }[] | null
 }
 
@@ -4799,9 +5265,14 @@ export async function fetchChildSpecialists(
   if (error) throw new Error(error.message)
   return (data ?? [])
     .map((r) => {
-      const p = (r as unknown as { profiles: { full_name: string; role: string } | null })
-        .profiles
-      return { profile_id: r.profile_id as string, full_name: p?.full_name ?? '', role: p?.role }
+      const p = (
+        r as unknown as { profiles: { full_name: string; role: string } | null }
+      ).profiles
+      return {
+        profile_id: r.profile_id as string,
+        full_name: p?.full_name ?? '',
+        role: p?.role,
+      }
     })
     .filter((r) => r.role === 'specialist' && r.full_name)
     .map(({ profile_id, full_name }) => ({ profile_id, full_name }))
@@ -4851,7 +5322,10 @@ export async function withdrawAppointmentRequest(id: string): Promise<void> {
     .select('id')
 
   if (error) throw new Error(error.message)
-  assertChanged(data, 'That request could not be withdrawn. It may already have been answered.')
+  assertChanged(
+    data,
+    'That request could not be withdrawn. It may already have been answered.',
+  )
 }
 
 export async function fetchAppointmentsForChild(
@@ -4951,7 +5425,9 @@ export type SubscriptionInput = {
  * old row is ENDED rather than replaced — what a school used to pay is the
  * answer to most billing questions, and an invoice already refers to it.
  */
-export async function agreeSubscription(input: SubscriptionInput): Promise<void> {
+export async function agreeSubscription(
+  input: SubscriptionInput,
+): Promise<void> {
   const today = new Date().toISOString().slice(0, 10)
   const auth = await supabase.auth.getUser()
 
@@ -5882,12 +6358,7 @@ export async function fetchStudentAccessEvents(
   )
 
   if (error) throw new Error(error.message)
-  return toPage(
-    data as unknown as StudentAccessEvent[],
-    count,
-    page,
-    PAGE_SIZE,
-  )
+  return toPage(data as unknown as StudentAccessEvent[], count, page, PAGE_SIZE)
 }
 
 /**
@@ -6011,17 +6482,21 @@ export async function fetchResources(): Promise<ResourceRow[]> {
 
   const rows = (data ?? []) as unknown as RawResource[]
 
-  return rows
-    // A row whose upload never finished is a failed upload, not a resource.
-    // Filtered here rather than in each screen so none of them can forget.
-    .filter((r) => r.storage_path !== null)
-    .map((r) => ({
-      ...r,
-      resource_shares: (r.resource_shares ?? []).map((s) => ({
-        ...s,
-        students: Array.isArray(s.students) ? (s.students[0] ?? null) : s.students,
-      })),
-    }))
+  return (
+    rows
+      // A row whose upload never finished is a failed upload, not a resource.
+      // Filtered here rather than in each screen so none of them can forget.
+      .filter((r) => r.storage_path !== null)
+      .map((r) => ({
+        ...r,
+        resource_shares: (r.resource_shares ?? []).map((s) => ({
+          ...s,
+          students: Array.isArray(s.students)
+            ? (s.students[0] ?? null)
+            : s.students,
+        })),
+      }))
+  )
 }
 
 /** Storage keys are safer without spaces and accents; the extension is kept. */
@@ -6108,7 +6583,9 @@ export async function uploadResource(input: {
  * have it — and it stops working shortly after, so a forwarded one is not a
  * lasting hole.
  */
-export async function resourceDownloadUrl(storagePath: string): Promise<string> {
+export async function resourceDownloadUrl(
+  storagePath: string,
+): Promise<string> {
   const { data, error } = await supabase.storage
     .from('resources')
     .createSignedUrl(storagePath, 120)
@@ -6124,11 +6601,69 @@ export async function shareResource(
 ): Promise<void> {
   const { data, error } = await supabase
     .from('resource_shares')
-    .insert({ resource_id: resourceId, student_id: studentId, shared_by: sharedBy })
+    .insert({
+      resource_id: resourceId,
+      student_id: studentId,
+      shared_by: sharedBy,
+    })
     .select('id')
 
   if (error) throw new Error(error.message)
   assertChanged(data, 'The share')
+}
+
+/**
+ * Share one resource with SEVERAL children at once.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY A BATCH, AND WHY IT REPORTS PER CHILD
+ * ---------------------------------------------------------------------------
+ * Saurab: "resources sharing is also lame, how to select students, how to
+ * select multiple students".
+ *
+ * The screen shared one child per interaction, committed the moment a native
+ * `<select>` changed, and a worksheet for six children meant six dropdowns and
+ * six toasts. Worse, an instant commit on `onChange` means a mis-click hands a
+ * clinical resource to the wrong family with no confirm step and no undo.
+ *
+ * One INSERT of many rows would be neater and is the wrong shape here: if one
+ * row fails its RLS check — a child who left the caseload between the page
+ * loading and the button being pressed — the whole statement rolls back and
+ * five correct shares are lost. So each is attempted independently and the
+ * caller is told exactly which succeeded. A partial success is a real outcome
+ * and the screen has to be able to say so.
+ */
+export async function shareResourceWithStudents(
+  resourceId: string,
+  studentIds: string[],
+  sharedBy: string,
+): Promise<{
+  shared: string[]
+  failed: { studentId: string; message: string }[]
+}> {
+  const results = await Promise.allSettled(
+    studentIds.map((studentId) =>
+      shareResource(resourceId, studentId, sharedBy).then(() => studentId),
+    ),
+  )
+
+  const shared: string[] = []
+  const failed: { studentId: string; message: string }[] = []
+
+  results.forEach((result, i) => {
+    if (result.status === 'fulfilled') shared.push(result.value)
+    else {
+      failed.push({
+        studentId: studentIds[i],
+        message:
+          result.reason instanceof Error
+            ? result.reason.message
+            : 'Could not be shared.',
+      })
+    }
+  })
+
+  return { shared, failed }
 }
 
 /** Revoke Access in the design. The acknowledgement goes with it, by cascade. */
@@ -6262,7 +6797,8 @@ export async function createInvitation(input: {
   })
 
   const body = await response.json()
-  if (!response.ok) throw new Error(body.error ?? 'Could not create the invitation.')
+  if (!response.ok)
+    throw new Error(body.error ?? 'Could not create the invitation.')
   return {
     acceptUrl: body.acceptUrl,
     emailSent: body.emailSent === true,
@@ -6288,10 +6824,13 @@ export type InvitationDetails = {
 }
 
 /** Called with no account and no session — see the endpoint for why. */
-export async function peekInvitation(token: string): Promise<InvitationDetails> {
+export async function peekInvitation(
+  token: string,
+): Promise<InvitationDetails> {
   const response = await fetch(`${API_URL}/api/invitations/${token}`)
   const body = await response.json()
-  if (!response.ok) throw new Error(body.error ?? 'That invitation is not valid.')
+  if (!response.ok)
+    throw new Error(body.error ?? 'That invitation is not valid.')
   return body as InvitationDetails
 }
 
@@ -6306,7 +6845,8 @@ export async function acceptInvitation(token: string): Promise<void> {
   })
 
   const body = await response.json()
-  if (!response.ok) throw new Error(body.error ?? 'Could not accept that invitation.')
+  if (!response.ok)
+    throw new Error(body.error ?? 'Could not accept that invitation.')
 }
 
 // ---------------------------------------------------------------------------
@@ -6624,11 +7164,7 @@ export const WWCC_STATES = [
 ] as const
 
 export type ApplicationStatus =
-  | 'new'
-  | 'in_review'
-  | 'more_needed'
-  | 'approved'
-  | 'declined'
+  'new' | 'in_review' | 'more_needed' | 'approved' | 'declined'
 
 export type ApplicationInput = {
   fullName: string
@@ -6747,8 +7283,12 @@ export async function decideSpecialistApplication(
   )
 
   const body = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(body.error ?? 'Could not record that decision.')
-  return { emailSent: body.emailSent === true, emailError: body.emailError ?? null }
+  if (!response.ok)
+    throw new Error(body.error ?? 'Could not record that decision.')
+  return {
+    emailSent: body.emailSent === true,
+    emailError: body.emailError ?? null,
+  }
 }
 
 /**
@@ -6841,7 +7381,8 @@ export async function remindAboutScreening(
   })
 
   const body = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(body.error ?? 'Could not send that reminder.')
+  if (!response.ok)
+    throw new Error(body.error ?? 'Could not send that reminder.')
   return { sent: body.sent === true, recorded: body.recorded !== false }
 }
 
@@ -6868,7 +7409,9 @@ export type UnscreenedRow = {
  * Approved with no screening record at all — more urgent than an expiring one,
  * because there is nothing to expire.
  */
-export async function fetchApprovedWithoutScreening(): Promise<UnscreenedRow[]> {
+export async function fetchApprovedWithoutScreening(): Promise<
+  UnscreenedRow[]
+> {
   const { data, error } = await supabase
     .from('approved_without_screening')
     .select('*')
@@ -6979,14 +7522,19 @@ export type PersonRow = {
  *
  * Parents come from the children, as everywhere else.
  */
-export async function fetchPeopleAtSchool(schoolId: string): Promise<PersonRow[]> {
+export async function fetchPeopleAtSchool(
+  schoolId: string,
+): Promise<PersonRow[]> {
   const [members, students, profiles] = await Promise.all([
     supabase
       .from('memberships')
       .select('profile_id, role')
       .eq('organisation_id', schoolId)
       .is('ended_at', null),
-    supabase.from('students').select('id, display_name').eq('school_id', schoolId),
+    supabase
+      .from('students')
+      .select('id, display_name')
+      .eq('school_id', schoolId),
     supabase.from('profiles').select('id, full_name, email, role, is_verified'),
   ])
 
@@ -7073,7 +7621,9 @@ export type FreelanceSpecialist = {
  * these people have no `profiles` row at all — the list is built from
  * applications, and any screen showing it beside real staff has to say so.
  */
-export async function fetchUnengagedSpecialists(): Promise<FreelanceSpecialist[]> {
+export async function fetchUnengagedSpecialists(): Promise<
+  FreelanceSpecialist[]
+> {
   const [approved, live] = await Promise.all([
     supabase
       .from('specialist_applications')
@@ -7086,7 +7636,9 @@ export async function fetchUnengagedSpecialists(): Promise<FreelanceSpecialist[]
   if (approved.error) throw new Error(approved.error.message)
   if (live.error) throw new Error(live.error.message)
 
-  const engagedIds = new Set((live.data ?? []).map((m) => m.profile_id as string))
+  const engagedIds = new Set(
+    (live.data ?? []).map((m) => m.profile_id as string),
+  )
 
   // The join is by address, because that is the only thing an application and
   // a profile share — an applicant has no profile id until a school invites
@@ -7115,7 +7667,11 @@ export async function fetchUnengagedSpecialists(): Promise<FreelanceSpecialist[]
 }
 
 export type UpcomingGoal = GoalRow & {
-  students: { display_name: string; first_name: string; last_name: string } | null
+  students: {
+    display_name: string
+    first_name: string
+    last_name: string
+  } | null
 }
 
 /**
@@ -7227,7 +7783,12 @@ export async function uploadMyAvatar(file: File): Promise<string> {
   const id = session.session?.user.id
   if (!id) throw new Error('You are not signed in.')
 
-  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+  const ext =
+    file.type === 'image/png'
+      ? 'png'
+      : file.type === 'image/webp'
+        ? 'webp'
+        : 'jpg'
   const path = `${id}/avatar.${ext}`
 
   const { data: existing } = await supabase.storage.from('avatars').list(id)
@@ -7495,13 +8056,19 @@ export async function fetchSchoolPeoplePage(options: {
   ]
 
   const students = studentIds.length
-    ? await supabase.from('students').select('id, display_name').in('id', studentIds)
+    ? await supabase
+        .from('students')
+        .select('id, display_name')
+        .in('id', studentIds)
     : { data: [], error: null }
 
   if (students.error) throw new Error(students.error.message)
 
   const nameOf = new Map(
-    (students.data ?? []).map((s) => [s.id as string, s.display_name as string]),
+    (students.data ?? []).map((s) => [
+      s.id as string,
+      s.display_name as string,
+    ]),
   )
 
   const rows: PersonRow[] = people.map((person) => ({
@@ -7662,7 +8229,9 @@ export async function createStudents(
 
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
-    const { error } = await supabase.from('students').insert(chunk.map(toRecord))
+    const { error } = await supabase
+      .from('students')
+      .insert(chunk.map(toRecord))
 
     if (!error) {
       outcome.created += chunk.length
@@ -7715,11 +8284,7 @@ function explainInsertError(message: string): string {
  */
 
 export type TimelineKind =
-  | 'behaviour'
-  | 'home'
-  | 'session'
-  | 'milestone'
-  | 'plan'
+  'behaviour' | 'home' | 'session' | 'milestone' | 'plan'
 
 export type TimelineRow = {
   kind: TimelineKind
@@ -7734,6 +8299,22 @@ export type TimelineRow = {
   is_flagged: boolean | null
   shared_with_parents: boolean | null
   actor_id: string | null
+  /**
+   * db/123. Null on every row that is not a behaviour log, and on every
+   * behaviour log written before db/122 — which is most of them, and why the
+   * screen must render their absence as nothing at all rather than as a gap.
+   */
+  antecedent: Antecedent | null
+  what_helped: WhatHelped | null
+  setting_events: SettingEvent[] | null
+  /**
+   * db/125. WITHOUT THESE THE ESCAPE HATCH IS UNREADABLE — a teacher who
+   * dictated "the fire alarm went off" would read back "after something else",
+   * which is worse than having left it blank.
+   */
+  antecedent_note: string | null
+  what_helped_note: string | null
+  setting_events_note: string | null
 }
 
 export const TIMELINE_KIND_LABEL: Record<TimelineKind, string> = {
@@ -7758,7 +8339,9 @@ export async function fetchStudentTimeline(options: {
     .from('student_timeline')
     .select(
       `kind, source_id, occurred_at, title, detail, behaviour_type, intensity,
-       duration_seconds, is_flagged, shared_with_parents, actor_id`,
+       duration_seconds, is_flagged, shared_with_parents, actor_id,
+       antecedent, what_helped, setting_events,
+       antecedent_note, what_helped_note, setting_events_note`,
       { count: 'exact' },
     )
     .eq('student_id', options.studentId)
@@ -7772,7 +8355,279 @@ export async function fetchStudentTimeline(options: {
     .range(from, from + TIMELINE_PAGE_SIZE - 1)
 
   if (error) throw new Error(error.message)
-  return toPage(data as TimelineRow[] | null, count, options.page, TIMELINE_PAGE_SIZE)
+  return toPage(
+    data as TimelineRow[] | null,
+    count,
+    options.page,
+    TIMELINE_PAGE_SIZE,
+  )
+}
+
+/* ---------------------------------------------------------------------------
+ * How the AI is actually behaving — A04, db/118, docs/20 §3.3
+ * ---------------------------------------------------------------------------
+ * `ai_generation_events.source` has recorded 'ai' or 'evidence' since db/118
+ * specifically so requirement A04 — "review the ratio of AI-generated
+ * strategies versus Database-only usage" — could be answered, and no screen
+ * has ever asked. `prompt_version` likewise: three versions now exist across
+ * the table and nothing can tell them apart, so "did v3 beat v2" — the only
+ * honest way to know whether any of this work helped — is unanswerable.
+ *
+ * COUNTS, NOT A SCORE. db/006 refused a fabricated accuracy figure and this
+ * keeps that bargain: the numbers are what happened, and what they mean is left
+ * to the person reading them.
+ * ------------------------------------------------------------------------ */
+
+export type AiActivity = {
+  bySource: { source: string; runs: number }[]
+  byPrompt: { prompt_version: string; strategies: number }[]
+  /** How often a teacher told us a suggestion was useless. */
+  feedback: { action: string; times: number }[]
+}
+
+export async function fetchAiActivity(): Promise<AiActivity> {
+  const [events, strategies, feedback] = await Promise.all([
+    supabase.from('ai_generation_events').select('source'),
+    supabase.from('ai_strategies').select('prompt_version'),
+    supabase.from('strategy_feedback').select('action'),
+  ])
+
+  if (events.error) throw new Error(events.error.message)
+  if (strategies.error) throw new Error(strategies.error.message)
+  if (feedback.error) throw new Error(feedback.error.message)
+
+  const tally = <T extends string>(
+    rows: { [k: string]: unknown }[],
+    key: string,
+  ) => {
+    const counts = new Map<T, number>()
+    for (const row of rows) {
+      const value = String(row[key] ?? 'unknown') as T
+      counts.set(value, (counts.get(value) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  }
+
+  return {
+    bySource: tally(events.data ?? [], 'source').map(([source, runs]) => ({
+      source,
+      runs,
+    })),
+    byPrompt: tally(strategies.data ?? [], 'prompt_version').map(
+      ([prompt_version, count]) => ({ prompt_version, strategies: count }),
+    ),
+    feedback: tally(feedback.data ?? [], 'action').map(([action, times]) => ({
+      action,
+      times,
+    })),
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * What a school knows before anything happens — db/127
+ * ---------------------------------------------------------------------------
+ * Everything the AI knew about a child used to come from an incident, so every
+ * suggestion was written as though the only thing worth knowing about a child
+ * is what went wrong.
+ *
+ * `helps` and `triggers` use the SAME vocabularies a teacher taps when they
+ * log, which is what lets a screen compare what a school believes about a child
+ * against what it has actually recorded.
+ * ------------------------------------------------------------------------ */
+
+export type StudentProfile = {
+  interests: string | null
+  strengths: string | null
+  /** Deliberately not "weaknesses" — see db/127. */
+  finds_hard: string | null
+  helps: WhatHelped[]
+  triggers: Antecedent[]
+}
+
+/**
+ * An empty one, so a caller never has to spell out five nulls.
+ *
+ * Here rather than beside the component that uses it: a module exporting both a
+ * component and a constant breaks React Fast Refresh, and this belongs with the
+ * type it is an instance of anyway.
+ */
+export const EMPTY_PROFILE: StudentProfile = {
+  interests: null,
+  strengths: null,
+  finds_hard: null,
+  helps: [],
+  triggers: [],
+}
+
+/** Null when nobody has written one yet, which is different from an empty one. */
+export async function fetchStudentProfile(
+  studentId: string,
+): Promise<StudentProfile | null> {
+  const { data, error } = await supabase
+    .from('student_profiles')
+    .select('interests, strengths, finds_hard, helps, triggers')
+    .eq('student_id', studentId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data as StudentProfile | null) ?? null
+}
+
+export async function saveStudentProfile(
+  studentId: string,
+  input: StudentProfile,
+): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const userId = sessionData.session?.user.id
+  if (!userId) throw new Error('You are not signed in.')
+
+  const blank = (value: string | null) => value?.trim() || null
+
+  const { error } = await supabase.from('student_profiles').upsert(
+    {
+      student_id: studentId,
+      interests: blank(input.interests),
+      strengths: blank(input.strengths),
+      finds_hard: blank(input.finds_hard),
+      helps: input.helps,
+      triggers: input.triggers,
+      updated_by: userId,
+    },
+    // The primary key. db/127 makes the student the key precisely so this
+    // cannot create a second profile for one child.
+    { onConflict: 'student_id' },
+  )
+
+  if (error) throw new Error(error.message)
+}
+
+/* ---------------------------------------------------------------------------
+ * What was different about today — db/125
+ * ---------------------------------------------------------------------------
+ * A relief teacher covering a room of thirty would otherwise tap "Relief staff
+ * today" thirty times, and a wet lunchtime is the same fact repeated for every
+ * child in the building. Said once, copied onto each log at write time — so
+ * the pattern function needs no join and one child's row can still disagree
+ * with the day.
+ *
+ * ONLY EVER MY OWN. The row is a note somebody wrote about their working day,
+ * not a record about a child, and the RLS in db/125 admits nobody else. The
+ * FACT reaches the people who need it by being copied onto the logs, which are
+ * governed by the policies that already decide who may see a child's record.
+ * ------------------------------------------------------------------------ */
+
+export type DayContext = {
+  setting_events: SettingEvent[]
+  note: string | null
+}
+
+/** Today's, or null when nothing has been said about today. */
+export async function fetchTodayContext(): Promise<DayContext | null> {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const userId = sessionData.session?.user.id
+  if (!userId) return null
+
+  const { data, error } = await supabase
+    .from('school_day_context')
+    .select('setting_events, note')
+    .eq('profile_id', userId)
+    // The DATE the browser is in, not the server's. A teacher in Perth setting
+    // this at 9am must not be handed yesterday's row because a database in
+    // another timezone has not rolled over yet.
+    .eq('context_date', localDateString())
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return (data as DayContext | null) ?? null
+}
+
+export async function setTodayContext(input: {
+  settingEvents: SettingEvent[]
+  note: string
+}): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const userId = sessionData.session?.user.id
+  if (!userId) throw new Error('You are not signed in.')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('school_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!profile?.school_id) {
+    throw new Error('Only somebody attached to a school can set this.')
+  }
+
+  const { error } = await supabase.from('school_day_context').upsert(
+    {
+      profile_id: userId,
+      school_id: profile.school_id,
+      context_date: localDateString(),
+      setting_events: input.settingEvents,
+      note: input.settingEvents.includes('other')
+        ? input.note.trim() || null
+        : null,
+    },
+    // The unique index db/125 declares. Saying it again tomorrow makes a new
+    // row; saying it twice today edits the one that exists.
+    { onConflict: 'profile_id,context_date' },
+  )
+
+  if (error) throw new Error(error.message)
+}
+
+/** Today where the person is, as YYYY-MM-DD. */
+function localDateString(): string {
+  const now = new Date()
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+/* ---------------------------------------------------------------------------
+ * What this child's own history says — db/122, db/123
+ * ---------------------------------------------------------------------------
+ * The counting happens in Postgres. A GROUP BY costs nothing, cannot get
+ * arithmetic wrong, and returns the same numbers to a screen and to the
+ * strategy prompt — which matters more than it sounds: a teacher who reads
+ * "4 of 6 followed a demand" on the page and then sees the AI say something
+ * different has been given two versions of their own classroom.
+ *
+ * EVERY FIGURE CARRIES ITS SAMPLE SIZE, and the caller is expected to show it.
+ * The function withholds the recovery trend below six timed incidents rather
+ * than reporting a direction drawn from two.
+ * ------------------------------------------------------------------------ */
+
+export type BehaviourPatterns = {
+  window_days: number
+  total: number
+  top_antecedent?: { value: Antecedent; times: number }
+  what_has_helped?: { value: WhatHelped; times: number }[]
+  peak_hour?: { hour: number; times: number }
+  common_setting_events?: { value: SettingEvent; times: number }[]
+  /** Absent unless it has happened at least once — never zero. */
+  nothing_worked?: number
+  /**
+   * db/125. How often the vocabulary failed the person using it. A term with a
+   * high count is a term in which the lists need revising, and nothing else
+   * anywhere would ever say so.
+   */
+  did_not_fit?: number
+  recovery_trend?: 'lengthening' | 'shortening' | 'steady'
+  recovery_trend_from?: number
+}
+
+export async function fetchStudentPatterns(
+  studentId: string,
+): Promise<BehaviourPatterns> {
+  const { data, error } = await supabase.rpc('student_behaviour_patterns', {
+    p_student_id: studentId,
+  })
+  if (error) throw new Error(error.message)
+  return data as BehaviourPatterns
 }
 
 // ---------------------------------------------------------------------------
@@ -7785,17 +8640,10 @@ export async function fetchStudentTimeline(options: {
  */
 
 export type IepPlanStatus =
-  | 'draft'
-  | 'agreed'
-  | 'in_review'
-  | 'closed'
-  | 'superseded'
+  'draft' | 'agreed' | 'in_review' | 'closed' | 'superseded'
 
 export type IepReviewOutcome =
-  | 'not_met'
-  | 'partially_met'
-  | 'fully_met'
-  | 'exceeded'
+  'not_met' | 'partially_met' | 'fully_met' | 'exceeded'
 
 export const IEP_STATUS_LABEL: Record<IepPlanStatus, string> = {
   draft: 'Draft',
@@ -8064,7 +8912,10 @@ export async function fetchIepPlanConfirmations(
  * get to name a profile, because db/054 would refuse it anyway and an argument
  * that is always `auth.uid()` is an invitation to try.
  */
-export async function confirmIepPlan(asGuardian: boolean, planId: string): Promise<void> {
+export async function confirmIepPlan(
+  asGuardian: boolean,
+  planId: string,
+): Promise<void> {
   const { data: session } = await supabase.auth.getUser()
   const profileId = session.user?.id
   if (!profileId) throw new Error('You are signed out. Sign in and try again.')
@@ -8526,7 +9377,9 @@ async function countUnreadThreads(): Promise<number> {
 
   const { data, error } = await supabase
     .from('thread_participants')
-    .select('last_read_at, message_threads!inner(last_message_at, messages(count))')
+    .select(
+      'last_read_at, message_threads!inner(last_message_at, messages(count))',
+    )
     .eq('profile_id', me)
 
   if (error) throw new Error(error.message)
@@ -8568,20 +9421,20 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
             ]
           : role === 'educator'
             ? [['unreadThreads', countUnreadThreads()]]
-            /*
-             * A STUDENT HAS AN EMPTY QUEUE, SAID EXPLICITLY.
-             *
-             * Without this branch db/074's new role falls into the parent one
-             * below and the bell asks for unread threads and invoices due —
-             * two things a student is not permitted to see. RLS returns 0 for
-             * both rather than an error, so nothing would look broken: the
-             * bell would just quietly report a number that cannot mean
-             * anything, about money a child does not owe.
-             *
-             * The bell counts work waiting for YOU. A student has one screen
-             * and nothing on it to action, so the honest count is none.
-             */
-            : role === 'individual'
+            : /*
+               * A STUDENT HAS AN EMPTY QUEUE, SAID EXPLICITLY.
+               *
+               * Without this branch db/074's new role falls into the parent one
+               * below and the bell asks for unread threads and invoices due —
+               * two things a student is not permitted to see. RLS returns 0 for
+               * both rather than an error, so nothing would look broken: the
+               * bell would just quietly report a number that cannot mean
+               * anything, about money a child does not owe.
+               *
+               * The bell counts work waiting for YOU. A student has one screen
+               * and nothing on it to action, so the honest count is none.
+               */
+              role === 'individual'
               ? /* NO LONGER EMPTY, and the reason is worth keeping. This said
                    nothing waits for somebody with no school — no threads, no
                    invoices, no child — and that was true until db/103 let a
@@ -8593,11 +9446,11 @@ export async function fetchWorkQueue(role: Role): Promise<WorkQueue> {
                   ['goalsToLookAt', countGoalsToLookAt()],
                 ] as [keyof WorkQueue, Promise<number>][])
               : role === 'student'
-              ? []
-              : [
-                  ['unreadThreads', countUnreadThreads()],
-                  ['invoicesDue', countInvoicesDue()],
-                ]
+                ? []
+                : [
+                    ['unreadThreads', countUnreadThreads()],
+                    ['invoicesDue', countInvoicesDue()],
+                  ]
 
   const settled = await Promise.allSettled(jobs.map(([, p]) => p))
 
@@ -8739,7 +9592,10 @@ export async function requestSelfStrategies(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ text, aboutSuggestionId: aboutSuggestionId ?? null }),
+    body: JSON.stringify({
+      text,
+      aboutSuggestionId: aboutSuggestionId ?? null,
+    }),
   }).catch(() => {
     throw new Error(
       'Could not reach the API server. Is it running? Start it with `npm run server` in a second terminal.',
@@ -8877,12 +9733,12 @@ export const NUDGE_AFTER_DAYS = 7
  * A snooze wins over everything. Somebody who said not now meant it, and the
  * date they chose is the date — nothing here second-guesses it.
  */
-export function goalNeedsAsking(goal: IndividualGoal, now = Date.now()): boolean {
+export function goalNeedsAsking(
+  goal: IndividualGoal,
+  now = Date.now(),
+): boolean {
   if (goal.status !== 'active') return false
-  if (
-    goal.nudge_snoozed_until &&
-    +new Date(goal.nudge_snoozed_until) > now
-  ) {
+  if (goal.nudge_snoozed_until && +new Date(goal.nudge_snoozed_until) > now) {
     return false
   }
   const last = goal.individual_goal_checkins.reduce<number>(
@@ -8920,9 +9776,7 @@ export async function snoozeGoalNudge(
   const { error } = await supabase
     .from('individual_goals')
     .update({
-      nudge_snoozed_until: new Date(
-        Date.now() + days * 86400000,
-      ).toISOString(),
+      nudge_snoozed_until: new Date(Date.now() + days * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', goalId)
@@ -9190,7 +10044,9 @@ export type IndividualBooking = {
   outcome_note: string | null
 }
 
-export async function fetchBookableSpecialists(): Promise<BookableSpecialist[]> {
+export async function fetchBookableSpecialists(): Promise<
+  BookableSpecialist[]
+> {
   const { data, error } = await supabase
     .from('bookable_specialists')
     .select('id, full_name, avatar_path, availability_bands')
@@ -9327,7 +10183,8 @@ async function bookingCall(
   })
 
   const parsed = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(parsed.error ?? `Request failed (${res.status}).`)
+  if (!res.ok)
+    throw new Error(parsed.error ?? `Request failed (${res.status}).`)
 }
 
 export async function requestBooking(input: {
@@ -9469,6 +10326,11 @@ export async function setAiMemory(on: boolean): Promise<void> {
 
 export const queryKeys = {
   workQueue: (role: Role) => ['work-queue', role] as const,
+  studentPatterns: (id: string) => ['student-patterns', id] as const,
+  studentProfile: (id: string) => ['student-profile', id] as const,
+  myStrategyFeedback: (logId: string) => ['strategy-feedback', logId] as const,
+  aiActivity: ['ai-activity'] as const,
+  todayContext: ['today-context'] as const,
   schoolPeoplePage: (search: string, group: string, page: number) =>
     ['school-people', 'page', group, search, page] as const,
   upcomingGoals: ['upcoming-goals'] as const,
@@ -9489,7 +10351,8 @@ export const queryKeys = {
   studentAccess: ['student-access'] as const,
   childOverview: (studentId: string) => ['child-overview', studentId] as const,
   childCareTeam: (studentId: string) => ['child-care-team', studentId] as const,
-  childGuardians: (studentId: string) => ['child-guardians', studentId] as const,
+  childGuardians: (studentId: string) =>
+    ['child-guardians', studentId] as const,
   schoolBrief: (schoolId: string) => ['school-brief', schoolId] as const,
   systemEvents: ['system-events'] as const,
   sessions: (studentId: string) => ['sessions', studentId] as const,
@@ -9508,10 +10371,11 @@ export const queryKeys = {
   studentLogs: (id: string) => ['student-logs', id] as const,
   studentStrategies: (id: string) => ['student-strategies', id] as const,
   pendingStrategies: ['pending-strategies'] as const,
+  pendingHomeStrategies: ['pending-home-strategies'] as const,
+  myReviewDecisions: ['my-review-decisions'] as const,
   sharedLogs: (id: string) => ['shared-logs', id] as const,
   homeObservations: (id: string) => ['home-observations', id] as const,
   homeStrategies: (id: string) => ['home-strategies', id] as const,
-  evidenceStrategies: ['evidence-strategies'] as const,
   goalReviews: (id: string) => ['goal-reviews', id] as const,
   openGoalReviews: ['open-goal-reviews'] as const,
   childSpecialists: (id: string) => ['child-specialists', id] as const,

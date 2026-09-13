@@ -16,7 +16,11 @@ import {
   type OrganisationStatus,
   type SchoolRow,
 } from '../../lib/api'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import AddSchoolSection from '../../components/AddSchoolSection'
 import StatTile from '../../components/StatTile'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
@@ -281,7 +285,8 @@ export default function Schools() {
             ? {
                 name: fromEnquiry.data.organisation_name ?? '',
                 fromContact:
-                  fromEnquiry.data.contact_name || fromEnquiry.data.contact_email,
+                  fromEnquiry.data.contact_name ||
+                  fromEnquiry.data.contact_email,
               }
             : undefined
         }
@@ -369,11 +374,15 @@ export default function Schools() {
                           school with no way to see WHO is in it was the gap
                           Saurab named. */}
                       <div className="flex items-start gap-3">
-                        <SchoolBadge id={school.id} name={school.name} size="sm" />
+                        <SchoolBadge
+                          id={school.id}
+                          name={school.name}
+                          size="sm"
+                        />
                         <div className="min-w-0">
                           <Link
                             to={`/platform-admin/tenants/${school.id}`}
-                            className="font-medium text-primary hover:underline"
+                            className="-ml-1 inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline"
                           >
                             {school.name}
                           </Link>
@@ -411,7 +420,10 @@ export default function Schools() {
                         </span>
                       ) : (
                         <>
-                          <label htmlFor={`status-${school.id}`} className="sr-only">
+                          <label
+                            htmlFor={`status-${school.id}`}
+                            className="sr-only"
+                          >
                             Status for {school.name}
                           </label>
                           <select
@@ -465,7 +477,7 @@ export default function Schools() {
                       {open > 0 ? (
                         <Link
                           to={`/platform-admin/tenants/${school.id}`}
-                          className="font-semibold text-danger-foreground hover:underline"
+                          className="-ml-1 inline-flex min-h-11 min-w-11 items-center justify-center px-1 font-semibold text-danger-foreground hover:underline"
                           title={`Open ${school.name} to find who to contact`}
                         >
                           {open}
@@ -654,7 +666,7 @@ export default function Schools() {
           record on one page is fine as long as the page never pretends
           otherwise. */}
       <section className="mt-10">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-section text-foreground">
           Network specialists not engaged by any school
           {freelancers.isSuccess && (
             <span className="font-normal text-muted-foreground">
@@ -723,7 +735,10 @@ export default function Schools() {
           for it. */}
       <p className="mt-8 max-w-prose text-xs text-muted-foreground">
         No revenue figures here — they live on{' '}
-        <Link to="/platform-admin/billing" className="text-primary hover:underline">
+        <Link
+          to="/platform-admin/billing"
+          className="text-primary hover:underline"
+        >
           Billing &amp; Revenue
         </Link>
         , summed per school. The original designs for this area also show a

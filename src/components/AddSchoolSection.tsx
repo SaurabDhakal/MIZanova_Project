@@ -169,7 +169,7 @@ export default function AddSchoolSection({
 
   return (
     <section className="mt-6 rounded-card border border-border bg-card shadow-raised p-5">
-      <h2 className="text-lg font-semibold text-foreground">Add a school</h2>
+      <h2 className="text-section text-foreground">Add a school</h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">
         Only Special Miles can create one. A school cannot set itself up,
         because creating it means creating the thing every account at that

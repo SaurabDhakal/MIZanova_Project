@@ -89,7 +89,7 @@ export default function WhatWePaySection({ schoolId }: { schoolId: string }) {
 
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-semibold text-foreground">
+      <h2 className="text-section text-foreground">
         What you pay Special Miles
       </h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">

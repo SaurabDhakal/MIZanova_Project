@@ -17,6 +17,7 @@ import Spinner from '../../components/Spinner'
 import FormField from '../../components/FormField'
 import NotBuiltYet from '../../components/NotBuiltYet'
 import { showToast } from '../../lib/toast'
+import Icon from '../../components/Icon'
 
 /**
  * Security settings — docs/Figma Pages Design/Specialist · Settings/Security & 2FA.png.
@@ -86,7 +87,9 @@ export default function Security() {
       setCode('')
       setFreshCodes(codes)
       void queryClient.invalidateQueries({ queryKey: ['mfa-factors'] })
-      void queryClient.invalidateQueries({ queryKey: ['recovery-codes-remaining'] })
+      void queryClient.invalidateQueries({
+        queryKey: ['recovery-codes-remaining'],
+      })
       showToast('Two-factor authentication is on.')
     },
   })
@@ -95,7 +98,9 @@ export default function Security() {
     mutationFn: generateRecoveryCodes,
     onSuccess: (codes) => {
       setFreshCodes(codes)
-      void queryClient.invalidateQueries({ queryKey: ['recovery-codes-remaining'] })
+      void queryClient.invalidateQueries({
+        queryKey: ['recovery-codes-remaining'],
+      })
     },
   })
 
@@ -138,7 +143,8 @@ export default function Security() {
     changePassword.mutate()
   }
 
-  if (factors.isPending) return <Spinner label="Loading your security settings" />
+  if (factors.isPending)
+    return <Spinner label="Loading your security settings" />
   if (factors.isError) return <ErrorState message={factors.error.message} />
 
   // NO <h1> HERE ANY MORE. AccountLayout carries "Settings" and the tab row,
@@ -196,7 +202,7 @@ export default function Security() {
       <section className="rounded-card border border-border bg-card shadow-raised p-6">
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-foreground">
+            <h2 className="text-section text-foreground">
               Two-factor authentication
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -211,7 +217,14 @@ export default function Security() {
                 : 'bg-warning-subtle text-warning-foreground'
             }`}
           >
-            {active ? '✓ On' : 'Off'}
+            {active ? (
+              <span className="inline-flex items-center gap-1">
+                <Icon name="tick" aria-hidden className="h-3.5 w-3.5" />
+                On
+              </span>
+            ) : (
+              'Off'
+            )}
           </span>
         </div>
 
@@ -394,9 +407,13 @@ export default function Security() {
 
       {/* --- Password ------------------------------------------------------- */}
       <section className="mt-6 rounded-card border border-border bg-card shadow-raised p-6">
-        <h2 className="text-lg font-bold text-foreground">Change password</h2>
+        <h2 className="text-section text-foreground">Change password</h2>
 
-        <form onSubmit={submitPassword} className="mt-4 max-w-sm space-y-4" noValidate>
+        <form
+          onSubmit={submitPassword}
+          className="mt-4 max-w-sm space-y-4"
+          noValidate
+        >
           {passwordError && (
             <p
               role="alert"
@@ -485,7 +502,7 @@ export default function Security() {
           you are perfectly happy with.
           ------------------------------------------------------------------ */}
       <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
-        <h2 className="text-lg font-bold text-foreground">Other devices</h2>
+        <h2 className="text-section text-foreground">Other devices</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           Ends every other signed-in session and leaves this one alone. Worth
           doing if you have left yourself signed in on a shared machine and do
@@ -497,10 +514,15 @@ export default function Security() {
           disabled={signOutOthers.isPending}
           className="mt-4 min-h-11 rounded-btn border border-border px-4 font-semibold text-danger-foreground hover:bg-danger-subtle disabled:opacity-60"
         >
-          {signOutOthers.isPending ? 'Signing out…' : 'Sign out everywhere else'}
+          {signOutOthers.isPending
+            ? 'Signing out…'
+            : 'Sign out everywhere else'}
         </button>
         {signOutOthers.isError && (
-          <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+          <p
+            role="alert"
+            className="mt-3 text-sm font-medium text-danger-foreground"
+          >
             {signOutOthers.error.message}
           </p>
         )}

@@ -101,7 +101,7 @@ export default function SubscriptionSection() {
           className="mt-0.5 h-5 w-5 shrink-0 text-primary"
         />
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold text-foreground">Subscription</h2>
+          <h2 className="text-section text-foreground">Subscription</h2>
 
           {/* ------------------------------------------------------------
               STATE 1 — nothing is on sale. This is what shipped.

@@ -251,9 +251,7 @@ export default function Book() {
           --------------------------------------------------------------- */}
       {comingUp.length > 0 && (
         <section className="mb-10">
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
-            Coming up
-          </h2>
+          <h2 className="mb-3 text-section text-foreground">Coming up</h2>
           <ul className="space-y-3">
             {comingUp.map((b) => {
               const who = specialists.data.find((s) => s.id === b.specialist_id)
@@ -279,7 +277,7 @@ export default function Book() {
                         with {who?.full_name ?? 'a specialist'}
                       </p>
                       {b.purpose && (
-                        <p className="mt-3 max-w-prose border-l-2 border-success pl-3 text-sm text-foreground">
+                        <p className="mt-3 max-w-prose border-l border-success pl-3 text-sm text-foreground">
                           {b.purpose}
                         </p>
                       )}
@@ -341,7 +339,7 @@ export default function Book() {
       {/* --- still waiting, and answered no --------------------------------- */}
       {[...waiting, ...answeredNo].length > 0 && (
         <>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
+          <h2 className="mb-3 text-section text-foreground">
             {waiting.length > 0 ? 'Waiting for an answer' : 'Answered'}
           </h2>
           <ul className="mb-10 space-y-3">
@@ -399,18 +397,18 @@ export default function Book() {
                     </span>
                   </div>
                   {b.purpose && (
-                    <p className="mt-3 max-w-prose border-l-2 border-border pl-3 text-sm text-muted-foreground">
+                    <p className="mt-3 max-w-prose border-l border-border pl-3 text-sm text-muted-foreground">
                       {b.purpose}
                     </p>
                   )}
                   {/* A REFUSAL WITH NO REASON IS THE THING PEOPLE REMEMBER. */}
                   {b.outcome_note && (
-                    <p className="mt-2 max-w-prose border-l-2 border-border pl-3 text-sm text-foreground">
+                    <p className="mt-2 max-w-prose border-l border-border pl-3 text-sm text-foreground">
                       {b.outcome_note}
                     </p>
                   )}
-                  {b.status !== 'declined' && (
-                    confirmingId === b.id ? (
+                  {b.status !== 'declined' &&
+                    (confirmingId === b.id ? (
                       <span className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                         <span className="text-danger-foreground">
                           Withdraw this request?
@@ -438,8 +436,7 @@ export default function Book() {
                       >
                         Withdraw this
                       </button>
-                    )
-                  )}
+                    ))}
                 </li>
               )
             })}
@@ -461,7 +458,7 @@ export default function Book() {
       {/* --- who --------------------------------------------------------- */}
       {specialists.data.length > 0 && (
         <>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">Who</h2>
+          <h2 className="mb-3 text-section text-foreground">Who</h2>
           <ul className="grid gap-3 sm:grid-cols-2">
             {specialists.data.map((s) => (
               <li key={s.id}>
@@ -485,7 +482,10 @@ export default function Book() {
                         {s.full_name ?? 'A specialist'}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5 text-sm text-success-foreground">
-                        <Icon name="verification" className="h-4 w-4 shrink-0" />
+                        <Icon
+                          name="verification"
+                          className="h-4 w-4 shrink-0"
+                        />
                         Verified by Special Miles
                       </span>
                       {/* THEIR ACTUAL HOURS, not a generic line. It is the one
@@ -508,9 +508,7 @@ export default function Book() {
       {/* --- when --------------------------------------------------------- */}
       {chosen && (
         <>
-          <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
-            When
-          </h2>
+          <h2 className="mt-10 mb-3 text-section text-foreground">When</h2>
 
           {slots.isPending && (
             <p className="text-muted-foreground">Looking for free times…</p>
@@ -586,33 +584,35 @@ export default function Book() {
                   row — equal columns line the numbers up, which is what makes a
                   list of times scannable at all. */}
               <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                {(byDay.get(activeDay ?? [...byDay.keys()][0]) ?? []).map((t) => {
-                  const asked = alreadyAsked.has(new Date(t).getTime())
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      disabled={asked}
-                      onClick={() => setSlot(t)}
-                      aria-pressed={slot === t}
-                      className={`min-h-11 rounded-btn border px-3 py-2.5 text-center font-medium tabular-nums ${
-                        asked
-                          ? 'border-border bg-background text-muted-foreground'
-                          : slot === t
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-card text-foreground hover:border-primary'
-                      }`}
-                    >
-                      {new Date(t).toLocaleTimeString('en-AU', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                      {asked && (
-                        <span className="block text-xs">already asked</span>
-                      )}
-                    </button>
-                  )
-                })}
+                {(byDay.get(activeDay ?? [...byDay.keys()][0]) ?? []).map(
+                  (t) => {
+                    const asked = alreadyAsked.has(new Date(t).getTime())
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={asked}
+                        onClick={() => setSlot(t)}
+                        aria-pressed={slot === t}
+                        className={`min-h-11 rounded-btn border px-3 py-2.5 text-center font-medium tabular-nums ${
+                          asked
+                            ? 'border-border bg-background text-muted-foreground'
+                            : slot === t
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-card text-foreground hover:border-primary'
+                        }`}
+                      >
+                        {new Date(t).toLocaleTimeString('en-AU', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                        {asked && (
+                          <span className="block text-xs">already asked</span>
+                        )}
+                      </button>
+                    )
+                  },
+                )}
               </div>
             </>
           )}
@@ -622,7 +622,10 @@ export default function Book() {
       {/* --- what for ----------------------------------------------------- */}
       {slot && (
         <div className="mt-8 rounded-card border border-border bg-card p-5 shadow-raised">
-          <label htmlFor="purpose" className="block font-semibold text-foreground">
+          <label
+            htmlFor="purpose"
+            className="block font-semibold text-foreground"
+          >
             What would you like out of it?
           </label>
           <p className="mt-1 text-sm text-muted-foreground">

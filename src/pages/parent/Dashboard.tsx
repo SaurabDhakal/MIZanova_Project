@@ -17,6 +17,7 @@ import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryStat
 import { fullName, withFullStop } from '../../lib/displayName'
 import NoChildYet from '../../components/NoChildYet'
 import SharedStrategies from '../../components/SharedStrategies'
+import ContextLine from '../../components/ContextLine'
 
 /**
  * Parent home — docs/Figma Pages Design/Parent Home Dashboard.png.
@@ -205,6 +206,11 @@ export default function ParentDashboard() {
           {latest.notes && (
             <p className="mt-2 text-foreground">{latest.notes}</p>
           )}
+          {/* db/122–125. The same line staff read, on the same row. A family
+              given "Physical · high" and nothing else has been handed the
+              frightening half of an incident; this is the half that says an
+              adult was there and what worked. */}
+          <ContextLine row={latest} />
           <SharedStrategies strategies={adviceFor(latest.id)} />
         </div>
       ) : (
@@ -394,7 +400,7 @@ export default function ParentDashboard() {
       </div>
 
       {/* --- Recent updates ------------------------------------------------ */}
-      <h2 className="mt-10 mb-3 text-lg font-semibold text-foreground">
+      <h2 className="mt-10 mb-3 text-section text-foreground">
         Recent updates from school
       </h2>
 
@@ -428,6 +434,7 @@ export default function ParentDashboard() {
               {log.notes && (
                 <p className="mt-2 text-foreground">{log.notes}</p>
               )}
+              <ContextLine row={log} />
               <SharedStrategies strategies={adviceFor(log.id)} />
             </li>
           ))}
