@@ -13,6 +13,7 @@ import {
   parseDelimited,
   parseSpreadsheet,
   readDate,
+  readFailureMessage,
   templateCsv,
   toRows,
   type CheckedRow,
@@ -116,18 +117,25 @@ export default function AddStudents() {
 
   const onFile = async (file: File) => {
     setReadError(null)
+
+    /* Answered before the reader is even called. An .xls goes into the zip
+       parser and comes out as "Can't find end of central directory", which is
+       true and useless; the office needs to be told it is the old format and
+       what to do about it. `accept` still lists .xls on purpose — a file greyed
+       out in the picker for no stated reason is worse than one that explains
+       itself when chosen. */
+    if (/\.xls$/i.test(file.name)) {
+      setReadError(readFailureMessage(file.name, null))
+      return
+    }
+
     try {
-      const grid = /\.xlsx?$/i.test(file.name)
+      const grid = /\.xlsx$/i.test(file.name)
         ? await parseSpreadsheet(file)
         : parseDelimited(await file.text())
       build(grid, file.name)
     } catch (err) {
-      // A corrupt or password-protected workbook, or an .xls from 1997.
-      setReadError(
-        err instanceof Error
-          ? `That file could not be read: ${err.message}`
-          : 'That file could not be read.',
-      )
+      setReadError(readFailureMessage(file.name, err))
     }
   }
 

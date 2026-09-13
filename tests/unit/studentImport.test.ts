@@ -4,6 +4,7 @@ import {
   parseDelimited,
   parseSpreadsheet,
   readDate,
+  readFailureMessage,
   toRows,
 } from '../../src/lib/studentImport'
 
@@ -151,7 +152,13 @@ describe('spreadsheets', () => {
     // gives "Wed Apr 03 2015 …" — which the date reader would then reject for a
     // value that was perfectly good in the file.
     const file = await workbookFile([
-      ['first_name', 'last_name', 'year_level', 'external_ref', 'date_of_birth'],
+      [
+        'first_name',
+        'last_name',
+        'year_level',
+        'external_ref',
+        'date_of_birth',
+      ],
       ['Ada', 'Lovelace', 4, '8001', new Date(Date.UTC(2015, 11, 10))],
     ])
     const grid = await parseSpreadsheet(file)
@@ -207,13 +214,17 @@ describe('verdicts', () => {
   test('a student already on the roll is a duplicate, not an error', () => {
     // Re-importing an overlapping file is ordinary, not a mistake, and the two
     // are coloured differently on screen for that reason.
-    const v = checkRows([row({ external_ref: '4001' })], new Set(['4001']))[0].verdict
+    const v = checkRows([row({ external_ref: '4001' })], new Set(['4001']))[0]
+      .verdict
     expect(v.status).toBe('duplicate')
   })
 
   test('the same ID twice in one file names the line it clashes with', () => {
     const checked = checkRows(
-      [row({ external_ref: '4001' }), { ...row({ external_ref: '4001' }), line: 7 }],
+      [
+        row({ external_ref: '4001' }),
+        { ...row({ external_ref: '4001' }), line: 7 },
+      ],
       noExisting,
     )
     expect(checked[0].verdict.status).toBe('ready')
@@ -230,7 +241,10 @@ describe('verdicts', () => {
     // learnt their export has two children sharing one id.
     const checked = checkRows(
       [
-        { ...row({ external_ref: '7003', date_of_birth: '03/04/2015' }), line: 4 },
+        {
+          ...row({ external_ref: '7003', date_of_birth: '03/04/2015' }),
+          line: 4,
+        },
         { ...row({ external_ref: '7003' }), line: 7 },
       ],
       noExisting,
@@ -249,7 +263,8 @@ describe('verdicts', () => {
   })
 
   test('a bad date stops the row rather than importing a null birthday', () => {
-    const v = checkRows([row({ date_of_birth: '03/04/2015' })], noExisting)[0].verdict
+    const v = checkRows([row({ date_of_birth: '03/04/2015' })], noExisting)[0]
+      .verdict
     expect(v.status).toBe('error')
   })
 
@@ -263,4 +278,63 @@ describe('verdicts', () => {
     expect(checked).toHaveLength(3)
     expect(checked.map((r) => r.line)).toEqual([1, 2, 3])
   })
+})
+
+/**
+ * What a school office is told when a file will not open.
+ *
+ * The catch in AddStudents used to print the library's words. Choosing an old
+ * .xls showed "Can't find end of central directory : is this a zip file ? If it
+ * is, see https://stuk.github.io/jszip/…" — JSZip explaining itself to a
+ * developer, documentation link included, to somebody who picked the wrong file
+ * from a folder.
+ *
+ * The rule these tests hold: never show the library's text, always name a next
+ * step.
+ */
+describe('readFailureMessage', () => {
+  const ZIP_ERROR = new Error(
+    "Can't find end of central directory : is this a zip file ? If it is, " +
+      'see https://stuk.github.io/jszip/documentation/howto/read_zip.html',
+  )
+
+  test('an .xls is named as the old format, with the way out', () => {
+    const message = readFailureMessage('roll.xls', ZIP_ERROR)
+    expect(message).toMatch(/older Excel file/i)
+    expect(message).toMatch(/Save As/i)
+  })
+
+  test('.xls wins even with no error, because it is refused before parsing', () => {
+    expect(readFailureMessage('roll.xls', null)).toMatch(/older Excel file/i)
+  })
+
+  test('an .xlsx that will not open suggests the two real causes', () => {
+    const message = readFailureMessage('roll.xlsx', ZIP_ERROR)
+    expect(message).toMatch(/password protected|renamed/i)
+    expect(message).toMatch(/Save As/i)
+  })
+
+  test('anything else points at the template', () => {
+    expect(readFailureMessage('roll.pdf', ZIP_ERROR)).toMatch(/template/i)
+  })
+
+  test('our own sentence is kept, because it was written to be read', () => {
+    const message = readFailureMessage(
+      'roll.xlsx',
+      new Error('That file has no sheets in it.'),
+    )
+    expect(message).toBe('That file has no sheets in it.')
+  })
+
+  // The whole point. A URL or a stack-trace phrase reaching the screen is the
+  // regression this suite exists to catch.
+  test.each(['roll.xls', 'roll.xlsx', 'roll.csv', 'roll.pdf'])(
+    '%s never leaks the library text',
+    (name) => {
+      const message = readFailureMessage(name, ZIP_ERROR)
+      expect(message).not.toMatch(/http/i)
+      expect(message).not.toMatch(/central directory/i)
+      expect(message).not.toMatch(/jszip/i)
+    },
+  )
 })

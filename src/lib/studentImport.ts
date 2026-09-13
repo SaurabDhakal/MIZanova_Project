@@ -163,11 +163,18 @@ export function toRows(grid: string[][]): {
   usedHeader: boolean
   unknownHeaders: string[]
 } {
-  if (grid.length === 0) return { rows: [], usedHeader: false, unknownHeaders: [] }
+  if (grid.length === 0)
+    return { rows: [], usedHeader: false, unknownHeaders: [] }
 
-  const normalise = (s: string) => s.trim().toLowerCase().replace(/[_\s]+/g, ' ')
+  const normalise = (s: string) =>
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, ' ')
   const first = grid[0].map(normalise)
-  const mapped = first.map((h) => HEADER_ALIASES[h] ?? HEADER_ALIASES[h.replace(/\s/g, '')])
+  const mapped = first.map(
+    (h) => HEADER_ALIASES[h] ?? HEADER_ALIASES[h.replace(/\s/g, '')],
+  )
   const looksLikeHeader = mapped.filter(Boolean).length >= 2
 
   const order: (ImportColumn | null)[] = looksLikeHeader
@@ -214,7 +221,10 @@ export function toRows(grid: string[][]): {
  * Empty is fine. Date of birth is nullable, and a school that has not been
  * given one should not be blocked from creating the child.
  */
-export function readDate(raw: string): { value: string | null; error?: string } {
+export function readDate(raw: string): {
+  value: string | null
+  error?: string
+} {
   const s = raw.trim()
   if (s === '') return { value: null }
 
@@ -244,13 +254,18 @@ export function readDate(raw: string): { value: string | null; error?: string } 
     }
   }
 
-  return { value: null, error: `"${s}" is not a date this can read. Use YYYY-MM-DD.` }
+  return {
+    value: null,
+    error: `"${s}" is not a date this can read. Use YYYY-MM-DD.`,
+  }
 }
 
 function validCalendarDate(y: number, m: number, d: number, raw: string) {
   const dt = new Date(Date.UTC(y, m - 1, d))
   const real =
-    dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
   if (!real) return { value: null, error: `"${raw}" is not a real date.` }
 
   const now = new Date()
@@ -259,7 +274,9 @@ function validCalendarDate(y: number, m: number, d: number, raw: string) {
   if (y < now.getUTCFullYear() - 25)
     return { value: null, error: `"${raw}" would make this child over 25.` }
 
-  return { value: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }
+  return {
+    value: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +310,8 @@ export function checkRows(
   const firstLineForRef = new Map<string, number>()
   for (const row of rows) {
     const ref = row.external_ref.trim()
-    if (ref !== '' && !firstLineForRef.has(ref)) firstLineForRef.set(ref, row.line)
+    if (ref !== '' && !firstLineForRef.has(ref))
+      firstLineForRef.set(ref, row.line)
   }
 
   return rows.map((row) => {
@@ -301,16 +319,29 @@ export function checkRows(
     const last = row.last_name.trim()
 
     if (first === '' && last === '')
-      return { ...row, verdict: { status: 'error', reason: 'No name in this row.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'No name in this row.' },
+      }
     if (first === '')
-      return { ...row, verdict: { status: 'error', reason: 'First name is missing.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'First name is missing.' },
+      }
     if (last === '')
-      return { ...row, verdict: { status: 'error', reason: 'Last name is missing.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'Last name is missing.' },
+      }
     if (first.length > 80 || last.length > 80)
-      return { ...row, verdict: { status: 'error', reason: 'That name is implausibly long.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'That name is implausibly long.' },
+      }
 
     const date = readDate(row.date_of_birth)
-    if (date.error) return { ...row, verdict: { status: 'error', reason: date.error } }
+    if (date.error)
+      return { ...row, verdict: { status: 'error', reason: date.error } }
 
     const ref = row.external_ref.trim()
     if (ref !== '') {
@@ -391,8 +422,13 @@ function cellText(value: unknown): string {
     return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`
   }
   if (typeof value === 'object') {
-    const rich = value as { text?: string; result?: unknown; richText?: { text: string }[] }
-    if (Array.isArray(rich.richText)) return rich.richText.map((r) => r.text).join('')
+    const rich = value as {
+      text?: string
+      result?: unknown
+      richText?: { text: string }[]
+    }
+    if (Array.isArray(rich.richText))
+      return rich.richText.map((r) => r.text).join('')
     if (typeof rich.text === 'string') return rich.text
     if (rich.result !== undefined) return cellText(rich.result)
     return ''
@@ -408,4 +444,62 @@ export function templateCsv(): string {
     'Alan,Turing,3,4002,2016-06-23',
     'Grace,Hopper,4,4003,',
   ].join('\n')
+}
+
+/**
+ * Why a chosen file could not be read, in words a school office can act on.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THIS REPLACES
+ * ---------------------------------------------------------------------------
+ * The catch in AddStudents printed the library's own words. Picking the wrong
+ * file showed an administrator this:
+ *
+ *   That file could not be read: Can't find end of central directory : is this
+ *   a zip file ? If it is, see https://stuk.github.io/jszip/documentation/…
+ *
+ * That is JSZip explaining itself to a developer, complete with documentation
+ * link, shown to somebody in a school office who picked the wrong thing from a
+ * folder. It names no cause they recognise and no action they can take.
+ *
+ * ---------------------------------------------------------------------------
+ * .xls IS THE COMMON CASE AND IT IS NOT AN ERROR ANYBODY CAUSED
+ * ---------------------------------------------------------------------------
+ * `parseSpreadsheet` calls `workbook.xlsx.load`, which reads the modern zipped
+ * format ONLY. Excel's pre-2007 .xls is a completely different binary file, so
+ * it fails inside the zip reader and produced exactly the message above — while
+ * the file input invited it by listing .xls in `accept`.
+ *
+ * Schools have old files. This says which format it is and how to convert it,
+ * which is a thirty-second job in Excel, instead of implying the file is
+ * broken.
+ *
+ * `error` is accepted but deliberately never shown. A library's exception text
+ * is a fact about our dependencies, not about the file somebody chose.
+ */
+export function readFailureMessage(fileName: string, error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+
+  if (/\.xls$/i.test(fileName)) {
+    return (
+      'That is an older Excel file (.xls), which cannot be read here. Open it ' +
+      'in Excel and choose File \u2192 Save As, then save it as .xlsx or CSV.'
+    )
+  }
+
+  // Our own sentence from parseSpreadsheet, already written for a reader.
+  if (/no sheets in it/i.test(message)) return message
+
+  if (/\.xlsx$/i.test(fileName)) {
+    return (
+      'That file is named .xlsx but is not a workbook this can open. It may be ' +
+      'password protected, or saved in another format and renamed. Open it in ' +
+      'Excel and use File \u2192 Save As to save a fresh .xlsx or CSV.'
+    )
+  }
+
+  return (
+    'That file could not be read. It should be a CSV or an .xlsx spreadsheet ' +
+    '\u2014 the Download the template button gives you one in the right shape.'
+  )
 }
