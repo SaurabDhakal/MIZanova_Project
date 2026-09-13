@@ -8215,11 +8215,23 @@ export type NewStudent = {
   year_level: string | null
   external_ref: string | null
   date_of_birth: string | null
+  /** db/127, all optional. Written as a profile after the child exists. */
+  interests: string | null
+  strengths: string | null
+  finds_hard: string | null
 }
 
 export type ImportOutcome = {
   created: number
   failed: { line: number; name: string; reason: string }[]
+  /**
+   * Children who were created, but whose notes could not be attached.
+   *
+   * SEPARATE FROM `failed` BECAUSE THE CHILD IS ON THE ROLL. Reporting this in
+   * the failure list would tell a school to re-import somebody who is already
+   * there, and they would end up with two of them.
+   */
+  profilesNotSaved: { name: string; reason: string }[]
 }
 
 /**
@@ -8280,7 +8292,17 @@ export async function createStudents(
   schoolId: string,
 ): Promise<ImportOutcome> {
   const CHUNK = 100
-  const outcome: ImportOutcome = { created: 0, failed: [] }
+  const outcome: ImportOutcome = {
+    created: 0,
+    failed: [],
+    profilesNotSaved: [],
+  }
+
+  /* Taken BEFORE the first insert, and used below to find the rows this
+     operation created. Postgres sets created_at with its own now(); a browser
+     clock that is a minute fast would start the window after the rows it is
+     looking for, so the margin is deliberate and generous. */
+  const startedAt = new Date(Date.now() - 60_000).toISOString()
 
   const toRecord = (r: NewStudent) => ({
     school_id: schoolId,
@@ -8337,7 +8359,127 @@ export async function createStudents(
     }
   }
 
+  await attachProfiles(rows, schoolId, startedAt, outcome)
   return outcome
+}
+
+/**
+ * Write the three optional description columns onto the children just created.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE ROWS HAVE TO BE FOUND AGAIN RATHER THAN RETURNED
+ * ---------------------------------------------------------------------------
+ * `insert().select()` is refused outright here — the long note in
+ * `createStudents` explains that `students_select` calls a STABLE function
+ * which cannot see the row being inserted. So the ids are fetched afterwards,
+ * in a statement whose snapshot contains them.
+ *
+ * ONE QUERY FOR THE WHOLE IMPORT, and only when at least one row actually
+ * carries notes. Most imports are a list of names and pay nothing for this.
+ *
+ * ---------------------------------------------------------------------------
+ * MATCHING, AND WHEN IT REFUSES TO GUESS
+ * ---------------------------------------------------------------------------
+ * A student ID is exact and is used whenever the file gave one. Without it the
+ * match is on both names among the rows created since this import began — which
+ * is precise unless the same school enrols two children with identical names
+ * and no ID in the same operation.
+ *
+ * In that case the notes are NOT written to either. Putting one child's
+ * description on another child's record is worse than not having it, and the
+ * school is told which name it could not place so they can add it by hand.
+ */
+async function attachProfiles(
+  rows: NewStudent[],
+  schoolId: string,
+  startedAt: string,
+  outcome: ImportOutcome,
+): Promise<void> {
+  const described = rows.filter(
+    (r) => r.interests || r.strengths || r.finds_hard,
+  )
+  if (described.length === 0) return
+
+  const { data: fresh, error } = await supabase
+    .from('students')
+    .select('id, first_name, last_name, external_ref')
+    .eq('school_id', schoolId)
+    .gte('created_at', startedAt)
+
+  if (error) {
+    for (const row of described) {
+      outcome.profilesNotSaved.push({
+        name: `${row.first_name} ${row.last_name}`.trim(),
+        reason: error.message,
+      })
+    }
+    return
+  }
+
+  const created = fresh ?? []
+  const key = (first: string, last: string) =>
+    `${first.trim().toLowerCase()}|${last.trim().toLowerCase()}`
+
+  const byRef = new Map<string, string>()
+  const byName = new Map<string, string[]>()
+  for (const row of created) {
+    if (row.external_ref) byRef.set(row.external_ref, row.id)
+    const k = key(row.first_name, row.last_name)
+    byName.set(k, [...(byName.get(k) ?? []), row.id])
+  }
+
+  const profiles: {
+    student_id: string
+    interests: string | null
+    strengths: string | null
+    finds_hard: string | null
+    updated_by: string
+  }[] = []
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const userId = sessionData.session?.user.id
+  if (!userId) return
+
+  for (const row of described) {
+    const name = `${row.first_name} ${row.last_name}`.trim()
+    const matches = row.external_ref
+      ? [byRef.get(row.external_ref)].filter((id): id is string => Boolean(id))
+      : (byName.get(key(row.first_name, row.last_name)) ?? [])
+
+    if (matches.length !== 1) {
+      outcome.profilesNotSaved.push({
+        name,
+        reason:
+          matches.length === 0
+            ? 'the new record could not be found'
+            : 'two children of that name were added at once, and no student ID to tell them apart',
+      })
+      continue
+    }
+
+    profiles.push({
+      student_id: matches[0],
+      interests: row.interests,
+      strengths: row.strengths,
+      finds_hard: row.finds_hard,
+      updated_by: userId,
+    })
+  }
+
+  if (profiles.length === 0) return
+
+  const { error: writeError } = await supabase
+    .from('student_profiles')
+    .upsert(profiles, { onConflict: 'student_id' })
+
+  if (writeError) {
+    for (const row of described) {
+      outcome.profilesNotSaved.push({
+        name: `${row.first_name} ${row.last_name}`.trim(),
+        reason: writeError.message,
+      })
+    }
+  }
 }
 
 /**

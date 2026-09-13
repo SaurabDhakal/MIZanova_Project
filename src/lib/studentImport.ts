@@ -34,6 +34,31 @@ export const IMPORT_COLUMNS = [
   'year_level',
   'external_ref',
   'date_of_birth',
+  /*
+   * ---------------------------------------------------------------------
+   * THE THREE THAT DESCRIBE THE CHILD RATHER THAN IDENTIFY THEM — db/127
+   * ---------------------------------------------------------------------
+   * Saurab, on the paste and file paths: "can you make place for those
+   * things".
+   *
+   * docs/19 §5.1 is right that an office typing six hundred names from a
+   * enrolment list knows none of this. It is wrong about the other case: a
+   * school MOVING from another system often has exactly these notes already,
+   * in a column called "Strengths" or "Interests", and the previous design
+   * made them retype every one of them by hand afterwards.
+   *
+   * Optional, like every column after the first two. A file without them
+   * behaves exactly as before, which is what makes this safe to add.
+   *
+   * The closed vocabularies — `helps` and `triggers` — are deliberately NOT
+   * importable. They are picked from fixed lists (lib/behaviourContext), and
+   * matching free text out of a spreadsheet onto them would either drop most
+   * of it silently or guess. Those two stay a deliberate choice made on the
+   * child's record.
+   */
+  'interests',
+  'strengths',
+  'finds_hard',
 ] as const
 
 export type ImportColumn = (typeof IMPORT_COLUMNS)[number]
@@ -71,6 +96,24 @@ const HEADER_ALIASES: Record<string, ImportColumn> = {
   dob: 'date_of_birth',
   birthday: 'date_of_birth',
   born: 'date_of_birth',
+  interests: 'interests',
+  interest: 'interests',
+  loves: 'interests',
+  likes: 'interests',
+  'what they love': 'interests',
+  'what they like': 'interests',
+  'interested in': 'interests',
+  strengths: 'strengths',
+  strength: 'strengths',
+  'good at': 'strengths',
+  'what they are good at': 'strengths',
+  'finds hard': 'finds_hard',
+  'find hard': 'finds_hard',
+  'finds difficult': 'finds_hard',
+  'what they find hard': 'finds_hard',
+  challenges: 'finds_hard',
+  difficulties: 'finds_hard',
+  struggles: 'finds_hard',
 }
 
 export type ParsedRow = {
@@ -81,6 +124,9 @@ export type ParsedRow = {
   year_level: string
   external_ref: string
   date_of_birth: string
+  interests: string
+  strengths: string
+  finds_hard: string
 }
 
 export type RowVerdict =
@@ -214,6 +260,9 @@ export function toRows(grid: string[][]): {
       year_level: get('year_level'),
       external_ref: get('external_ref'),
       date_of_birth: get('date_of_birth'),
+      interests: get('interests'),
+      strengths: get('strengths'),
+      finds_hard: get('finds_hard'),
     }
   })
 
@@ -468,6 +517,9 @@ const TEMPLATE_HEADINGS = [
   'Year level',
   'Student ID',
   'Date of birth (YYYY-MM-DD)',
+  'What they love',
+  'What they are good at',
+  'What they find hard',
 ] as const
 
 /**
@@ -499,6 +551,21 @@ const TEMPLATE_GUIDANCE: [string, string][] = [
       'guess a birthday onto a child, the import refuses it and asks for ' +
       'YYYY-MM-DD. Dates where the day is 13 or higher are unambiguous and ' +
       'are read without complaint — which is why a file can half-import.',
+  ],
+  [
+    'What they love / are good at / find hard',
+    'All optional, and all three are ordinary sentences — "Trains, and ' +
+      'anything with a timetable." Leave them empty if you do not know yet; ' +
+      'they can be written on the child’s record at any time, and usually ' +
+      'are, ' +
+      'by whoever teaches them. Fill them in here when you are moving from ' +
+      'another system that already holds them.',
+  ],
+  [
+    '',
+    'Why they are worth having: they are what turns general advice into ' +
+      'advice about this child. Nothing else in the record can tell you what ' +
+      'a child loves.',
   ],
   [
     '',
@@ -594,7 +661,14 @@ export async function templateWorkbook(): Promise<Blob> {
     { width: 12 },
     { width: 14 },
     { width: 24 },
+    // Wider: these three hold sentences, not fields.
+    { width: 34 },
+    { width: 34 },
+    { width: 34 },
   ]
+  for (const column of [6, 7, 8]) {
+    sheet.getColumn(column).alignment = { wrapText: true, vertical: 'top' }
+  }
 
   // The promise above, in one line. Applied to the column rather than to cells
   // so it holds for every row the school adds.
