@@ -1,0 +1,543 @@
+{
+  "info": {
+    "name": "MiZanova API",
+    "description": "The Express API in server/index.js, http://localhost:8887 in development.\n\nEvery endpoint that touches a child reads through the CALLER'S OWN Supabase token, so Row-Level Security answers 'may they see this' rather than JavaScript. That is why this collection signs in first and every later request carries that token.\n\nRun order matters: 1 Health, 2 Sign in, then the rest. Folders 1, 3 and 5 need no account; folder 4 needs authEmail and authPassword in the environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8887" },
+    { "key": "supabaseUrl", "value": "" },
+    { "key": "supabaseKey", "value": "" },
+    { "key": "authEmail", "value": "" },
+    { "key": "authPassword", "value": "" },
+    { "key": "accessToken", "value": "" },
+    { "key": "studentId", "value": "" },
+    { "key": "behaviourLogId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] },
+            "description": "200 when Supabase and Anthropic are configured, 503 when they are not. 'degraded' means it answers but something downstream is not ready. A health check that is green during an outage is worse than none, so this reports what is CONFIGURED rather than merely that Express replied."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('the API answered', function () {",
+                  "  pm.expect([200, 503]).to.include(pm.response.code)",
+                  "})",
+                  "",
+                  "const body = pm.response.json()",
+                  "",
+                  "pm.test('reports what is configured, not just that Express is up', function () {",
+                  "  pm.expect(body).to.have.property('checks')",
+                  "  pm.expect(body.checks).to.have.property('supabase')",
+                  "  pm.expect(body.checks).to.have.property('anthropic')",
+                  "  pm.expect(body.checks).to.have.property('stripe_key_works')",
+                  "})",
+                  "",
+                  "pm.test('the database is reachable', function () {",
+                  "  pm.expect(body.checks.supabase).to.eql(true)",
+                  "})",
+                  "",
+                  "pm.test('status is one of ok, degraded, unhealthy', function () {",
+                  "  pm.expect(['ok', 'degraded', 'unhealthy']).to.include(body.status)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Sign in",
+      "item": [
+        {
+          "name": "POST Supabase token (password grant)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{supabaseKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{supabaseUrl}}/auth/v1/token?grant_type=password",
+              "host": ["{{supabaseUrl}}"],
+              "path": ["auth", "v1", "token"],
+              "query": [{ "key": "grant_type", "value": "password" }]
+            },
+            "description": "This request goes to Supabase, not to our server: the API never sees a password. The access token it returns is saved to the accessToken collection variable and is the same token the browser sends."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('signed in', function () {",
+                  "  pm.response.to.have.status(200)",
+                  "})",
+                  "",
+                  "const body = pm.response.json()",
+                  "",
+                  "pm.test('an access token came back', function () {",
+                  "  pm.expect(body.access_token).to.be.a('string').and.not.empty",
+                  "})",
+                  "",
+                  "if (body.access_token) {",
+                  "  pm.collectionVariables.set('accessToken', body.access_token)",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Public endpoints",
+      "item": [
+        {
+          "name": "GET /api/push/key",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/push/key", "host": ["{{baseUrl}}"], "path": ["api", "push", "key"] },
+            "description": "Unconfigured is not an error here. A deployment with no VAPID keys should decline to offer notifications, and the screen has to be able to ask."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('answers 200 whether or not push is configured', function () {",
+                  "  pm.response.to.have.status(200)",
+                  "})",
+                  "",
+                  "const body = pm.response.json()",
+                  "",
+                  "pm.test('says which it is', function () {",
+                  "  pm.expect(body.configured).to.be.a('boolean')",
+                  "  if (body.configured) pm.expect(body.key).to.be.a('string').and.not.empty",
+                  "  else pm.expect(body.key).to.eql(null)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/enquiries (valid)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"school\",\n  \"organisationName\": \"Postman Primary School\",\n  \"contactName\": \"Postman Tester\",\n  \"contactEmail\": \"postman.tester@example.invalid\",\n  \"contactRole\": \"Deputy Principal\",\n  \"studentCount\": \"320\",\n  \"message\": \"Sent from the Postman collection.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/enquiries", "host": ["{{baseUrl}}"], "path": ["api", "enquiries"] },
+            "description": "Writes a row in the enquiries table. The same address and kind again within ten minutes is treated as the same enquiry rather than a second one, so a re-run still answers 200 without creating a duplicate."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('accepted (or rate limited on a fast re-run)', function () {",
+                  "  pm.expect([200, 429]).to.include(pm.response.code)",
+                  "})",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('confirms receipt', function () {",
+                  "    pm.expect(pm.response.json().received).to.eql(true)",
+                  "  })",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/enquiries (no kind, expect 400)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contactName\": \"Postman Tester\",\n  \"contactEmail\": \"postman.tester@example.invalid\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/enquiries", "host": ["{{baseUrl}}"], "path": ["api", "enquiries"] },
+            "description": "A control is only proven by what it stops."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refused', function () {",
+                  "  pm.expect([400, 429]).to.include(pm.response.code)",
+                  "})",
+                  "",
+                  "if (pm.response.code === 400) {",
+                  "  pm.test('says what is missing, in words a person can act on', function () {",
+                  "    pm.expect(pm.response.json().error).to.be.a('string').and.not.empty",
+                  "  })",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/enquiries (honeypot filled, expect a silent 200)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"family\",\n  \"contactName\": \"Bot\",\n  \"contactEmail\": \"bot@example.invalid\",\n  \"website\": \"http://spam.example\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/enquiries", "host": ["{{baseUrl}}"], "path": ["api", "enquiries"] },
+            "description": "The website field sits off-screen and every human leaves it empty. Filling it is answered as if it worked and no row is written: telling a bot which check caught it is telling whoever wrote the bot what to change."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('answered as success, and tells the bot nothing', function () {",
+                  "  pm.expect([200, 429]).to.include(pm.response.code)",
+                  "  if (pm.response.code === 200) pm.expect(pm.response.json().received).to.eql(true)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/guardian-codes/peek (unknown code, expect 404)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"ZZZZ-ZZZZ\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/guardian-codes/peek",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "guardian-codes", "peek"]
+            },
+            "description": "Never-existed, already-used and withdrawn all answer the same way. Distinguishing them would tell a stranger which codes are real."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refused', function () {",
+                  "  pm.expect([404, 429]).to.include(pm.response.code)",
+                  "})",
+                  "",
+                  "if (pm.response.code === 404) {",
+                  "  pm.test('the answer reveals nothing about which codes exist', function () {",
+                  "    const body = pm.response.json()",
+                  "    pm.expect(body).to.have.property('error')",
+                  "    pm.expect(Object.keys(body)).to.eql(['error'])",
+                  "  })",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/invitations/:token (unknown token, expect 404)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invitations/not-a-real-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invitations", "not-a-real-token"]
+            },
+            "description": "404 for unknown, 410 for expired. The token is only ever compared as a hash, so the server never holds the link it sent."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refused', function () {",
+                  "  pm.expect([404, 410, 429]).to.include(pm.response.code)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/specialist-applications (no name, expect 400)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"applicant@example.invalid\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/specialist-applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "specialist-applications"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refused', function () {",
+                  "  pm.expect([400, 429]).to.include(pm.response.code)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Signed in",
+      "item": [
+        {
+          "name": "GET /api/strategy-status/:studentId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/strategy-status/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "strategy-status", "{{studentId}}"]
+            },
+            "description": "Needs studentId in the environment, and an account that may see that child. An empty result means 'unknown to you' rather than 'none': the server reads with the caller's own token, so RLS decides."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('answered with a token', function () {",
+                  "  pm.response.to.have.status(200)",
+                  "})",
+                  "",
+                  "pm.test('returns a per-log map', function () {",
+                  "  pm.expect(pm.response.json().logs).to.be.an('object')",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/bookings/request (empty body, expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings", "request"]
+            },
+            "description": "400 rather than 401 is the point of this one: the token was accepted and the body was not."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('the token passed and the body did not', function () {",
+                  "  pm.response.to.have.status(400)",
+                  "})",
+                  "",
+                  "pm.test('names what is required', function () {",
+                  "  pm.expect(pm.response.json().error).to.be.a('string').and.not.empty",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/strategies (costs an Anthropic call)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"behaviourLogId\": \"{{behaviourLogId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/strategies", "host": ["{{baseUrl}}"], "path": ["api", "strategies"] },
+            "description": "Disabled by default because it bills a real Anthropic key. Set behaviourLogId and tick it in the runner when you want to demonstrate the AI path.\n\nThe observation is anonymised before it leaves this server, the exact text that was sent is stored, and a low-confidence or sensitive suggestion is held for a specialist rather than shown to a teacher."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('handled, whatever the AI said', function () {",
+                  "  pm.expect([200, 403, 404, 422, 429, 503]).to.include(pm.response.code)",
+                  "})",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('says where the answer came from', function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('source')",
+                  "  })",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "name": "5. Without a token",
+      "item": [
+        {
+          "name": "GET /api/strategy-status/:studentId (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/strategy-status/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "strategy-status", "00000000-0000-0000-0000-000000000000"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refused before anything is read', function () {",
+                  "  pm.response.to.have.status(401)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/strategies (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"behaviourLogId\": \"00000000-0000-0000-0000-000000000000\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/strategies", "host": ["{{baseUrl}}"], "path": ["api", "strategies"] },
+            "description": "No token, no AI call. The refusal happens before a child's observation is read, so nothing is anonymised and nothing is sent."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refused', function () {",
+                  "  pm.response.to.have.status(401)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/invitations (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"stranger@example.invalid\",\n  \"role\": \"educator\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/invitations", "host": ["{{baseUrl}}"], "path": ["api", "invitations"] },
+            "description": "Nobody creates their own account. An anonymous caller cannot mint an invitation, which is the only door a staff account arrives through."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('a stranger cannot invite anyone', function () {",
+                  "  pm.response.to.have.status(401)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/mfa/admin-reset (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"00000000-0000-0000-0000-000000000000\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/mfa/admin-reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mfa", "admin-reset"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('two-factor cannot be reset by a stranger', function () {",
+                  "  pm.response.to.have.status(401)",
+                  "})"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
