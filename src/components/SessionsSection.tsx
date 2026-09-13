@@ -12,6 +12,8 @@ import {
 import { useAuth } from '../lib/auth'
 import { EmptyState, ErrorState } from './QueryState'
 import DictatedTextarea from './DictatedTextarea'
+import ClosedRecordNote from './ClosedRecordNote'
+import { useEnrolled } from '../lib/enrolment'
 import FormField from './FormField'
 import { showToast } from '../lib/toast'
 
@@ -171,6 +173,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   const isParent = profile?.role === 'parent'
 
   const [open, setOpen] = useState(false)
+  const enrolled = useEnrolled()
   const [sessionDate, setSessionDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   )
@@ -270,7 +273,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
         <h2 className="text-section text-foreground">
           Specialist sessions
         </h2>
-        {isSpecialist && (
+        {isSpecialist && enrolled && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -280,6 +283,10 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
           </button>
         )}
       </div>
+
+      {!enrolled && isSpecialist && (
+        <ClosedRecordNote what="new sessions" />
+      )}
 
       {!isSpecialist && (
         <p className="mb-3 max-w-prose text-sm text-muted-foreground">

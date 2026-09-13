@@ -10,6 +10,8 @@ import {
 import { useAuth } from '../lib/auth'
 import { ErrorState } from './QueryState'
 import FormField from './FormField'
+import ClosedRecordNote from './ClosedRecordNote'
+import { useEnrolled } from '../lib/enrolment'
 import { showToast } from '../lib/toast'
 
 /**
@@ -62,6 +64,7 @@ export default function GuardianAccessSection({
 }) {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
+  const enrolled = useEnrolled()
   const [email, setEmail] = useState('')
   const [relationship, setRelationship] = useState('guardian')
   const [issued, setIssued] = useState<{
@@ -137,26 +140,37 @@ export default function GuardianAccessSection({
         own.
       </p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (email.trim() === '') return setFormError('Enter their email address.')
-          setIssued(null)
-          create.mutate()
-        }}
-        className="mb-5 rounded-card border border-border bg-card shadow-raised p-5"
-        noValidate
-      >
-        {formError && (
-          <p
-            role="alert"
-            className="mb-4 rounded-btn border border-danger bg-danger-subtle p-3 text-sm text-danger-foreground"
-          >
-            {formError}
-          </p>
-        )}
+      {/* THE WORST ONE ON THE PAGE WHEN A CHILD HAS LEFT. This form mints a
+          sign-in credential, and it was offered on the record of a child who is
+          no longer enrolled. db/136 refuses the insert; this stops it being
+          typed out first. The list of guardians BELOW stays visible — who a
+          child's family is remains part of the record. */}
+      {!enrolled ? (
+        <div className="mb-5 rounded-card border border-border bg-card p-5 shadow-raised">
+          <ClosedRecordNote what="new sign-in codes" />
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (email.trim() === '')
+              return setFormError('Enter their email address.')
+            setIssued(null)
+            create.mutate()
+          }}
+          className="mb-5 rounded-card border border-border bg-card shadow-raised p-5"
+          noValidate
+        >
+          {formError && (
+            <p
+              role="alert"
+              className="mb-4 rounded-btn border border-danger bg-danger-subtle p-3 text-sm text-danger-foreground"
+            >
+              {formError}
+            </p>
+          )}
 
-        {/*
+          {/*
           STACKED, BECAUSE `sm:` ASKS THE WRONG QUESTION.
 
           This was `sm:grid-cols-[1fr_auto_auto]`, and Tailwind's `sm:` responds
@@ -174,51 +188,53 @@ export default function GuardianAccessSection({
           a row here: three stacked fields read perfectly well, and they stay
           readable at every width this column has ever had.
         */}
-        <div className="grid gap-4">
-          <FormField
-            label="Their email address"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="parent@example.com"
-          />
+          <div className="grid gap-4">
+            <FormField
+              label="Their email address"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="parent@example.com"
+            />
 
-          <div>
-            <label
-              htmlFor="guardian-relationship"
-              className="block text-sm font-semibold text-foreground"
+            <div>
+              <label
+                htmlFor="guardian-relationship"
+                className="block text-sm font-semibold text-foreground"
+              >
+                Relationship
+              </label>
+              <select
+                id="guardian-relationship"
+                value={relationship}
+                onChange={(e) => setRelationship(e.target.value)}
+                className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+              >
+                {RELATIONSHIPS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              disabled={create.isPending}
+              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
             >
-              Relationship
-            </label>
-            <select
-              id="guardian-relationship"
-              value={relationship}
-              onChange={(e) => setRelationship(e.target.value)}
-              className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
-            >
-              {RELATIONSHIPS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+              {create.isPending ? 'Creating…' : 'Create code'}
+            </button>
           </div>
 
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className="pressable min-h-11 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {create.isPending ? 'Creating…' : 'Create code'}
-          </button>
-        </div>
-
-        <p className="mt-3 max-w-prose text-xs text-muted-foreground">
-          Check the address against your enrolment records before you send it.
-          This is the step that decides who can read this child&rsquo;s history.
-        </p>
-      </form>
+          <p className="mt-3 max-w-prose text-xs text-muted-foreground">
+            Check the address against your enrolment records before you send it.
+            This is the step that decides who can read this child&rsquo;s
+            history.
+          </p>
+        </form>
+      )}
 
       {issued && (
         <div
@@ -253,7 +269,9 @@ export default function GuardianAccessSection({
                 void navigator.clipboard
                   .writeText(issued.code)
                   .then(() => showToast('Code copied.'))
-                  .catch(() => showToast('Could not copy — select it and copy manually.'))
+                  .catch(() =>
+                    showToast('Could not copy — select it and copy manually.'),
+                  )
               }}
               className="pressable min-h-11 rounded-btn border border-border bg-card px-4 py-2 text-sm font-semibold text-primary"
             >
@@ -268,7 +286,9 @@ export default function GuardianAccessSection({
               onClick={() => {
                 void navigator.clipboard
                   .writeText(issued.link)
-                  .then(() => showToast('Link copied — paste it into your email.'))
+                  .then(() =>
+                    showToast('Link copied — paste it into your email.'),
+                  )
                   .catch(() => showToast('Could not copy.'))
               }}
               className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
