@@ -12,6 +12,7 @@ import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
 import BehaviourLogModal from '../../components/BehaviourLogModal'
 import StudentEnrolment from '../../components/StudentEnrolment'
+import StudentDetailsEditor from '../../components/StudentDetailsEditor'
 import { EnrolmentContext } from '../../lib/enrolment'
 import Spinner from '../../components/Spinner'
 import Icon from '../../components/Icon'
@@ -274,6 +275,24 @@ export default function StudentDetail() {
               </dd>
             </div>
           </dl>
+
+          {/* DIRECTLY UNDER THE FACTS IT CORRECTS. "Correct these details"
+            anywhere else is a link somebody has to go looking for after they
+            have already spotted the wrong year level right here.
+
+            Not gated on enrolment: db/136 leaves UPDATE alone on purpose, and
+            a departure is not a reason to freeze a misspelled name into the
+            archive. Staff only — a guardian reads this record, they do not
+            rewrite it.
+
+            Keyed on the values so the form re-initialises if the record
+            changes underneath it. */}
+          {profileEditableByRole && (
+            <StudentDetailsEditor
+              key={`${s.first_name}|${s.last_name}|${s.year_level}|${s.external_ref}|${s.date_of_birth}`}
+              student={s}
+            />
+          )}
 
           {/* db/135. Renders a banner when this child has left, and — for the
             office only — the control that records it. Everything else on this
