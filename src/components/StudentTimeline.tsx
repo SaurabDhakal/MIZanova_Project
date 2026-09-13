@@ -592,7 +592,7 @@ export default function StudentTimeline({ studentId }: { studentId: string }) {
         <button
           type="button"
           onClick={() => setShowAll(false)}
-          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+          className="pressable min-h-11 mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
         >
           Show fewer
         </button>

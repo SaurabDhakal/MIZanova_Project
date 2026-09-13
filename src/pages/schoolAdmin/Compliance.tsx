@@ -41,6 +41,8 @@ import { showToast } from '../../lib/toast'
 export default function Compliance() {
   const queryClient = useQueryClient()
   const [recording, setRecording] = useState<string | null>(null)
+  /* Withdrawing needed the same two steps as recording — see the button. */
+  const [withdrawing, setWithdrawing] = useState<string | null>(null)
 
   const students = useQuery({
     queryKey: queryKeys.students,
@@ -76,8 +78,14 @@ export default function Compliance() {
     mutationFn: (consentId: string) => revokeConsent(consentId),
     onSuccess: () => {
       invalidate()
+      setWithdrawing(null)
       showToast('Consent withdrawn.')
     },
+    /* It had no `onError`. A failed withdrawal said nothing at all, so an
+       administrator would leave this page believing a family's consent was
+       gone when the row was untouched — and the next thing they do is tell
+       the family it is done. */
+    onError: (error: Error) => showToast(error.message, 'error'),
   })
 
   if (students.isPending || consents.isPending)
@@ -263,21 +271,52 @@ export default function Compliance() {
                                 },
                               )}
                             </span>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() => withdraw.mutate(active.id)}
-                              /* `min-h-6` — 24px, set deliberately to keep
-                                 the consent matrix dense. Withdrawing a
-                                 consent is a legally significant act recorded
-                                 against a family, and 29 of these sit stacked
-                                 in one table where the neighbouring cell is a
-                                 different child. Density is not worth a
-                                 mis-click here. */
-                              className="pressable -ml-2 mt-1 inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-danger-foreground hover:bg-danger-subtle hover:underline disabled:opacity-60"
-                            >
-                              Withdraw
-                            </button>
+                            {/* TWO STEPS, LIKE RECORDING ONE.
+                                Recording a consent asked "do you hold this in
+                                writing?" and withdrawing one fired on the
+                                first click. That is the asymmetry the wrong
+                                way round: recording is an attestation the
+                                administrator can correct, while withdrawing
+                                stops a family's teachers receiving AI
+                                suggestions the moment it lands.
+
+                                And there are 29 of these in a dense grid
+                                where the neighbouring cell belongs to a
+                                DIFFERENT CHILD, so the cost of a mis-click is
+                                not a tidy mistake — it is withdrawing consent
+                                nobody asked to withdraw, against a family who
+                                is not told. */}
+                            {withdrawing === key ? (
+                              <span className="mt-1 flex flex-wrap items-center gap-1">
+                                <span className="text-xs text-danger-foreground">
+                                  Withdraw?
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => withdraw.mutate(active.id)}
+                                  className="pressable min-h-11 rounded-btn bg-danger px-2 text-xs font-semibold text-white disabled:opacity-60"
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setWithdrawing(null)}
+                                  className="pressable min-h-11 rounded-btn border border-border px-2 text-xs font-semibold text-foreground"
+                                >
+                                  Keep it
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setWithdrawing(key)}
+                                className="pressable -ml-2 mt-1 inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-danger-foreground hover:bg-danger-subtle hover:underline disabled:opacity-60"
+                              >
+                                Withdraw
+                              </button>
+                            )}
                           </>
                         ) : recording === key ? (
                           <div className="rounded-btn bg-warning-subtle p-2">

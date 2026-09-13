@@ -231,7 +231,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           {enquiry.status === 'onboarded' && (
             <Link
               to={`/platform-admin/tenants?enquiry=${enquiry.id}`}
-              className="pressable rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               Create the school →
             </Link>

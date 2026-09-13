@@ -1013,7 +1013,7 @@ export default function IepPlanEditor() {
                           : profileText,
                       })
                     }
-                    className="pressable mt-2 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-background"
+                    className="pressable min-h-11 mt-2 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-background"
                   >
                     Bring in what is on file
                   </button>
