@@ -12,6 +12,7 @@ import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
 import BehaviourLogModal from '../../components/BehaviourLogModal'
 import StudentEnrolment from '../../components/StudentEnrolment'
+import { EnrolmentContext } from '../../lib/enrolment'
 import Spinner from '../../components/Spinner'
 import Icon from '../../components/Icon'
 import Avatar from '../../components/Avatar'
@@ -105,7 +106,7 @@ export default function StudentDetail() {
    * perfectly well. Borrowing a nearby boolean because it was in scope is how a
    * screen ends up enforcing a rule the database never made.
    */
-  const canEditProfile =
+  const profileEditableByRole =
     profile?.role === 'educator' ||
     profile?.role === 'specialist' ||
     profile?.role === 'school_admin'
@@ -129,7 +130,7 @@ export default function StudentDetail() {
    * to do, and stays. That is `behaviour_logs_update`, which names school
    * admins explicitly.
    */
-  const canLogBehaviour =
+  const canLogByRole =
     profile?.role === 'educator' || profile?.role === 'specialist'
   const backTo = profile
     ? `${pathForRole(profile.role)}${isSpecialist ? '/caseload' : '/students'}`
@@ -169,16 +170,40 @@ export default function StudentDetail() {
 
   const s = student.data
 
-  return (
-    <div>
-      <Link
-        to={backTo}
-        className="min-h-11 -ml-2 inline-flex items-center px-2 text-sm font-medium text-primary hover:underline"
-      >
-        ← {backLabel}
-      </Link>
+  /*
+   * ROLE, THEN ENROLMENT. Both flags are a question about the person AND a
+   * question about the child, and they are answered in that order because the
+   * role is known before the record has loaded and the child is not.
+   *
+   * Nobody can observe a child who is not there, and a departed child's profile
+   * is a record of what the school knew rather than a form. db/136 refuses the
+   * first outright; it deliberately leaves student_profiles writable, because
+   * correcting what was known is not new activity — but nothing here should
+   * invite the edit.
+   */
+  const canEditProfile = profileEditableByRole && s.is_active
+  const canLogBehaviour = canLogByRole && s.is_active
 
-      {/* KEY FACTS AS LABEL/VALUE PAIRS, not a sentence.
+  return (
+    /*
+     * db/135 and db/136. Everything below reads this to decide whether to offer
+     * a control that BEGINS something — a goal, a session, a document, a
+     * sign-in code. Reading and correcting stay available throughout, which is
+     * the whole reason the record is kept rather than deleted.
+     *
+     * The database refuses those writes regardless; this only stops somebody
+     * being invited to attempt one.
+     */
+    <EnrolmentContext.Provider value={s.is_active}>
+      <div>
+        <Link
+          to={backTo}
+          className="min-h-11 -ml-2 inline-flex items-center px-2 text-sm font-medium text-primary hover:underline"
+        >
+          ← {backLabel}
+        </Link>
+
+        {/* KEY FACTS AS LABEL/VALUE PAIRS, not a sentence.
           docs/screenshots for inspiration/Customer.io Web People detail puts
           Status, Last Visited and Signed Up across the top of a record as
           discrete pairs. A sentence reads left to right and has to be finished;
@@ -189,74 +214,74 @@ export default function StudentDetail() {
           a line of its own at 903px — a laptop — and grew the header to 109px
           of mostly empty space. Name and action share the top line at any
           width; the facts sit under them. */}
-      <header className="mt-3">
-        <div className="flex flex-wrap items-start gap-4">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Avatar
-              id={s.id}
-              name={`${s.first_name} ${s.last_name}`}
-              size="lg"
-            />
-            <div className="min-w-0">
-              <h1 className="text-title text-foreground">
-                {s.first_name} {s.last_name}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Shown to parents as{' '}
-                <span className="font-medium text-foreground">
-                  {s.display_name}
-                </span>
-              </p>
-              <EducatorSchoolContext />
+        <header className="mt-3">
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <Avatar
+                id={s.id}
+                name={`${s.first_name} ${s.last_name}`}
+                size="lg"
+              />
+              <div className="min-w-0">
+                <h1 className="text-title text-foreground">
+                  {s.first_name} {s.last_name}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Shown to parents as{' '}
+                  <span className="font-medium text-foreground">
+                    {s.display_name}
+                  </span>
+                </p>
+                <EducatorSchoolContext />
+              </div>
             </div>
+
+            {canLogBehaviour ? (
+              <button
+                type="button"
+                onClick={() => setLogging(true)}
+                className="pressable min-h-11 shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+              >
+                Log behaviour
+              </button>
+            ) : (
+              // Said rather than silently absent: an administrator who cannot
+              // find the button should know it is a rule, not a missing feature.
+              <p className="max-w-xs shrink-0 text-sm text-muted-foreground">
+                Observations are written by the staff assigned to this student.
+                You can review, share and edit them below.
+              </p>
+            )}
           </div>
 
-          {canLogBehaviour ? (
-            <button
-              type="button"
-              onClick={() => setLogging(true)}
-              className="pressable min-h-11 shrink-0 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
-            >
-              Log behaviour
-            </button>
-          ) : (
-            // Said rather than silently absent: an administrator who cannot
-            // find the button should know it is a rule, not a missing feature.
-            <p className="max-w-xs shrink-0 text-sm text-muted-foreground">
-              Observations are written by the staff assigned to this student.
-              You can review, share and edit them below.
-            </p>
-          )}
-        </div>
+          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+            <div>
+              <dt className="text-xs text-muted-foreground">Year</dt>
+              <dd className="font-medium text-foreground">
+                {s.year_level ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Student ID</dt>
+              <dd className="font-medium text-foreground">
+                {s.external_ref ? `#${s.external_ref}` : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Education plan</dt>
+              <dd className="font-medium">
+                <PlanStatus studentId={studentId} />
+              </dd>
+            </div>
+          </dl>
 
-        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-          <div>
-            <dt className="text-xs text-muted-foreground">Year</dt>
-            <dd className="font-medium text-foreground">
-              {s.year_level ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Student ID</dt>
-            <dd className="font-medium text-foreground">
-              {s.external_ref ? `#${s.external_ref}` : '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Education plan</dt>
-            <dd className="font-medium">
-              <PlanStatus studentId={studentId} />
-            </dd>
-          </div>
-        </dl>
-
-        {/* db/135. Renders a banner when this child has left, and — for the
+          {/* db/135. Renders a banner when this child has left, and — for the
             office only — the control that records it. Everything else on this
             page keeps working for a departed student; that is the point. */}
-        <StudentEnrolment student={s} />
-      </header>
+          <StudentEnrolment student={s} />
+        </header>
 
-      {/* --- One child, one story ----------------------------------------
+        {/* --- One child, one story ----------------------------------------
           Four sections used to live here: shared from home, specialist
           sessions, goals, and behaviour history. They split one child's story
           across four lists ordered BY TYPE, when the question anybody asks is
@@ -269,7 +294,7 @@ export default function StudentDetail() {
           HAPPENED; the right column holds what is TRUE NOW — goals, the plan,
           who is connected. State never grows without bound, so it never needs
           scrolling past. */}
-      {/* md, NOT lg — and the state column comes FIRST on a narrow screen.
+        {/* md, NOT lg — and the state column comes FIRST on a narrow screen.
 
           `lg` is 1024px, so an iPad in portrait (820px) — the device the
           market research names as the primary one — fell to a single column.
@@ -281,17 +306,17 @@ export default function StudentDetail() {
           context above the timeline, because the profile and patterns are one
           screen of bounded content while the timeline scrolls without end —
           anything after it is effectively unreachable. */}
-      <div className="mt-6 grid gap-5 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:items-start">
-        <div className="order-2 space-y-5 md:order-1">
-          {/* The timeline leads, because a student record is opened to find out
+        <div className="mt-6 grid gap-5 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:items-start">
+          <div className="order-2 space-y-5 md:order-1">
+            {/* The timeline leads, because a student record is opened to find out
               what has been happening. Goals sit under it — but the timeline now
               shows a recent window with a control to go further back, so
               "Working towards" is reachable rather than nine screens down. It
               was at 6,594px on a child with a long history before that cap. */}
-          <StudentTimeline studentId={studentId} />
-          <GoalsSection studentId={studentId} />
+            <StudentTimeline studentId={studentId} />
+            <GoalsSection studentId={studentId} />
 
-          {/* -----------------------------------------------------------------
+            {/* -----------------------------------------------------------------
               WHERE A SPECIALIST RECORDS A SESSION
               -----------------------------------------------------------------
               Saurab: "where does the specialist record logs during sessions?
@@ -317,30 +342,33 @@ export default function StudentDetail() {
               a specialist actually opens is the whole fix: they get "+ Log
               session", an educator gets the shared list and no button.
               ----------------------------------------------------------------- */}
-          <SessionsSection studentId={studentId} />
-        </div>
+            <SessionsSection studentId={studentId} />
+          </div>
 
-        <div className="order-1 space-y-5 md:order-2">
-          {/* WHAT THE LOGS ADD UP TO, and first in this column on purpose.
+          <div className="order-1 space-y-5 md:order-2">
+            {/* WHAT THE LOGS ADD UP TO, and first in this column on purpose.
               It belongs on the state side by the rule above — it is what is
               TRUE NOW about a child rather than something that happened — and
               it goes at the top because the whole reason it exists is to be
               read without being hunted for. It renders nothing while loading
               or on failure, so it never pushes the plan card down over an
               empty box. */}
-          {/* ABOVE THE PATTERNS, because it is the standing description of a
+            {/* ABOVE THE PATTERNS, because it is the standing description of a
               child and the patterns are what has happened to them. It is also
               the one card a guardian opening this record can read as a
               description rather than a list of incidents. */}
-          <StudentProfileCard
-            studentId={studentId}
-            firstName={s.first_name}
-            canEdit={canEditProfile}
-          />
+            <StudentProfileCard
+              studentId={studentId}
+              firstName={s.first_name}
+              canEdit={canEditProfile}
+            />
 
-          <BehaviourPatterns studentId={studentId} studentName={s.first_name} />
+            <BehaviourPatterns
+              studentId={studentId}
+              studentName={s.first_name}
+            />
 
-          {/* ONE CARD, NOT TWO. Saurab: "what does even having open plan button
+            {/* ONE CARD, NOT TWO. Saurab: "what does even having open plan button
               do and what is iep documents there for?" — a fair question, and
               the answer was that they had no hierarchy between them.
 
@@ -350,49 +378,50 @@ export default function StudentDetail() {
               outside. Files belong to the plan area, not beside it as a peer,
               so the documents section now lives inside this card under its own
               heading rather than floating as a sibling. */}
-          <section className="rounded-card border border-border bg-card p-5 shadow-raised">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex shrink-0 rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
-                <Icon name="compliance" className="h-5 w-5" />
-              </span>
-              <h2 className="text-section text-foreground">Education plan</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Areas of concern, long and short term goals, and who supports{' '}
-              {s.first_name}.
-            </p>
-            <Link
-              to={`${roleBase}/students/${studentId}/iep`}
-              className="pressable min-h-11 mt-3 inline-flex items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
-            >
-              Open {s.first_name}&rsquo;s plan
-            </Link>
+            <section className="rounded-card border border-border bg-card p-5 shadow-raised">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex shrink-0 rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
+                  <Icon name="compliance" className="h-5 w-5" />
+                </span>
+                <h2 className="text-section text-foreground">Education plan</h2>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Areas of concern, long and short term goals, and who supports{' '}
+                {s.first_name}.
+              </p>
+              <Link
+                to={`${roleBase}/students/${studentId}/iep`}
+                className="pressable min-h-11 mt-3 inline-flex items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
+              >
+                Open {s.first_name}&rsquo;s plan
+              </Link>
 
-            <div className="mt-5 border-t border-border pt-4">
-              <IepDocumentsSection studentId={studentId} />
-            </div>
-          </section>
+              <div className="mt-5 border-t border-border pt-4">
+                <IepDocumentsSection studentId={studentId} />
+              </div>
+            </section>
 
-          {/* Renders nothing except for a school or platform administrator. Who
+            {/* Renders nothing except for a school or platform administrator. Who
               a child's guardians are is an office decision, not a classroom
               one. */}
-          <GuardianAccessSection studentId={studentId} />
+            <GuardianAccessSection studentId={studentId} />
+          </div>
         </div>
-      </div>
 
-      {logging && canLogBehaviour && (
-        <BehaviourLogModal
-          student={s}
-          onClose={() => {
-            setLogging(false)
-            // The timeline is where a new log now appears. Invalidating the
-            // old studentLogs key would refresh a query nothing renders.
-            void queryClient.invalidateQueries({
-              queryKey: ['timeline', studentId],
-            })
-          }}
-        />
-      )}
-    </div>
+        {logging && canLogBehaviour && (
+          <BehaviourLogModal
+            student={s}
+            onClose={() => {
+              setLogging(false)
+              // The timeline is where a new log now appears. Invalidating the
+              // old studentLogs key would refresh a query nothing renders.
+              void queryClient.invalidateQueries({
+                queryKey: ['timeline', studentId],
+              })
+            }}
+          />
+        )}
+      </div>
+    </EnrolmentContext.Provider>
   )
 }

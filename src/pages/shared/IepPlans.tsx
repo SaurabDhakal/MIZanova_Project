@@ -12,6 +12,7 @@ import {
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Icon from '../../components/Icon'
+import ClosedRecordNote from '../../components/ClosedRecordNote'
 import { showToast } from '../../lib/toast'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
@@ -192,9 +193,16 @@ export default function IepPlans() {
           follows one — but a child's first plan, and a plan opened for a
           genuinely new concern, do not. Guessing wrong writes a false history
           into `previous_plan_id`, so it asks once rather than assuming. */}
+      {/* db/136 refuses a new plan for a departed child. This page sits on its
+          own route, outside the student record's EnrolmentContext, so it asks
+          the student query it already runs rather than inheriting the answer.
+          Existing plans below stay readable and editable — correcting a plan is
+          not starting one. */}
       <div className="mb-6 rounded-card border border-border bg-card p-5 shadow-raised">
         <h2 className="text-section text-foreground">Start a new plan</h2>
-        {latest ? (
+        {student.data && !student.data.is_active ? (
+          <ClosedRecordNote what="new plans" />
+        ) : latest ? (
           <>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
               The most recent plan is dated {formatDate(latest.plan_date)}. If

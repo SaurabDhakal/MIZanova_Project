@@ -12,6 +12,8 @@ import {
 import { EmptyState, ErrorState, LoadingCards } from './QueryState'
 import FormField from './FormField'
 import SignedFileLink from './SignedFileLink'
+import ClosedRecordNote from './ClosedRecordNote'
+import { useEnrolled } from '../lib/enrolment'
 import { showToast } from '../lib/toast'
 
 /**
@@ -72,6 +74,7 @@ export default function IepDocumentsSection({
 }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const enrolled = useEnrolled()
   const [name, setName] = useState('')
   const [documentDate, setDocumentDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
@@ -113,7 +116,7 @@ export default function IepDocumentsSection({
             db/054 folded documents into the plan card precisely because they
             are one subject, and the type was still saying they were two. */}
         <h3 className="text-sm font-semibold text-foreground">IEP documents</h3>
-        {!open && (
+        {!open && enrolled && (
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -123,6 +126,8 @@ export default function IepDocumentsSection({
           </button>
         )}
       </div>
+
+      {!enrolled && <ClosedRecordNote what="new documents" />}
 
       <p className="mb-3 max-w-prose text-sm text-muted-foreground">
         Recording a document here tells the family it exists and lets them
