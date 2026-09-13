@@ -53,11 +53,28 @@ export default function AboutThisChild({
   onChange: (next: StudentProfile) => void
   /** Unique per mount — this appears on the intake form and the record. */
   idPrefix: string
-  /** Used in the labels, because "this child" reads like a form and a name does not. */
+  /** Used in the labels, because a name reads like a person and a noun does not. */
   firstName?: string
 }) {
-  const who = firstName?.trim() || 'them'
-  const set = (patch: Partial<StudentProfile>) => onChange({ ...value, ...patch })
+  /*
+   * THE FALLBACK HAS TO SURVIVE EVERY SENTENCE IT IS DROPPED INTO.
+   *
+   * It was 'them', which is only grammatical in one of the four labels below:
+   *
+   *     What them loves          What usually helps them
+   *     What them is good at
+   *     What them finds hard
+   *
+   * Three of them are broken English, and they are what somebody sees before
+   * they have typed a name — which on the intake form is most of the time they
+   * spend looking at it. 'this child' is correct in all four, and in the two
+   * headings on the forms that mount this.
+   *
+   * A name is still much better, which is why it wins whenever there is one.
+   */
+  const who = firstName?.trim() || 'this child'
+  const set = (patch: Partial<StudentProfile>) =>
+    onChange({ ...value, ...patch })
 
   return (
     <div className="space-y-4">
@@ -96,7 +113,8 @@ export default function AboutThisChild({
         name={`${idPrefix}-helps`}
         label={`What usually helps ${who}`}
         options={WHAT_HELPED.filter(
-          (o) => !['other', 'nothing_tried', 'still_escalated'].includes(o.value),
+          (o) =>
+            !['other', 'nothing_tried', 'still_escalated'].includes(o.value),
         )}
         selected={value.helps}
         onSelect={(next: WhatHelped[]) => set({ helps: next })}
@@ -106,7 +124,9 @@ export default function AboutThisChild({
       <ChipRow
         name={`${idPrefix}-triggers`}
         label="What usually sets it off"
-        options={ANTECEDENTS.filter((o) => !['other', 'unknown'].includes(o.value))}
+        options={ANTECEDENTS.filter(
+          (o) => !['other', 'unknown'].includes(o.value),
+        )}
         selected={value.triggers}
         onSelect={(next: Antecedent[]) => set({ triggers: next })}
         multi

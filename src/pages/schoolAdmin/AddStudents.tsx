@@ -70,6 +70,19 @@ const VERDICT_LABEL = {
   error: 'Cannot be added',
 } as const
 
+/** Which of the three optional description columns this row filled in. */
+function describedLabels(row: {
+  interests: string
+  strengths: string
+  finds_hard: string
+}): string[] {
+  return [
+    row.interests.trim() && 'Loves',
+    row.strengths.trim() && 'Good at',
+    row.finds_hard.trim() && 'Finds hard',
+  ].filter((label): label is string => Boolean(label))
+}
+
 export default function AddStudents() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
@@ -183,6 +196,12 @@ export default function AddStudents() {
             year_level: r.year_level.trim() || null,
             external_ref: r.external_ref.trim() || null,
             date_of_birth: readDate(r.date_of_birth).value,
+            // db/127. Empty on the single-student path, where the About form
+            // below writes the profile instead — and on every file that simply
+            // does not have these columns, which is most of them.
+            interests: r.interests.trim() || null,
+            strengths: r.strengths.trim() || null,
+            finds_hard: r.finds_hard.trim() || null,
           })),
         // RLS re-checks this against my_school_id(), so it is the caller
         // stating which school, not the caller choosing.
@@ -272,6 +291,9 @@ export default function AddStudents() {
       new Blob([templateCsv()], { type: 'text/csv;charset=utf-8' }),
       'mizanova-students.csv',
     )
+
+  /** Did this file carry any of the three description columns at all? */
+  const anyDescribed = rows.some((r) => describedLabels(r).length > 0)
 
   const counts = {
     ready: rows.filter((r) => r.verdict.status === 'ready').length,
@@ -412,8 +434,8 @@ export default function AddStudents() {
                 className="pressable mt-4 min-h-11 w-full rounded-btn border border-dashed border-border px-4 text-left"
               >
                 <span className="text-sm font-semibold text-foreground">
-                  Anything about {one.first_name.trim() || 'them'} worth writing
-                  down?
+                  Anything about {one.first_name.trim() || 'this child'} worth
+                  writing down?
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   Optional. What they love, are good at and find hard &mdash;
@@ -425,7 +447,7 @@ export default function AddStudents() {
               <div className="mt-4 rounded-btn border border-border p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-sm font-semibold text-foreground">
-                    About {one.first_name.trim() || 'them'}
+                    About {one.first_name.trim() || 'this child'}
                   </h3>
                   <button
                     type="button"
@@ -651,6 +673,14 @@ export default function AddStudents() {
                   <th scope="col" className="px-3 py-2 font-semibold">
                     Born
                   </th>
+                  {/* Only when the file actually carried them. A column of
+                      dashes on every ordinary import would be six hundred rows
+                      of nothing, on the one screen that has to stay readable. */}
+                  {anyDescribed && (
+                    <th scope="col" className="px-3 py-2 font-semibold">
+                      About them
+                    </th>
+                  )}
                   <th scope="col" className="px-3 py-2 font-semibold">
                     What happens
                   </th>
@@ -678,6 +708,15 @@ export default function AddStudents() {
                       {readDate(r.date_of_birth).value ??
                         (r.date_of_birth || '—')}
                     </td>
+                    {anyDescribed && (
+                      /* WHICH of the three arrived, not the text itself. The
+                         sentences are long enough to make every row three
+                         lines tall, and what somebody is checking here is
+                         whether the notes landed on the right child. */
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {describedLabels(r).join(' · ') || '—'}
+                      </td>
+                    )}
                     <td className="px-3 py-2">
                       <span
                         className={`rounded-btn px-2 py-0.5 text-xs font-semibold ${VERDICT_STYLE[r.verdict.status]}`}
@@ -752,6 +791,27 @@ export default function AddStudents() {
             <p className="mt-1 text-sm text-muted-foreground">
               Every row that was ready went in.
             </p>
+          )}
+
+          {/* SEPARATE FROM THE FAILURES ABOVE, because these children ARE on
+              the roll. Listing them as failures would send somebody to import
+              them again and the school would end up with two of each. */}
+          {outcome.profilesNotSaved.length > 0 && (
+            <div className="mt-3 rounded-card border border-warning bg-warning-subtle p-3">
+              <p className="text-sm font-semibold text-warning-foreground">
+                Added, but their notes could not be attached:
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {outcome.profilesNotSaved.map((p) => (
+                  <li key={p.name} className="text-sm text-warning-foreground">
+                    {p.name} &mdash; {p.reason}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-sm text-warning-foreground">
+                Open their record and add it under &ldquo;About&rdquo;.
+              </p>
+            </div>
           )}
 
           <div className="mt-5 flex flex-wrap gap-3">

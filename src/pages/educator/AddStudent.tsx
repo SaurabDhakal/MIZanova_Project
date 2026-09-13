@@ -238,7 +238,8 @@ export default function AddStudent() {
               className="pressable w-full text-left"
             >
               <span className="text-sm font-semibold text-foreground">
-                Anything about {firstName.trim() || 'them'} worth writing down?
+                Anything about {firstName.trim() || 'this child'} worth writing
+                down?
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Optional. What they love, are good at, and find hard — it is
@@ -250,7 +251,7 @@ export default function AddStudent() {
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-sm font-semibold text-foreground">
-                  About {firstName.trim() || 'them'}
+                  About {firstName.trim() || 'this child'}
                 </h2>
                 <button
                   type="button"
