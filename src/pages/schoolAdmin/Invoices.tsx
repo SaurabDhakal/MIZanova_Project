@@ -19,6 +19,8 @@ import {
   LoadingCards,
 } from '../../components/QueryState'
 import FormField from '../../components/FormField'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
+import { confirmCopy, type Confirming } from '../../lib/invoiceConfirm'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -45,6 +47,25 @@ import { showToast } from '../../lib/toast'
  * is still cancelled rather than deleted, and a paid one is untouchable: those
  * are records of something that happened to a family, and db/060 refuses them
  * at the database rather than trusting this file to keep hiding the buttons.
+ *
+ * ---------------------------------------------------------------------------
+ * ABOUT THE CONFIRMS
+ * ---------------------------------------------------------------------------
+ * Every one of these three buttons is a one-way door, and db/062 is the reason:
+ * status only ever moves forwards, so issuing cannot be undone, cancelling
+ * cannot be reopened, and a discarded draft is gone. They sat in a row of
+ * identically sized buttons, two of them firing on a single click with no
+ * confirmation at all, and Discard asking through `window.confirm` — a grey
+ * browser alert that names no amount and is dismissed by the same Enter key
+ * somebody was already pressing.
+ *
+ * All three now open ConfirmDestructive with the child, the description and
+ * the money in front of the reader, because "Are you sure?" is a question
+ * nobody can answer without the numbers.
+ *
+ * Issuing is `tone="primary"`. It is irreversible, not a loss; billing a
+ * family is the ordinary work of this page and a red button on it every week
+ * would teach people to click through the red one that deletes something.
  */
 
 const STATUS_STYLE: Record<
@@ -238,6 +259,8 @@ export default function Invoices() {
   const [creating, setCreating] = useState(false)
   /** The draft whose editor is open, by id. One at a time. */
   const [editingId, setEditingId] = useState<string | null>(null)
+  /** The one-way step waiting to be confirmed. See ABOUT THE CONFIRMS above. */
+  const [confirming, setConfirming] = useState<Confirming | null>(null)
 
   const invoices = useQuery({
     queryKey: queryKeys.invoices,
@@ -295,6 +318,7 @@ export default function Invoices() {
     mutationFn: (id: string) => deleteInvoiceDraft(id),
     onSuccess: () => {
       setEditingId(null)
+      setConfirming(null)
       void refresh()
       showToast('Draft discarded.')
     },
@@ -304,6 +328,7 @@ export default function Invoices() {
     mutationFn: ({ id, status }: { id: string; status: 'open' | 'void' }) =>
       setInvoiceStatus(id, status),
     onSuccess: (_data, variables) => {
+      setConfirming(null)
       void refresh()
       showToast(
         variables.status === 'open'
@@ -386,23 +411,10 @@ export default function Invoices() {
         </div>
       )}
 
-      {changeStatus.isError && (
-        <p
-          role="alert"
-          className="mb-4 text-sm font-medium text-danger-foreground"
-        >
-          {changeStatus.error.message}
-        </p>
-      )}
-
-      {discard.isError && (
-        <p
-          role="alert"
-          className="mb-4 text-sm font-medium text-danger-foreground"
-        >
-          {discard.error.message}
-        </p>
-      )}
+      {/* The two failure banners that used to sit here have moved inside the
+          dialog. Nothing reaches these mutations except through it, so an
+          error belongs on the screen the person is looking at — not behind it,
+          under a backdrop, where they would find it only after giving up. */}
 
       {invoices.data.length === 0 ? (
         <EmptyState
@@ -479,33 +491,19 @@ export default function Invoices() {
                       <button
                         type="button"
                         onClick={() =>
-                          changeStatus.mutate({
-                            id: invoice.id,
-                            status: 'open',
-                          })
+                          setConfirming({ kind: 'issue', invoice })
                         }
                         disabled={changeStatus.isPending}
                         className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         Issue to family
                       </button>
-                      {/* Says what is being thrown away and what it is worth,
-                          because "Are you sure?" is a question nobody can
-                          answer without the numbers in front of them. */}
                       <button
                         type="button"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Discard this draft for ${nameFor(invoice.student_id)} — ${invoice.description}, ${formatMoney(invoice.amount_cents, invoice.currency)}? It has never been visible to the family and cannot be recovered.`,
-                            )
-                          ) {
-                            discard.mutate(invoice.id)
-                          }
-                        }}
+                        onClick={() =>
+                          setConfirming({ kind: 'discard', invoice })
+                        }
                         disabled={discard.isPending}
-                        /* 38px. It destroys a draft invoice that "cannot be
-                           recovered" by its own confirm text. */
                         className="pressable inline-flex min-h-11 items-center rounded-btn border border-danger px-3 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                       >
                         Discard
@@ -515,11 +513,9 @@ export default function Invoices() {
                   {invoice.status === 'open' && (
                     <button
                       type="button"
-                      onClick={() =>
-                        changeStatus.mutate({ id: invoice.id, status: 'void' })
-                      }
+                      onClick={() => setConfirming({ kind: 'cancel', invoice })}
                       disabled={changeStatus.isPending}
-                      className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
+                      className="pressable min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                     >
                       Cancel
                     </button>
@@ -529,6 +525,46 @@ export default function Invoices() {
             )
           })}
         </ul>
+      )}
+
+      {confirming && (
+        <ConfirmDestructive
+          {...confirmCopy(
+            confirming,
+            nameFor(confirming.invoice.student_id),
+            formatMoney(
+              confirming.invoice.amount_cents,
+              confirming.invoice.currency,
+            ),
+          )}
+          pending={
+            confirming.kind === 'discard'
+              ? discard.isPending
+              : changeStatus.isPending
+          }
+          error={
+            (confirming.kind === 'discard'
+              ? discard.error?.message
+              : changeStatus.error?.message) ?? null
+          }
+          onConfirm={() => {
+            if (confirming.kind === 'discard') {
+              discard.mutate(confirming.invoice.id)
+            } else {
+              changeStatus.mutate({
+                id: confirming.invoice.id,
+                status: confirming.kind === 'issue' ? 'open' : 'void',
+              })
+            }
+          }}
+          onCancel={() => {
+            // Clear the failure with the dialog. Leaving it set means the next
+            // invoice opens showing why a different one failed yesterday.
+            discard.reset()
+            changeStatus.reset()
+            setConfirming(null)
+          }}
+        />
       )}
     </div>
   )

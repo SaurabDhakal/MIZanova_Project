@@ -473,7 +473,7 @@ export default function EducatorDashboard() {
                   <button
                     type="button"
                     onClick={() => setLoggingFor(student)}
-                    className="pressable w-full rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
+                    className="pressable min-h-11 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-background"
                   >
                     Log behaviour
                   </button>

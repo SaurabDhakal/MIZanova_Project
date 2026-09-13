@@ -226,7 +226,7 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
                   close()
                   void signOut()
                 }}
-                className="flex w-full items-center gap-3 rounded-btn px-2.5 py-2 text-sm font-semibold text-danger-foreground hover:bg-danger-subtle"
+                className="flex min-h-11 w-full items-center gap-3 rounded-btn px-2.5 py-2 text-sm font-semibold text-danger-foreground hover:bg-danger-subtle"
               >
                 <Icon name="logout" className="h-4 w-4" />
                 Sign out

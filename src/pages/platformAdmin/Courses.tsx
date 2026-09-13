@@ -499,7 +499,7 @@ function PriceControl({ course }: { course: Course }) {
           }
           save.mutate(cents)
         }}
-        className="pressable rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+        className="pressable min-h-11 rounded-btn bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
       >
         Save
       </button>

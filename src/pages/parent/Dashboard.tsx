@@ -445,7 +445,7 @@ export default function ParentDashboard() {
         <button
           type="button"
           onClick={() => setShowAllShared(true)}
-          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
+          className="pressable min-h-11 mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-background"
         >
           See {hiddenShared} earlier update{hiddenShared === 1 ? '' : 's'}
         </button>
@@ -455,7 +455,7 @@ export default function ParentDashboard() {
         <button
           type="button"
           onClick={() => setShowAllShared(false)}
-          className="pressable mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
+          className="pressable min-h-11 mt-4 w-full rounded-btn border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-background"
         >
           Show fewer
         </button>
