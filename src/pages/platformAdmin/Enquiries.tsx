@@ -266,7 +266,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
               type="button"
               disabled={update.isPending}
               onClick={() => update.mutate({ status: 'new' })}
-              className="px-2 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:underline disabled:opacity-60"
+              className="inline-flex min-h-11 items-center px-2 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:underline disabled:opacity-60"
             >
               Put back in the queue
             </button>

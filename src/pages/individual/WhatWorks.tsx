@@ -303,7 +303,11 @@ export default function WhatWorks() {
                       key={s.id}
                       className={`flex gap-3 ${dropped.has(s.id) ? 'print-hide opacity-50' : ''}`}
                     >
-                      <Remove id={s.id} out={dropped.has(s.id)} onToggle={toggle} />
+                      <Remove
+                        id={s.id}
+                        out={dropped.has(s.id)}
+                        onToggle={toggle}
+                      />
                       <div
                         className={`min-w-0 ${dropped.has(s.id) ? 'line-through' : ''}`}
                       >
@@ -336,7 +340,11 @@ export default function WhatWorks() {
                       key={s.id}
                       className={`flex gap-3 ${dropped.has(s.id) ? 'print-hide opacity-50' : ''}`}
                     >
-                      <Remove id={s.id} out={dropped.has(s.id)} onToggle={toggle} />
+                      <Remove
+                        id={s.id}
+                        out={dropped.has(s.id)}
+                        onToggle={toggle}
+                      />
                       <div
                         className={`min-w-0 ${dropped.has(s.id) ? 'line-through' : ''}`}
                       >
@@ -354,13 +362,12 @@ export default function WhatWorks() {
             {/* SAYS WHAT IT IS NOT — Receipts' rule, with more at stake. */}
             {!empty && (
               <p className="print-keep mt-8 max-w-prose border-t border-border pt-4 text-xs text-muted-foreground">
-                This page was written by the person named on it, using
-                MiZanova. It is a record of what they have found helpful and
-                what they have not. It is not an assessment, a diagnosis or a
-                clinical opinion, nobody has been tested for anything, and no
-                clinician has reviewed it. The strategies were suggested by
-                software and kept because this person tried them and said they
-                worked.
+                This page was written by the person named on it, using MiZanova.
+                It is a record of what they have found helpful and what they
+                have not. It is not an assessment, a diagnosis or a clinical
+                opinion, nobody has been tested for anything, and no clinician
+                has reviewed it. The strategies were suggested by software and
+                kept because this person tried them and said they worked.
               </p>
             )}
           </article>

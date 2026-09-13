@@ -1,5 +1,10 @@
 import PublicLayout from '../../components/PublicLayout'
-import { Lead, NextStep, NotThis, Section } from '../../components/PublicSections'
+import {
+  Lead,
+  NextStep,
+  NotThis,
+  Section,
+} from '../../components/PublicSections'
 
 /**
  * "Cookie Policy" from the Figma footer.
@@ -50,9 +55,9 @@ export default function Cookies() {
 
       <Section title="Clearing it">
         <p>
-          Signing out clears your session and roster. Clearing site data
-          removes everything, including an offline log that has not uploaded —
-          so upload first on a bad connection.
+          Signing out clears your session and roster. Clearing site data removes
+          everything, including an offline log that has not uploaded — so upload
+          first on a bad connection.
         </p>
       </Section>
 

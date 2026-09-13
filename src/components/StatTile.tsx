@@ -36,7 +36,10 @@ import Icon, { type IconName } from './Icon'
  */
 
 const TONE = {
-  default: { tile: 'bg-brand-navy/10 text-brand-navy', value: 'text-foreground' },
+  default: {
+    tile: 'bg-brand-navy/10 text-brand-navy',
+    value: 'text-foreground',
+  },
   danger: {
     tile: 'bg-danger-subtle text-danger-foreground',
     value: 'text-danger-foreground',
@@ -91,9 +94,7 @@ export default function StatTile({
         title={known ? undefined : 'Not known — this could not be loaded'}
       >
         {known ? value : '—'}
-        {known && suffix ? (
-          <span className="text-title">{suffix}</span>
-        ) : null}
+        {known && suffix ? <span className="text-title">{suffix}</span> : null}
       </p>
 
       {hint && <p className="mt-1 text-sm">{hint}</p>}

@@ -144,7 +144,9 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
               />
               <div className="min-w-0">
                 <p className="truncate font-semibold text-foreground">{name}</p>
-                <p className="text-xs break-all text-muted-foreground">{profile.email}</p>
+                <p className="text-xs break-all text-muted-foreground">
+                  {profile.email}
+                </p>
                 {/* The chip tells a member of staff which hat is on, because
                     they can hold several. One role and no switcher makes it a
                     label for its own sake. */}
@@ -196,7 +198,10 @@ export default function AccountMenu({ roleLabel }: { roleLabel: string }) {
                 onClick={close}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background"
               >
-                <Icon name="invoices" className="h-4 w-4 text-muted-foreground" />
+                <Icon
+                  name="invoices"
+                  className="h-4 w-4 text-muted-foreground"
+                />
                 Payments and receipts
               </NavLink>
             )}

@@ -33,7 +33,8 @@ export default function ForgotPassword() {
       await requestPasswordReset(email.trim())
       setSent(true)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong'
 
       // These two are worth translating. Neither reveals whether an account
       // exists — one is about the address itself, the other about how often
@@ -70,7 +71,10 @@ export default function ForgotPassword() {
         </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          <Link to="/login" className="font-semibold text-primary hover:underline">
+          <Link
+            to="/login"
+            className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
+          >
             Back to sign in
           </Link>
         </p>
@@ -115,7 +119,10 @@ export default function ForgotPassword() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Remembered it?{' '}
-        <Link to="/login" className="font-semibold text-primary hover:underline">
+        <Link
+          to="/login"
+          className="font-semibold text-primary hover:underline"
+        >
           Back to sign in
         </Link>
       </p>

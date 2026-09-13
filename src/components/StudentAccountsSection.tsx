@@ -92,7 +92,9 @@ export default function StudentAccountsSection() {
     mutationFn: (studentId: string) =>
       createInvitation({ email: email.trim(), role: 'student', studentId }),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.studentAccounts })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.studentAccounts,
+      })
       setLink(result.acceptUrl)
       setEmail('')
       setInviting(null)
@@ -126,9 +128,7 @@ export default function StudentAccountsSection() {
 
   return (
     <section className="mt-10">
-      <h2 className="text-section text-foreground">
-        Student sign-ins
-      </h2>
+      <h2 className="text-section text-foreground">Student sign-ins</h2>
       <p className="mt-1 mb-4 max-w-prose text-sm text-muted-foreground">
         An older student can have their own account to see the goals they are
         working on. They never see behaviour notes, safeguarding records, plan
@@ -223,7 +223,9 @@ export default function StudentAccountsSection() {
                   onSubmit={(e) => {
                     e.preventDefault()
                     if (email.trim() === '')
-                      return setError('Enter the address they will sign in with.')
+                      return setError(
+                        'Enter the address they will sign in with.',
+                      )
                     setError(null)
                     invite.mutate(s.id)
                   }}
@@ -267,11 +269,12 @@ export default function StudentAccountsSection() {
       )}
 
       <p className="mt-4 max-w-prose text-xs text-muted-foreground">
-        There is no way to agree on a family&rsquo;s behalf from this screen, and
-        that is deliberate — a guardian grants it themselves and can withdraw it
-        at any time, which closes the child&rsquo;s sign-in immediately. Whether
-        a particular student should have an account is a judgement for you and
-        their family together; nothing here decides it by age.
+        There is no way to agree on a family&rsquo;s behalf from this screen,
+        and that is deliberate — a guardian grants it themselves and can
+        withdraw it at any time, which closes the child&rsquo;s sign-in
+        immediately. Whether a particular student should have an account is a
+        judgement for you and their family together; nothing here decides it by
+        age.
       </p>
     </section>
   )

@@ -94,9 +94,9 @@ export const FAQS: { section: string; items: Faq[] }[] = [
             <Link to="/link" className="text-primary hover:underline">
               Enter it here
             </Link>
-            . It works once, expires after thirty days, and only for the
-            address the school sent it to — which is what stops somebody else
-            reaching your child’s record.
+            . It works once, expires after thirty days, and only for the address
+            the school sent it to — which is what stops somebody else reaching
+            your child’s record.
           </>
         ),
       },
@@ -120,11 +120,14 @@ export const FAQS: { section: string; items: Faq[] }[] = [
           <>
             Apply to the network and Special Miles checks your registration and
             Working With Children Check.{' '}
-            <Link to="/for-specialists" className="text-primary hover:underline">
+            <Link
+              to="/for-specialists"
+              className="text-primary hover:underline"
+            >
               The application is here
             </Link>
-            . Approval admits you; your account is created when a school
-            engages you.
+            . Approval admits you; your account is created when a school engages
+            you.
           </>
         ),
       },
@@ -161,9 +164,9 @@ export const FAQS: { section: string; items: Faq[] }[] = [
         q: 'What is sent to the AI?',
         a: (
           <>
-            The observation text, with names, contact details and dates of
-            birth removed first. The exact text is stored, so you can be shown
-            what left.{' '}
+            The observation text, with names, contact details and dates of birth
+            removed first. The exact text is stored, so you can be shown what
+            left.{' '}
             {/* A NEW TAB, BECAUSE THIS ANSWER IS READ IN TWO PLACES.
                 /privacy is public and has no in-app twin, so following it
                 from the Settings Help tab would render the marketing header

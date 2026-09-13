@@ -273,7 +273,9 @@ export default function StrategyPanel({
           >
             <span className="inline-flex items-center gap-1.5">
               <Icon name="ai" className="h-4 w-4" />
-              {generate.isPending ? 'Thinking…' : 'Suggest classroom strategies'}
+              {generate.isPending
+                ? 'Thinking…'
+                : 'Suggest classroom strategies'}
             </span>
           </button>
         )}
@@ -346,7 +348,11 @@ export default function StrategyPanel({
                 placement — which is only true if somebody can read it. */}
             {strategy.provenance && (
               <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                <Icon name="audit" className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <Icon
+                  name="audit"
+                  className="h-3.5 w-3.5 shrink-0"
+                  aria-hidden
+                />
                 <span>
                   From the evidence library
                   {strategy.targeted
@@ -389,7 +395,6 @@ export default function StrategyPanel({
                 </ul>
               </details>
             )}
-
 
             {/* A QUIET ACTION ROW, from the generator reference in
                 docs/log inspiration: small actions sitting under each output
@@ -455,13 +460,15 @@ export default function StrategyPanel({
                   <button
                     type="button"
                     onClick={() =>
-                      feedback.mutate({ strategyId: strategy.id, action: 'applied' })
+                      feedback.mutate({
+                        strategyId: strategy.id,
+                        action: 'applied',
+                      })
                     }
                     disabled={feedback.isPending}
                     className="pressable min-h-11 inline-flex items-center gap-1.5 rounded-btn bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   >
-                    <Icon name="tick" className="h-4 w-4" />
-                    I tried this
+                    <Icon name="tick" className="h-4 w-4" />I tried this
                   </button>
                   <button
                     type="button"
@@ -513,11 +520,13 @@ export default function StrategyPanel({
         <SentToAi raw={strategies[0].anonymised_input} />
       )}
 
-
       {/* Errors were never rendered for these mutations, so a failure looked
           identical to a button that did nothing. */}
       {(flag.isError || feedback.isError) && (
-        <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mt-3 text-sm font-medium text-danger-foreground"
+        >
           {(flag.error ?? feedback.error)?.message}
         </p>
       )}
@@ -564,9 +573,9 @@ export default function StrategyPanel({
                 What stops these working in your room?
               </label>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                One sentence. &ldquo;There is no quiet corner&rdquo;,
-                &ldquo;we have already tried the timer&rdquo;, &ldquo;I am on my
-                own with thirty of them&rdquo;.
+                One sentence. &ldquo;There is no quiet corner&rdquo;, &ldquo;we
+                have already tried the timer&rdquo;, &ldquo;I am on my own with
+                thirty of them&rdquo;.
               </p>
               <input
                 id={`because-${logId}`}
@@ -606,7 +615,6 @@ export default function StrategyPanel({
           It now sits once at the foot of the Activity card. What stays on each
           suggestion is the part that is about THAT suggestion — the provenance
           line, and "What the AI was told". */}
-
     </div>
   )
 }

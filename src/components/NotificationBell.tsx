@@ -93,7 +93,8 @@ function itemsFor(queue: WorkQueue, basePath: string) {
     build: (n: number) => Item,
   ) => {
     if (value === undefined) return // not this role's queue
-    if (value === null) unreadable += 1 // asked, and could not be told
+    if (value === null)
+      unreadable += 1 // asked, and could not be told
     else if (value > 0) items.push(build(value))
   }
 
@@ -115,7 +116,8 @@ function itemsFor(queue: WorkQueue, basePath: string) {
   add(queue.newApplications, (n) => ({
     key: 'applications',
     label: `${plural(n, 'specialist application', 'specialist applications')}`,
-    detail: n === 1 ? 'Nobody has opened this yet' : 'Nobody has opened these yet',
+    detail:
+      n === 1 ? 'Nobody has opened this yet' : 'Nobody has opened these yet',
     to: `${basePath}/applications`,
   }))
 

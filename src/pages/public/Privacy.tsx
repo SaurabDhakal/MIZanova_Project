@@ -1,5 +1,11 @@
 import PublicLayout from '../../components/PublicLayout'
-import { Lead, NextStep, NotThis, Points, Section } from '../../components/PublicSections'
+import {
+  Lead,
+  NextStep,
+  NotThis,
+  Points,
+  Section,
+} from '../../components/PublicSections'
 
 /**
  * "Privacy Policy" from the Figma footer.
@@ -28,8 +34,8 @@ export default function Privacy() {
 
       <Section title="What is stored, and where">
         <p>
-          Everything — records, goals, IEP documents, messages, the audit
-          trail — is stored in Sydney and does not leave the country.
+          Everything — records, goals, IEP documents, messages, the audit trail
+          — is stored in Sydney and does not leave the country.
         </p>
         <Points
           items={[

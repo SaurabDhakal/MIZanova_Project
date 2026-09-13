@@ -99,7 +99,7 @@ function GoalLine({
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <Link
           to={`/educator/students/${goal.student_id}`}
-          className="font-semibold text-primary hover:underline"
+          className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
         >
           {studentName}
         </Link>
@@ -178,8 +178,9 @@ export default function Schedule() {
   )
   const nameOf = (id: string) => byId.get(id) ?? 'A student'
 
-  const totalOverdue = goals.data.filter((g) => daysUntil(g.target_date!) < 0)
-    .length
+  const totalOverdue = goals.data.filter(
+    (g) => daysUntil(g.target_date!) < 0,
+  ).length
   const dueNext14Days = goals.data.filter((g) => {
     const days = daysUntil(g.target_date!)
     return days >= 0 && days <= 14
@@ -240,8 +241,7 @@ export default function Schedule() {
       <header className="mb-6">
         <h1 className="text-title text-foreground">Schedule</h1>
         <p className="mt-1 text-muted-foreground">
-          Goal target dates for the children you are assigned to, soonest
-          first.
+          Goal target dates for the children you are assigned to, soonest first.
         </p>
         <EducatorSchoolContext />
       </header>
@@ -292,7 +292,9 @@ export default function Schedule() {
               </dd>
             </div>
             <div className="rounded-card border border-border bg-card p-4 shadow-raised">
-              <dt className="text-sm text-muted-foreground">Average progress</dt>
+              <dt className="text-sm text-muted-foreground">
+                Average progress
+              </dt>
               <dd className="mt-1 text-2xl font-semibold text-primary">
                 {averageProgress}%
               </dd>
@@ -338,11 +340,7 @@ export default function Schedule() {
                 value={dateFilter}
                 onChange={(event) =>
                   setDateFilter(
-                    event.target.value as
-                      | ''
-                      | 'overdue'
-                      | 'next-60'
-                      | 'later',
+                    event.target.value as '' | 'overdue' | 'next-60' | 'later',
                   )
                 }
                 className="mt-1 block rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
@@ -368,7 +366,10 @@ export default function Schedule() {
               </button>
             )}
 
-            <p className="ml-auto text-sm text-muted-foreground" aria-live="polite">
+            <p
+              className="ml-auto text-sm text-muted-foreground"
+              aria-live="polite"
+            >
               Showing {visibleGoals.length} of {goals.data.length} goals
             </p>
           </div>
@@ -378,9 +379,7 @@ export default function Schedule() {
       {visibleGoals.length > 0 && (
         <section className="mb-8">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-section text-foreground">
-              When they fall due
-            </h2>
+            <h2 className="text-section text-foreground">When they fall due</h2>
             <p className="text-sm text-muted-foreground">
               Click a goal to open the child&rsquo;s record. The filters above
               narrow this too.
@@ -461,7 +460,11 @@ export default function Schedule() {
           </h2>
           <ul className="space-y-3">
             {overdue.map((goal) => (
-              <GoalLine key={goal.id} goal={goal} studentName={nameOf(goal.student_id)} />
+              <GoalLine
+                key={goal.id}
+                goal={goal}
+                studentName={nameOf(goal.student_id)}
+              />
             ))}
           </ul>
         </section>
@@ -474,7 +477,11 @@ export default function Schedule() {
           </h2>
           <ul className="space-y-3">
             {soon.map((goal) => (
-              <GoalLine key={goal.id} goal={goal} studentName={nameOf(goal.student_id)} />
+              <GoalLine
+                key={goal.id}
+                goal={goal}
+                studentName={nameOf(goal.student_id)}
+              />
             ))}
           </ul>
         </section>
@@ -487,7 +494,11 @@ export default function Schedule() {
           </h2>
           <ul className="space-y-3">
             {later.map((goal) => (
-              <GoalLine key={goal.id} goal={goal} studentName={nameOf(goal.student_id)} />
+              <GoalLine
+                key={goal.id}
+                goal={goal}
+                studentName={nameOf(goal.student_id)}
+              />
             ))}
           </ul>
         </section>
@@ -502,10 +513,10 @@ export default function Schedule() {
         </strong>{' '}
         MiZanova has no appointment slots, no availability and no reminders, so
         there is nothing here to book or move, and an empty day means nothing
-        falls due on it rather than that you are free. What it shows is the
-        only thing the system has a date for: the targets set on your
-        students&rsquo; goals, drawn on the day each is due. A specialist&rsquo;s
-        bookings are a separate table, and a teacher is not given sight of it.
+        falls due on it rather than that you are free. What it shows is the only
+        thing the system has a date for: the targets set on your students&rsquo;
+        goals, drawn on the day each is due. A specialist&rsquo;s bookings are a
+        separate table, and a teacher is not given sight of it.
       </p>
     </div>
   )

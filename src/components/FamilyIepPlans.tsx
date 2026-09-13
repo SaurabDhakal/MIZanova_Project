@@ -224,7 +224,11 @@ export default function FamilyIepPlans({ studentId }: { studentId: string }) {
                   aria-expanded={isOpen}
                   className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 >
-                  {isOpen ? 'Close' : iAgreed ? 'Read it again' : 'Read it and agree'}
+                  {isOpen
+                    ? 'Close'
+                    : iAgreed
+                      ? 'Read it again'
+                      : 'Read it and agree'}
                 </button>
 
                 {isOpen && <PlanBody planId={p.id} />}

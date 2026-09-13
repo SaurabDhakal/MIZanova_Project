@@ -92,7 +92,11 @@ export default function TodayContext() {
         onClick={() => setOpen(true)}
         className="pressable flex min-h-11 w-full items-center gap-2 rounded-card border border-border bg-card px-4 py-2.5 text-left text-sm hover:bg-background"
       >
-        <Icon name="bolt" className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <Icon
+          name="bolt"
+          className="h-4 w-4 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
         {current.length > 0 ? (
           <span className="text-foreground">
             Today:{' '}

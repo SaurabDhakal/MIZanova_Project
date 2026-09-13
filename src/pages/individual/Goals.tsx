@@ -159,7 +159,7 @@ export default function Goals() {
               already doing &mdash; you can turn that off on the{' '}
               <Link
                 to="/individual/suggestions"
-                className="font-medium text-primary hover:underline"
+                className="inline-flex min-h-11 items-center font-medium text-primary hover:underline"
               >
                 suggestions page
               </Link>
@@ -258,7 +258,7 @@ export default function Goals() {
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
+              className="min-h-11 mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
             >
               Never mind
             </button>
@@ -328,7 +328,7 @@ export default function Goals() {
                   <button
                     type="button"
                     onClick={() => status.mutate({ id: goal.id, to: 'active' })}
-                    className="text-sm font-semibold text-primary hover:underline"
+                    className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                   >
                     Pick it back up
                   </button>
@@ -344,14 +344,14 @@ export default function Goals() {
                       <button
                         type="button"
                         onClick={() => remove.mutate(goal.id)}
-                        className="text-sm font-semibold text-danger-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-danger-foreground hover:underline"
                       >
                         Delete it
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingId(null)}
-                        className="text-sm font-semibold text-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-foreground hover:underline"
                       >
                         Keep it
                       </button>
@@ -360,7 +360,7 @@ export default function Goals() {
                     <button
                       type="button"
                       onClick={() => setConfirmingId(goal.id)}
-                      className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                      className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
                     >
                       Delete
                     </button>
@@ -499,14 +499,14 @@ function GoalCard({
           <button
             type="button"
             onClick={onDone}
-            className="font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
           >
             Done with this
           </button>
           <button
             type="button"
             onClick={onPark}
-            className="font-semibold text-muted-foreground hover:underline"
+            className="inline-flex min-h-11 items-center font-semibold text-muted-foreground hover:underline"
           >
             Park it
           </button>
@@ -534,14 +534,14 @@ function GoalCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="font-semibold text-danger-foreground hover:underline"
+                className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline"
               >
                 Delete it
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
-                className="font-semibold text-foreground hover:underline"
+                className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
               >
                 Keep it
               </button>
@@ -550,7 +550,7 @@ function GoalCard({
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+              className="inline-flex min-h-11 items-center font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
             >
               Delete
             </button>

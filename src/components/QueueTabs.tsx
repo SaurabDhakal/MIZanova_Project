@@ -44,7 +44,9 @@ export default function QueueTabs<T extends string>({
             <label
               key={tab.value}
               className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn px-4 py-2 text-sm font-semibold ${
-                active ? 'bg-primary text-primary-foreground' : 'text-foreground'
+                active
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-foreground'
               }`}
             >
               <input

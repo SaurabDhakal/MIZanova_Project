@@ -160,7 +160,9 @@ export default function WorkingHoursSection({
             key={day.label}
             className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-3"
           >
-            <span className="w-28 font-medium text-foreground">{day.label}</span>
+            <span className="w-28 font-medium text-foreground">
+              {day.label}
+            </span>
             {day.bands.length === 0 ? (
               <span className="text-sm text-muted-foreground">
                 Not available
@@ -196,7 +198,10 @@ export default function WorkingHoursSection({
       {canEdit && (
         <div className="mt-5 flex flex-wrap items-end gap-3">
           <div>
-            <label htmlFor="av-day" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="av-day"
+              className="block text-sm font-medium text-foreground"
+            >
               Day
             </label>
             <select
@@ -213,7 +218,10 @@ export default function WorkingHoursSection({
             </select>
           </div>
           <div>
-            <label htmlFor="av-from" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="av-from"
+              className="block text-sm font-medium text-foreground"
+            >
               From
             </label>
             <input
@@ -225,7 +233,10 @@ export default function WorkingHoursSection({
             />
           </div>
           <div>
-            <label htmlFor="av-to" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="av-to"
+              className="block text-sm font-medium text-foreground"
+            >
               To
             </label>
             <input

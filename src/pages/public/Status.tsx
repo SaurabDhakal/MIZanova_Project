@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import PublicLayout from '../../components/PublicLayout'
 import Icon from '../../components/Icon'
-import { Lead, NextStep, NotThis, Section } from '../../components/PublicSections'
+import {
+  Lead,
+  NextStep,
+  NotThis,
+  Section,
+} from '../../components/PublicSections'
 import { fetchServiceStatus } from '../../lib/api'
 
 /**
@@ -64,9 +69,7 @@ export default function Status() {
     retry: false,
   })
 
-  const look = status.isPending
-    ? null
-    : LOOK[status.data ?? 'unreachable']
+  const look = status.isPending ? null : LOOK[status.data ?? 'unreachable']
 
   return (
     <PublicLayout
@@ -92,9 +95,7 @@ export default function Status() {
                 <Icon name={look.icon} className="h-6 w-6" />
               </span>
               <div>
-                <h2 className="text-title text-foreground">
-                  {look.heading}
-                </h2>
+                <h2 className="text-title text-foreground">{look.heading}</h2>
                 <p className="mt-1 text-muted-foreground">{look.detail}</p>
                 <p className="mt-3 text-sm text-muted-foreground">
                   Checked{' '}
@@ -102,7 +103,8 @@ export default function Status() {
                     hour: 'numeric',
                     minute: '2-digit',
                   })}
-                  , {new Date().toLocaleDateString('en-AU', {
+                  ,{' '}
+                  {new Date().toLocaleDateString('en-AU', {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',

@@ -168,7 +168,6 @@ export default function AboutChild() {
         </p>
       </header>
 
-
       {/* --- What the school knows (db/127) --------------------------------
           THE FAMILY WAS GIVEN PERMISSION TO READ THIS AND NO WAY TO DO IT.
           db/127's policy admits a guardian on purpose, and a test asserts it —
@@ -191,9 +190,7 @@ export default function AboutChild() {
       />
 
       {/* --- Their details ------------------------------------------------- */}
-      <h2 className="mt-8 mb-2 text-section text-foreground">
-        Their details
-      </h2>
+      <h2 className="mt-8 mb-2 text-section text-foreground">Their details</h2>
 
       {overview.isPending && <LoadingCards count={1} />}
 
@@ -224,7 +221,10 @@ export default function AboutChild() {
                 <>
                   {formatDate(dob)}
                   {age !== null && (
-                    <span className="text-muted-foreground"> · {age} years old</span>
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · {age} years old
+                    </span>
                   )}
                 </>
               ) : (
@@ -275,13 +275,13 @@ export default function AboutChild() {
                 </span>
               ) : (
                 <>
-                  <span className="text-muted-foreground">Not set up.</span>{' '}
-                  A child can have a sign-in of their own that shows their goals
+                  <span className="text-muted-foreground">Not set up.</span> A
+                  child can have a sign-in of their own that shows their goals
                   and nothing else — no behaviour notes, no plan documents, no
                   messages between adults. Your school issues it, and{' '}
                   <Link
                     to="/parent/privacy"
-                    className="font-medium text-primary hover:underline"
+                    className="inline-flex min-h-11 items-center font-medium text-primary hover:underline"
                   >
                     your consent
                   </Link>{' '}
@@ -306,9 +306,9 @@ export default function AboutChild() {
           and points at the screen that reaches them. */}
       {overview.isSuccess && (
         <p className="mt-3 max-w-prose text-sm text-muted-foreground">
-          Something here not right? These are the school&rsquo;s records and only
-          the school can change them, which is what stops anyone else altering
-          your child&rsquo;s details.{' '}
+          Something here not right? These are the school&rsquo;s records and
+          only the school can change them, which is what stops anyone else
+          altering your child&rsquo;s details.{' '}
           <Link
             to="/parent/messages"
             className="font-medium text-primary hover:underline"
@@ -343,8 +343,8 @@ export default function AboutChild() {
               alarming thing this screen could get wrong. */}
           {careTeam.isError && (
             <p className="mt-2 text-sm text-danger-foreground">
-              This list could not be loaded, so it is unknown rather than
-              empty. Nobody has been removed.
+              This list could not be loaded, so it is unknown rather than empty.
+              Nobody has been removed.
             </p>
           )}
 
@@ -358,12 +358,13 @@ export default function AboutChild() {
           {careTeam.isSuccess && careTeam.data.length > 0 && (
             <ul className="mt-3 space-y-3">
               {careTeam.data.map((person) => {
-                const name = person.profiles
-                  ? fullName(person.profiles)
-                  : null
+                const name = person.profiles ? fullName(person.profiles) : null
                 const job = assignmentLabel(person.assignment)
                 return (
-                  <li key={person.profile_id} className="flex flex-wrap items-baseline gap-x-2">
+                  <li
+                    key={person.profile_id}
+                    className="flex flex-wrap items-baseline gap-x-2"
+                  >
                     <span className="font-medium text-foreground">
                       {name ?? <Unknown why="their name could not be loaded" />}
                     </span>
@@ -389,8 +390,8 @@ export default function AboutChild() {
 
           {guardians.isError && (
             <p className="mt-2 text-sm text-danger-foreground">
-              This list could not be loaded, so it is unknown rather than
-              empty. Nobody has been removed.
+              This list could not be loaded, so it is unknown rather than empty.
+              Nobody has been removed.
             </p>
           )}
 
@@ -426,8 +427,8 @@ export default function AboutChild() {
               <p className="mt-4 text-sm text-muted-foreground">
                 Everyone here was given a code by the school and used it once.
                 To add or remove somebody, ask the school — it cannot be done
-                from this account, so nobody can quietly grant themselves
-                access to your child.
+                from this account, so nobody can quietly grant themselves access
+                to your child.
               </p>
             </>
           )}

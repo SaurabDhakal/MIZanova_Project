@@ -423,7 +423,7 @@ export default function EducatorDashboard() {
                   <div className="min-w-0">
                     <Link
                       to={`/educator/students/${student.id}`}
-                      className="block truncate font-semibold text-foreground after:absolute after:inset-0 after:rounded-card hover:text-primary hover:underline"
+                      className="min-h-11 block truncate font-semibold text-foreground after:absolute after:inset-0 after:rounded-card hover:text-primary hover:underline"
                     >
                       {student.display_name}
                     </Link>

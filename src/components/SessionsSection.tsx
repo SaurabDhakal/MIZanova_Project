@@ -156,7 +156,7 @@ function SessionNotes({ sessionId }: { sessionId: string }) {
               setEditing(true)
               setError(null)
             }}
-            className="mt-2 text-xs font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center mt-2 text-xs font-semibold text-primary hover:underline"
           >
             {empty ? 'Add a clinical note' : 'Revise this note'}
           </button>
@@ -270,9 +270,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   return (
     <section className="mt-10">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-section text-foreground">
-          Specialist sessions
-        </h2>
+        <h2 className="text-section text-foreground">Specialist sessions</h2>
         {isSpecialist && enrolled && (
           <button
             type="button"
@@ -284,9 +282,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
         )}
       </div>
 
-      {!enrolled && isSpecialist && (
-        <ClosedRecordNote what="new sessions" />
-      )}
+      {!enrolled && isSpecialist && <ClosedRecordNote what="new sessions" />}
 
       {!isSpecialist && (
         <p className="mb-3 max-w-prose text-sm text-muted-foreground">

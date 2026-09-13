@@ -135,7 +135,10 @@ export default function Subscription() {
   /* Which tier they are ACTUALLY on. `my_ai_tier()` answers paid for a live
      subscription OR a course already bought (db/099, db/111), so this is the
      one question that can tell somebody they already have what is on sale. */
-  const tier = useQuery({ queryKey: queryKeys.myAiTier, queryFn: fetchMyAiTier })
+  const tier = useQuery({
+    queryKey: queryKeys.myAiTier,
+    queryFn: fetchMyAiTier,
+  })
   const purchases = useQuery({
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
@@ -170,7 +173,9 @@ export default function Subscription() {
       <div>
         {header}
         <ErrorState
-          message={(plan.error ?? mine.error)?.message ?? 'Could not load this.'}
+          message={
+            (plan.error ?? mine.error)?.message ?? 'Could not load this.'
+          }
           onRetry={() => {
             void plan.refetch()
             void mine.refetch()
@@ -211,7 +216,10 @@ export default function Subscription() {
       {!live && tier.data === 'paid' && (
         <section className="mt-8 rounded-card border border-primary bg-primary-subtle p-6">
           <div className="flex items-start gap-3">
-            <Icon name="tick" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <Icon
+              name="tick"
+              className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+            />
             <div className="min-w-0 flex-1">
               <h2 className="text-section text-foreground">
                 You are already on the capable model
@@ -291,10 +299,10 @@ export default function Subscription() {
 
       <PageNote>
         This page is the whole of what MiZanova charges you for: one
-        subscription, and any course you have chosen to buy. Payment is taken
-        by Stripe and the card details never reach MiZanova &mdash; cancelling
-        here tells Stripe not to renew, and your account keeps working until
-        the period you have already paid for runs out. Nothing on this page can
+        subscription, and any course you have chosen to buy. Payment is taken by
+        Stripe and the card details never reach MiZanova &mdash; cancelling here
+        tells Stripe not to renew, and your account keeps working until the
+        period you have already paid for runs out. Nothing on this page can
         charge you without you pressing something first, and if there is no
         price on it that is because Special Miles has not set one, not because
         it failed to load. The free account is not a trial: goals, courses, the

@@ -37,7 +37,9 @@ export default function GoalReviewQueue() {
       setAnsweringId(null)
       setResponse('')
       showToast('Answered. The family sees it on their goals screen.')
-      await queryClient.invalidateQueries({ queryKey: queryKeys.openGoalReviews })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.openGoalReviews,
+      })
     },
     onError: (error) => showToast(error.message, 'error'),
   })
@@ -109,7 +111,9 @@ export default function GoalReviewQueue() {
                   <button
                     type="button"
                     disabled={answer.isPending}
-                    onClick={() => answer.mutate({ id: r.id, status: 'answered' })}
+                    onClick={() =>
+                      answer.mutate({ id: r.id, status: 'answered' })
+                    }
                     className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   >
                     Send the answer
@@ -117,7 +121,9 @@ export default function GoalReviewQueue() {
                   <button
                     type="button"
                     disabled={answer.isPending}
-                    onClick={() => answer.mutate({ id: r.id, status: 'declined' })}
+                    onClick={() =>
+                      answer.mutate({ id: r.id, status: 'declined' })
+                    }
                     className="pressable inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
                   >
                     Not the right person

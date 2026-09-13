@@ -28,7 +28,9 @@ export default function BookAppointmentForm({
 }) {
   const queryClient = useQueryClient()
   const [studentId, setStudentId] = useState('')
-  const [startsAt, setStartsAt] = useState(() => toLocalInputValue(defaultStart))
+  const [startsAt, setStartsAt] = useState(() =>
+    toLocalInputValue(defaultStart),
+  )
   const [duration, setDuration] = useState('30')
   const [purpose, setPurpose] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
@@ -126,7 +128,10 @@ export default function BookAppointmentForm({
       </div>
 
       {formError && (
-        <p role="alert" className="mt-3 text-sm font-medium text-danger-foreground">
+        <p
+          role="alert"
+          className="mt-3 text-sm font-medium text-danger-foreground"
+        >
           {formError}
         </p>
       )}

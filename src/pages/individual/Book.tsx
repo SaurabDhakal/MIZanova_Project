@@ -295,14 +295,14 @@ export default function Book() {
                         <button
                           type="button"
                           onClick={() => cancel.mutate(b.id)}
-                          className="font-semibold text-danger-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline"
                         >
                           Withdraw it
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="font-semibold text-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
                         >
                           Keep it
                         </button>
@@ -311,7 +311,7 @@ export default function Book() {
                       <button
                         type="button"
                         onClick={() => setConfirmingId(b.id)}
-                        className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
                       >
                         Withdraw this
                       </button>
@@ -416,14 +416,14 @@ export default function Book() {
                         <button
                           type="button"
                           onClick={() => cancel.mutate(b.id)}
-                          className="font-semibold text-danger-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline"
                         >
                           Withdraw it
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="font-semibold text-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
                         >
                           Keep it
                         </button>
@@ -432,7 +432,7 @@ export default function Book() {
                       <button
                         type="button"
                         onClick={() => setConfirmingId(b.id)}
-                        className="mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
                       >
                         Withdraw this
                       </button>

@@ -80,8 +80,7 @@ export default function FamilyRequestsSection() {
           role="alert"
           className="rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
         >
-          Requests could not be loaded, so this is unknown rather than empty.
-          {' '}
+          Requests could not be loaded, so this is unknown rather than empty.{' '}
           {requests.error.message}
         </p>
       )}
@@ -157,7 +156,9 @@ export default function FamilyRequestsSection() {
                   <button
                     type="button"
                     disabled={answer.isPending}
-                    onClick={() => answer.mutate({ id: r.id, decision: 'scheduled' })}
+                    onClick={() =>
+                      answer.mutate({ id: r.id, decision: 'scheduled' })
+                    }
                     className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   >
                     Agree to this time

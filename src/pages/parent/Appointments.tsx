@@ -9,7 +9,11 @@ import {
 import { showToast } from '../../lib/toast'
 import { useSelectedChild } from '../../hooks/useMyChildren'
 import NoChildYet from '../../components/NoChildYet'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import AppointmentCalendar from '../../components/AppointmentCalendar'
 import AskForATimeSection from '../../components/AskForATimeSection'
 import PageHeader, { PageNote } from '../../components/PageHeader'
@@ -111,8 +115,7 @@ function when(iso: string) {
 
 export default function Appointments() {
   const queryClient = useQueryClient()
-  const { children, child, isPending, isError, error } =
-    useSelectedChild()
+  const { children, child, isPending, isError, error } = useSelectedChild()
 
   /*
    * `withdrawAppointmentRequest` was written with db/115 and wired to nothing,
@@ -191,14 +194,11 @@ export default function Appointments() {
   const upcoming = rows.filter(
     (a) => a.status === 'scheduled' && new Date(a.starts_at).getTime() >= now,
   )
-  const past = rows.filter(
-    (a) => !upcoming.includes(a) && !waiting.includes(a),
-  )
+  const past = rows.filter((a) => !upcoming.includes(a) && !waiting.includes(a))
 
   return (
     <div>
       {header}
-
 
       {appointments.isPending && <LoadingCards count={2} />}
       {appointments.isError && (
@@ -319,10 +319,7 @@ export default function Appointments() {
           and a section that asks for a time on behalf of nobody is worse than
           one that waits for the switcher to settle. */}
       {child && (
-        <AskForATimeSection
-          studentId={child.id}
-          childName={fullName(child)}
-        />
+        <AskForATimeSection studentId={child.id} childName={fullName(child)} />
       )}
 
       <PageNote>

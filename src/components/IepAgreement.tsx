@@ -118,7 +118,9 @@ export default function IepAgreement({
                   /* The reader may not see this person's profile. Naming them
                      "Unknown" would read as a data fault; what is true is that
                      somebody confirmed and this reader may not see who. */
-                  (c.profile_id === profile?.id ? 'You' : 'Someone at the meeting')}
+                  (c.profile_id === profile?.id
+                    ? 'You'
+                    : 'Someone at the meeting')}
               </span>
               <span className="text-muted-foreground">
                 {' '}

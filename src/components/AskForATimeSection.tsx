@@ -64,12 +64,15 @@ export default function AskForATimeSection({
       await queryClient.invalidateQueries({
         queryKey: queryKeys.appointmentsForChild(studentId),
       })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.freeSlots(specialistId) })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.freeSlots(specialistId),
+      })
     },
   })
 
   if (specialists.isPending) return <LoadingCards count={1} />
-  if (specialists.isError) return <ErrorState message={specialists.error.message} />
+  if (specialists.isError)
+    return <ErrorState message={specialists.error.message} />
 
   /*
    * NOT AN EMPTY DROPDOWN. A child with no specialist on their caseload has
@@ -215,7 +218,9 @@ export default function AskForATimeSection({
           <button
             type="button"
             disabled={!specialistId || !slot || ask.isPending}
-            aria-describedby={!specialistId || !slot ? 'ask-blocked' : undefined}
+            aria-describedby={
+              !specialistId || !slot ? 'ask-blocked' : undefined
+            }
             onClick={() => ask.mutate()}
             className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >

@@ -524,7 +524,7 @@ export default function Academy() {
                               href={m.video_url}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+                              className="min-h-11 mt-2 inline-block text-sm font-semibold text-primary hover:underline"
                             >
                               Watch the video →
                             </a>

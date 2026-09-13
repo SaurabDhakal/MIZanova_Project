@@ -764,7 +764,7 @@ function RequestCard({
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          className="text-sm font-medium text-primary hover:underline"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
         >
           Asked {asked}
           {!open && request.individual_ai_suggestions.length > 0 && (
@@ -796,14 +796,14 @@ function RequestCard({
               type="button"
               onClick={onDelete}
               disabled={deleting}
-              className="font-semibold text-danger-foreground hover:underline disabled:opacity-50"
+              className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline disabled:opacity-50"
             >
               {deleting ? 'Deleting…' : 'Delete it'}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="font-semibold text-foreground hover:underline"
+              className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
             >
               Keep it
             </button>
@@ -813,7 +813,7 @@ function RequestCard({
             type="button"
             onClick={() => setConfirming(true)}
             disabled={deleting}
-            className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline disabled:opacity-50"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline disabled:opacity-50"
           >
             Delete this
           </button>

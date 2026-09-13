@@ -30,9 +30,9 @@ export default function Security() {
       subtitle="What actually stops the wrong person seeing a child’s record."
     >
       <Lead>
-        Access is decided by the database on every request, not by a setting
-        on a screen &mdash; so a bug in the interface cannot hand somebody a
-        record they were never entitled to.
+        Access is decided by the database on every request, not by a setting on
+        a screen &mdash; so a bug in the interface cannot hand somebody a record
+        they were never entitled to.
       </Lead>
 
       <Figure>
@@ -88,9 +88,9 @@ export default function Security() {
 
       <NotThis title="What has not been done">
         <p>
-          No independent penetration test, and no certification — not ISO
-          27001, SOC 2 or IRAP. If procurement requires one, better you learn
-          that here than in a questionnaire.
+          No independent penetration test, and no certification — not ISO 27001,
+          SOC 2 or IRAP. If procurement requires one, better you learn that here
+          than in a questionnaire.
         </p>
         <p>
           No published incident-response commitment or uptime guarantee. Those

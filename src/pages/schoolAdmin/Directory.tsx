@@ -653,7 +653,7 @@ export default function Directory() {
                                 })
                               }}
                               disabled={remove.isPending}
-                              className="ml-auto text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
+                              className="inline-flex min-h-11 items-center ml-auto text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
                             >
                               Remove access
                             </button>
@@ -732,7 +732,7 @@ export default function Directory() {
                                       })
                                     }}
                                     disabled={unlink.isPending}
-                                    className="ml-auto text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
+                                    className="inline-flex min-h-11 items-center ml-auto text-xs font-semibold text-danger-foreground hover:underline disabled:opacity-60"
                                   >
                                     Disconnect
                                   </button>

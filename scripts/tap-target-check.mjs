@@ -70,10 +70,6 @@ const LINE_HEIGHT = {
  * regression at the same place is not waved through by a stale entry.
  */
 const CONTENT_IS_TALLER = {
-  'src/components/Messenger.tsx:86':
-    'wraps an attachment <img max-h-72>; the link is as tall as the image',
-  'src/components/Messenger.tsx:634':
-    'two stacked spans — name over role — so ~52px',
   'src/pages/educator/AddStudent.tsx:238':
     'a heading span over a three-line paragraph span',
 }
@@ -100,8 +96,27 @@ for (const file of files) {
     const classes = match[1].split(/\s+/).filter(Boolean)
     const has = (c) => classes.includes(c)
 
-    // Only things drawn as a control, and never a visually hidden one.
-    if (!has('rounded-btn') && !has('pressable') && !has('rounded-card')) return
+    /*
+     * Only things drawn as a control, and never a visually hidden one.
+     *
+     * `text-primary hover:underline` is in here because of the platform-admin
+     * overview, where six card actions were written as a bare styled link with
+     * no button class at all — "Locked out until they enrol. See who →" at
+     * 17px. Nothing above matched them, so this check reported the page clean
+     * while the browser probe found all six.
+     *
+     * That pattern is also how an ordinary inline prose link is written, which
+     * WCAG 2.5.8 exempts. The difference is whether the link IS the paragraph
+     * or sits inside a sentence, and a class string cannot tell them apart —
+     * so a bare link is only counted when it carries `hover:underline`, which
+     * in this codebase marks something built to be pressed.
+     */
+    const looksLikeControl =
+      has('rounded-btn') ||
+      has('pressable') ||
+      has('rounded-card') ||
+      (has('hover:underline') && (has('font-semibold') || has('font-medium')))
+    if (!looksLikeControl) return
     if (has('sr-only')) return
 
     // An explicit floor is the guarantee this check exists to ask for.
@@ -134,6 +149,42 @@ for (const file of files) {
       if (/\/?>$/.test(text)) return
     }
     if (!['button', 'a', 'Link', 'NavLink', 'summary'].includes(tag)) return
+
+    /*
+     * WCAG 2.5.8 EXEMPTS A LINK INSIDE A SENTENCE, AND ONLY THAT.
+     *
+     * "…is set by <Link>Privacy</Link>." is prose: forcing it to 44px puts a
+     * tall box in the middle of a line of text and looks broken. "Locked out
+     * until they enrol. See who →", where the link IS the whole paragraph, is a
+     * card action wearing a <p> and has to be pressable.
+     *
+     * The test is whether the enclosing paragraph holds words of its own before
+     * the link. Written after a bulk fix applied the 44px floor to 58 controls
+     * and got 28 of them wrong in exactly this way — the earlier browser probe
+     * had the opposite fault, exempting any link anywhere inside a <p>.
+     *
+     * A <button> is NEVER exempt. The exemption is for links in running text;
+     * a button is a control wherever it is sitting.
+     */
+    if (tag !== 'button' && tag !== 'summary') {
+      const above = lines.slice(Math.max(0, i - 10), i).join('\n')
+      const paragraph = above.lastIndexOf('<p')
+      // A paragraph that has already CLOSED is not enclosing anything. Parent
+      // Dashboard's "View goals →" is a card action sitting after a </p>, and
+      // looking back ten lines without this check exempted it as prose.
+      const stillOpen =
+        paragraph !== -1 && !above.slice(paragraph).includes('</p>')
+      if (stillOpen) {
+        const since = above
+          .slice(paragraph)
+          .replace(/\{[^}]*\}/g, ' ')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+        // Words of its own before the link means the link sits in a sentence.
+        if (since.length > 3) return
+      }
+    }
 
     const padding = classes.map((c) => SPACING[c]).find((v) => v !== undefined)
     const lineHeight = classes

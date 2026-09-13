@@ -388,7 +388,10 @@ export default function AuthProvider({
 
   // --- 3. Actions -----------------------------------------------------------
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     if (error) throw error
   }, [])
 
@@ -514,7 +517,9 @@ export default function AuthProvider({
         )
       }
 
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
       if (error) throw error
     },
     [session],

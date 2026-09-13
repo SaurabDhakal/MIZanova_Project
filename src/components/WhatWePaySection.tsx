@@ -158,36 +158,47 @@ export default function WhatWePaySection({ schoolId }: { schoolId: string }) {
             </caption>
             <thead className="border-b border-border bg-background/60">
               <tr className="text-xs tracking-wide text-muted-foreground uppercase">
-                <th scope="col" className="px-4 py-3 font-semibold">For</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Period</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Status</th>
-                <th scope="col" className="px-4 py-3 text-right font-semibold">Amount</th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  For
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  Period
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  Status
+                </th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">
+                  Amount
+                </th>
               </tr>
             </thead>
             <tbody>
               {(invoices.data ?? [])
                 .filter((inv) => inv.school_id === schoolId)
                 .map((inv) => (
-                <tr key={inv.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 align-top break-words text-foreground">
-                    {inv.description}
-                  </td>
-                  <td className="px-4 py-3 align-top text-muted-foreground">
-                    {day(inv.period_start)} – {day(inv.period_end)}
-                    {inv.due_date && (
-                      <span className="block text-xs">
-                        due {day(inv.due_date)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-top text-muted-foreground">
-                    {STATUS_LABEL[inv.status] ?? inv.status}
-                  </td>
-                  <td className="px-4 py-3 text-right align-top tabular-nums text-foreground">
-                    {formatMoney(inv.amount_cents, inv.currency)}
-                  </td>
-                </tr>
-              ))}
+                  <tr
+                    key={inv.id}
+                    className="border-b border-border last:border-0"
+                  >
+                    <td className="px-4 py-3 align-top break-words text-foreground">
+                      {inv.description}
+                    </td>
+                    <td className="px-4 py-3 align-top text-muted-foreground">
+                      {day(inv.period_start)} – {day(inv.period_end)}
+                      {inv.due_date && (
+                        <span className="block text-xs">
+                          due {day(inv.due_date)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-muted-foreground">
+                      {STATUS_LABEL[inv.status] ?? inv.status}
+                    </td>
+                    <td className="px-4 py-3 text-right align-top tabular-nums text-foreground">
+                      {formatMoney(inv.amount_cents, inv.currency)}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

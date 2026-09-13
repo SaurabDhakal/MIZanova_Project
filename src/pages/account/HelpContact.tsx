@@ -91,41 +91,43 @@ export default function HelpContact() {
               }))
                 .filter((group) => group.items.length > 0)
                 .map((group) => {
-                const open = openGroup === group.section
-                return (
-                  <div key={group.section}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenGroup(open ? null : group.section)}
-                      aria-expanded={open}
-                      className="flex w-full items-center justify-between gap-3 py-3 text-left font-semibold text-foreground"
-                    >
-                      {group.section}
-                      <span className="shrink-0 text-sm font-normal text-muted-foreground">
-                        {open
-                          ? 'Hide'
-                          : `${group.items.length} ${
-                              group.items.length === 1 ? 'answer' : 'answers'
-                            }`}
-                      </span>
-                    </button>
-                    {open && (
-                      <dl className="space-y-5 pb-5">
-                        {group.items.map((item) => (
-                          <div key={item.q}>
-                            <dt className="font-semibold text-foreground">
-                              {item.q}
-                            </dt>
-                            <dd className="mt-1.5 max-w-prose text-muted-foreground">
-                              {item.a}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                  </div>
-                )
-              })}
+                  const open = openGroup === group.section
+                  return (
+                    <div key={group.section}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenGroup(open ? null : group.section)
+                        }
+                        aria-expanded={open}
+                        className="flex w-full items-center justify-between gap-3 py-3 text-left font-semibold text-foreground"
+                      >
+                        {group.section}
+                        <span className="shrink-0 text-sm font-normal text-muted-foreground">
+                          {open
+                            ? 'Hide'
+                            : `${group.items.length} ${
+                                group.items.length === 1 ? 'answer' : 'answers'
+                              }`}
+                        </span>
+                      </button>
+                      {open && (
+                        <dl className="space-y-5 pb-5">
+                          {group.items.map((item) => (
+                            <div key={item.q}>
+                              <dt className="font-semibold text-foreground">
+                                {item.q}
+                              </dt>
+                              <dd className="mt-1.5 max-w-prose text-muted-foreground">
+                                {item.a}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           </div>
         </div>
@@ -144,9 +146,12 @@ export default function HelpContact() {
         {inASchool && (
           <p className="mt-1 max-w-prose text-muted-foreground">
             For anything about your account, your access or the people and
-            children on it, ask <b className="text-foreground">your school's
-            MiZanova administrator</b> first. They can change those things;
-            Special Miles cannot do it for them.
+            children on it, ask{' '}
+            <b className="text-foreground">
+              your school's MiZanova administrator
+            </b>{' '}
+            first. They can change those things; Special Miles cannot do it for
+            them.
           </p>
         )}
 
@@ -173,7 +178,7 @@ export default function HelpContact() {
               href="/enquiry"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-primary hover:underline"
+              className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
             >
               send an enquiry (opens in a new tab)
             </a>

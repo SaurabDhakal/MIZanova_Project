@@ -178,7 +178,8 @@ export default function BehaviourLogModal({
     queryFn: () => fetchStudentPatterns(student.id),
     retry: false,
   })
-  const usual = (patterns.data?.top_antecedent?.value ?? null) as Antecedent | null
+  const usual = (patterns.data?.top_antecedent?.value ??
+    null) as Antecedent | null
 
   const todaysEvents = (today.data?.setting_events ?? [])
     .map((e) => labelFor(SETTING_EVENTS, e))
@@ -192,7 +193,6 @@ export default function BehaviourLogModal({
     setUsedVoice(true)
     setNotes((current) => (current ? `${current} ${text}` : text))
   })
-
 
   const save = useMutation({
     // WITHOUT THIS, OFFLINE LOGGING CANNOT WORK.
@@ -320,25 +320,28 @@ export default function BehaviourLogModal({
           so the four behaviour cards sit two-up without squeezing. */}
       <div className="flex max-h-[88vh] flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        {/* --- Header --------------------------------------------------- */}
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary-subtle text-primary"
-            aria-hidden="true"
-          >
-            <Icon name="observations" className="h-5 w-5" />
-          </span>
-          <div>
-            <h2 id="quick-log-title" className="text-lg font-bold text-foreground">
-              Quick log: {student.display_name}
-            </h2>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
-              Student ID: #{student.external_ref ?? '—'}
-            </p>
+          {/* --- Header --------------------------------------------------- */}
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary-subtle text-primary"
+              aria-hidden="true"
+            >
+              <Icon name="observations" className="h-5 w-5" />
+            </span>
+            <div>
+              <h2
+                id="quick-log-title"
+                className="text-lg font-bold text-foreground"
+              >
+                Quick log: {student.display_name}
+              </h2>
+              <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                Student ID: #{student.external_ref ?? '—'}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* --- Timer ------------------------------------------------------
+          {/* --- Timer ------------------------------------------------------
             BACK IN FULL, as it was before docs/19 §6 collapsed it.
 
             It was hidden behind a link to buy height. Saurab wants it visible,
@@ -347,9 +350,9 @@ export default function BehaviourLogModal({
             link is one more decision at the worst moment. The height came back
             from A1 instead — removing the duplicate text field saved more than
             this ever did. */}
-        <div className="mt-4 flex items-center gap-3 rounded-card bg-background p-4">
-          <div className="min-w-0">
-            {/* OPTIONAL, AND IT SAYS SO. The timer used to start on its own,
+          <div className="mt-4 flex items-center gap-3 rounded-card bg-background p-4">
+            <div className="min-w-0">
+              {/* OPTIONAL, AND IT SAYS SO. The timer used to start on its own,
                 which made duration_seconds "how long the form was open" — the
                 incident's length only when somebody logs as it happens, and the
                 write-up time when they do not.
@@ -357,123 +360,123 @@ export default function BehaviourLogModal({
                 db/005 says "started_at is when the teacher pressed start", and
                 nobody ever pressed start. Now they can, and a log written up at
                 lunch simply records no duration rather than a made-up one. */}
-            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              {timer.started ? 'Observing for' : 'Timing (optional)'}
-            </p>
-            {timer.started ? (
-              // aria-live off: announcing every second would be unusable. The
-              // value is still readable on demand.
-              <p
-                className="font-mono text-3xl font-bold text-foreground"
-                aria-live="off"
-              >
-                {formatDuration(timer.elapsed)}
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {timer.started ? 'Observing for' : 'Timing (optional)'}
               </p>
-            ) : (
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Start it only if you are watching this happen now. Logging
-                afterwards records no duration.
-              </p>
-            )}
-          </div>
-          <div className="ml-auto flex shrink-0 gap-2">
-            {timer.started && (
+              {timer.started ? (
+                // aria-live off: announcing every second would be unusable. The
+                // value is still readable on demand.
+                <p
+                  className="font-mono text-3xl font-bold text-foreground"
+                  aria-live="off"
+                >
+                  {formatDuration(timer.elapsed)}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Start it only if you are watching this happen now. Logging
+                  afterwards records no duration.
+                </p>
+              )}
+            </div>
+            <div className="ml-auto flex shrink-0 gap-2">
+              {timer.started && (
+                <button
+                  type="button"
+                  onClick={timer.reset}
+                  className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-medium"
+                >
+                  Clear
+                </button>
+              )}
               <button
                 type="button"
-                onClick={timer.reset}
-                className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-medium"
+                onClick={
+                  !timer.started
+                    ? timer.start
+                    : timer.running
+                      ? timer.stop
+                      : timer.resume
+                }
+                className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                Clear
+                {!timer.started ? 'Start' : timer.running ? 'Stop' : 'Resume'}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={
-                !timer.started
-                  ? timer.start
-                  : timer.running
-                    ? timer.stop
-                    : timer.resume
-              }
-              className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              {!timer.started ? 'Start' : timer.running ? 'Stop' : 'Resume'}
-            </button>
+            </div>
           </div>
-        </div>
 
-        {/* --- Behaviour ------------------------------------------------ */}
-        {/* Radios rather than buttons: arrow keys move between options, and a
+          {/* --- Behaviour ------------------------------------------------ */}
+          {/* Radios rather than buttons: arrow keys move between options, and a
             screen reader announces "2 of 4" instead of four unrelated buttons. */}
-        <fieldset className="mt-5">
-          <legend className="text-sm font-semibold text-foreground">
-            Select primary behaviour
-          </legend>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {BEHAVIOURS.map((option) => (
-              <label
-                key={option.value}
-                className={`cursor-pointer rounded-card border p-4 ${
-                  behaviour === option.value
-                    ? 'border-primary bg-primary-subtle'
-                    : 'border-border bg-card'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="behaviour"
-                  value={option.value}
-                  checked={behaviour === option.value}
-                  onChange={() => setBehaviour(option.value)}
-                  className="sr-only"
-                />
-                <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-full ${option.tint} ${option.ink}`}
-                  aria-hidden="true"
+          <fieldset className="mt-5">
+            <legend className="text-sm font-semibold text-foreground">
+              Select primary behaviour
+            </legend>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {BEHAVIOURS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`cursor-pointer rounded-card border p-4 ${
+                    behaviour === option.value
+                      ? 'border-primary bg-primary-subtle'
+                      : 'border-border bg-card'
+                  }`}
                 >
-                  <Icon name={option.icon} className="h-5 w-5" />
-                </span>
-                <span className="mt-2 block font-bold text-foreground">
+                  <input
+                    type="radio"
+                    name="behaviour"
+                    value={option.value}
+                    checked={behaviour === option.value}
+                    onChange={() => setBehaviour(option.value)}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-full ${option.tint} ${option.ink}`}
+                    aria-hidden="true"
+                  >
+                    <Icon name={option.icon} className="h-5 w-5" />
+                  </span>
+                  <span className="mt-2 block font-bold text-foreground">
+                    {option.label}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {option.detail}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* --- Intensity ------------------------------------------------ */}
+          <fieldset className="mt-5">
+            <legend className="text-sm font-semibold text-foreground">
+              Intensity level
+            </legend>
+            <div className="mt-2 grid grid-cols-3 gap-3">
+              {INTENSITIES.map((option) => (
+                <label
+                  key={option.value}
+                  className={`cursor-pointer rounded-btn border py-3 text-center font-medium ${
+                    intensity === option.value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="intensity"
+                    value={option.value}
+                    checked={intensity === option.value}
+                    onChange={() => setIntensity(option.value)}
+                    className="sr-only"
+                  />
                   {option.label}
-                </span>
-                <span className="block text-sm text-muted-foreground">
-                  {option.detail}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-        {/* --- Intensity ------------------------------------------------ */}
-        <fieldset className="mt-5">
-          <legend className="text-sm font-semibold text-foreground">
-            Intensity level
-          </legend>
-          <div className="mt-2 grid grid-cols-3 gap-3">
-            {INTENSITIES.map((option) => (
-              <label
-                key={option.value}
-                className={`cursor-pointer rounded-btn border py-3 text-center font-medium ${
-                  intensity === option.value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="intensity"
-                  value={option.value}
-                  checked={intensity === option.value}
-                  onChange={() => setIntensity(option.value)}
-                  className="sr-only"
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        {/* --- Just before (db/122, docs/19) ---------------------------
+          {/* --- Just before (db/122, docs/19) ---------------------------
             CHIPS, NOT A TEXT FIELD — reverted 2026-09-12.
 
             The previous version led with a dictated text box and put the
@@ -490,236 +493,235 @@ export default function BehaviourLogModal({
             The escape hatch survives as "Something else…", which reveals a
             single short input only when tapped — an exit from the vocabulary
             rather than a rival to the notes field. */}
-        <fieldset className="mt-5">
-          <legend className="text-xs font-semibold text-foreground">
-            What was happening just before?
-          </legend>
-          <p className="mb-2 text-xs text-muted-foreground">
-            One tap, optional. It is what makes the suggestions specific to{' '}
-            {student.display_name}.
-          </p>
-          <ChipRow
-            name="log-antecedent"
-            label=""
-            options={ANTECEDENTS}
-            selected={antecedent}
-            onSelect={setAntecedent}
-            usual={usual}
-            usualHint={usual ? 'usually' : undefined}
-            /* Five, because ranking puts this child's most frequent answer
+          <fieldset className="mt-5">
+            <legend className="text-xs font-semibold text-foreground">
+              What was happening just before?
+            </legend>
+            <p className="mb-2 text-xs text-muted-foreground">
+              One tap, optional. It is what makes the suggestions specific to{' '}
+              {student.display_name}.
+            </p>
+            <ChipRow
+              name="log-antecedent"
+              label=""
+              options={ANTECEDENTS}
+              selected={antecedent}
+              onSelect={setAntecedent}
+              usual={usual}
+              usualHint={usual ? 'usually' : undefined}
+              /* Five, because ranking puts this child's most frequent answer
                first and the next four cover most of the rest. The other eight
                are one tap away and a chosen one is never hidden. */
-            maxVisible={5}
-            otherValue={antecedentNote}
-            onOtherChange={setAntecedentNote}
-            otherLabel="What happened?"
-          />
+              maxVisible={5}
+              otherValue={antecedentNote}
+              onOtherChange={setAntecedentNote}
+              otherLabel="What happened?"
+            />
 
-          {todaysEvents.length > 0 && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Attached from today:{' '}
-              <span className="font-medium text-foreground">
-                {todaysEvents.join(', ').toLowerCase()}
-              </span>
-            </p>
-          )}
-        </fieldset>
-
-        {/* --- Notes ---------------------------------------------------- */}
-        <div className="mt-5">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="observation-notes"
-              className="text-sm font-semibold text-foreground"
-            >
-              Observation notes
-            </label>
-            {speech.supported && (
-              <button
-                type="button"
-                onClick={speech.listening ? speech.stop : speech.start}
-                aria-pressed={speech.listening}
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <Icon name="mic" className="h-4 w-4" />
-                  {speech.listening ? 'Stop dictation' : 'Voice-to-text'}
+            {todaysEvents.length > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Attached from today:{' '}
+                <span className="font-medium text-foreground">
+                  {todaysEvents.join(', ').toLowerCase()}
                 </span>
-              </button>
+              </p>
+            )}
+          </fieldset>
+
+          {/* --- Notes ---------------------------------------------------- */}
+          <div className="mt-5">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="observation-notes"
+                className="text-sm font-semibold text-foreground"
+              >
+                Observation notes
+              </label>
+              {speech.supported && (
+                <button
+                  type="button"
+                  onClick={speech.listening ? speech.stop : speech.start}
+                  aria-pressed={speech.listening}
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon name="mic" className="h-4 w-4" />
+                    {speech.listening ? 'Stop dictation' : 'Voice-to-text'}
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <textarea
+              id="observation-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+              placeholder="Enter detailed observation notes here…"
+              className="mt-2 w-full rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
+            />
+
+            {speech.error && (
+              <p role="alert" className="mt-1 text-sm text-danger-foreground">
+                {speech.error}
+              </p>
+            )}
+            {!speech.supported && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Dictation is not available in this browser. Typing works
+                everywhere.
+              </p>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Describe what you saw. Avoid naming other students, and leave
+              interpretation to the specialist.
+            </p>
+          </div>
+
+          {/* --- Safeguarding escalation ----------------------------------- */}
+          {/* Deliberately separate from everything else, and deliberately not
+            automatic. A teacher who thinks a senior person should see this can
+            say so directly, without going through the AI. */}
+          <div
+            className={`mt-5 rounded-card border p-4 ${
+              riskFlagged
+                ? 'border-danger bg-danger-subtle'
+                : 'border-border bg-background'
+            }`}
+          >
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={riskFlagged}
+                onChange={(e) => setRiskFlagged(e.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <span
+                  className={`block font-semibold ${
+                    riskFlagged ? 'text-danger-foreground' : 'text-foreground'
+                  }`}
+                >
+                  Flag for safeguarding review
+                </span>
+                <span
+                  className={`block text-sm ${
+                    riskFlagged
+                      ? 'text-danger-foreground'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  Sends this straight to a school administrator. Use it whenever
+                  you think someone senior should see it — you do not need to be
+                  certain.
+                </span>
+              </span>
+            </label>
+
+            {riskFlagged && (
+              <div className="mt-3">
+                <label
+                  htmlFor="risk-note"
+                  className="block text-sm font-semibold text-danger-foreground"
+                >
+                  What is your concern?{' '}
+                  <span className="font-normal">(optional)</span>
+                </label>
+                <textarea
+                  id="risk-note"
+                  rows={2}
+                  value={riskNote}
+                  onChange={(e) => setRiskNote(e.target.value)}
+                  placeholder="Third incident this week; another child was hurt."
+                  className="mt-1.5 w-full rounded-btn border border-danger bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
+            )}
+
+            {/* A DISABLED BUTTON THAT DOES NOT SAY WHY IS A DEAD END. It opened
+              at 50% opacity with nothing naming the two taps required. */}
+            {!canSave && !queued && !save.isPending && (
+              <p className="mt-2 w-full text-center text-xs text-muted-foreground">
+                Choose a behaviour and an intensity to save.
+              </p>
             )}
           </div>
 
-          <textarea
-            id="observation-notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={4}
-            placeholder="Enter detailed observation notes here…"
-            className="mt-2 w-full rounded-btn border border-border bg-card p-3 text-foreground placeholder:text-muted-foreground"
-          />
-
-          {speech.error && (
-            <p role="alert" className="mt-1 text-sm text-danger-foreground">
-              {speech.error}
+          {save.isError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
+            >
+              {save.error.message}
             </p>
           )}
-          {!speech.supported && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Dictation is not available in this browser. Typing works
-              everywhere.
-            </p>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Describe what you saw. Avoid naming other students, and leave
-            interpretation to the specialist.
-          </p>
-        </div>
 
-        {/* --- Safeguarding escalation ----------------------------------- */}
-        {/* Deliberately separate from everything else, and deliberately not
-            automatic. A teacher who thinks a senior person should see this can
-            say so directly, without going through the AI. */}
-        <div
-          className={`mt-5 rounded-card border p-4 ${
-            riskFlagged
-              ? 'border-danger bg-danger-subtle'
-              : 'border-border bg-background'
-          }`}
-        >
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={riskFlagged}
-              onChange={(e) => setRiskFlagged(e.target.checked)}
-              className="mt-1"
-            />
-            <span>
-              <span
-                className={`block font-semibold ${
-                  riskFlagged ? 'text-danger-foreground' : 'text-foreground'
-                }`}
-              >
-                Flag for safeguarding review
-              </span>
-              <span
-                className={`block text-sm ${
-                  riskFlagged
-                    ? 'text-danger-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                Sends this straight to a school administrator. Use it whenever
-                you think someone senior should see it — you do not need to be
-                certain.
-              </span>
-            </span>
-          </label>
-
-          {riskFlagged && (
-            <div className="mt-3">
-              <label
-                htmlFor="risk-note"
-                className="block text-sm font-semibold text-danger-foreground"
-              >
-                What is your concern?{' '}
-                <span className="font-normal">(optional)</span>
-              </label>
-              <textarea
-                id="risk-note"
-                rows={2}
-                value={riskNote}
-                onChange={(e) => setRiskNote(e.target.value)}
-                placeholder="Third incident this week; another child was hurt."
-                className="mt-1.5 w-full rounded-btn border border-danger bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-              />
+          {queued && (
+            <div
+              role="status"
+              className="mt-4 rounded-card border border-warning bg-warning-subtle p-4"
+            >
+              <p className="font-semibold text-warning-foreground">
+                Saved on this device — not yet sent
+              </p>
+              <p className="mt-1 text-sm text-warning-foreground">
+                There is no connection right now. This observation is stored in
+                this browser and will upload by itself as soon as you are back
+                online. Nothing is lost, but it is not in the school&rsquo;s
+                records yet, and it will not survive clearing your browser data.
+              </p>
             </div>
           )}
 
-          {/* A DISABLED BUTTON THAT DOES NOT SAY WHY IS A DEAD END. It opened
-              at 50% opacity with nothing naming the two taps required. */}
-          {!canSave && !queued && !save.isPending && (
-            <p className="mt-2 w-full text-center text-xs text-muted-foreground">
-              Choose a behaviour and an intensity to save.
-            </p>
-          )}
-
-        </div>
-
-        {save.isError && (
-          <p
-            role="alert"
-            className="mt-4 rounded-btn border border-danger bg-danger-subtle p-3 text-sm font-medium text-danger-foreground"
-          >
-            {save.error.message}
-          </p>
-        )}
-
-        {queued && (
-          <div
-            role="status"
-            className="mt-4 rounded-card border border-warning bg-warning-subtle p-4"
-          >
-            <p className="font-semibold text-warning-foreground">
-              Saved on this device — not yet sent
-            </p>
-            <p className="mt-1 text-sm text-warning-foreground">
-              There is no connection right now. This observation is stored in
-              this browser and will upload by itself as soon as you are back
-              online. Nothing is lost, but it is not in the school&rsquo;s
-              records yet, and it will not survive clearing your browser data.
-            </p>
-          </div>
-        )}
-
-        {/* Only once there is a timing session to report the start of. It used
+          {/* Only once there is a timing session to report the start of. It used
             to print unconditionally, which meant an untimed log carried a
             confident "started at 13:42" describing nothing. */}
-        {timer.startedAt && (
-          <p className="mt-4 text-xs tracking-wide text-muted-foreground uppercase">
-            Timing started at{' '}
-            {timer.startedAt.toLocaleTimeString('en-AU', { hour12: false })}
-          </p>
-        )}
+          {timer.startedAt && (
+            <p className="mt-4 text-xs tracking-wide text-muted-foreground uppercase">
+              Timing started at{' '}
+              {timer.startedAt.toLocaleTimeString('en-AU', { hour12: false })}
+            </p>
+          )}
         </div>
 
         {/* --- Actions, pinned ------------------------------------------- */}
         <div className="shrink-0 border-t border-border bg-card p-4">
-        <div className="flex gap-3">
-          {queued ? (
-            <button
-              type="button"
-              onClick={close}
-              className="pressable min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
-            >
-              Done
-            </button>
-          ) : (
-            <>
-              {/* "Cancel", not "Discard". Discard names destruction and sat at
-                  equal visual weight beside the save — on a form whose whole
-                  purpose is not to lose an observation. */}
+          <div className="flex gap-3">
+            {queued ? (
               <button
                 type="button"
                 onClick={close}
-                className="pressable min-h-11 flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
+                className="pressable min-h-11 flex-1 rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground"
               >
-                Cancel
+                Done
               </button>
-              {/* bg-primary, like every other primary action in the product.
+            ) : (
+              <>
+                {/* "Cancel", not "Discard". Discard names destruction and sat at
+                  equal visual weight beside the save — on a form whose whole
+                  purpose is not to lose an observation. */}
+                <button
+                  type="button"
+                  onClick={close}
+                  className="pressable min-h-11 flex-1 rounded-btn border border-border bg-card px-4 py-3 font-semibold text-foreground"
+                >
+                  Cancel
+                </button>
+                {/* bg-primary, like every other primary action in the product.
                   This was the one green primary on the whole surface, which
                   made the most-used button on the most-used screen the least
                   consistent one. */}
-              <button
-                type="button"
-                onClick={() => save.mutate()}
-                disabled={!canSave}
-                className="pressable min-h-11 flex-[2] rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {save.isPending ? 'Saving…' : 'Save log'}
-              </button>
-            </>
-          )}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => save.mutate()}
+                  disabled={!canSave}
+                  className="pressable min-h-11 flex-[2] rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {save.isPending ? 'Saving…' : 'Save log'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </dialog>

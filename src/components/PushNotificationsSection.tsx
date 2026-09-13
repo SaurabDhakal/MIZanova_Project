@@ -134,12 +134,11 @@ export default function PushNotificationsSection() {
         </p>
       ) : (
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          <b>One thing sends you a notification:</b> a specialist answering
-          your session request. It says that something needs you and takes you
-          to it &mdash; never what you asked about, because a notification can
-          be read without signing in and what you wrote is the private part.
-          Nothing else here notifies you, so switching this on stays quiet
-          otherwise.
+          <b>One thing sends you a notification:</b> a specialist answering your
+          session request. It says that something needs you and takes you to it
+          &mdash; never what you asked about, because a notification can be read
+          without signing in and what you wrote is the private part. Nothing
+          else here notifies you, so switching this on stays quiet otherwise.
         </p>
       )}
 
@@ -219,8 +218,8 @@ export default function PushNotificationsSection() {
           <p className="mt-3 text-xs text-muted-foreground">
             {/* Said because the alternative is somebody turning it off on one
                 machine and assuming it is off everywhere. */}
-            Each browser is separate. Turning this on in one does not turn it
-            on in another.
+            Each browser is separate. Turning this on in one does not turn it on
+            in another.
           </p>
         </>
       )}

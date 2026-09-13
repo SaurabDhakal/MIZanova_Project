@@ -150,8 +150,8 @@ function CloseAccountSection() {
     <section className="mt-10 rounded-card border border-danger bg-card p-6 shadow-raised">
       <h2 className="text-section text-foreground">Close your account</h2>
       <p className="mt-2 max-w-prose text-muted-foreground">
-        This deletes your account and everything on it. It cannot be undone,
-        and we cannot get any of it back for you afterwards.
+        This deletes your account and everything on it. It cannot be undone, and
+        we cannot get any of it back for you afterwards.
       </p>
       <p className="mt-2 max-w-prose text-sm text-muted-foreground">
         {paid.length > 0 ? (

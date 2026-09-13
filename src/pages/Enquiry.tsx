@@ -36,7 +36,12 @@ import FormField from '../components/FormField'
 
 const KIND_COPY: Record<
   EnquiryKind,
-  { title: string; subtitle: string; organisationLabel: string; countLabel: string }
+  {
+    title: string
+    subtitle: string
+    organisationLabel: string
+    countLabel: string
+  }
 > = {
   school: {
     /*
@@ -135,7 +140,7 @@ export default function Enquiry() {
 
           <Link
             to="/"
-            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
+            className="pressable mt-6 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             Back to the home page
           </Link>

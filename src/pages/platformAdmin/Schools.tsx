@@ -541,7 +541,7 @@ export default function Schools() {
                               })
                             }}
                             disabled={setStatus.isPending}
-                            className="px-2 text-sm font-semibold text-primary hover:underline disabled:opacity-60"
+                            className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-primary hover:underline disabled:opacity-60"
                           >
                             Reopen
                           </button>
@@ -576,7 +576,7 @@ export default function Schools() {
                               remove.reset()
                               setDeleting(school)
                             }}
-                            className="px-2 text-sm font-semibold text-danger-foreground hover:underline"
+                            className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-danger-foreground hover:underline"
                           >
                             Delete
                           </button>

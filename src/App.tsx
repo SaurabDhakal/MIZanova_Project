@@ -59,9 +59,7 @@ const Status = lazy(() => import('./pages/public/Status'))
 const Security = lazy(() => import('./pages/account/Security'))
 const AccountProfile = lazy(() => import('./pages/account/Profile'))
 const AccountSchool = lazy(() => import('./pages/account/School'))
-const AccountHelpContact = lazy(
-  () => import('./pages/account/HelpContact'),
-)
+const AccountHelpContact = lazy(() => import('./pages/account/HelpContact'))
 const AccountPayments = lazy(() => import('./pages/account/Payments'))
 const AccountYourData = lazy(() => import('./pages/account/YourData'))
 
@@ -108,9 +106,7 @@ const IndividualSuggestions = lazy(
   () => import('./pages/individual/Suggestions'),
 )
 const IndividualReceipts = lazy(() => import('./pages/individual/Receipts'))
-const IndividualWhatWorks = lazy(
-  () => import('./pages/individual/WhatWorks'),
-)
+const IndividualWhatWorks = lazy(() => import('./pages/individual/WhatWorks'))
 const IndividualGoals = lazy(() => import('./pages/individual/Goals'))
 const IndividualSubscription = lazy(
   () => import('./pages/individual/Subscription'),
@@ -123,7 +119,9 @@ const ParentPrivacy = lazy(() => import('./pages/parent/Privacy'))
 const ParentFinance = lazy(() => import('./pages/parent/Finance'))
 const LinkChild = lazy(() => import('./pages/parent/LinkChild'))
 
-const GlobalOverview = lazy(() => import('./pages/platformAdmin/GlobalOverview'))
+const GlobalOverview = lazy(
+  () => import('./pages/platformAdmin/GlobalOverview'),
+)
 const StudentGoals = lazy(() => import('./pages/student/MyGoals'))
 const Academy = lazy(() => import('./pages/shared/Academy'))
 const Courses = lazy(() => import('./pages/platformAdmin/Courses'))
@@ -156,7 +154,6 @@ const Invoices = lazy(() => import('./pages/schoolAdmin/Invoices'))
 const AccessLog = lazy(() => import('./pages/schoolAdmin/AccessLog'))
 const AddStudents = lazy(() => import('./pages/schoolAdmin/AddStudents'))
 const SchoolAdminMessages = lazy(() => import('./pages/schoolAdmin/Messages'))
-
 
 // --- Osheit: educator/ ---
 
@@ -240,8 +237,8 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'platform_admin:screening': <Screening />,
 
   // --- Prabin: school_admin: ---
-  
-'school_admin:': <SchoolAdminDashboard />,
+
+  'school_admin:': <SchoolAdminDashboard />,
   'school_admin:safeguarding': <Safeguarding />,
   'school_admin:students': <StudentRoster />,
   'school_admin:directory': <Directory />,
@@ -251,7 +248,7 @@ const BUILT_SCREENS: Partial<Record<`${Role}:${string}`, React.ReactNode>> = {
   'school_admin:invoices': <Invoices />,
   'school_admin:access-log': <AccessLog />,
   'school_admin:messages': <SchoolAdminMessages />,
-  
+
   // --- Osheit: educator: ---
 
   'educator:': <EducatorDashboard />,
@@ -329,18 +326,19 @@ const DETAIL_ROUTES: Partial<
   // --- Saurab: parent, platform_admin ---
   // Clicking a school opens who is in it. The Schools row answers "how is this
   // tenant doing"; this answers "who are they".
-  platform_admin: [{ path: 'tenants/:schoolId', element: <SchoolPeopleDetail /> }],
+  platform_admin: [
+    { path: 'tenants/:schoolId', element: <SchoolPeopleDetail /> },
+  ],
   // parent has no detail routes: a family reaches everything from its own
   // sidebar, and the one child-level page they get to is the IEP inside Goals.
 
   // --- Prabin: school_admin ---
-school_admin: [
+  school_admin: [
     { path: 'students/add', element: <AddStudents /> },
     { path: 'students/:studentId', element: <StudentDetail /> },
     { path: 'students/:studentId/iep', element: <IepPlans /> },
     { path: 'students/:studentId/iep/:planId', element: <IepPlanEditor /> },
   ],
-
 
   // --- Osheit: educator ---
 
@@ -377,10 +375,10 @@ export default function App() {
     <>
       <DocumentTitle />
       <Routes>
-      {/* Public */}
-      <Route path="/" element={<RoleRedirect />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+        {/* Public */}
+        <Route path="/" element={<RoleRedirect />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route
           path="/pricing"
           element={
@@ -501,22 +499,22 @@ export default function App() {
             </Suspense>
           }
         />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      {/* Public on purpose. The emailed link creates the session that this
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        {/* Public on purpose. The emailed link creates the session that this
           page then uses, so it cannot sit behind a signed-in guard. */}
-      <Route path="/reset-password" element={<ResetPassword />} />
-      {/* Not wrapped in ProtectedRoute — that is what redirects here, and
+        <Route path="/reset-password" element={<ResetPassword />} />
+        {/* Not wrapped in ProtectedRoute — that is what redirects here, and
           guarding it with the same check would be a loop. It refuses an
           unauthenticated visitor itself. */}
-      <Route path="/verify-2fa" element={<VerifyTwoFactor />} />
-      <Route path="/recover-2fa" element={<RecoverTwoFactor />} />
-      {/* Public because the person opening it has no account yet. What it
+        <Route path="/verify-2fa" element={<VerifyTwoFactor />} />
+        <Route path="/recover-2fa" element={<RecoverTwoFactor />} />
+        {/* Public because the person opening it has no account yet. What it
           reveals before sign-in is deliberately thin — see the page. */}
-      <Route path="/invite/:token" element={<AcceptInvitation />} />
-      {/* The family's front door. A school hands out a code and nothing else,
+        <Route path="/invite/:token" element={<AcceptInvitation />} />
+        {/* The family's front door. A school hands out a code and nothing else,
           so there has to be somewhere to take it that does not first ask
           somebody to guess which kind of account they are. */}
-      <Route path="/link" element={<StartWithCode />} />
+        <Route path="/link" element={<StartWithCode />} />
 
         {/* Developer reference — no student data, safe to leave open. */}
         <Route
@@ -528,69 +526,69 @@ export default function App() {
           }
         />
 
-      {/* Account pages — the same for every role, so they live outside the
+        {/* Account pages — the same for every role, so they live outside the
           per-role sections rather than being repeated inside all five. */}
-      <Route
-        path="/account"
-        element={
-          <ProtectedRoute allow={[...ROLES]}>
-            <RoleShell />
-          </ProtectedRoute>
-        }
-      >
-        {/* Settings is a SECTION, not two unrelated pages — one header and a
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute allow={[...ROLES]}>
+              <RoleShell />
+            </ProtectedRoute>
+          }
+        >
+          {/* Settings is a SECTION, not two unrelated pages — one header and a
             row of tabs, from the Figma. The layout is imported eagerly rather
             than lazily: it is the frame both tabs render inside, so splitting
             it would cost a round trip to draw the header of a page that has
             already started loading. */}
-        <Route element={<AccountLayout />}>
-          {/* Every role, one screen — see the note in Profile.tsx. */}
-          <Route path="profile" element={<AccountProfile />} />
-          <Route path="security" element={<Security />} />
-          {/* Guarded by RLS and db/066 rather than by being unreachable: a
+          <Route element={<AccountLayout />}>
+            {/* Every role, one screen — see the note in Profile.tsx. */}
+            <Route path="profile" element={<AccountProfile />} />
+            <Route path="security" element={<Security />} />
+            {/* Guarded by RLS and db/066 rather than by being unreachable: a
               non-school-admin who types the URL gets a page that can read
               nothing and write nothing. */}
-          <Route path="school" element={<AccountSchool />} />
-          <Route path="payments" element={<AccountPayments />} />
-          <Route path="data" element={<AccountYourData />} />
-          <Route path="help" element={<AccountHelpContact />} />
-        </Route>
-      </Route>
-
-      {/* One protected section per role */}
-      {ROLES.map((role) => {
-        const config = ROLE_CONFIG[role]
-        return (
-          <Route
-            key={role}
-            path={config.basePath}
-            element={
-              <ProtectedRoute allow={[role]}>
-                <AppShell role={role} />
-              </ProtectedRoute>
-            }
-          >
-            {config.nav.map((item) => {
-              const screen = BUILT_SCREENS[`${role}:${item.path}`] ?? (
-                <Placeholder title={item.label} milestone={item.milestone} />
-              )
-              return item.path === '' ? (
-                <Route key="index" index element={screen} />
-              ) : (
-                <Route key={item.path} path={item.path} element={screen} />
-              )
-            })}
-
-            {(DETAIL_ROUTES[role] ?? []).map((route) => (
-              <Route
-                key={route.path}
-                path={route.path}
-                element={route.element}
-              />
-            ))}
+            <Route path="school" element={<AccountSchool />} />
+            <Route path="payments" element={<AccountPayments />} />
+            <Route path="data" element={<AccountYourData />} />
+            <Route path="help" element={<AccountHelpContact />} />
           </Route>
-        )
-      })}
+        </Route>
+
+        {/* One protected section per role */}
+        {ROLES.map((role) => {
+          const config = ROLE_CONFIG[role]
+          return (
+            <Route
+              key={role}
+              path={config.basePath}
+              element={
+                <ProtectedRoute allow={[role]}>
+                  <AppShell role={role} />
+                </ProtectedRoute>
+              }
+            >
+              {config.nav.map((item) => {
+                const screen = BUILT_SCREENS[`${role}:${item.path}`] ?? (
+                  <Placeholder title={item.label} milestone={item.milestone} />
+                )
+                return item.path === '' ? (
+                  <Route key="index" index element={screen} />
+                ) : (
+                  <Route key={item.path} path={item.path} element={screen} />
+                )
+              })}
+
+              {(DETAIL_ROUTES[role] ?? []).map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path}
+                  element={route.element}
+                />
+              ))}
+            </Route>
+          )
+        })}
 
         <Route path="*" element={<NotFound />} />
       </Routes>

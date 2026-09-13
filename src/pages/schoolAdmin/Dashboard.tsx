@@ -69,8 +69,8 @@ export default function SchoolAdminDashboard() {
           className="mb-6 rounded-card border border-danger bg-danger-subtle p-5"
         >
           <p className="text-section text-danger-foreground">
-            {openCount} safeguarding incident{openCount === 1 ? '' : 's'} waiting
-            for review
+            {openCount} safeguarding incident{openCount === 1 ? '' : 's'}{' '}
+            waiting for review
           </p>
           {oldestDays !== null && (
             <p className="mt-1 text-sm text-danger-foreground">
@@ -135,15 +135,14 @@ export default function SchoolAdminDashboard() {
       </div>
 
       <div className="mt-8 rounded-card border border-border bg-card shadow-raised p-5">
-        <h2 className="font-semibold text-foreground">
-          About these numbers
-        </h2>
+        <h2 className="font-semibold text-foreground">About these numbers</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           Every figure here is counted from behaviour logs at your school in
           real time — there is no stored score and nothing is estimated. The
-          Figma design for this page showed an &ldquo;Audit Readiness Score&rdquo;
-          of 92%; nothing in this system could calculate that honestly, so it
-          was replaced with figures you can check against the data.
+          Figma design for this page showed an &ldquo;Audit Readiness
+          Score&rdquo; of 92%; nothing in this system could calculate that
+          honestly, so it was replaced with figures you can check against the
+          data.
         </p>
       </div>
     </div>

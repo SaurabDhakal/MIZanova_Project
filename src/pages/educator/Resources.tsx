@@ -12,7 +12,11 @@ import { useAuth } from '../../lib/auth'
 import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 import Icon from '../../components/Icon'
 import SignedFileLink from '../../components/SignedFileLink'
-import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 
 const CATEGORY_LABEL: Record<ResourceCategory, string> = {
   video: 'Video',
@@ -33,8 +37,7 @@ export default function EducatorResources() {
   })
 
   const acknowledge = useMutation({
-    mutationFn: (shareId: string) =>
-      acknowledgeResource(shareId, profile!.id),
+    mutationFn: (shareId: string) => acknowledgeResource(shareId, profile!.id),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.resources }),
   })
@@ -182,9 +185,12 @@ export default function EducatorResources() {
                       resource.resource_shares.some(
                         (share) => share.id === acknowledge.variables,
                       ) && (
-                      <p role="alert" className="mt-2 text-sm text-danger-foreground">
-                        {acknowledge.error.message}
-                      </p>
+                        <p
+                          role="alert"
+                          className="mt-2 text-sm text-danger-foreground"
+                        >
+                          {acknowledge.error.message}
+                        </p>
                       )}
                   </div>
                 </li>

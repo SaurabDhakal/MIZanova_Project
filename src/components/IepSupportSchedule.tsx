@@ -119,8 +119,8 @@ export default function IepSupportSchedule({ planId }: { planId: string }) {
       */}
       {total.isError && (
         <p className="mt-4 rounded-card border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          The weekly total could not be read, so it is unknown rather than
-          zero. The sessions below are still what is recorded.
+          The weekly total could not be read, so it is unknown rather than zero.
+          The sessions below are still what is recorded.
         </p>
       )}
 
