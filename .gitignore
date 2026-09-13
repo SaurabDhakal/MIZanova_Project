@@ -68,3 +68,7 @@ public/__judge.js
 # Nothing is lost by ignoring it. scripts/manual-screenshots.mjs rebuilds every
 # image in about four minutes, and the Markdown it illustrates is the source.
 manual/
+
+# Postman environment, filled from .env.local. The example file is the one
+# that belongs in git; this one holds project keys and an account password.
+postman/*.local.postman_environment.json
