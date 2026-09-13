@@ -16,6 +16,7 @@ import {
   LoadingCards,
 } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 import LibraryFilesSection from '../../components/LibraryFilesSection'
 
@@ -282,10 +283,20 @@ export default function Articles() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
+  /* Deleting an article is permanent — a plain DELETE, no draft state to fall
+
+     back to. It was firing on a single click, in a row beside Publish. */
+
+  const [deleting, setDeleting] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+
   const remove = useMutation({
     mutationFn: deleteArticle,
     onSuccess: async () => {
       await refresh()
+      setDeleting(null)
       showToast('Deleted.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -400,7 +411,9 @@ export default function Articles() {
                       <button
                         type="button"
                         disabled={remove.isPending}
-                        onClick={() => remove.mutate(a.id)}
+                        onClick={() =>
+                          setDeleting({ id: a.id, title: a.title })
+                        }
                         className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                       >
                         Delete
@@ -459,6 +472,25 @@ export default function Articles() {
         worth knowing: everything there is visible to every account on the
         platform, so nothing about a child belongs in it.
       </PageNote>
+
+      {deleting && (
+        <ConfirmDestructive
+          title="Delete this article?"
+          detail={`“${deleting.title}”. It is a draft, so nobody outside this page can see it now — but the writing itself goes.`}
+          consequences={[
+            'The article and anything uploaded with it are removed for good.',
+            'There is no draft state to fall back to and no way to undo it.',
+          ]}
+          confirmLabel="Delete it"
+          pending={remove.isPending}
+          error={remove.error?.message ?? null}
+          onConfirm={() => remove.mutate(deleting.id)}
+          onCancel={() => {
+            remove.reset()
+            setDeleting(null)
+          }}
+        />
+      )}
     </div>
   )
 }

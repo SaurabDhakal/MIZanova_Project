@@ -15,6 +15,7 @@ import {
   type ScreeningState,
 } from '../../lib/api'
 import { ErrorState, LoadingCards } from '../../components/QueryState'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
 
@@ -232,10 +233,16 @@ function CheckRow({ check }: { check: ScreeningRow }) {
     onError: (error) => showToast(error.message, 'error'),
   })
 
+  /* Recording that a working-with-children check is no longer held stops the
+     person being approvable, and Applications blocks approval without one. It
+     fired on a single click, in a row beside "Ask them to renew". */
+  const [revoking, setRevoking] = useState(false)
+
   const revoke = useMutation({
     mutationFn: () => endScreening(check.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['screening'] })
+      setRevoking(false)
       showToast('Marked as no longer held.')
     },
     onError: (error) => showToast(error.message, 'error'),
@@ -297,7 +304,7 @@ function CheckRow({ check }: { check: ScreeningRow }) {
           <button
             type="button"
             disabled={revoke.isPending}
-            onClick={() => revoke.mutate()}
+            onClick={() => setRevoking(true)}
             className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-60"
           >
             No longer held
@@ -309,6 +316,25 @@ function CheckRow({ check }: { check: ScreeningRow }) {
             &ldquo;No longer held&rdquo; is for a check that was revoked or
             withdrawn before its expiry date.
           </span>
+
+          {revoking && (
+            <ConfirmDestructive
+              title="Record this check as no longer held?"
+              detail={`${check.full_name ?? check.email}. Use this when a check was revoked or withdrawn before its expiry date — not when it simply ran out.`}
+              consequences={[
+                'They cannot be approved to work with children until a current check is recorded again.',
+                'The check stays on the record with the date it ended, so the history is not lost.',
+              ]}
+              confirmLabel="No longer held"
+              pending={revoke.isPending}
+              error={revoke.error?.message ?? null}
+              onConfirm={() => revoke.mutate()}
+              onCancel={() => {
+                revoke.reset()
+                setRevoking(false)
+              }}
+            />
+          )}
 
           {/* "Have we already asked them?" is the first thing a reviewer needs
               and the one thing a fire-and-forget button cannot answer. */}

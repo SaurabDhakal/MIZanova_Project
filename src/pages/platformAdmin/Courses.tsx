@@ -21,6 +21,7 @@ import {
   LoadingCards,
 } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 
 /**
@@ -241,10 +242,19 @@ function ModuleEditor({ course }: { course: Course }) {
     onError: (e) => setError(e.message),
   })
 
+  /* Guarded by `course.is_published` already — you cannot pull a module out
+     from under somebody part-way through the course. On an unpublished course
+     it still deletes written content on one click, with nothing asked. */
+  const [removing, setRemoving] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+
   const remove = useMutation({
     mutationFn: deleteCourseModule,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.courses })
+      setRemoving(null)
       showToast('Module removed.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -287,7 +297,7 @@ function ModuleEditor({ course }: { course: Course }) {
               <button
                 type="button"
                 disabled={remove.isPending || course.is_published}
-                onClick={() => remove.mutate(m.id)}
+                onClick={() => setRemoving({ id: m.id, title: m.title })}
                 title={
                   course.is_published
                     ? 'Withdraw the course first — somebody may be part-way through it.'
@@ -413,6 +423,25 @@ function ModuleEditor({ course }: { course: Course }) {
             {add.isPending ? 'Adding…' : 'Add module'}
           </button>
         </form>
+      )}
+
+      {removing && (
+        <ConfirmDestructive
+          title="Remove this module?"
+          detail={`“${removing.title}”. The course is not published, so nobody is part-way through it.`}
+          consequences={[
+            'The module and whatever was written in it are removed for good.',
+            'Anything already uploaded against it goes with it.',
+          ]}
+          confirmLabel="Remove it"
+          pending={remove.isPending}
+          error={remove.error?.message ?? null}
+          onConfirm={() => remove.mutate(removing.id)}
+          onCancel={() => {
+            remove.reset()
+            setRemoving(null)
+          }}
+        />
       )}
     </div>
   )
