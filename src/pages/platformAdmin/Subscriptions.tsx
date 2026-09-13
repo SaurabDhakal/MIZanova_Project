@@ -24,6 +24,7 @@ import {
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import IndividualPlanSection from '../../components/IndividualPlanSection'
 import SchoolBadge from '../../components/SchoolBadge'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { findPublishedPlan, PUBLISHED_PLANS } from '../../lib/plans'
 import { showToast } from '../../lib/toast'
 
@@ -524,6 +525,25 @@ export default function Subscriptions() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<string | null>(null)
   const [raising, setRaising] = useState<string | null>(null)
+  /**
+   * The two one-way doors on this page, waiting to be confirmed.
+   *
+   * Both fired on a single click. "End" terminates a paying school's agreement
+   * — the row beside it is their plan and what they pay — and "Void" finishes
+   * a platform invoice, which db/062's reasoning makes final: a voided invoice
+   * cannot be reopened. Neither asked anything, and both sit in a row of
+   * identically sized buttons next to ordinary ones like Edit and Issue.
+   */
+  const [ending, setEnding] = useState<{
+    id: string
+    school: string
+    plan: string
+  } | null>(null)
+  const [voiding, setVoiding] = useState<{
+    id: string
+    description: string
+    amount: string
+  } | null>(null)
 
   const schools = useQuery({
     queryKey: queryKeys.schools,
@@ -565,6 +585,7 @@ export default function Subscriptions() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.platformRevenue,
       })
+      setVoiding(null)
       showToast('Voided. The row is kept.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -574,6 +595,7 @@ export default function Subscriptions() {
     mutationFn: endSubscription,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.subscriptions })
+      setEnding(null)
       showToast('Agreement ended. What they used to pay is kept.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -792,7 +814,13 @@ export default function Subscriptions() {
                         <button
                           type="button"
                           disabled={end.isPending}
-                          onClick={() => end.mutate(live.id)}
+                          onClick={() =>
+                            setEnding({
+                              id: live.id,
+                              school: school.name,
+                              plan: live.plan_label,
+                            })
+                          }
                           className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
                         >
                           End
@@ -925,7 +953,16 @@ export default function Subscriptions() {
                         <button
                           type="button"
                           disabled={voidIt.isPending}
-                          onClick={() => voidIt.mutate(inv.id)}
+                          onClick={() =>
+                            setVoiding({
+                              id: inv.id,
+                              description: inv.description,
+                              amount: formatMoney(
+                                inv.amount_cents,
+                                inv.currency,
+                              ),
+                            })
+                          }
                           className="min-h-11 rounded-btn border border-danger px-3 py-1.5 text-xs font-semibold text-danger-foreground disabled:opacity-60"
                         >
                           Void
@@ -957,6 +994,45 @@ export default function Subscriptions() {
         agreement and its issued invoices, but never a draft and never another
         school&rsquo;s.
       </PageNote>
+
+      {ending && (
+        <ConfirmDestructive
+          title={`End ${ending.school}'s agreement?`}
+          detail={`They are on ${ending.plan}. Ending it stops the agreement from today.`}
+          consequences={[
+            'Invoices already raised are kept, and unpaid ones are still owed.',
+            'What they have paid stays on the record.',
+            'To put them back on a plan you record a new agreement, which starts from the day you record it.',
+          ]}
+          confirmLabel="End the agreement"
+          pending={end.isPending}
+          error={end.error?.message ?? null}
+          onConfirm={() => end.mutate(ending.id)}
+          onCancel={() => {
+            end.reset()
+            setEnding(null)
+          }}
+        />
+      )}
+
+      {voiding && (
+        <ConfirmDestructive
+          title="Void this invoice?"
+          detail={`${voiding.description} — ${voiding.amount}.`}
+          consequences={[
+            'The school sees it as cancelled, and it stays on their record as a bill that was raised and withdrawn.',
+            'A voided invoice cannot be reopened. To charge for this again you raise a new one.',
+          ]}
+          confirmLabel="Void it"
+          pending={voidIt.isPending}
+          error={voidIt.error?.message ?? null}
+          onConfirm={() => voidIt.mutate(voiding.id)}
+          onCancel={() => {
+            voidIt.reset()
+            setVoiding(null)
+          }}
+        />
+      )}
     </div>
   )
 }
