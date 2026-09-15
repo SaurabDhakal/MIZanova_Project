@@ -356,10 +356,10 @@ export default function Pricing() {
           <div className="rounded-card border border-border bg-card p-6 shadow-raised sm:p-8">
             <p className="text-heading text-foreground">Quoted per centre</p>
             <p className="mt-2 max-w-prose text-muted-foreground">
-              Everything a school gets, in the language your setting actually
-              uses. Tell us how many children you have and how your environments
-              are arranged, and we will price it against that rather than
-              against a student roll.
+              Everything a school gets, priced for a centre rather than a
+              school. Tell us how many children you have and how your
+              environments are arranged, and we will price it against that
+              rather than against a student roll.
             </p>
 
             <div className="mt-6 grid gap-6 sm:grid-cols-2">
@@ -368,17 +368,26 @@ export default function Pricing() {
                   What changes for you
                 </h3>
                 <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                  {/* THESE THREE USED TO PROMISE A TERMINOLOGY LAYER THAT
+                      DOES NOT EXIST. They said the words on screen would be
+                      guides and environments, that mixed-age groupings would
+                      replace year levels, and that the product would say
+                      observations rather than behaviour incidents. Nothing in
+                      `src/` varies a single word by organisation kind:
+                      `montessori` is a plan key in lib/plans.ts and an option
+                      in a dropdown, and that is all of it.
+
+                      A prospective customer could check any of the three in
+                      the first ten minutes of a demo. docs/11 recommends
+                      building the label map and argues it is cheap now and
+                      impossible later — until it exists, the page says what
+                      the product does. Corrected 15 September 2026. */}
                   <li>
-                    Guides and environments, not teachers and classes. The words
-                    on the screen match the ones in the room.
+                    Priced by children and environments, not by a student roll.
                   </li>
                   <li>
-                    Three-year mixed-age groupings &mdash; Casa, Lower
-                    Elementary, Upper Elementary &mdash; instead of year levels.
-                  </li>
-                  <li>
-                    Observations rather than behaviour incidents, which is
-                    closer to how you already record.
+                    The same safeguarding workflow, consent records and
+                    reporting a school gets, hosted in Sydney.
                   </li>
                   <li>
                     Built for long day care, preschool and toddler programmes as

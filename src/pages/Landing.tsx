@@ -461,9 +461,9 @@ export default function Landing() {
                   Montessori centres and early years
                 </h2>
                 <p className="mt-4 max-w-prose text-pretty text-foreground">
-                  A Montessori setting has guides and environments, not teachers
-                  and year levels. Same safeguarding, same records in Sydney, in
-                  the words your setting actually uses.
+                  A Montessori setting counts children and environments, not
+                  a student roll. Same safeguarding, same consent records, same
+                  reporting, hosted in Sydney &mdash; priced for a centre.
                 </p>
                 <Link
                   to="/pricing"
@@ -473,30 +473,41 @@ export default function Landing() {
                 </Link>
               </div>
 
-              {/* THE COLUMNS ARE LABELLED because the strikethrough is the only
-                  other thing saying which word is which, and a strikethrough is
-                  a visual signal a screen reader does not announce. */}
+              {/* THIS TABLE USED TO PROMISE A VOCABULARY THE PRODUCT DOES
+                  NOT HAVE. Four rows, with the left column struck through:
+                  Teacher → Guide, Class → Environment, Behaviour log →
+                  Observation, Year 3 → Lower Elementary. Presented that way it
+                  reads as a feature list, and a visitor would reasonably expect
+                  to see those words after signing up.
+
+                  Nothing in `src/` varies a word by organisation kind. The
+                  table now says what a centre actually gets, and the mapping
+                  goes back the day docs/11's label map is built.
+
+                  THE COLUMNS ARE STILL LABELLED because the layout is a
+                  two-column grid and an unlabelled one reads as a list of
+                  fragments to a screen reader. */}
               <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-border bg-border shadow-lifted">
                 <div className="contents">
                   <p className="text-caption bg-background p-4 text-muted-foreground uppercase">
-                    Instead of
+                    For a centre
                   </p>
                   <p className="text-caption bg-background p-4 text-muted-foreground uppercase">
-                    Your setting says
+                    What you get
                   </p>
                 </div>
                 {[
-                  ['Teacher', 'Guide'],
-                  ['Class', 'Environment'],
-                  ['Behaviour log', 'Observation'],
-                  ['Year 3', 'Lower Elementary'],
-                ].map(([standard, montessori]) => (
-                  <div key={standard} className="contents">
-                    <dt className="bg-card p-4 text-sm text-muted-foreground line-through">
-                      {standard}
+                  ['Priced on', 'Children and environments'],
+                  ['Records', 'Safeguarding, consent, reporting'],
+                  ['Hosted', 'Sydney, like every other account'],
+                  ['Built for', 'Long day care, preschool, toddler'],
+                ].map(([label, value]) => (
+                  <div key={label} className="contents">
+                    <dt className="bg-card p-4 text-sm text-muted-foreground">
+                      {label}
                     </dt>
                     <dd className="bg-card p-4 text-sm font-semibold text-foreground">
-                      {montessori}
+                      {value}
                     </dd>
                   </div>
                 ))}
