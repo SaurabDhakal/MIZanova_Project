@@ -222,15 +222,15 @@ export default function Subscription() {
           with Settings › Payments for every other role and is left exactly as
           it is — the price and the buttons are its job, not this band's.
           ------------------------------------------------------------------ */}
-      <section className="brand-wash on-dark relative isolate mb-8 overflow-hidden rounded-card p-8">
+      <section className="brand-wash on-dark relative isolate mb-8 overflow-hidden rounded-card p-6 md:p-7">
         <div aria-hidden="true" className="aurora-deep absolute inset-0" />
         <div className="relative max-w-2xl">
-          <h2 className="text-heading text-balance text-primary-foreground">
+          <h2 className="text-title text-balance text-primary-foreground">
             {tier.data === 'paid'
               ? 'What you already have'
               : 'What a subscription changes'}
           </h2>
-          <dl className="mt-6 grid gap-6 sm:grid-cols-2">
+          <dl className="mt-5 grid gap-5 sm:grid-cols-2">
             <div>
               <dt className="text-section text-primary-foreground">
                 A more capable model
@@ -250,7 +250,7 @@ export default function Subscription() {
               </dd>
             </div>
           </dl>
-          <p className="mt-6 max-w-prose text-sm text-primary-foreground">
+          <p className="mt-5 max-w-prose text-sm text-primary-foreground">
             Nothing else changes. Your goals, your courses and everything you
             have written stay exactly as they are, subscribed or not.
           </p>

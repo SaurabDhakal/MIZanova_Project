@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useAuth } from '../lib/auth'
 
 /**
@@ -100,13 +101,25 @@ export function ErrorState({
 /**
  * Empty is not an error, and the wording matters. "No students yet" is a fact;
  * "you have not been assigned any students" tells someone what to do about it.
+ *
+ * `action` IS OPTIONAL AND EXISTS BECAUSE SOME EMPTY SCREENS HAVE A NEXT STEP.
+ * Most do not: a caseload is empty because nobody has been assigned, and no
+ * button on that screen changes it. But an individual's Receipts page is empty
+ * because they have not enrolled in anything yet, and the courses are one
+ * click away — so that screen was hand-rolling a card with a paragraph and a
+ * link instead of using this, which is how one role ends up with left-aligned
+ * prose where every other role has a centred empty state.
+ *
+ * Pass a single button or link. Anything more is a screen, not an empty state.
  */
 export function EmptyState({
   title,
   detail,
+  action,
 }: {
   title: string
   detail: string
+  action?: ReactNode
 }) {
   return (
     <div className="rounded-card border border-border bg-card shadow-raised p-10 text-center">
@@ -114,6 +127,7 @@ export function EmptyState({
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
         {detail}
       </p>
+      {action && <div className="mt-5">{action}</div>}
     </div>
   )
 }

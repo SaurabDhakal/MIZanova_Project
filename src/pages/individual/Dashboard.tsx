@@ -16,7 +16,11 @@ import {
   queryKeys,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 
 /**
  * Home for somebody who belongs to no school — db/088.
@@ -239,13 +243,6 @@ export default function IndividualHome() {
   return (
     <div>
       {/* ---------------------------------------------------------------
-          A BAND, NOT A HEADING. The page used to open with black text on the
-          same background as everything under it, so there was nothing to land
-          on and no sense of arriving anywhere. This carries the greeting, the
-          one promise this account makes, the thing to pick up, and three
-          counted figures — all of it real, none of it decoration.
-          --------------------------------------------------------------- */}
-      {/* ---------------------------------------------------------------
           THE ONE SCREEN IN THIS PRODUCT SOMEBODY PAID TO SEE.
 
           Everything else in MiZanova is institutional software: a teacher, a
@@ -264,8 +261,17 @@ export default function IndividualHome() {
 
           So this band is the public site's own voice brought inside the app
           for the one role that is a consumer product: `brand-wash` under
-          `aurora-deep`, the display size, white on navy. The five other roles
-          keep the document register deliberately.
+          `aurora-deep`, white on navy. The five other roles keep the document
+          register deliberately.
+
+          COLOUR CARRIES IT, NOT SIZE. The first attempt set this greeting at
+          `--text-display` — the public site's size — and it was too big: 48px
+          of "Hello, saurab" with a 30px line under it filled a laptop viewport
+          on its own, so the three things a new account should do began below
+          the fold. The band was already the loudest thing on the screen by
+          being the only coloured one; the size was a second shout on top of a
+          first. `--text-heading` is the step down that still reads as an
+          arrival and still sits above the 24px every other role's h1 uses.
 
           WHAT CAME OFF, not just what went on:
           - The date eyebrow. A kicker over a heading is decoration, and the
@@ -277,36 +283,36 @@ export default function IndividualHome() {
             something to count, and until then the band carries the promise and
             the one thing worth doing instead. Nothing is hidden that exists.
           --------------------------------------------------------------- */}
-      <header className="brand-wash on-dark relative isolate mb-8 overflow-hidden rounded-card p-8 md:p-10">
+      <header className="brand-wash on-dark relative isolate mb-8 overflow-hidden rounded-card p-6 md:p-8">
         <div aria-hidden="true" className="aurora-deep absolute inset-0" />
 
         <div className="relative max-w-2xl">
-          <h1 className="text-display text-balance text-primary-foreground">
+          <h1 className="text-heading text-balance text-primary-foreground">
             {firstName ? `Hello, ${firstName}` : 'Hello'}
           </h1>
           {/* Solid token, never opacity: the note on the closing band of the
               public homepage explains why — opacity is how a contrast check
               that passed when it was written quietly starts failing. */}
-          <p className="mt-3 max-w-prose text-lg text-pretty text-primary-foreground">
+          <p className="mt-2 max-w-prose text-pretty text-primary-foreground">
             Everything here is yours alone. Nothing you do on these pages is
             reported to anybody, and nobody else can read any of it.
           </p>
 
           {nextThing && (
-            <div className="mt-8">
+            <div className="mt-6">
               {/* The title leads and the context follows it, because the
                   context is a caption for the title rather than a label above
                   it. Two lines rather than one truncated: somebody's own words
                   for their own goal are the last thing to cut off mid-word. */}
-              <p className="text-heading line-clamp-2 text-balance text-primary-foreground">
+              <p className="text-section line-clamp-2 text-balance text-primary-foreground">
                 {nextThing.title}
               </p>
-              <p className="mt-1.5 text-sm text-primary-foreground">
+              <p className="mt-1 text-xs text-primary-foreground">
                 {nextThing.eyebrow}
               </p>
               <Link
                 to={nextThing.to}
-                className="pressable mt-5 inline-flex min-h-11 items-center rounded-btn bg-primary-foreground px-6 py-3 font-semibold text-brand-navy hover:brightness-95"
+                className="pressable mt-4 inline-flex min-h-11 items-center rounded-btn bg-primary-foreground px-5 py-2.5 font-semibold text-brand-navy hover:brightness-95"
               >
                 {nextThing.cta}
               </Link>
@@ -318,7 +324,7 @@ export default function IndividualHome() {
             figure that cannot go up. Shown only once one of them has, so a
             brand-new account is not greeted by three noughts. */}
         {stats.some((s) => s.n > 0) && (
-          <dl className="relative mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/25 pt-6">
+          <dl className="relative mt-8 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/25 pt-5">
             {/* The visible label IS the term, which is what a description list
                 is for. `flex-col-reverse` puts the figure on top visually while
                 the DOM keeps dt before dd, so a screen reader reads the label
@@ -326,10 +332,10 @@ export default function IndividualHome() {
                 in column-reverse is what puts every figure on one line. */}
             {stats.map((s) => (
               <div key={s.label} className="flex flex-col-reverse justify-end">
-                <dt className="mt-1 block max-w-24 text-sm leading-tight text-primary-foreground">
+                <dt className="mt-0.5 block max-w-24 text-xs leading-tight text-primary-foreground">
                   {s.label}
                 </dt>
-                <dd className="text-metric block tabular-nums text-primary-foreground">
+                <dd className="text-title block tabular-nums text-primary-foreground">
                   {s.n}
                 </dd>
               </div>
@@ -562,20 +568,23 @@ export default function IndividualHome() {
             />
           )}
 
+          {/* The system's empty state, like the other three in this role. This
+              was the fourth place an empty screen had been hand-rolled as a
+              left-aligned paragraph in a box — four screens in one role, none
+              of them matching the centred empty state every other role uses. */}
           {enrolmentsKnown && started.length === 0 && (
-            <div className="rounded-card border border-border bg-card p-6 shadow-raised">
-              <p className="max-w-prose text-muted-foreground">
-                Nothing yet. The Academy has short courses you can work through
-                at your own pace — nothing is timed, nothing is scored, and you
-                can stop and come back.
-              </p>
-              <Link
-                to="/individual/academy"
-                className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
-              >
-                Look at the courses
-              </Link>
-            </div>
+            <EmptyState
+              title="Nothing started yet"
+              detail="The Academy has short courses you can work through at your own pace. Nothing is timed, nothing is scored, and you can stop and come back."
+              action={
+                <Link
+                  to="/individual/academy"
+                  className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground"
+                >
+                  Look at the courses
+                </Link>
+              }
+            />
           )}
           {/* --- what else there is -------------------------------------------- */}
           {available.length > 0 && (
@@ -607,19 +616,27 @@ export default function IndividualHome() {
             </>
           )}
 
+          {/* THE LINK OUT OF THE SENTENCE. The only route to the Library from
+              this screen was the word "Library" inside a line of prose: a 47×17
+              target, and the same fault the activation list above was rebuilt to
+              fix. The sentence still says how many there are, because that is
+              the reason to go; the link is now a phrase of its own, matching
+              "Start it →" directly above it. */}
           {articles.isSuccess && articles.data.length > 0 && (
-            <p className="mt-8 max-w-prose text-sm text-muted-foreground">
-              There {articles.data.length === 1 ? 'is' : 'are'}{' '}
-              {articles.data.length} short{' '}
-              {articles.data.length === 1 ? 'read' : 'reads'} in the{' '}
+            <div className="mt-8">
+              <p className="max-w-prose text-sm text-muted-foreground">
+                There {articles.data.length === 1 ? 'is' : 'are'}{' '}
+                {articles.data.length} short{' '}
+                {articles.data.length === 1 ? 'read' : 'reads'} as well —
+                shorter than a course, and nothing to finish.
+              </p>
               <Link
                 to="/individual/library"
-                className="font-medium text-primary hover:underline"
+                className="pressable -ml-1 mt-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-primary hover:underline"
               >
-                Library
-              </Link>{' '}
-              as well.
-            </p>
+                Open the Library →
+              </Link>
+            </div>
           )}
         </div>
 

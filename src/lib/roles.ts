@@ -193,9 +193,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'resources', label: 'Shared Resources', icon: 'resources', group: 'Keeping in touch', milestone: 'M12' },
       { path: 'schedule', label: 'Schedule', icon: 'schedule', milestone: 'M10' },
       // db/075. Professional development for school staff.
-      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'academy', group: 'Keeping in touch', milestone: 'M15' },
       // db/079. Reading, as opposed to the Academy's doing.
-      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'library', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -218,7 +218,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'resources', label: 'Resources', icon: 'resources', group: 'Keeping in touch', milestone: 'M12' },
       // db/075. The Academy carries Empowered Parenting for this audience.
-      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'academy', group: 'Keeping in touch', milestone: 'M15' },
       { path: 'link-child', label: 'Link a child', icon: 'link', group: 'Your account', milestone: 'M7' },
       { path: 'privacy', label: 'Privacy & Consent', icon: 'privacy', group: 'Your account', milestone: 'M7' },
       /* "Collab & Finance" in the design, and the screen has never had a
@@ -227,7 +227,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
          something the page does not contain sends people looking for it. */
       { path: 'finance', label: 'Finance', icon: 'finance', group: 'Your account', milestone: 'M11' },
       // db/079. Reading, as opposed to the Academy's doing.
-      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'library', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -256,9 +256,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
          Academy and Library are reading, and correspondence is Messages, so
          "Keeping in touch" now holds only that. */
       { path: 'resources', label: 'Resources', icon: 'resources', group: 'Your work', milestone: 'M12' },
-      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Reading', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'academy', group: 'Reading', milestone: 'M15' },
       // db/079. Reading, as opposed to the Academy's doing.
-      { path: 'library', label: 'Library', icon: 'resources', group: 'Reading', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'library', group: 'Reading', milestone: 'M15' },
     ],
   },
 
@@ -281,9 +281,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // See pages/schoolAdmin/Messages.tsx.
       { path: 'messages', label: 'Messages', icon: 'messages', group: 'Keeping in touch', milestone: 'M9' },
       { path: 'invoices', label: 'Invoices', icon: 'invoices', group: 'Billing', milestone: 'M11' },
-      { path: 'academy', label: 'Academy', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'academy', group: 'Keeping in touch', milestone: 'M15' },
       // db/079. Reading, as opposed to the Academy's doing.
-      { path: 'library', label: 'Library', icon: 'resources', group: 'Keeping in touch', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'library', group: 'Keeping in touch', milestone: 'M15' },
     ],
   },
 
@@ -311,8 +311,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // a child's record. The old label described a third of the list.
       { path: 'verification', label: 'Staff Verification', icon: 'verification', group: 'The network', milestone: 'M14' },
       // db/075. The CMS half of the brief's requirement 4.
-      { path: 'courses', label: 'Courses', icon: 'resources', group: 'The network', milestone: 'M15' },
-      { path: 'articles', label: 'Articles', icon: 'resources', group: 'The network', milestone: 'M15' },
+      { path: 'courses', label: 'Courses', icon: 'academy', group: 'The network', milestone: 'M15' },
+      { path: 'articles', label: 'Articles', icon: 'library', group: 'The network', milestone: 'M15' },
       { path: 'ai-governance', label: 'AI Governance', icon: 'ai', group: 'Oversight', milestone: 'M14' },
       { path: 'audit', label: 'Audit Log', icon: 'audit', group: 'Oversight', milestone: 'M14' },
       { path: 'record-access', label: 'Record Access', icon: 'recordAccess', group: 'Oversight', milestone: 'M14' },
@@ -333,8 +333,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
       // db/075. Executive functioning and self-advocacy courses are written
       // for this audience by name in the brief, so this is content FOR them
       // rather than another window onto records ABOUT them.
-      { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
-      { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'academy', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'library', milestone: 'M15' },
     ],
   },
 
@@ -358,8 +358,8 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     basePath: '/individual',
     nav: [
       { path: '', label: 'Home', icon: 'home', milestone: 'M15' },
-      { path: 'academy', label: 'Academy', icon: 'resources', milestone: 'M15' },
-      { path: 'library', label: 'Library', icon: 'resources', milestone: 'M15' },
+      { path: 'academy', label: 'Academy', icon: 'academy', milestone: 'M15' },
+      { path: 'library', label: 'Library', icon: 'library', milestone: 'M15' },
       { path: 'goals', label: 'My goals', icon: 'goals', milestone: 'M15' },
       { path: 'suggestions', label: 'Suggestions', icon: 'ai', milestone: 'M15' },
       /*
