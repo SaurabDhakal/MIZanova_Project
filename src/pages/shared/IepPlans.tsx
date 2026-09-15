@@ -16,6 +16,7 @@ import ClosedRecordNote from '../../components/ClosedRecordNote'
 import { showToast } from '../../lib/toast'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Every IEP/ILP a child has had, newest first.
@@ -144,7 +145,7 @@ export default function IepPlans() {
     mutationFn: (previousPlanId: string | null) =>
       createIepPlan({
         studentId,
-        planDate: new Date().toISOString().slice(0, 10),
+        planDate: todayLocal(),
         previousPlanId,
       }),
     onSuccess: (planId) => {

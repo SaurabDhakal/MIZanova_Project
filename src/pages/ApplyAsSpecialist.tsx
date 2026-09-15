@@ -9,6 +9,7 @@ import {
   type Profession,
 } from '../lib/api'
 import PublicLayout from '../components/PublicLayout'
+import { useScrollToTopWhen } from '../hooks/useScrollToTopWhen'
 import { Figure } from '../components/PublicSections'
 import { ReviewGateFigure } from '../components/PublicFigures'
 import FormField from '../components/FormField'
@@ -69,6 +70,12 @@ export default function ApplyAsSpecialist() {
   ) => setForm((current) => ({ ...current, [key]: value }))
 
   const send = useMutation({ mutationFn: submitSpecialistApplication })
+
+  /* The form below is longer than a phone screen, so its submit button sits
+     well under the fold. Without this the thank-you panel renders at the top
+     and the reader is left looking at the footer, wondering whether anything
+     happened. See the hook for why DocumentTitle does not cover it. */
+  useScrollToTopWhen(send.isSuccess)
 
   if (send.isSuccess) {
     return (

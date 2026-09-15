@@ -22,6 +22,7 @@ import NotBuiltYet from '../../components/NotBuiltYet'
 import WorkingHoursSection from '../../components/WorkingHoursSection'
 import SessionRequestsSection from '../../components/SessionRequestsSection'
 import FamilyRequestsSection from '../../components/FamilyRequestsSection'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Specialist schedule — what is booked, and what was delivered.
@@ -96,7 +97,11 @@ export default function Schedule() {
       : 'Unknown student'
   }
 
-  const thisMonth = new Date().toISOString().slice(0, 7)
+  /* The MONTH has the same UTC fault as the day. On the first of a month,
+     before mid-morning in Australia, `toISOString()` still reads the previous
+     month — so "minutes this month", which is the service-delivery figure,
+     showed last month's total. Derived from the local date instead. */
+  const thisMonth = todayLocal().slice(0, 7)
   const monthSessions = sessions.data.filter((s) =>
     s.session_date.startsWith(thisMonth),
   )
