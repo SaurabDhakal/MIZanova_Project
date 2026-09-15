@@ -245,132 +245,176 @@ export default function IndividualHome() {
           one promise this account makes, the thing to pick up, and three
           counted figures — all of it real, none of it decoration.
           --------------------------------------------------------------- */}
-      <header className="mb-8 rounded-card border border-border bg-primary-subtle p-6 md:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="min-w-0">
-            <p className="text-xs font-bold tracking-wider text-primary uppercase">
-              {new Date().toLocaleDateString('en-AU', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              })}
-            </p>
-            <h1 className="text-title mt-2 text-balance text-foreground">
-              {firstName ? `Hello, ${firstName}` : 'Hello'}
-            </h1>
-            <p className="mt-2 max-w-prose text-foreground">
-              {/* "No school holds any of it" was reassurance, and it still put
-                  a word in front of somebody that has nothing to do with them.
-                  An individual account is not a school account with the school
-                  taken out; it is its own thing. */}
-              Everything here is yours alone. Nothing you do on these pages is
-              reported to anybody, and nobody else can read any of it.
-            </p>
-          </div>
+      {/* ---------------------------------------------------------------
+          THE ONE SCREEN IN THIS PRODUCT SOMEBODY PAID TO SEE.
 
-          {/* Counted from what is already loaded — no extra request, and no
-              figure that cannot go up. */}
-          <dl className="flex gap-6">
-            {/* THE LABEL WAS IN HERE TWICE. An `sr-only` <dt> carried it for
-                screen readers and a visible <span> carried it for everybody
-                else, inside the <dd> — so a screen reader read "goals on the
-                go, 2, goals on the go" on every tile. Two copies of one label
-                is also two things to keep in step.
+          Everything else in MiZanova is institutional software: a teacher, a
+          specialist or an administrator opens it because their work is in it,
+          and the type scale says so — `--text-title` is "the h1 of an app
+          screen" and `--text-display` is reserved for the public site on the
+          argument that inner pages "are documents, and a document's title
+          should not shout".
 
-                The visible label IS the term, which is what a description list
-                is for. `flex-col-reverse` puts the number on top visually while
-                the DOM keeps dt before dd, so it reads correctly and once. */}
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                /* `justify-end` because in column-reverse the main axis starts
-                   at the BOTTOM, so the default packs content downwards and a
-                   one-line label ("part finished") sat its number lower than a
-                   two-line one ("goals on the go"). Packing to main-end is what
-                   puts every figure on the same line. */
-                className="flex flex-col-reverse justify-end"
+          That argument is right for the five roles somebody is GIVEN. It is
+          wrong for this one. An individual chose this, pays twelve dollars a
+          month for it, and arrives at this screen the way they would arrive at
+          any consumer app they bought. It opened on the same pale panel as
+          every other page, at the same 24px, under a date they already knew —
+          and it read like account admin.
+
+          So this band is the public site's own voice brought inside the app
+          for the one role that is a consumer product: `brand-wash` under
+          `aurora-deep`, the display size, white on navy. The five other roles
+          keep the document register deliberately.
+
+          WHAT CAME OFF, not just what went on:
+          - The date eyebrow. A kicker over a heading is decoration, and the
+            date was already in the corner of their screen.
+          - The nested card holding the next thing. A card inside a card is a
+            box drawn because there was nothing else to say.
+          - Three zeros as the first thing a new account sees. The figures are
+            real and worth having, so they stay — but they appear once there is
+            something to count, and until then the band carries the promise and
+            the one thing worth doing instead. Nothing is hidden that exists.
+          --------------------------------------------------------------- */}
+      <header className="brand-wash on-dark relative isolate mb-8 overflow-hidden rounded-card p-8 md:p-10">
+        <div aria-hidden="true" className="aurora-deep absolute inset-0" />
+
+        <div className="relative max-w-2xl">
+          <h1 className="text-display text-balance text-primary-foreground">
+            {firstName ? `Hello, ${firstName}` : 'Hello'}
+          </h1>
+          {/* Solid token, never opacity: the note on the closing band of the
+              public homepage explains why — opacity is how a contrast check
+              that passed when it was written quietly starts failing. */}
+          <p className="mt-3 max-w-prose text-lg text-pretty text-primary-foreground">
+            Everything here is yours alone. Nothing you do on these pages is
+            reported to anybody, and nobody else can read any of it.
+          </p>
+
+          {nextThing && (
+            <div className="mt-8">
+              {/* The title leads and the context follows it, because the
+                  context is a caption for the title rather than a label above
+                  it. Two lines rather than one truncated: somebody's own words
+                  for their own goal are the last thing to cut off mid-word. */}
+              <p className="text-heading line-clamp-2 text-balance text-primary-foreground">
+                {nextThing.title}
+              </p>
+              <p className="mt-1.5 text-sm text-primary-foreground">
+                {nextThing.eyebrow}
+              </p>
+              <Link
+                to={nextThing.to}
+                className="pressable mt-5 inline-flex min-h-11 items-center rounded-btn bg-primary-foreground px-6 py-3 font-semibold text-brand-navy hover:brightness-95"
               >
-                <dt className="mt-0.5 block max-w-20 text-xs leading-tight text-muted-foreground">
+                {nextThing.cta}
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Counted from what is already loaded — no extra request, and no
+            figure that cannot go up. Shown only once one of them has, so a
+            brand-new account is not greeted by three noughts. */}
+        {stats.some((s) => s.n > 0) && (
+          <dl className="relative mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/25 pt-6">
+            {/* The visible label IS the term, which is what a description list
+                is for. `flex-col-reverse` puts the figure on top visually while
+                the DOM keeps dt before dd, so a screen reader reads the label
+                once rather than twice. `justify-end` packs to main-end, which
+                in column-reverse is what puts every figure on one line. */}
+            {stats.map((s) => (
+              <div key={s.label} className="flex flex-col-reverse justify-end">
+                <dt className="mt-1 block max-w-24 text-sm leading-tight text-primary-foreground">
                   {s.label}
                 </dt>
-                {/* A ZERO IS STILL SHOWN AND STILL TRUE — it says what this
-                    account counts, and it fills in as somebody uses it. It just
-                    stops shouting as loudly as the figure that is actually
-                    there, so the eye lands on the one that means something.
-                    Hiding it would make the row jump about as numbers crossed
-                    one. */}
-                <dd
-                  className={`block text-3xl font-bold tabular-nums ${
-                    s.n === 0 ? 'text-muted-foreground/50' : 'text-foreground'
-                  }`}
-                >
+                <dd className="text-metric block tabular-nums text-primary-foreground">
                   {s.n}
                 </dd>
               </div>
             ))}
           </dl>
-        </div>
-
-        {nextThing && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-card p-4">
-            <div className="min-w-0">
-              <p className="text-xs font-bold tracking-wider text-brand-green-ink uppercase">
-                {nextThing.eyebrow}
-              </p>
-              {/* Two lines rather than one truncated. Somebody's own words for
-                  their own goal are the last thing that should be cut off
-                  mid-word on the narrow screen most people open this on. */}
-              <p className="mt-1 line-clamp-2 text-section text-foreground">
-                {nextThing.title}
-              </p>
-            </div>
-            <Link
-              to={nextThing.to}
-              className="pressable shrink-0 rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
-            >
-              {nextThing.cta}
-            </Link>
-          </div>
         )}
       </header>
 
+      {/* -------------------------------------------------------------
+            THE WHOLE FUNNEL FOR A NEW ACCOUNT, WHICH WAS THREE LINKS IN A
+            SENTENCE.
+
+            Set a goal, ask for suggestions, start a course: everything this
+            product does for somebody who has just paid for it. All three were
+            bold blue phrases inside explanatory prose, on a pale panel, at
+            body size — so the three things the account exists to do looked
+            exactly like the words around them.
+
+            Not three cards. Same-size boxes of heading-plus-text are what a
+            page reaches for when it has nothing to say about the difference
+            between the options, and these three are genuinely different. This
+            is the divide-y list this same file already uses further down: the
+            whole ROW is the target, so the action is a heading rather than a
+            phrase, the reason sits under it as a caption, and on a phone the
+            hit area is the full width instead of a few words of running text.
+
+            Plain card, not the pale blue it used to be. The band above is now
+            the one coloured thing on this screen and it stops being a moment
+            if the panel underneath is also tinted.
+            ------------------------------------------------------------- */}
       {brandNew && (
-        <section className="mt-8 rounded-card border border-border bg-primary-subtle p-6">
-          <h2 className="font-semibold text-foreground">
+        <section className="mt-8">
+          <h2 className="text-section text-foreground">
             Three things worth doing first
           </h2>
-          <ol className="mt-3 space-y-3 text-sm text-foreground">
-            <li>
-              <Link
-                to="/individual/goals"
-                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
-              >
-                Set one thing you want to be different
-              </Link>{' '}
-              &mdash; and write down why, because that is the part you will be
-              glad of in six weeks.
-            </li>
-            <li>
-              <Link
-                to="/individual/suggestions"
-                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
-              >
-                Describe something you are finding hard
-              </Link>{' '}
-              &mdash; you get a few practical things to try. It will not tell
-              you what you have, and nobody else can read it.
-            </li>
-            <li>
-              <Link
-                to="/individual/academy"
-                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
-              >
-                Start a course
-              </Link>{' '}
-              &mdash; short, untimed, unscored, and yours to leave
-              half-finished.
-            </li>
-          </ol>
+          <ul className="mt-3 divide-y divide-border rounded-card border border-border bg-card shadow-raised">
+            {[
+              {
+                to: '/individual/goals',
+                action: 'Set one thing you want to be different',
+                why: 'Write down why, too — that is the part you will be glad of in six weeks.',
+              },
+              {
+                to: '/individual/suggestions',
+                action: 'Describe something you are finding hard',
+                why: 'You get a few practical things to try. It will not tell you what you have, and nobody else can read it.',
+              },
+              {
+                to: '/individual/academy',
+                action: 'Start a course',
+                why: 'Short, untimed, unscored, and yours to leave half-finished.',
+              },
+            ].map((step) => (
+              <li key={step.to}>
+                <Link
+                  to={step.to}
+                  className="pressable group flex min-h-11 items-center gap-4 p-5 hover:bg-background"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="text-section block text-foreground">
+                      {step.action}
+                    </span>
+                    <span className="mt-1 block text-sm text-muted-foreground">
+                      {step.why}
+                    </span>
+                  </span>
+                  {/* Drawn, not a unicode arrow: the craft floor bans glyphs
+                      standing in for an icon system, and this is the only
+                      affordance saying the row goes somewhere. */}
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M7 4l6 6-6 6" />
+                  </svg>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       {/* ---------------------------------------------------------------
