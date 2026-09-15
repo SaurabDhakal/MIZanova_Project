@@ -499,14 +499,14 @@ function GoalCard({
           <button
             type="button"
             onClick={onDone}
-            className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center px-2 font-semibold text-primary hover:underline"
           >
             Done with this
           </button>
           <button
             type="button"
             onClick={onPark}
-            className="inline-flex min-h-11 items-center font-semibold text-muted-foreground hover:underline"
+            className="inline-flex min-h-11 items-center px-2 font-semibold text-muted-foreground hover:underline"
           >
             Park it
           </button>
@@ -534,14 +534,14 @@ function GoalCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline"
+                className="inline-flex min-h-11 items-center px-2 font-semibold text-danger-foreground hover:underline"
               >
                 Delete it
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
-                className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
+                className="inline-flex min-h-11 items-center px-2 font-semibold text-foreground hover:underline"
               >
                 Keep it
               </button>
@@ -550,7 +550,7 @@ function GoalCard({
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="inline-flex min-h-11 items-center font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+              className="inline-flex min-h-11 items-center px-2 font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
             >
               Delete
             </button>
