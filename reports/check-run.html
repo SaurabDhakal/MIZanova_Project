@@ -1,0 +1,468 @@
+<title>MiZanova Check Run</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+  :root {
+    --paper: #ffffff;
+    --surface: #f0f4f2;
+    --sunk: #e7ecea;
+    --ink: #0e1614;
+    --muted: #55665f;
+    --rule: #d6dedb;
+    --accent: #12594a;
+    --pass: #1c6b4e;
+    --warn: #8a5c10;
+    --idle: #6d7b76;
+    --term-bg: #0e1614;
+    --term-ink: #d8e3df;
+    --term-dim: #7f918b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0d1311;
+      --surface: #151d1a;
+      --sunk: #1b2523;
+      --ink: #e4ebe8;
+      --muted: #94a49e;
+      --rule: #263130;
+      --accent: #63c3a5;
+      --pass: #5ab98c;
+      --warn: #cfa14e;
+      --idle: #7d8c87;
+      --term-bg: #060b0a;
+      --term-ink: #d8e3df;
+      --term-dim: #7f918b;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0d1311;
+    --surface: #151d1a;
+    --sunk: #1b2523;
+    --ink: #e4ebe8;
+    --muted: #94a49e;
+    --rule: #263130;
+    --accent: #63c3a5;
+    --pass: #5ab98c;
+    --warn: #cfa14e;
+    --idle: #7d8c87;
+    --term-bg: #060b0a;
+    --term-ink: #d8e3df;
+    --term-dim: #7f918b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.6;
+    padding-block: 48px 72px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .sheet {
+    max-width: 58rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 10px 0 0;
+    text-wrap: balance;
+  }
+
+  h2 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0;
+  }
+
+  p { margin: 0; max-width: 62ch; }
+  .lede { font-size: 18px; color: var(--muted); margin-top: 14px; max-width: 58ch; }
+
+  /* ---- masthead ------------------------------------------------------- */
+
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 26px; }
+
+  .facts {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 18px 24px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  .facts div { display: flex; flex-direction: column; gap: 3px; }
+  .facts dt, .fact-key {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fact-val { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* ---- result rows ---------------------------------------------------- */
+
+  .results { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+
+  .row {
+    background: var(--paper);
+    display: grid;
+    grid-template-columns: 6px 1fr auto;
+    align-items: center;
+    gap: 0 18px;
+    padding: 0;
+  }
+
+  .stripe { align-self: stretch; background: var(--pass); }
+  .row.is-idle .stripe { background: var(--idle); }
+
+  .row-body { padding: 16px 4px 16px 0; display: flex; flex-direction: column; gap: 4px; }
+  .row-body code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--muted); }
+  .row-fig {
+    padding-right: 18px;
+    text-align: right;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-fig b { display: block; font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+  .row-fig span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+  .chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border: 1px solid currentColor;
+    color: var(--pass);
+    width: fit-content;
+  }
+  .chip.idle { color: var(--idle); }
+  .chip.warn { color: var(--warn); }
+
+  /* ---- sections ------------------------------------------------------- */
+
+  section { display: flex; flex-direction: column; gap: 16px; }
+  .section-head { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--rule); padding-top: 22px; }
+
+  pre {
+    margin: 0;
+    background: var(--term-bg);
+    color: var(--term-ink);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    padding: 16px 18px;
+    overflow-x: auto;
+  }
+  pre .dim { color: var(--term-dim); }
+  pre .ok { color: #6ed3a8; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  caption {
+    text-align: left;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 8px;
+  }
+  th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--rule); }
+  th {
+    font-family: Archivo, sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  td.num { text-align: right; font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; padding-right: 0; }
+  td.file { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; }
+  .scroller { overflow-x: auto; }
+
+  .note {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    font-size: 15px;
+  }
+  .note strong { font-weight: 600; }
+
+  .notrun { border: 1px dashed var(--rule); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .notrun ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .notrun li::marker { color: var(--muted); }
+  .notrun code { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+
+  @media (max-width: 460px) {
+    .row { grid-template-columns: 5px 1fr; }
+    .row-fig { grid-column: 2; text-align: left; padding: 0 0 14px; }
+  }
+
+  @media print {
+    body { padding: 0; font-size: 11pt; }
+    pre { background: #fff; color: #000; border: 1px solid #999; }
+    pre .dim, pre .ok { color: #000; }
+    section, .notrun, .results { break-inside: avoid; }
+  }
+</style>
+
+<div class="sheet">
+
+  <header>
+    <div class="eyebrow">Verification record</div>
+    <h1>MiZanova check run</h1>
+    <p class="lede">Every check that can run without touching the shared Supabase project, run once on one machine, with the output each one actually produced.</p>
+
+    <div class="facts">
+      <div><span class="fact-key">Date</span><span class="fact-val">15 Sep 2026</span></div>
+      <div><span class="fact-key">Branch</span><span class="fact-val">postman-collection</span></div>
+      <div><span class="fact-key">Commit</span><span class="fact-val">32d9a4e</span></div>
+      <div><span class="fact-key">Node</span><span class="fact-val">v24.18.0</span></div>
+      <div><span class="fact-key">Vitest</span><span class="fact-val">4.1.10</span></div>
+      <div><span class="fact-key">Vite</span><span class="fact-val">8.2.0</span></div>
+    </div>
+  </header>
+
+  <div class="results">
+    <div class="row">
+      <div class="stripe"></div>
+      <div class="row-body">
+        <h3>Lint</h3>
+        <code>npm run lint</code>
+        <span class="chip">Silent</span>
+      </div>
+      <div class="row-fig"><b>0</b><span>problems</span></div>
+    </div>
+
+    <div class="row">
+      <div class="stripe"></div>
+      <div class="row-body">
+        <h3>Type check and production build</h3>
+        <code>npm run build</code>
+        <span class="chip warn">Built, 2 warnings</span>
+      </div>
+      <div class="row-fig"><b>356</b><span>modules</span></div>
+    </div>
+
+    <div class="row">
+      <div class="stripe"></div>
+      <div class="row-body">
+        <h3>Unit tests</h3>
+        <code>npx vitest run tests/unit</code>
+        <span class="chip">84 passed</span>
+      </div>
+      <div class="row-fig"><b>3.91s</b><span>duration</span></div>
+    </div>
+
+    <div class="row">
+      <div class="stripe"></div>
+      <div class="row-body">
+        <h3>API tests, Postman collection</h3>
+        <code>newman run postman/MiZanova.postman_collection.json</code>
+        <span class="chip">19 assertions passed</span>
+      </div>
+      <div class="row-fig"><b>0</b><span>failed</span></div>
+    </div>
+
+    <div class="row is-idle">
+      <div class="stripe"></div>
+      <div class="row-body">
+        <h3>Row-Level Security suite</h3>
+        <code>npm test</code>
+        <span class="chip idle">Not run</span>
+      </div>
+      <div class="row-fig"><b>36</b><span>files held</span></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>Lint</h2>
+      <p>ESLint across the whole repository. It must be silent, and it was — the two lines below are npm announcing the command, not output.</p>
+    </div>
+    <pre><span class="dim">&gt; mizanova@0.0.0 lint
+&gt; eslint .</span>
+
+<span class="dim">exit code 0</span></pre>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Type check and production build</h2>
+      <p><code>tsc -b</code> then <code>vite build</code>. It completed, and it completed with two warnings worth reading rather than clearing.</p>
+    </div>
+    <pre>vite v8.2.0 building client environment for production...
+transforming...<span class="ok">✓ 356 modules transformed.</span>
+
+dist/assets/index-ByGBlJBM.js        726.90 kB │ gzip: 197.28 kB
+dist/assets/exceljs.min-CqiXvXX6.js  929.56 kB │ gzip: 256.44 kB
+dist/assets/AppointmentCalendar-*.js 261.17 kB │ gzip:  75.72 kB
+
+<span class="dim">[INEFFECTIVE_DYNAMIC_IMPORT] @supabase/supabase-js is dynamically imported by
+src/components/AuthProvider.tsx but also statically imported by src/lib/supabase.ts,
+dynamic import will not move module into another chunk.
+
+(!) Some chunks are larger than 500 kB after minification.</span>
+
+<span class="ok">✓ built in 2.92s</span>
+
+PWA v1.3.0 · injectManifest · precache 141 entries (3102.22 KiB)</pre>
+    <p class="note"><strong>Neither warning fails the build, and neither is noise.</strong> The Supabase one says a lazy import is not actually splitting anything, so the chunk it was meant to defer ships up front. The other is exceljs and the calendar arriving in the first load. Both are size, not correctness — worth a look before a marking rubric mentions performance.</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Unit tests</h2>
+      <p>Six files, 84 tests, no database and no network. These are the checks that can run while somebody else is using the Supabase project.</p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>tests/unit — started 18:13:53, finished in 3.91s</caption>
+        <thead>
+          <tr><th>File</th><th>What it holds to account</th><th class="num">Tests</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="file">studentImport.test.ts</td><td>Pasted rolls, quoted commas, Excel tabs, and a failure message that never leaks the library's wording</td><td class="num">36</td></tr>
+          <tr><td class="file">invoiceConfirmCopy.test.ts</td><td>Every invoice dialog names the child, the amount and what cannot be undone</td><td class="num">12</td></tr>
+          <tr><td class="file">screeningValidity.test.ts</td><td>An expired WWCC is not a WWCC, and NDIS screening can rescue a lapsed one</td><td class="num">11</td></tr>
+          <tr><td class="file">csv.test.ts</td><td>Exports that Excel cannot be tricked into executing, and a BOM so accented names survive</td><td class="num">11</td></tr>
+          <tr><td class="file">pageTitles.test.ts</td><td>Staff see which section they are in; an individual is never told which category they are in</td><td class="num">8</td></tr>
+          <tr><td class="file">no-write-only-columns.test.ts</td><td>No column is collected from a person and then shown to nobody</td><td class="num">6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre> <span class="ok">✓</span> tests/unit/csv.test.ts &gt; toCsv refuses to hand a spreadsheet a formula
+   <span class="ok">✓</span> neutralises =HYPERLINK("http://example.invalid","click") (the one that reaches the network)
+   <span class="ok">✓</span> neutralises @SUM(A1) (a leading at-sign)
+ <span class="ok">✓</span> tests/unit/screeningValidity.test.ts &gt; a WWCC
+   <span class="ok">✓</span> an expired one is NOT enough, even though the number is on file
+
+ Test Files  <span class="ok">6 passed (6)</span>
+      Tests  <span class="ok">84 passed (84)</span>
+   Duration  3.91s</pre>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>API tests, through the Postman collection</h2>
+      <p>Twelve requests against the Express API on <code>localhost:8887</code>, driven from the same collection Postman opens. Three folders ran: the health check, the public endpoints, and the endpoints asked to refuse an anonymous caller.</p>
+    </div>
+
+    <pre>□ 1. Health
+└ GET /api/health                              <span class="dim">[200 OK, 395ms]</span>
+  <span class="ok">√</span>  the API answered
+  <span class="ok">√</span>  reports what is configured, not just that Express is up
+  <span class="ok">√</span>  the database is reachable
+
+□ 3. Public endpoints
+└ POST /api/enquiries (valid)                  <span class="dim">[200 OK]</span>
+  <span class="ok">√</span>  accepted (or rate limited on a fast re-run)
+└ POST /api/enquiries (honeypot filled)        <span class="dim">[200 OK]</span>
+  <span class="ok">√</span>  answered as success, and tells the bot nothing
+└ POST /api/guardian-codes/peek                <span class="dim">[404 Not Found]</span>
+  <span class="ok">√</span>  the answer reveals nothing about which codes exist
+
+□ 5. Without a token
+└ POST /api/strategies                         <span class="dim">[401 Unauthorized]</span>
+  <span class="ok">√</span>  refused
+└ POST /api/invitations                        <span class="dim">[401 Unauthorized]</span>
+  <span class="ok">√</span>  a stranger cannot invite anyone
+└ POST /api/mfa/admin-reset                    <span class="dim">[401 Unauthorized]</span>
+  <span class="ok">√</span>  two-factor cannot be reset by a stranger
+
+               requests  12 executed,  0 failed
+             assertions  19 executed,  0 failed
+     total run duration  1995ms      avg 86ms</pre>
+
+    <p class="note"><strong>Most of these assertions are about refusal.</strong> A 200 proves an endpoint answered. The 401 on <code>POST /api/strategies</code> proves a stranger cannot spend the AI budget on a child's observation, and the 404 on an unknown guardian code proves the server gives one answer for never-existed, already-used and withdrawn — because telling them apart would tell a stranger which codes are real.</p>
+
+    <h3>What the health endpoint actually said</h3>
+    <pre>{
+  "ok": true,
+  "status": <span class="dim">"degraded"</span>,
+  "checks": {
+    "anthropic": true,
+    "supabase": true,
+    "stripe_key_present": true,
+    "stripe_key_looks_right": true,
+    "stripe_key_works": <span class="dim">false</span>,
+    "stripe_webhook_configured": <span class="dim">false</span>,
+    "stripe_price_resolves": <span class="dim">false</span>
+  }
+}</pre>
+    <p><em>Degraded</em> is the honest answer, not a failure: the Stripe key in <code>.env.local</code> is a placeholder with the right shape, so it passes <code>startsWith('sk_')</code> and fails when Stripe is actually asked. The endpoint exists to catch exactly that.</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Held back, and why</h2>
+    </div>
+    <div class="notrun">
+      <p><strong>The Row-Level Security suite was not run.</strong> Thirty-six files in <code>tests/rls</code> sign in as real users against the one shared Supabase project. Each builds a school, five people and some students, and clears anything matching the test naming convention first so it survives a crashed previous run. Two people running it at once means one person's setup deletes the other's world mid-assertion, and it surfaces as a broken-looking suite rather than a busy database — so <code>CONTRIBUTING.md</code> §2 asks for a message in the group chat before anybody starts. No message was sent, so it was not started.</p>
+      <ul>
+        <li><code>npm test</code> — the full suite, 36 RLS files plus the 6 unit files above. Takes about six minutes. <strong>Watch the duration, not the tick:</strong> a database job that finishes in under a minute is skipping, and the green tick means nothing.</li>
+        <li><code>npm run security-check</code> — four suites, including the anonymous attack surface. Not run here; it also reaches the shared project.</li>
+        <li><code>npm run storage-check</code> — file storage policies, signing in as real people. Same reason.</li>
+      </ul>
+      <p>All three run in CI on every pull request, which is where they are meant to be read from.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Generated 15 September 2026</span>
+    <span>·</span>
+    <span>Full Postman report: reports/postman-run.html</span>
+    <span>·</span>
+    <span>Raw logs kept alongside this file</span>
+  </footer>
+
+</div>
