@@ -15,7 +15,11 @@ import {
   type SelfSuggestion,
 } from '../../lib/api'
 import { showToast } from '../../lib/toast'
-import { ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import Icon from '../../components/Icon'
 import DictatedTextarea from '../../components/DictatedTextarea'
 import { Link } from 'react-router-dom'
@@ -196,14 +200,28 @@ export default function Suggestions() {
               /* 38px. These two answer "will it tell me what is wrong with
                  me" and "who reads this" — the questions somebody asks before
                  typing anything personal, on the screen where they type it. */
-              className={`flex min-h-11 w-full items-center gap-2 rounded-btn border px-3 text-sm font-semibold ${
+              className={`flex min-h-11 w-full items-center gap-2 rounded-btn border px-3 text-sm ${
                 openFact === f.key
                   ? 'border-primary bg-primary-subtle text-foreground'
-                  : 'border-border bg-card text-foreground'
+                  : 'border-border bg-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon name={f.icon} className="h-4 w-4 shrink-0 text-primary" />
               {f.label}
+              {/* NOTHING SAID THESE OPENED. Two bordered, filled, semibold
+                  pills sat between the heading and the box carrying the same
+                  weight as the button that actually does something, and gave
+                  no sign they were disclosures rather than links to somewhere
+                  else. The chevron says it, and dropping the fill and the
+                  bold lets the composer be the subject of its own screen —
+                  without hiding either question, which is what the note above
+                  argues against. */}
+              <Icon
+                name="chevronDown"
+                className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
+                  openFact === f.key ? 'rotate-180' : ''
+                }`}
+              />
             </button>
             {openFact === f.key && (
               <p className="mt-2 max-w-prose rounded-card border border-border bg-background p-3 text-sm text-muted-foreground">
@@ -400,10 +418,19 @@ export default function Suggestions() {
         </div>
       )}
 
+      {/* The system's empty state. This was one grey sentence floating between
+          two cards with nothing around it — the third place in this role where
+          an empty screen had been hand-rolled instead of using the component
+          every other role uses. No action on it, deliberately: the thing to do
+          about it is the box directly above, and a button pointing back up the
+          same page is furniture. */}
       {history.isSuccess && history.data.length === 0 && !ask.isPending && (
-        <p className="mt-8 max-w-prose text-muted-foreground">
-          Nothing asked yet. Whatever you ask stays on this page.
-        </p>
+        <div className="mt-8">
+          <EmptyState
+            title="Nothing asked yet"
+            detail="Whatever you ask stays on this page, and nobody else can open it."
+          />
+        </div>
       )}
 
       {history.isSuccess && history.data.length > 0 && (
