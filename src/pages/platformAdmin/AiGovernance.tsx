@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  type AiControlEvent,
   fetchAiUsage,
   fetchSchools,
   updateAiLimits,
@@ -15,6 +16,62 @@ import { ErrorState, LoadingCards } from '../../components/QueryState'
 import ConfidenceHistogram from '../../components/ConfidenceHistogram'
 import PageHeader from '../../components/PageHeader'
 import { showToast } from '../../lib/toast'
+
+/**
+ * What actually changed, in the words of the thing that changed.
+ *
+ * ---------------------------------------------------------------------------
+ * IT USED TO SAY "THRESHOLD 70% → 70%" WHENEVER A LIMIT MOVED
+ * ---------------------------------------------------------------------------
+ * The label was a two-branch ternary: the enabled flip, or else the threshold.
+ * There was no branch for a change to the daily limits, so every one of them
+ * was recorded on screen as a threshold change from a number to the same
+ * number — a change that did not happen, with no mention of the one that did.
+ *
+ * On the one screen whose whole purpose is answering "who did this and why",
+ * against somebody's name, permanently. Found by Gate 3 on 15 September: the
+ * school limit was moved by one and the history was read back.
+ *
+ * Every difference is named now, joined, because one save can carry more than
+ * one. If nothing differs the entry says so rather than inventing a delta —
+ * a reason recorded against no change is itself worth seeing.
+ *
+ * The free-tier per-person limit was worse than mislabelled: `updateAiLimits`
+ * took it, the trigger did not test it, and `ai_control_events` had no column
+ * for it — so changing only that limit wrote no row anywhere. db/137 added the
+ * columns and taught the trigger and the Audit Log view about it; this names
+ * it alongside the other two.
+ */
+function describeChange(event: AiControlEvent): string {
+  const parts: string[] = []
+
+  if (event.was_enabled !== event.now_enabled)
+    parts.push(event.now_enabled ? 'AI turned ON' : 'AI turned OFF')
+
+  if (event.was_threshold !== event.now_threshold)
+    parts.push(
+      `Threshold ${Math.round((event.was_threshold ?? 0) * 100)}% → ${Math.round(
+        (event.now_threshold ?? 0) * 100,
+      )}%`,
+    )
+
+  if (event.was_school_limit !== event.now_school_limit)
+    parts.push(
+      `School limit ${event.was_school_limit ?? '—'} → ${event.now_school_limit ?? '—'} a day`,
+    )
+
+  if (event.was_user_limit !== event.now_user_limit)
+    parts.push(
+      `Paid limit ${event.was_user_limit ?? '—'} → ${event.now_user_limit ?? '—'} a person`,
+    )
+
+  if (event.was_free_user_limit !== event.now_free_user_limit)
+    parts.push(
+      `Free limit ${event.was_free_user_limit ?? '—'} → ${event.now_free_user_limit ?? '—'} a person`,
+    )
+
+  return parts.length > 0 ? parts.join(' · ') : 'Reason recorded, nothing changed'
+}
 
 /**
  * AI governance - the honest replacement for the Figma MLOps screen.
@@ -349,11 +406,7 @@ export default function AiGovernance() {
             >
               <div className="flex flex-wrap items-baseline gap-2">
                 <p className="font-semibold text-foreground">
-                  {event.was_enabled !== event.now_enabled
-                    ? event.now_enabled
-                      ? 'AI turned ON'
-                      : 'AI turned OFF'
-                    : `Threshold ${Math.round((event.was_threshold ?? 0) * 100)}% → ${Math.round((event.now_threshold ?? 0) * 100)}%`}
+                  {describeChange(event)}
                 </p>
                 <p className="ml-auto text-sm text-muted-foreground">
                   {new Date(event.changed_at).toLocaleString('en-AU', {

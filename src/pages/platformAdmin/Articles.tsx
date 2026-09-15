@@ -115,7 +115,10 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
           {(['article', 'case_study'] as ArticleKind[]).map((k) => (
             <label
               key={k}
-              className={`cursor-pointer rounded-btn border px-3 py-1.5 text-sm font-medium ${
+              /* 34px until 15 September, on both the kind radios and the
+                 audience chips below. Gate 2 swept this page with the create
+                 form CLOSED, and an interactive state is a separate screen. */
+              className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn border px-3 py-1.5 text-sm font-medium ${
                 kind === k
                   ? 'border-primary bg-primary-subtle text-primary'
                   : 'border-border bg-card text-muted-foreground'
@@ -197,7 +200,7 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
             {AUDIENCE_CHOICES.map((role) => (
               <label
                 key={role}
-                className={`cursor-pointer rounded-btn border px-3 py-1.5 text-sm font-medium ${
+                className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn border px-3 py-1.5 text-sm font-medium ${
                   audiences.includes(role)
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border bg-card text-muted-foreground'
@@ -386,6 +389,28 @@ export default function Articles() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    {/* WHY PUBLISH IS UNAVAILABLE IS WRITTEN DOWN, NOT PUT
+                        IN A TOOLTIP. This carried the reason in `title`
+                        alone, which reaches nobody who needs it most: a
+                        disabled button is out of the tab order, so a keyboard
+                        or screen-reader user meets a greyed control with no
+                        explanation and no way to ask for one, and a `title`
+                        is invisible on touch entirely.
+
+                        Applications.tsx already fixed exactly this and says
+                        so in its own comment; the fix had been applied to one
+                        page and not the other. Found by Gate 3, 15 September.
+
+                        The consent tick-box below says what is missing, but
+                        nothing tied the two together. */}
+                    {blocked && !a.is_published && (
+                      <p
+                        id={`blocked-${a.id}`}
+                        className="w-full text-sm text-muted-foreground"
+                      >
+                        Confirm the people in it agreed before publishing it.
+                      </p>
+                    )}
                     <button
                       type="button"
                       disabled={
@@ -394,9 +419,9 @@ export default function Articles() {
                       onClick={() =>
                         publish.mutate({ id: a.id, next: !a.is_published })
                       }
-                      title={
+                      aria-describedby={
                         blocked && !a.is_published
-                          ? 'Confirm the people in it agreed first.'
+                          ? `blocked-${a.id}`
                           : undefined
                       }
                       className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
@@ -428,8 +453,12 @@ export default function Articles() {
                   child and an audience, so it belongs where somebody about to
                   press Publish is looking.
                 */}
+                {/* THE ROW WAS 33px UNTIL 15 SEPTEMBER, and Gate 2 could not
+                    see it: it renders only for a case study, and every article
+                    on the page is an Article. The probe exempts a
+                    label-wrapped checkbox only when the ROW clears 44px. */}
                 {a.kind === 'case_study' && (
-                  <label className="mt-3 flex items-start gap-2 border-t border-border pt-3 text-sm text-foreground">
+                  <label className="mt-3 flex min-h-11 items-start gap-2 border-t border-border py-3 text-sm text-foreground">
                     <input
                       type="checkbox"
                       checked={a.consent_confirmed}

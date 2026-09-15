@@ -27,6 +27,7 @@ import SchoolBadge from '../../components/SchoolBadge'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { findPublishedPlan, PUBLISHED_PLANS } from '../../lib/plans'
 import { showToast } from '../../lib/toast'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * What each school pays Special Miles — db/072.
@@ -349,7 +350,7 @@ function RaiseInvoiceForm({
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
   const [periodStart, setPeriodStart] = useState(today)
   const [periodEnd, setPeriodEnd] = useState(today)
   const [description, setDescription] = useState(

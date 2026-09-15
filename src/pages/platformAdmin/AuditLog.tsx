@@ -17,6 +17,7 @@ import {
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import Pagination from '../../components/Pagination'
 import { showToast } from '../../lib/toast'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Who did what, when, and why — across both tables that record it.
@@ -184,7 +185,13 @@ export default function AuditLog() {
       )
       const a = document.createElement('a')
       a.href = url
-      a.download = `mizanova-audit-${new Date().toISOString().slice(0, 10)}.csv`
+      /* `new Date().toISOString().slice(0, 10)` is UTC, and this is an
+       Australian product: from midnight until mid-morning it names the file
+       YESTERDAY. An audit export taken at 9am in Sydney on the 15th was
+       called ...2026-09-14.csv — and this is the file a school hands to an
+       inspector. `todayLocal()` exists for exactly this and says so in its
+       own comment. Found by Gate 5, 15 September 2026. */
+      a.download = `mizanova-audit-${todayLocal()}.csv`
       a.click()
       URL.revokeObjectURL(url)
 

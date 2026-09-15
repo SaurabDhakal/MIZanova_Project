@@ -4,6 +4,7 @@ import { isOfflineFailure } from './offlineQueue'
 import { cacheRoster, readCachedRoster } from './rosterCache'
 import type { Role } from './roles'
 import type { Antecedent, SettingEvent, WhatHelped } from './behaviourContext'
+import { todayLocal, toLocalDateValue } from './localTime'
 
 /**
  * An error that remembers the HTTP status it came from.
@@ -2774,6 +2775,33 @@ export type AiControlEvent = {
   now_enabled: boolean | null
   was_threshold: number | null
   now_threshold: number | null
+  /*
+   * THE LIMIT COLUMNS WERE WRITTEN AND READ BY NOBODY.
+   *
+   * `ai_control_events` has recorded `was_school_limit`, `now_school_limit`,
+   * `was_user_limit` and `now_user_limit` since the limits were added, and
+   * this query never asked for them. The change history therefore described
+   * every limits change as "Threshold 70% -> 70%" — a change that did not
+   * happen, on the one screen whose entire purpose is answering "who did this
+   * and why". Found by Gate 3 on 15 September, by changing a limit and reading
+   * back what the audit trail said about it.
+   *
+   * The guard test in tests/unit/no-write-only-columns.test.ts exists for
+   * exactly this and did not catch it: its CAPTURE_TABLES lists three tables
+   * and this is not one of them.
+   */
+  was_school_limit: number | null
+  now_school_limit: number | null
+  was_user_limit: number | null
+  now_user_limit: number | null
+  /*
+   * db/137. Until then the free-tier per-person limit had no column here at
+   * all, and the trigger did not even test it — so changing only that limit
+   * wrote no event row, and the change appeared in neither the AI governance
+   * history nor the Audit Log. Not recorded badly: not recorded.
+   */
+  was_free_user_limit: number | null
+  now_free_user_limit: number | null
   reason: string
   profiles: { full_name: string } | null
 }
@@ -2782,7 +2810,9 @@ export async function fetchAiControlEvents(): Promise<AiControlEvent[]> {
   const { data, error } = await supabase
     .from('ai_control_events')
     .select(
-      `id, changed_at, was_enabled, now_enabled, was_threshold, now_threshold, reason,
+      `id, changed_at, was_enabled, now_enabled, was_threshold, now_threshold,
+       was_school_limit, now_school_limit, was_user_limit, now_user_limit,
+       was_free_user_limit, now_free_user_limit, reason,
        profiles ( full_name )`,
     )
     .order('changed_at', { ascending: false })
@@ -5079,6 +5109,91 @@ export async function setCoursePublished(
   assertChanged(data, 'The course')
 }
 
+/**
+ * Correct a course — its title, what it is for, and who it is for.
+ *
+ * ---------------------------------------------------------------------------
+ * THERE WAS NO WAY TO DO THIS AT ALL
+ * ---------------------------------------------------------------------------
+ * `courses` has had an `is_published` toggle, a price and modules since it was
+ * built, and `courses_write` grants a platform admin ALL on the table. Nothing
+ * ever called update on the course itself. So a course created with a typo in
+ * its title, the wrong summary, or the wrong audience was **permanent**, and
+ * the only thing anybody could do about it was withdraw it and leave the row
+ * sitting in the list for good.
+ *
+ * The same shape as the student-name fault db/135 fixed for school admin, and
+ * the `is_active` door before it: the policy allowed it, the migration
+ * anticipated it, and no screen ever asked. Found by Gate 3 on 15 September
+ * 2026, by creating a course and looking for the way back out.
+ */
+export async function updateCourse(
+  id: string,
+  input: { title: string; summary: string; audiences: Role[] },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('courses')
+    .update({
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      audiences: input.audiences,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The course')
+}
+
+/**
+ * Remove a course entirely.
+ *
+ * ---------------------------------------------------------------------------
+ * REFUSED WHILE ANYBODY IS ENROLLED, BECAUSE THE DATABASE WOULD NOT REFUSE
+ * ---------------------------------------------------------------------------
+ * `course_enrolments.course_id` is **on delete CASCADE**. Deleting a course
+ * somebody has started does not fail — it quietly takes their enrolment and
+ * their completion date with it, and there is nothing afterwards to say the
+ * course ever existed. A learner who finished it loses the fact that they did.
+ *
+ * `course_purchases.course_id` is on delete RESTRICT, so a course somebody
+ * PAID for is already refused by Postgres; that error is translated below
+ * rather than forwarded, because "violates foreign key constraint" is a
+ * sentence about a database to somebody who was tidying a list.
+ *
+ * The count is checked here rather than trusted from the screen: the list the
+ * button was drawn from may be a minute old, and a minute is long enough for
+ * somebody to start a course.
+ */
+export async function deleteCourse(id: string): Promise<void> {
+  const { count, error: countError } = await supabase
+    .from('course_enrolments')
+    .select('id', { count: 'exact', head: true })
+    .eq('course_id', id)
+
+  if (countError) throw new Error(countError.message)
+  if ((count ?? 0) > 0)
+    throw new Error(
+      `${count} ${count === 1 ? 'person has' : 'people have'} started this course. ` +
+        'Withdraw it instead — deleting it would take their record of it with it.',
+    )
+
+  const { data, error } = await supabase
+    .from('courses')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    if (/foreign key|violates/i.test(error.message))
+      throw new Error(
+        'Somebody has paid for this course, so it cannot be deleted. Withdraw it instead.',
+      )
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The course')
+}
+
 export async function addCourseModule(
   courseId: string,
   title: string,
@@ -5494,7 +5609,7 @@ export type SubscriptionInput = {
 export async function agreeSubscription(
   input: SubscriptionInput,
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
   const auth = await supabase.auth.getUser()
 
   const { error: endError } = await supabase
@@ -5525,7 +5640,7 @@ export async function agreeSubscription(
 export async function endSubscription(id: string): Promise<void> {
   const { data, error } = await supabase
     .from('platform_subscriptions')
-    .update({ ends_on: new Date().toISOString().slice(0, 10) })
+    .update({ ends_on: todayLocal() })
     .eq('id', id)
     .is('ends_on', null)
     .select('id')
@@ -6264,18 +6379,42 @@ export type SystemEvent = {
 }
 
 /**
- * Failures the API server noticed — db/027. Platform admins only.
+ * Failures the API server noticed and nobody has looked at yet — db/027.
+ * Platform admins only.
  *
  * An empty list does NOT mean everything is fine. It means nothing recorded a
  * failure, which is also what happens when the server is not running at all.
  * Whatever displays this has to say so.
+ *
+ * ---------------------------------------------------------------------------
+ * THE FILTER IS IN THE QUERY BECAUSE IT USED TO BE AFTER THE LIMIT
+ * ---------------------------------------------------------------------------
+ * This read the twenty most recent events and the overview then filtered them
+ * for unreviewed criticals and warnings. Every event counts towards that
+ * twenty — an account closing, a drill, anything `info` — so a critical
+ * failure stops being shown the moment twenty newer rows exist, without being
+ * read, resolved, or mentioned.
+ *
+ * On 15 September 2026 the table held 64 rows. The newest twenty reached back
+ * to 8 September at 13:10, and **six unreviewed `critical` billing failures**
+ * from 6-8 September sat just outside it. The panel whose whole job is "what
+ * needs Special Miles today" was empty, and the branch that paints it red for
+ * a critical could not fire.
+ *
+ * Asking the database the actual question - unreviewed, and serious - cannot
+ * drift like that. The limit is now a ceiling on how many are drawn, not a
+ * window that quietly decides which ones count.
  */
-export async function fetchSystemEvents(limit = 50): Promise<SystemEvent[]> {
+export async function fetchUnreviewedProblems(
+  limit = 50,
+): Promise<SystemEvent[]> {
   const { data, error } = await supabase
     .from('system_events')
     .select(
       'id, severity, source, event, detail, occurred_at, reviewed_at, reviewed_by, review_note',
     )
+    .is('reviewed_at', null)
+    .in('severity', ['critical', 'warning'])
     .order('occurred_at', { ascending: false })
     .limit(limit)
 
@@ -9623,7 +9762,7 @@ async function countStrategiesAwaitingReview(): Promise<number> {
  * Subscriptions screen says separately how much carries no date at all.
  */
 async function countPlatformInvoicesOverdue(): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
   const { count, error } = await supabase
     .from('platform_invoices')
     .select('id', { count: 'exact', head: true })
@@ -10394,8 +10533,12 @@ export async function fetchFreeSlots(
   const to = new Date(Date.now() + days * 86400000)
   const { data, error } = await supabase.rpc('free_slots', {
     p_specialist: specialistId,
-    p_from: from.toISOString().slice(0, 10),
-    p_to: to.toISOString().slice(0, 10),
+    /* Local, not UTC. `from` is "now" and `to` is "now plus 21 days", both
+       wall-clock intentions — and at 9am in Sydney `toISOString()` turns them
+       into yesterday, so the search opened a day early and closed a day
+       short. Same family as every other site closed on 15 September 2026. */
+    p_from: toLocalDateValue(from),
+    p_to: toLocalDateValue(to),
     p_minutes: 45,
   })
   if (error) throw new Error(error.message)

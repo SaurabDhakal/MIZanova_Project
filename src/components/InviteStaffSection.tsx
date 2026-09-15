@@ -320,7 +320,13 @@ export default function InviteStaffSection({
                       type="button"
                       onClick={() => revoke.mutate(invitation.id)}
                       disabled={revoke.isPending}
-                      className="ml-auto text-sm font-semibold text-danger-foreground underline disabled:opacity-60"
+                      /* 20px until 15 September, and invisible to every
+                         sweep before it: this row only exists while an
+                         invitation is still waiting to be accepted, so a
+                         page with none measures clean. Withdrawing a
+                         credential to a school full of children is not a
+                         control to fumble on a phone. */
+                      className="ml-auto inline-flex min-h-11 items-center px-2 text-sm font-semibold text-danger-foreground underline disabled:opacity-60"
                     >
                       Withdraw
                     </button>

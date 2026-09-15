@@ -3743,9 +3743,32 @@ app.post('/api/invitations', async (req, res) => {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Not signed in.' })
 
-  const { email, role, schoolId, studentId } = req.body ?? {}
+  const { email: rawEmail, role, schoolId, studentId } = req.body ?? {}
+  const email = typeof rawEmail === 'string' ? rawEmail.trim() : ''
   if (!email || !role) {
     return res.status(400).json({ error: 'An email address and a role are required.' })
+  }
+  /*
+   * THE ADDRESS IS CHECKED HERE, NOT ONLY BY THE BROWSER.
+   *
+   * `type="email"` on the form was the only thing standing between this and a
+   * junk address, and a form is not a boundary. On 13 September an invitation
+   * to the literal string `not-an-email` was accepted: a live invitation row
+   * and a working link were created, nodemailer refused it with "No recipients
+   * defined", and that surfaced on the platform overview as
+   * `mail.invitation_not_sent` — an alarm whose own comment reads "every
+   * invitation from now on is silently not arriving". Mail was fine. One
+   * address was not an address.
+   *
+   * Deliberately loose. This rejects what is obviously not an address and
+   * nothing else — the only real test of an address is sending to it, and a
+   * stricter pattern here would refuse valid mail for people with unusual
+   * domains.
+   */
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res
+      .status(400)
+      .json({ error: `"${email}" is not an email address.` })
   }
   /*
    * db/076 added 'student'. The list is repeated here rather than derived,

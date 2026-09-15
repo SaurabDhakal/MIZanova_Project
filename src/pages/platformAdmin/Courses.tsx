@@ -9,6 +9,8 @@ import {
   fetchCourses,
   queryKeys,
   setCoursePrice,
+  updateCourse,
+  deleteCourse,
   setCoursePublished,
   type Course,
   type CourseEngagement,
@@ -23,6 +25,7 @@ import {
 import PageHeader, { PageNote } from '../../components/PageHeader'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Writing the Academy — db/075, the CMS half of the brief's requirement 4.
@@ -146,7 +149,11 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
             {AUDIENCE_CHOICES.map((role) => (
               <label
                 key={role}
-                className={`cursor-pointer rounded-btn border px-3 py-1.5 text-sm font-medium ${
+                /* 34px until 15 September. The audience chips are the only
+                   required choice on this form and they were under the floor,
+                   on a page Gate 2 swept with the form CLOSED — an interactive
+                   state is a separate screen. */
+                className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn border px-3 py-1.5 text-sm font-medium ${
                   audiences.includes(role)
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border bg-card text-muted-foreground'
@@ -290,7 +297,10 @@ function ModuleEditor({ course }: { course: Course }) {
                   setEditVideo(m.video_url ?? '')
                   setError(null)
                 }}
-                className="ml-auto text-xs font-semibold text-primary"
+                /* 16px until 15 September. Both controls on a module row
+                   were text and nothing else — found once the tap-target
+                   check stopped requiring a <button> to look like one. */
+                className="ml-auto inline-flex min-h-11 items-center px-3 text-xs font-semibold text-primary"
               >
                 Edit
               </button>
@@ -298,15 +308,27 @@ function ModuleEditor({ course }: { course: Course }) {
                 type="button"
                 disabled={remove.isPending || course.is_published}
                 onClick={() => setRemoving({ id: m.id, title: m.title })}
-                title={
-                  course.is_published
-                    ? 'Withdraw the course first — somebody may be part-way through it.'
-                    : undefined
+                /* THE REASON IS RENDERED, NOT HIDDEN IN A TOOLTIP. A disabled
+                   button is out of the tab order, so `title` alone reaches
+                   neither a keyboard user nor a screen reader, and on touch it
+                   reaches nobody at all. Third instance of this in the
+                   codebase after Applications and Articles. */
+                aria-describedby={
+                  course.is_published ? `remove-blocked-${m.id}` : undefined
                 }
-                className="text-xs font-semibold text-danger-foreground disabled:opacity-40"
+                className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-danger-foreground disabled:opacity-40"
               >
                 Remove
               </button>
+              {course.is_published && (
+                <p
+                  id={`remove-blocked-${m.id}`}
+                  className="w-full text-xs text-muted-foreground"
+                >
+                  Withdraw the course first — somebody may be part-way through
+                  it.
+                </p>
+              )}
 
               {editing === m.id && (
                 <form
@@ -545,11 +567,209 @@ function PriceControl({ course }: { course: Course }) {
       <button
         type="button"
         onClick={() => setEditing(false)}
-        className="inline-flex min-h-11 items-center text-xs font-semibold text-muted-foreground hover:underline"
+        className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-muted-foreground hover:underline"
       >
         Cancel
       </button>
     </div>
+  )
+}
+
+
+/**
+ * Correcting a course, and removing one.
+ *
+ * ---------------------------------------------------------------------------
+ * NEITHER EXISTED. A COURSE WAS PERMANENT THE MOMENT IT WAS CREATED
+ * ---------------------------------------------------------------------------
+ * The page could publish a course, withdraw it, price it and edit its modules.
+ * It could not change the course's own title, summary or audience, and it could
+ * not delete one — there was no `updateCourse` and no `deleteCourse` anywhere
+ * in `src/lib/api.ts`, while `courses_write` had granted a platform admin ALL
+ * on the table since db/075. A typo in a title was forever, and the only escape
+ * was to withdraw it and leave the row sitting in the list.
+ *
+ * Found by Gate 3 on 15 September 2026, by creating a throwaway course and
+ * looking for the way back out. See docs/22.
+ *
+ * DELETE IS OFFERED ONLY WHILE NOBODY HAS STARTED IT, and the check is repeated
+ * inside `deleteCourse` rather than trusted from here — `course_enrolments` is
+ * on delete CASCADE, so deleting a course somebody is part-way through does not
+ * fail, it quietly erases their record of having done it.
+ */
+function CourseDetailsControls({ course }: { course: Course }) {
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(course.title)
+  const [summary, setSummary] = useState(course.summary ?? '')
+  const [audiences, setAudiences] = useState<Role[]>(course.audiences)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: () => updateCourse(course.id, { title, summary, audiences }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courses })
+      setEditing(false)
+      setError(null)
+      showToast('Saved.')
+    },
+    onError: (e) => setError(e.message),
+  })
+
+  const remove = useMutation({
+    mutationFn: () => deleteCourse(course.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courses })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.courseEngagement,
+      })
+      setDeleting(false)
+      showToast('Deleted.')
+    },
+  })
+
+  const toggle = (role: Role) =>
+    setAudiences((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
+    )
+
+  if (!editing)
+    return (
+      <>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setTitle(course.title)
+              setSummary(course.summary ?? '')
+              setAudiences(course.audiences)
+              setError(null)
+              setEditing(true)
+            }}
+            className="pressable -ml-2 inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-primary hover:bg-background hover:underline"
+          >
+            Edit details
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              remove.reset()
+              setDeleting(true)
+            }}
+            className="pressable inline-flex min-h-11 items-center rounded-btn px-2 text-xs font-semibold text-danger-foreground hover:bg-background hover:underline"
+          >
+            Delete
+          </button>
+        </div>
+
+        {deleting && (
+          <ConfirmDestructive
+            title={`Delete ${course.title}?`}
+            detail={
+              course.is_published
+                ? 'It is published, so it is on the Academy now. Deleting it takes the course and every one of its modules.'
+                : 'It is a draft, so nobody outside this page can see it — but the writing itself goes.'
+            }
+            consequences={[
+              'The course and all of its modules are removed for good.',
+              'It is refused if anybody has started it, and refused if anybody has paid for it — withdraw it instead.',
+            ]}
+            confirmLabel="Delete it"
+            pending={remove.isPending}
+            error={remove.error?.message ?? null}
+            onConfirm={() => remove.mutate()}
+            onCancel={() => {
+              remove.reset()
+              setDeleting(false)
+            }}
+          />
+        )}
+      </>
+    )
+
+  return (
+    <form
+      className="mt-3 rounded-card border border-border bg-background p-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (title.trim() === '') return setError('Give it a title.')
+        if (audiences.length === 0)
+          return setError('Choose at least one audience.')
+        save.mutate()
+      }}
+    >
+      <label className="block text-sm font-medium text-foreground">
+        Title
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-sm text-foreground"
+        />
+      </label>
+
+      <label className="mt-3 block text-sm font-medium text-foreground">
+        What it is for
+        <textarea
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          rows={2}
+          className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2 text-sm text-foreground"
+        />
+      </label>
+
+      <fieldset className="mt-3">
+        <legend className="text-sm font-medium text-foreground">
+          Who it is for
+        </legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {AUDIENCE_CHOICES.map((role) => (
+            <label
+              key={role}
+              className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn border px-3 py-1.5 text-sm font-medium ${
+                audiences.includes(role)
+                  ? 'border-primary bg-primary-subtle text-primary'
+                  : 'border-border bg-card text-muted-foreground'
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={audiences.includes(role)}
+                onChange={() => toggle(role)}
+              />
+              {ROLE_CONFIG[role].label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-danger-foreground">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {save.isPending ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false)
+            setError(null)
+          }}
+          className="pressable min-h-11 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -614,7 +834,13 @@ function Engagement() {
     )
     const a = document.createElement('a')
     a.href = url
-    a.download = `mizanova-course-engagement-${new Date().toISOString().slice(0, 10)}.csv`
+    /* `new Date().toISOString().slice(0, 10)` is UTC, and this is an
+       Australian product: from midnight until mid-morning it names the file
+       YESTERDAY. An audit export taken at 9am in Sydney on the 15th was
+       called ...2026-09-14.csv — and this is the file a school hands to an
+       inspector. `todayLocal()` exists for exactly this and says so in its
+       own comment. Found by Gate 5, 15 September 2026. */
+    a.download = `mizanova-course-engagement-${todayLocal()}.csv`
     a.click()
     URL.revokeObjectURL(url)
     /* Every course, every time — there is no filter and no cap on this screen,
@@ -827,6 +1053,7 @@ export default function Courses() {
                   </p>
 
                   <PriceControl course={course} />
+                  <CourseDetailsControls course={course} />
                 </div>
 
                 <div className="flex flex-wrap gap-2">

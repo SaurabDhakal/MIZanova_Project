@@ -7,7 +7,7 @@ import {
   fetchApprovedWithoutScreening,
   fetchSchools,
   fetchScreening,
-  fetchSystemEvents,
+  fetchUnreviewedProblems,
   fetchWorkQueue,
   queryKeys,
 } from '../../lib/api'
@@ -74,7 +74,7 @@ export default function GlobalOverview() {
   })
   const systemEvents = useQuery({
     queryKey: queryKeys.systemEvents,
-    queryFn: () => fetchSystemEvents(20),
+    queryFn: () => fetchUnreviewedProblems(),
   })
 
   /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
@@ -315,13 +315,11 @@ export default function GlobalOverview() {
           )
         }
 
-        const serious = systemEvents.isSuccess
-          ? systemEvents.data.filter(
-              (e) =>
-                e.reviewed_at === null &&
-                (e.severity === 'critical' || e.severity === 'warning'),
-            )
-          : []
+        /* The query already asks for unreviewed criticals and warnings, and
+           asks the database rather than a slice of the newest twenty rows.
+           See fetchUnreviewedProblems for the six critical billing failures
+           that were invisible here for a week. */
+        const serious = systemEvents.isSuccess ? systemEvents.data : []
         if (serious.length === 0) return null
 
         return (
