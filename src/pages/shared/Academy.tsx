@@ -481,7 +481,7 @@ export default function Academy() {
                             type="button"
                             onClick={() => setOpenModule(showing ? '' : m.id)}
                             aria-expanded={showing}
-                            className="flex w-full flex-wrap items-baseline gap-2 text-left"
+                            className="flex w-full min-h-11 flex-wrap items-baseline gap-2 py-1 text-left"
                           >
                             <span
                               className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${

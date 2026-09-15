@@ -70,7 +70,7 @@ const LINE_HEIGHT = {
  * regression at the same place is not waved through by a stale entry.
  */
 const CONTENT_IS_TALLER = {
-  'src/pages/educator/AddStudent.tsx:238':
+  'src/pages/educator/AddStudent.tsx:239':
     'a heading span over a three-line paragraph span',
 }
 
@@ -90,7 +90,25 @@ for (const file of files) {
   const lines = readFileSync(file, 'utf8').split('\n')
 
   lines.forEach((line, i) => {
-    const match = line.match(/className=[{`"]([^"`}]*)/)
+    /*
+     * `className={\`…\`}` CAPTURED NOTHING AT ALL, SILENTLY.
+     *
+     * The old pattern was /className=[{`"]([^"`}]*)/. On a template literal
+     * the bracket class matched the `{`, and the capture then began at the
+     * backtick — which the capture itself excludes — so it matched the empty
+     * string. Every dynamically-classed control in the codebase was read as
+     * having no classes at all, and `looksLikeControl` then dropped it
+     * without a word. Two bugs holding each other up: fixing the gate alone
+     * made those same controls surface as 24px, which is the height of
+     * nothing.
+     *
+     * Now the `{` and the opening quote or backtick are consumed separately,
+     * so the static classes at the head of a template literal are read. Only
+     * the head: everything from the first `${` on is a runtime value and this
+     * script cannot know it. That is the right trade — the floor classes in
+     * this codebase are written before the interpolation, not inside it.
+     */
+    const match = line.match(/className=\{?\s*[`"']([^"`}]*)/)
     if (!match) return
 
     const classes = match[1].split(/\s+/).filter(Boolean)
@@ -116,7 +134,6 @@ for (const file of files) {
       has('pressable') ||
       has('rounded-card') ||
       (has('hover:underline') && (has('font-semibold') || has('font-medium')))
-    if (!looksLikeControl) return
     if (has('sr-only')) return
 
     // An explicit floor is the guarantee this check exists to ask for.
@@ -124,6 +141,18 @@ for (const file of files) {
     if (classes.some((c) => /^min-h-\[(4[4-9]|[5-9]\d|\d{3,})px\]$/.test(c)))
       return
     if (has('aspect-square')) return
+    /*
+     * A CONTROL PINNED TO ALL FOUR EDGES IS THE SIZE OF ITS ANCESTOR.
+     *
+     * `<button className="absolute inset-0 bg-black/50">` is the backdrop
+     * behind a drawer — a full-screen click-catcher whose whole job is to be
+     * enormous. The arithmetic here reads no padding and a default
+     * line-height and calls it 24px, three times over (AppShell,
+     * ContextSwitcher, SiteHeader). Surfaced the moment a <button> stopped
+     * having to look like a control, which is the right change; this is the
+     * exclusion it needed.
+     */
+    if (has('inset-0')) return
 
     /*
      * Which element does this className belong to?
@@ -135,8 +164,25 @@ for (const file of files) {
      * scan also refuses to cross a line that ENDS an opening tag. If the tag
      * above was already closed, this className belongs to something else.
      */
-    let tag = null
-    for (let j = i - 1; j >= Math.max(0, i - 45); j--) {
+    /*
+     * THE CLASSNAME'S OWN LINE WINS.
+     *
+     * `<span className="font-normal text-muted-foreground">` sitting inside a
+     * `<summary className="min-h-11 …">` was being attributed to the SUMMARY,
+     * because the scan below looks for the nearest opener ABOVE and the
+     * summary is it. The span's classes were then measured as the summary's,
+     * and a correctly-sized disclosure was reported at 24px. Same fault put a
+     * `<div className="print-only …">` under a `<button>` two functions away.
+     *
+     * If the tag is written on the same line as the className it is the
+     * owner, and no scan is needed or wanted.
+     */
+    const own = line.trim().match(
+      /<(button|a|Link|NavLink|summary|input|select|textarea|span|div|li|ul|dl|p|pre|section|form|Icon)\b/,
+    )
+
+    let tag = own ? own[1] : null
+    for (let j = i - 1; tag === null && j >= Math.max(0, i - 45); j--) {
       const text = lines[j].trim()
       const opener = text.match(
         /<(button|a|Link|NavLink|summary|input|select|textarea|span|div|li|ul|dl|p|pre|section|form)\b/,
@@ -149,6 +195,29 @@ for (const file of files) {
       if (/\/?>$/.test(text)) return
     }
     if (!['button', 'a', 'Link', 'NavLink', 'summary'].includes(tag)) return
+
+    /*
+     * A <button> DOES NOT HAVE TO LOOK LIKE A CONTROL. IT IS ONE.
+     *
+     * `looksLikeControl` is a guess at whether a <span>, <div> or <a> was
+     * built to be pressed, and it has to be a guess. Applying it to a
+     * <button> or a <summary> is not a guess, it is a hole: on 15 September
+     * `InviteStaffSection`'s **Withdraw** button was 20px — no height class,
+     * no padding, `underline` rather than `hover:underline`, no button class
+     * at all — and this check reported "No control is under 44px" across 194
+     * files. Tested directly: the 20px class was put back, the check re-run,
+     * and it still reported zero.
+     *
+     * That button withdraws somebody's credential to a school full of
+     * children's records, and it is mounted on two roles' screens. The
+     * browser probe could not see it either, because the row only exists
+     * while an invitation is still waiting to be accepted.
+     *
+     * So the guess now applies only where a guess is needed. This moved
+     * BELOW the tag scan for that reason — it used to run first, and nothing
+     * that failed it was ever measured.
+     */
+    if (tag !== 'button' && tag !== 'summary' && !looksLikeControl) return
 
     /*
      * WCAG 2.5.8 EXEMPTS A LINK INSIDE A SENTENCE, AND ONLY THAT.

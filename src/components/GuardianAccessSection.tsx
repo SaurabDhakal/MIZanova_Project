@@ -352,7 +352,7 @@ export default function GuardianAccessSection({
                     type="button"
                     onClick={() => revoke.mutate(code.id)}
                     disabled={revoke.isPending}
-                    className="ml-auto text-sm font-semibold text-danger-foreground underline disabled:opacity-60"
+                    className="ml-auto inline-flex min-h-11 items-center px-2 text-sm font-semibold text-danger-foreground underline disabled:opacity-60"
                   >
                     Withdraw
                   </button>

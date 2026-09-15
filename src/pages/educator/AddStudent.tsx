@@ -13,6 +13,7 @@ import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 import { useAuth } from '../../lib/auth'
 import AboutThisChild from '../../components/AboutThisChild'
 import { showToast } from '../../lib/toast'
+import { todayLocal } from '../../lib/localTime'
 
 export default function AddStudent() {
   const navigate = useNavigate()
@@ -206,7 +207,7 @@ export default function AddStudent() {
               type="date"
               value={dateOfBirth}
               onChange={(event) => setDateOfBirth(event.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
+              max={todayLocal()}
               className="mt-1 block w-full rounded-btn border border-border bg-card px-3 py-2.5 sm:max-w-xs"
             />
           </label>
@@ -256,7 +257,7 @@ export default function AddStudent() {
                 <button
                   type="button"
                   onClick={() => setAboutOpen(false)}
-                  className="text-xs text-muted-foreground hover:underline"
+                  className="-mr-2 inline-flex min-h-11 items-center px-2 text-xs text-muted-foreground hover:underline"
                 >
                   Close
                 </button>
