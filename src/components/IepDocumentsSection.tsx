@@ -15,6 +15,7 @@ import SignedFileLink from './SignedFileLink'
 import ClosedRecordNote from './ClosedRecordNote'
 import { useEnrolled } from '../lib/enrolment'
 import { showToast } from '../lib/toast'
+import { todayLocal } from '../lib/localTime'
 
 /**
  * Staff view of a student's IEP documents.
@@ -77,7 +78,7 @@ export default function IepDocumentsSection({
   const enrolled = useEnrolled()
   const [name, setName] = useState('')
   const [documentDate, setDocumentDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    todayLocal(),
   )
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState<File | null>(null)

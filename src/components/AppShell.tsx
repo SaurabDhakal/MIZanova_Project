@@ -366,11 +366,31 @@ export default function AppShell({ role }: { role: Role }) {
               <p className="font-semibold text-warning-foreground">
                 You are offline
               </p>
+              {/* THE SECOND SENTENCE IS NOT TRUE FOR EVERY ROLE.
+                  It read "You can still record what you are seeing now — new
+                  behaviour logs are kept on this device" for everyone. Only
+                  educators and specialists write behaviour logs; the banner
+                  three blocks below already says so and renders its queue for
+                  those two roles alone. So a platform admin, a school admin, a
+                  parent or an individual was told, on every screen they have,
+                  that they could carry on recording something they have no way
+                  to record. Found by Gate 5 on 15 September 2026, by taking
+                  platform admin offline. */}
               <p className="mt-1 max-w-prose text-sm text-warning-foreground">
-                You can still record what you are seeing now — new behaviour
-                logs are kept on this device and upload by themselves. Existing
-                records will not load: they are never stored on the device,
-                because these laptops are shared.
+                {role === 'educator' || role === 'specialist' ? (
+                  <>
+                    You can still record what you are seeing now — new
+                    behaviour logs are kept on this device and upload by
+                    themselves. Existing records will not load: they are never
+                    stored on the device, because these laptops are shared.
+                  </>
+                ) : (
+                  <>
+                    Nothing on these screens is stored on the device, so they
+                    will not load until the connection is back. Nothing you had
+                    already done is lost.
+                  </>
+                )}
               </p>
             </div>
           )}

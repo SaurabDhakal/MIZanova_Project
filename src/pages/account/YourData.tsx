@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase'
 import { showToast } from '../../lib/toast'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import WhatWorksLink from '../../components/WhatWorksLink'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Settings › Your data — everything about the record itself.
@@ -56,7 +57,7 @@ function ExportSection() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `mizanova-my-data-${new Date().toISOString().slice(0, 10)}.json`
+      a.download = `mizanova-my-data-${todayLocal()}.json`
       a.click()
       // Revoked, or the blob stays in memory for the life of the tab.
       URL.revokeObjectURL(url)

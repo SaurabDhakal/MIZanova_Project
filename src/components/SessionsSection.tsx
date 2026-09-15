@@ -16,6 +16,7 @@ import ClosedRecordNote from './ClosedRecordNote'
 import { useEnrolled } from '../lib/enrolment'
 import FormField from './FormField'
 import { showToast } from '../lib/toast'
+import { todayLocal } from '../lib/localTime'
 
 /**
  * Specialist sessions on a student's page — db/028.
@@ -175,7 +176,7 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   const [open, setOpen] = useState(false)
   const enrolled = useEnrolled()
   const [sessionDate, setSessionDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    todayLocal(),
   )
   const [duration, setDuration] = useState('30')
   const [goalId, setGoalId] = useState('')

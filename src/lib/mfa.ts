@@ -2,6 +2,7 @@
 // which stayed pointing at localhost after the first was fixed.
 import { API_URL } from './apiBase'
 import { supabase } from './supabase'
+import { todayLocal } from './localTime'
 
 /**
  * Two-factor authentication, wrapped in one place.
@@ -100,7 +101,7 @@ export async function startEnrolment(): Promise<EnrolmentStart> {
 
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: `Authenticator ${new Date().toISOString().slice(0, 10)}`,
+    friendlyName: `Authenticator ${todayLocal()}`,
   })
   if (error) throw new Error(error.message)
 

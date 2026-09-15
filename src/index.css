@@ -1230,8 +1230,44 @@ select:not([aria-invalid='true']) {
     box-shadow: none !important;
   }
 
-  a {
+  /* AN IN-APP LINK IS NOT A LINK ON PAPER.
+     This block already hides buttons because nothing that cannot be pressed
+     belongs on a printed page — and then underlined every anchor, which put
+     the affordance straight back. The parent's Progress report printed
+     "See the full goals →" as an underlined, arrowed invitation to tap a
+     sheet of paper, with no address anywhere on it.
+
+     Found by Gate 5 on 15 September 2026 — the first time anybody had looked
+     at a printed page.
+
+     The text stays: removing it would leave a hole mid-sentence wherever a
+     link sits inside prose. What goes is the false affordance. */
+  a[href^='/'],
+  a[href^='#'] {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* An address that still works off the page keeps its underline AND gains the
+     address itself, because "email us" is no use to somebody holding paper. */
+  a[href^='http'],
+  a[href^='mailto:'],
+  a[href^='tel:'] {
     text-decoration: underline;
+  }
+
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  a[href^='mailto:']::after,
+  a[href^='tel:']::after {
+    /* The visible text of these is already the address in this product, so
+       repeating it would read as a stutter. Checked on Enquiries and
+       Applications, which are the screens that carry them. */
+    content: '';
   }
 }
 
