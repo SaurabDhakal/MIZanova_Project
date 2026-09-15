@@ -90,11 +90,41 @@ export default function Verification() {
     queryFn: fetchStaffMfaStatus,
   })
 
+  /*
+   * IT USED TO SUCCEED AND FAIL IDENTICALLY — SILENTLY.
+   *
+   * This had no `onError`, no toast and nothing rendered from `isError`. The
+   * only feedback was the row moving between the two lists, which is what
+   * happens on success and also what happens on a refetch after a failed
+   * write: the row snaps back and nothing says why.
+   *
+   * What is being written is an attestation that a person has been checked to
+   * work with children, made against the name of whoever pressed it. An
+   * administrator who believes they verified somebody who is not verified —
+   * or worse, believes they withdrew trust from somebody who still has it —
+   * is a fault this screen cannot afford. Found by Gate 3 on 15 September.
+   *
+   * Success is said out loud too, because the two lists are long and the row
+   * moves somewhere the reader may not be looking.
+   */
   const verify = useMutation({
-    mutationFn: ({ id, verified }: { id: string; verified: boolean }) =>
-      setStaffVerified(id, verified),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.allStaff }),
+    mutationFn: ({
+      id,
+      verified,
+    }: {
+      id: string
+      verified: boolean
+      name: string
+    }) => setStaffVerified(id, verified),
+    onSuccess: (_data, { verified, name }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.allStaff })
+      showToast(
+        verified
+          ? `${name} is verified, recorded against your name.`
+          : `Verification withdrawn from ${name}. They keep their account and lose student records.`,
+      )
+    },
+    onError: (error) => showToast(error.message, 'error'),
   })
 
   // Which person is showing "are you sure". Resetting somebody's second factor
@@ -264,7 +294,13 @@ export default function Verification() {
               </div>
               <button
                 type="button"
-                onClick={() => verify.mutate({ id: person.id, verified: true })}
+                onClick={() =>
+                  verify.mutate({
+                    id: person.id,
+                    verified: true,
+                    name: person.full_name,
+                  })
+                }
                 disabled={verify.isPending}
                 className="pressable mt-3 w-full rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-60 sm:mt-0 sm:ml-auto sm:w-auto"
               >
@@ -409,7 +445,11 @@ export default function Verification() {
                 <button
                   type="button"
                   onClick={() =>
-                    verify.mutate({ id: person.id, verified: false })
+                    verify.mutate({
+                      id: person.id,
+                      verified: false,
+                      name: person.full_name,
+                    })
                   }
                   disabled={verify.isPending}
                   className="pressable min-h-11 rounded-btn border border-border px-3 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"

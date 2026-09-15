@@ -104,15 +104,23 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
         </span>
       </div>
 
+      {/* ITEMS-CENTRE, BECAUSE A 44px LINK MAKES ITS WHOLE ROW 44px TALL.
+          The email and phone are inline-flex min-h-11 so they can be hit on a
+          phone, which is right. But each pair sits in a grid row beside a
+          plain-text pair, and grid items stretch: "Contact" and its value were
+          being pulled to 44px with their text pinned to the top, so the label
+          sat a line above the address it was level with and the two rows
+          looked adrift. Centring costs nothing and lines the text up with the
+          link beside it. */}
       <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <dt className="text-muted-foreground">Contact</dt>
           <dd className="font-medium text-foreground">
             {enquiry.contact_name}
             {enquiry.contact_role && ` — ${enquiry.contact_role}`}
           </dd>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <dt className="text-muted-foreground">Email</dt>
           {/* A link, because the whole point of this screen is replying, and
               retyping an address is how you reply to the wrong person. */}
@@ -126,7 +134,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           </dd>
         </div>
         {enquiry.contact_phone && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <dt className="text-muted-foreground">Phone</dt>
             <dd>
               <a
@@ -139,7 +147,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           </div>
         )}
         {enquiry.student_count !== null && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <dt className="text-muted-foreground">
               {enquiry.kind === 'school' ? 'Students' : 'Children'}
             </dt>
@@ -149,7 +157,7 @@ function EnquiryCard({ enquiry }: { enquiry: EnquiryRow }) {
           </div>
         )}
         {enquiry.plan_key && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <dt className="text-muted-foreground">Asked about</dt>
             <dd className="font-medium text-foreground">
               {ENQUIRY_PLANS[enquiry.plan_key]}

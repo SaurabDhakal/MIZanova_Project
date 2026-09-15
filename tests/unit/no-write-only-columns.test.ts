@@ -38,7 +38,26 @@ import { describe, expect, test } from 'vitest'
  * carried to the browser, and rendered by nobody.
  */
 
-const CAPTURE_TABLES = ['behaviour_logs', 'student_profiles', 'school_day_context']
+/*
+ * `ai_control_events` JOINED THE LIST ON 15 SEPTEMBER, because the fault this
+ * test exists to catch happened outside the three tables it covered.
+ *
+ * db/078 added `was_school_limit` / `now_school_limit` / `was_user_limit` /
+ * `now_user_limit`. `fetchAiControlEvents` never selected them, so the AI
+ * governance change history described every limit change as
+ * "Threshold 70% → 70%" — a change that did not happen, on the screen whose
+ * whole purpose is answering who did this and why. Written by the database and
+ * read by nobody: the definition of the thing below.
+ *
+ * The test was sound. Its coverage was three tables wide, and a governance
+ * table is exactly where an unread column does the most damage.
+ */
+const CAPTURE_TABLES = [
+  'behaviour_logs',
+  'student_profiles',
+  'school_day_context',
+  'ai_control_events',
+]
 
 /**
  * Columns with no screen, each with the reason. Adding to this list is a
@@ -64,6 +83,8 @@ const NO_SCREEN: Record<string, string> = {
   context_date: 'the day control is always about today',
   notes_source: 'db/005 records typed-vs-voice for review; no screen yet, and it is not a fact about a child',
   safeguarding_acknowledged_at: 'drives the queue filter; the state is shown, not the timestamp',
+  changed_by: 'rendered as a person through profiles.full_name, not as a column',
+  changed_at: 'rendered as the date beside each entry',
 }
 
 function walk(dir: string, out: string[] = []): string[] {
