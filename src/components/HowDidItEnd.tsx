@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys, updateBehaviourLog } from '../lib/api'
-import {
-  WHAT_HELPED,
-  type WhatHelped,
-} from '../lib/behaviourContext'
+import { WHAT_HELPED, type WhatHelped } from '../lib/behaviourContext'
 import SuggestedText from './SuggestedText'
 import { showToast } from '../lib/toast'
 
@@ -118,7 +115,7 @@ export default function HowDidItEnd({
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-xs text-muted-foreground hover:underline"
+          className="-mr-2 inline-flex min-h-11 items-center px-2 text-xs text-muted-foreground hover:underline"
         >
           Not now
         </button>

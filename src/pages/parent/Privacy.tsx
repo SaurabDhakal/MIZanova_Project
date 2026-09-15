@@ -166,7 +166,11 @@ export default function Privacy() {
 
                   {active ? (
                     <span className="inline-flex items-center gap-1.5 rounded-btn bg-success-subtle px-3 py-1.5 text-sm font-semibold text-success-foreground">
-                      <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+                      <Icon
+                        name="tick"
+                        aria-hidden
+                        className="h-4 w-4 shrink-0"
+                      />
                       Given {formatDate(active.granted_at)}
                     </span>
                   ) : (

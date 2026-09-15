@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react'
+import { useAuth } from '../lib/auth'
+
 /**
  * The three states every screen backed by a database has, in one component.
  *
@@ -25,6 +28,23 @@ export function ErrorState({
   onRetry?: () => void
 }) {
   const offline = NETWORK_FAILURE.test(message)
+  /*
+   * THE OFFLINE SENTENCE IS NOT TRUE FOR EVERY ROLE.
+   *
+   * It read "You can still log behaviour — new logs are kept here and upload
+   * by themselves" to everybody, and this component is used on 75 screens.
+   * Only educators and specialists write behaviour logs. A school
+   * administrator hit it on 15 September while a student record failed to
+   * load, and was told they could carry on doing something their role has no
+   * way to do.
+   *
+   * The same fault as the offline banner in AppShell, in a second place —
+   * which is the point worth noticing: shared chrome inherits the vocabulary
+   * of whoever wrote it first, and that was a teacher's screen both times.
+   */
+  const { profile } = useAuth()
+  const canLogBehaviour =
+    profile?.role === 'educator' || profile?.role === 'specialist'
 
   return (
     <div
@@ -51,7 +71,9 @@ export function ErrorState({
         }`}
       >
         {offline
-          ? 'This information is stored on the school’s server, not on this device, so it cannot be shown right now. You can still log behaviour — new logs are kept here and upload by themselves.'
+          ? canLogBehaviour
+            ? 'This information is stored on the school’s server, not on this device, so it cannot be shown right now. You can still log behaviour — new logs are kept here and upload by themselves.'
+            : 'This information is stored on the school’s server, not on this device, so it cannot be shown right now. Nothing you had already done is lost.'
           : message}
       </p>
       {onRetry && (
@@ -79,13 +101,25 @@ export function ErrorState({
 /**
  * Empty is not an error, and the wording matters. "No students yet" is a fact;
  * "you have not been assigned any students" tells someone what to do about it.
+ *
+ * `action` IS OPTIONAL AND EXISTS BECAUSE SOME EMPTY SCREENS HAVE A NEXT STEP.
+ * Most do not: a caseload is empty because nobody has been assigned, and no
+ * button on that screen changes it. But an individual's Receipts page is empty
+ * because they have not enrolled in anything yet, and the courses are one
+ * click away — so that screen was hand-rolling a card with a paragraph and a
+ * link instead of using this, which is how one role ends up with left-aligned
+ * prose where every other role has a centred empty state.
+ *
+ * Pass a single button or link. Anything more is a screen, not an empty state.
  */
 export function EmptyState({
   title,
   detail,
+  action,
 }: {
   title: string
   detail: string
+  action?: ReactNode
 }) {
   return (
     <div className="rounded-card border border-border bg-card shadow-raised p-10 text-center">
@@ -93,6 +127,7 @@ export function EmptyState({
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
         {detail}
       </p>
+      {action && <div className="mt-5">{action}</div>}
     </div>
   )
 }

@@ -86,7 +86,6 @@ export default function HeroDiagram() {
         label="SUGGESTED STRATEGY"
         value="Offer a planned break card"
       />
-
     </svg>
   )
 }

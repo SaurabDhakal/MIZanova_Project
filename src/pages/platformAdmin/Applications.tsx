@@ -186,8 +186,13 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
         </span>
       </div>
 
+      {/* ITEMS-CENTRE — the same fault as Enquiries, on the same card shape.
+          The email and phone are 44px so they can be hit on a phone; every
+          plain-text pair sharing a grid row with one was stretched to 44px
+          with its text pinned to the top, so labels sat a line above the
+          values they were level with. */}
       <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <dt className="text-muted-foreground">Email</dt>
           <dd>
             <a
@@ -199,7 +204,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           </dd>
         </div>
         {application.phone && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <dt className="text-muted-foreground">Phone</dt>
             <dd>
               <a
@@ -212,7 +217,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           </div>
         )}
         {application.years_experience !== null && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <dt className="text-muted-foreground">Experience</dt>
             <dd className="font-medium text-foreground">
               {application.years_experience} years
@@ -220,7 +225,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           </div>
         )}
         {application.regions && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <dt className="text-muted-foreground">Works in</dt>
             <dd className="font-medium text-foreground">
               {application.regions}

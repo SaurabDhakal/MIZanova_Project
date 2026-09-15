@@ -77,16 +77,15 @@ export default function AppShell({ role }: { role: Role }) {
    * order is decided where the nav is decided rather than twice.
    */
   const ungrouped = config.nav.filter((item) => !item.group)
-  const grouped = config.nav.reduce<{ heading: string; items: typeof config.nav }[]>(
-    (acc, item) => {
-      if (!item.group) return acc
-      const existing = acc.find((g) => g.heading === item.group)
-      if (existing) existing.items.push(item)
-      else acc.push({ heading: item.group, items: [item] })
-      return acc
-    },
-    [],
-  )
+  const grouped = config.nav.reduce<
+    { heading: string; items: typeof config.nav }[]
+  >((acc, item) => {
+    if (!item.group) return acc
+    const existing = acc.find((g) => g.heading === item.group)
+    if (existing) existing.items.push(item)
+    else acc.push({ heading: item.group, items: [item] })
+    return acc
+  }, [])
 
   const navItem = (item: (typeof config.nav)[number]) => (
     <li key={item.path}>
@@ -169,7 +168,9 @@ export default function AppShell({ role }: { role: Role }) {
             <ul
               className="space-y-1"
               aria-labelledby={
-                collapsed ? undefined : `nav-${group.heading.replace(/\s+/g, '-')}`
+                collapsed
+                  ? undefined
+                  : `nav-${group.heading.replace(/\s+/g, '-')}`
               }
             >
               {group.items.map(navItem)}
@@ -275,7 +276,9 @@ export default function AppShell({ role }: { role: Role }) {
             className="absolute inset-0 bg-black/50"
             onClick={() => setMenuOpen(false)}
           />
-          <aside className="relative h-full w-64 bg-sidebar p-4">{sidebar}</aside>
+          <aside className="relative h-full w-64 bg-sidebar p-4">
+            {sidebar}
+          </aside>
         </div>
       )}
 
@@ -363,11 +366,31 @@ export default function AppShell({ role }: { role: Role }) {
               <p className="font-semibold text-warning-foreground">
                 You are offline
               </p>
+              {/* THE SECOND SENTENCE IS NOT TRUE FOR EVERY ROLE.
+                  It read "You can still record what you are seeing now — new
+                  behaviour logs are kept on this device" for everyone. Only
+                  educators and specialists write behaviour logs; the banner
+                  three blocks below already says so and renders its queue for
+                  those two roles alone. So a platform admin, a school admin, a
+                  parent or an individual was told, on every screen they have,
+                  that they could carry on recording something they have no way
+                  to record. Found by Gate 5 on 15 September 2026, by taking
+                  platform admin offline. */}
               <p className="mt-1 max-w-prose text-sm text-warning-foreground">
-                You can still record what you are seeing now — new behaviour
-                logs are kept on this device and upload by themselves. Existing
-                records will not load: they are never stored on the device,
-                because these laptops are shared.
+                {role === 'educator' || role === 'specialist' ? (
+                  <>
+                    You can still record what you are seeing now — new
+                    behaviour logs are kept on this device and upload by
+                    themselves. Existing records will not load: they are never
+                    stored on the device, because these laptops are shared.
+                  </>
+                ) : (
+                  <>
+                    Nothing on these screens is stored on the device, so they
+                    will not load until the connection is back. Nothing you had
+                    already done is lost.
+                  </>
+                )}
               </p>
             </div>
           )}

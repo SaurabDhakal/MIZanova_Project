@@ -34,6 +34,31 @@ export const IMPORT_COLUMNS = [
   'year_level',
   'external_ref',
   'date_of_birth',
+  /*
+   * ---------------------------------------------------------------------
+   * THE THREE THAT DESCRIBE THE CHILD RATHER THAN IDENTIFY THEM — db/127
+   * ---------------------------------------------------------------------
+   * Saurab, on the paste and file paths: "can you make place for those
+   * things".
+   *
+   * docs/19 §5.1 is right that an office typing six hundred names from a
+   * enrolment list knows none of this. It is wrong about the other case: a
+   * school MOVING from another system often has exactly these notes already,
+   * in a column called "Strengths" or "Interests", and the previous design
+   * made them retype every one of them by hand afterwards.
+   *
+   * Optional, like every column after the first two. A file without them
+   * behaves exactly as before, which is what makes this safe to add.
+   *
+   * The closed vocabularies — `helps` and `triggers` — are deliberately NOT
+   * importable. They are picked from fixed lists (lib/behaviourContext), and
+   * matching free text out of a spreadsheet onto them would either drop most
+   * of it silently or guess. Those two stay a deliberate choice made on the
+   * child's record.
+   */
+  'interests',
+  'strengths',
+  'finds_hard',
 ] as const
 
 export type ImportColumn = (typeof IMPORT_COLUMNS)[number]
@@ -71,6 +96,24 @@ const HEADER_ALIASES: Record<string, ImportColumn> = {
   dob: 'date_of_birth',
   birthday: 'date_of_birth',
   born: 'date_of_birth',
+  interests: 'interests',
+  interest: 'interests',
+  loves: 'interests',
+  likes: 'interests',
+  'what they love': 'interests',
+  'what they like': 'interests',
+  'interested in': 'interests',
+  strengths: 'strengths',
+  strength: 'strengths',
+  'good at': 'strengths',
+  'what they are good at': 'strengths',
+  'finds hard': 'finds_hard',
+  'find hard': 'finds_hard',
+  'finds difficult': 'finds_hard',
+  'what they find hard': 'finds_hard',
+  challenges: 'finds_hard',
+  difficulties: 'finds_hard',
+  struggles: 'finds_hard',
 }
 
 export type ParsedRow = {
@@ -81,6 +124,9 @@ export type ParsedRow = {
   year_level: string
   external_ref: string
   date_of_birth: string
+  interests: string
+  strengths: string
+  finds_hard: string
 }
 
 export type RowVerdict =
@@ -163,11 +209,32 @@ export function toRows(grid: string[][]): {
   usedHeader: boolean
   unknownHeaders: string[]
 } {
-  if (grid.length === 0) return { rows: [], usedHeader: false, unknownHeaders: [] }
+  if (grid.length === 0)
+    return { rows: [], usedHeader: false, unknownHeaders: [] }
 
-  const normalise = (s: string) => s.trim().toLowerCase().replace(/[_\s]+/g, ' ')
+  /*
+   * A real school spreadsheet does not have tidy headers. It has "First Name*",
+   * "DOB (dd/mm/yyyy)" and "Year Level (K-6)", because whoever made it was
+   * annotating the column for the person filling it in. Matching those against
+   * the alias map literally fails, and the import then reports the column as
+   * ignored and every name as missing — which reads as the file being wrong
+   * when it is the reader being fussy.
+   *
+   * So the hint is stripped: a trailing parenthetical, and any asterisk. This
+   * is also what lets our own template label its columns "Date of birth
+   * (YYYY-MM-DD)" and still be read by the thing that produced it.
+   */
+  const normalise = (s: string) =>
+    s
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/[*†‡]/g, ' ')
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, ' ')
   const first = grid[0].map(normalise)
-  const mapped = first.map((h) => HEADER_ALIASES[h] ?? HEADER_ALIASES[h.replace(/\s/g, '')])
+  const mapped = first.map(
+    (h) => HEADER_ALIASES[h] ?? HEADER_ALIASES[h.replace(/\s/g, '')],
+  )
   const looksLikeHeader = mapped.filter(Boolean).length >= 2
 
   const order: (ImportColumn | null)[] = looksLikeHeader
@@ -193,6 +260,9 @@ export function toRows(grid: string[][]): {
       year_level: get('year_level'),
       external_ref: get('external_ref'),
       date_of_birth: get('date_of_birth'),
+      interests: get('interests'),
+      strengths: get('strengths'),
+      finds_hard: get('finds_hard'),
     }
   })
 
@@ -214,7 +284,10 @@ export function toRows(grid: string[][]): {
  * Empty is fine. Date of birth is nullable, and a school that has not been
  * given one should not be blocked from creating the child.
  */
-export function readDate(raw: string): { value: string | null; error?: string } {
+export function readDate(raw: string): {
+  value: string | null
+  error?: string
+} {
   const s = raw.trim()
   if (s === '') return { value: null }
 
@@ -244,13 +317,18 @@ export function readDate(raw: string): { value: string | null; error?: string } 
     }
   }
 
-  return { value: null, error: `"${s}" is not a date this can read. Use YYYY-MM-DD.` }
+  return {
+    value: null,
+    error: `"${s}" is not a date this can read. Use YYYY-MM-DD.`,
+  }
 }
 
 function validCalendarDate(y: number, m: number, d: number, raw: string) {
   const dt = new Date(Date.UTC(y, m - 1, d))
   const real =
-    dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
   if (!real) return { value: null, error: `"${raw}" is not a real date.` }
 
   const now = new Date()
@@ -259,7 +337,9 @@ function validCalendarDate(y: number, m: number, d: number, raw: string) {
   if (y < now.getUTCFullYear() - 25)
     return { value: null, error: `"${raw}" would make this child over 25.` }
 
-  return { value: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }
+  return {
+    value: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +373,8 @@ export function checkRows(
   const firstLineForRef = new Map<string, number>()
   for (const row of rows) {
     const ref = row.external_ref.trim()
-    if (ref !== '' && !firstLineForRef.has(ref)) firstLineForRef.set(ref, row.line)
+    if (ref !== '' && !firstLineForRef.has(ref))
+      firstLineForRef.set(ref, row.line)
   }
 
   return rows.map((row) => {
@@ -301,16 +382,29 @@ export function checkRows(
     const last = row.last_name.trim()
 
     if (first === '' && last === '')
-      return { ...row, verdict: { status: 'error', reason: 'No name in this row.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'No name in this row.' },
+      }
     if (first === '')
-      return { ...row, verdict: { status: 'error', reason: 'First name is missing.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'First name is missing.' },
+      }
     if (last === '')
-      return { ...row, verdict: { status: 'error', reason: 'Last name is missing.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'Last name is missing.' },
+      }
     if (first.length > 80 || last.length > 80)
-      return { ...row, verdict: { status: 'error', reason: 'That name is implausibly long.' } }
+      return {
+        ...row,
+        verdict: { status: 'error', reason: 'That name is implausibly long.' },
+      }
 
     const date = readDate(row.date_of_birth)
-    if (date.error) return { ...row, verdict: { status: 'error', reason: date.error } }
+    if (date.error)
+      return { ...row, verdict: { status: 'error', reason: date.error } }
 
     const ref = row.external_ref.trim()
     if (ref !== '') {
@@ -391,8 +485,13 @@ function cellText(value: unknown): string {
     return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`
   }
   if (typeof value === 'object') {
-    const rich = value as { text?: string; result?: unknown; richText?: { text: string }[] }
-    if (Array.isArray(rich.richText)) return rich.richText.map((r) => r.text).join('')
+    const rich = value as {
+      text?: string
+      result?: unknown
+      richText?: { text: string }[]
+    }
+    if (Array.isArray(rich.richText))
+      return rich.richText.map((r) => r.text).join('')
     if (typeof rich.text === 'string') return rich.text
     if (rich.result !== undefined) return cellText(rich.result)
     return ''
@@ -400,12 +499,250 @@ function cellText(value: unknown): string {
   return String(value)
 }
 
-/** The file a school is given to fill in, so the columns are never in doubt. */
+/**
+ * The columns as a person reads them, in the order the importer expects.
+ *
+ * NOT the database names. `external_ref` means nothing to a school office, and
+ * the form on the same page already calls that field "Student ID" — one thing
+ * with two names, and the one printed in the template was the wrong one.
+ *
+ * Every heading here is in HEADER_ALIASES, so a file produced from this
+ * template is read back by the importer that produced it. The parenthetical on
+ * the date is stripped by `normalise` before matching, which is what makes a
+ * self-documenting heading possible at all.
+ */
+const TEMPLATE_HEADINGS = [
+  'First name',
+  'Surname',
+  'Year level',
+  'Student ID',
+  'Date of birth (YYYY-MM-DD)',
+  'What they love',
+  'What they are good at',
+  'What they find hard',
+] as const
+
+/**
+ * What the person filling this in needs to know, in the file itself.
+ *
+ * Kept off the sheet the importer reads — see templateWorkbook. A line of
+ * guidance in row 1 of the data sheet would be parsed as a student.
+ */
+const TEMPLATE_GUIDANCE: [string, string][] = [
+  ['First name', 'Required.'],
+  ['Surname', 'Required.'],
+  ['Year level', 'Optional. Whatever your school writes: 4, K, Prep, Year 7.'],
+  [
+    'Student ID',
+    'Optional. Your own roll number for this child, if you have one. ' +
+      'It is what stops the same child being added twice.',
+  ],
+  [
+    'Date of birth (YYYY-MM-DD)',
+    'Optional, and the one to be careful with. This column is already ' +
+      'formatted as a date, so type it however you normally would — ' +
+      '5/3/2015 is fine — and Excel will store it correctly. In a plain ' +
+      'CSV there is no such column type, so write it as 2015-03-05.',
+  ],
+  [
+    '',
+    'Why the format matters: 05/03/2015 on its own could be the 5th of March ' +
+      'or the 3rd of May, and nothing in the cell says which. Rather than ' +
+      'guess a birthday onto a child, the import refuses it and asks for ' +
+      'YYYY-MM-DD. Dates where the day is 13 or higher are unambiguous and ' +
+      'are read without complaint — which is why a file can half-import.',
+  ],
+  [
+    'What they love / are good at / find hard',
+    'All optional, and all three are ordinary sentences — "Trains, and ' +
+      'anything with a timetable." Leave them empty if you do not know yet; ' +
+      'they can be written on the child’s record at any time, and usually ' +
+      'are, ' +
+      'by whoever teaches them. Fill them in here when you are moving from ' +
+      'another system that already holds them.',
+  ],
+  [
+    '',
+    'Why they are worth having: they are what turns general advice into ' +
+      'advice about this child. Nothing else in the record can tell you what ' +
+      'a child loves.',
+  ],
+  [
+    '',
+    'Nothing is created until you have seen every row and what will happen ' +
+      'to it. Extra columns are ignored, not rejected.',
+  ],
+]
+
+/**
+ * The file a school is given to fill in, so the columns are never in doubt.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT WAS WRONG WITH THE ONE BEFORE IT
+ * ---------------------------------------------------------------------------
+ * It had the database's column names as headings, and three sample rows:
+ *
+ *     first_name,last_name,year_level,external_ref,date_of_birth
+ *     Ada,Lovelace,4,4001,2015-12-10
+ *
+ * Ada Lovelace, Alan Turing and Grace Hopper are indistinguishable from real
+ * students in a file a school office is filling in. Somebody types their own
+ * rows underneath and imports all three — and they PASS, because they are
+ * perfectly valid students. The template's own examples would have been
+ * enrolled.
+ *
+ * Nothing said which columns were required, and nothing said the date format
+ * was mandatory, which is the expensive one. An Australian school pasting its
+ * own DD/MM/YYYY column gets days 13-31 through silently and days 1-12
+ * refused: roughly two thirds in, one third out, for no reason the person can
+ * see.
+ *
+ * There are no sample rows here. The guidance lives where it cannot be
+ * imported.
+ */
 export function templateCsv(): string {
-  return [
-    IMPORT_COLUMNS.join(','),
-    'Ada,Lovelace,4,4001,2015-12-10',
-    'Alan,Turing,3,4002,2016-06-23',
-    'Grace,Hopper,4,4003,',
-  ].join('\n')
+  const escape = (cell: string) =>
+    /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell
+
+  /*
+   * HEADINGS AND NOTHING ELSE, and that is the whole point.
+   *
+   * A first draft of this put the guidance in the file, below a blank line. It
+   * reads fine in Excel and it is a trap: a CSV has no comment convention, so
+   * feeding this template back into the importer that produced it would have
+   * offered to create a student called "First name Required." — the identical
+   * fault to the Ada Lovelace rows it replaced, committed while fixing them.
+   *
+   * So the notes live where they cannot become children: on the page beside
+   * the download button, and on the workbook's second sheet, which
+   * parseSpreadsheet never reads.
+   */
+  return TEMPLATE_HEADINGS.map(escape).join(',') + '\n'
+}
+
+/**
+ * The same thing as a real workbook, which is the one a school should use.
+ *
+ * ---------------------------------------------------------------------------
+ * THE DATE COLUMN IS THE WHOLE REASON THIS EXISTS
+ * ---------------------------------------------------------------------------
+ * Sheet 1's birth-date column is formatted as a date. Excel then stores
+ * whatever is typed as a real date value rather than text, `parseSpreadsheet`
+ * gets a Date back from exceljs, and `cellText` formats it as ISO. So a school
+ * secretary types 5/3/2015 the way they always have, and the ambiguity that
+ * refuses a third of a CSV import never arises. cellText's own comment made
+ * this promise already: "a properly typed spreadsheet column imports without
+ * the school having to reformat anything."
+ *
+ * SHEET ORDER IS LOAD-BEARING. `parseSpreadsheet` reads `worksheets[0]`, so the
+ * data sheet must be first and the notes second. Reversing them would import
+ * the instructions as children.
+ */
+export async function templateWorkbook(): Promise<Blob> {
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'MiZanova'
+  workbook.created = new Date()
+
+  const sheet = workbook.addWorksheet('Students')
+  sheet.addRow([...TEMPLATE_HEADINGS])
+
+  const header = sheet.getRow(1)
+  header.font = { bold: true }
+  header.alignment = { vertical: 'middle' }
+  header.height = 22
+  // Frozen so the headings stay visible on the four hundredth row, which is
+  // where somebody loses track of which column they are in.
+  sheet.views = [{ state: 'frozen', ySplit: 1 }]
+
+  sheet.columns = [
+    { width: 18 },
+    { width: 18 },
+    { width: 12 },
+    { width: 14 },
+    { width: 24 },
+    // Wider: these three hold sentences, not fields.
+    { width: 34 },
+    { width: 34 },
+    { width: 34 },
+  ]
+  for (const column of [6, 7, 8]) {
+    sheet.getColumn(column).alignment = { wrapText: true, vertical: 'top' }
+  }
+
+  // The promise above, in one line. Applied to the column rather than to cells
+  // so it holds for every row the school adds.
+  sheet.getColumn(5).numFmt = 'yyyy-mm-dd'
+
+  const notes = workbook.addWorksheet('How to fill this in')
+  notes.columns = [{ width: 26 }, { width: 96 }]
+  notes.addRow(['Column', 'What goes in it'])
+  notes.getRow(1).font = { bold: true }
+  for (const [column, note] of TEMPLATE_GUIDANCE) {
+    const row = notes.addRow([column, note])
+    row.alignment = { wrapText: true, vertical: 'top' }
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  return new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+}
+
+/**
+ * Why a chosen file could not be read, in words a school office can act on.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THIS REPLACES
+ * ---------------------------------------------------------------------------
+ * The catch in AddStudents printed the library's own words. Picking the wrong
+ * file showed an administrator this:
+ *
+ *   That file could not be read: Can't find end of central directory : is this
+ *   a zip file ? If it is, see https://stuk.github.io/jszip/documentation/…
+ *
+ * That is JSZip explaining itself to a developer, complete with documentation
+ * link, shown to somebody in a school office who picked the wrong thing from a
+ * folder. It names no cause they recognise and no action they can take.
+ *
+ * ---------------------------------------------------------------------------
+ * .xls IS THE COMMON CASE AND IT IS NOT AN ERROR ANYBODY CAUSED
+ * ---------------------------------------------------------------------------
+ * `parseSpreadsheet` calls `workbook.xlsx.load`, which reads the modern zipped
+ * format ONLY. Excel's pre-2007 .xls is a completely different binary file, so
+ * it fails inside the zip reader and produced exactly the message above — while
+ * the file input invited it by listing .xls in `accept`.
+ *
+ * Schools have old files. This says which format it is and how to convert it,
+ * which is a thirty-second job in Excel, instead of implying the file is
+ * broken.
+ *
+ * `error` is accepted but deliberately never shown. A library's exception text
+ * is a fact about our dependencies, not about the file somebody chose.
+ */
+export function readFailureMessage(fileName: string, error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+
+  if (/\.xls$/i.test(fileName)) {
+    return (
+      'That is an older Excel file (.xls), which cannot be read here. Open it ' +
+      'in Excel and choose File \u2192 Save As, then save it as .xlsx or CSV.'
+    )
+  }
+
+  // Our own sentence from parseSpreadsheet, already written for a reader.
+  if (/no sheets in it/i.test(message)) return message
+
+  if (/\.xlsx$/i.test(fileName)) {
+    return (
+      'That file is named .xlsx but is not a workbook this can open. It may be ' +
+      'password protected, or saved in another format and renamed. Open it in ' +
+      'Excel and use File \u2192 Save As to save a fresh .xlsx or CSV.'
+    )
+  }
+
+  return (
+    'That file could not be read. It should be a CSV or an .xlsx spreadsheet ' +
+    '\u2014 the Download the template button gives you one in the right shape.'
+  )
 }

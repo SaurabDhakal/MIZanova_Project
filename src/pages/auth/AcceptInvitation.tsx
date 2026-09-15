@@ -116,7 +116,9 @@ export default function AcceptInvitation() {
             </p>
             <button
               type="button"
-              onClick={() => navigate(pathForRole(profile.role), { replace: true })}
+              onClick={() =>
+                navigate(pathForRole(profile.role), { replace: true })
+              }
               className="pressable mt-6 block w-full rounded-btn bg-primary px-4 py-3 text-center font-semibold text-primary-foreground"
             >
               Go to {ROLE_CONFIG[profile.role].label}
@@ -148,9 +150,9 @@ export default function AcceptInvitation() {
           </p>
           <p className="mt-2">
             You are {article(ROLE_CONFIG[role].label)}{' '}
-            {ROLE_CONFIG[role].label.toLowerCase()} there, and already
-            verified — {schoolName} confirmed that when they invited you, so
-            there is nothing to wait for.
+            {ROLE_CONFIG[role].label.toLowerCase()} there, and already verified
+            — {schoolName} confirmed that when they invited you, so there is
+            nothing to wait for.
           </p>
         </div>
 
@@ -193,7 +195,8 @@ export default function AcceptInvitation() {
             You have been invited to join{' '}
             <strong className="font-semibold">{schoolName}</strong> as{' '}
             {article(ROLE_CONFIG[role].label)}{' '}
-            <strong className="font-semibold">{ROLE_CONFIG[role].label}</strong>.
+            <strong className="font-semibold">{ROLE_CONFIG[role].label}</strong>
+            .
           </p>
           <p className="mt-2 text-muted-foreground">
             The invitation was sent to <strong>{email}</strong>. Create your
@@ -269,8 +272,8 @@ export default function AcceptInvitation() {
 
       <div className="rounded-btn border border-border bg-background p-4 text-sm">
         <p className="text-foreground">
-          <strong className="font-semibold">{schoolName}</strong> has invited you
-          to join as {article(ROLE_CONFIG[role].label)}{' '}
+          <strong className="font-semibold">{schoolName}</strong> has invited
+          you to join as {article(ROLE_CONFIG[role].label)}{' '}
           <strong className="font-semibold">{ROLE_CONFIG[role].label}</strong>.
         </p>
         <p className="mt-2 text-muted-foreground">
@@ -279,8 +282,8 @@ export default function AcceptInvitation() {
         {profile && profile.role !== role && (
           <p className="mt-2 text-muted-foreground">
             Your account is currently {article(ROLE_CONFIG[profile.role].label)}{' '}
-            {ROLE_CONFIG[profile.role].label} — that
-            will change to {ROLE_CONFIG[role].label}.
+            {ROLE_CONFIG[profile.role].label} — that will change to{' '}
+            {ROLE_CONFIG[role].label}.
           </p>
         )}
       </div>

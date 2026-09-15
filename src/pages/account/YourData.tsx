@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase'
 import { showToast } from '../../lib/toast'
 import ConfirmDestructive from '../../components/ConfirmDestructive'
 import WhatWorksLink from '../../components/WhatWorksLink'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Settings › Your data — everything about the record itself.
@@ -56,7 +57,7 @@ function ExportSection() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `mizanova-my-data-${new Date().toISOString().slice(0, 10)}.json`
+      a.download = `mizanova-my-data-${todayLocal()}.json`
       a.click()
       // Revoked, or the blob stays in memory for the life of the tab.
       URL.revokeObjectURL(url)
@@ -150,8 +151,8 @@ function CloseAccountSection() {
     <section className="mt-10 rounded-card border border-danger bg-card p-6 shadow-raised">
       <h2 className="text-section text-foreground">Close your account</h2>
       <p className="mt-2 max-w-prose text-muted-foreground">
-        This deletes your account and everything on it. It cannot be undone,
-        and we cannot get any of it back for you afterwards.
+        This deletes your account and everything on it. It cannot be undone, and
+        we cannot get any of it back for you afterwards.
       </p>
       <p className="mt-2 max-w-prose text-sm text-muted-foreground">
         {paid.length > 0 ? (

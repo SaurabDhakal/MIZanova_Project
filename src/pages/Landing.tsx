@@ -187,7 +187,7 @@ export default function Landing() {
                 <div className="mt-9 flex flex-wrap gap-3">
                   <Link
                     to="/enquiry"
-                    className="pressable inline-flex min-h-11 items-center rounded-btn bg-card px-6 py-3 font-semibold text-brand-navy shadow-lifted hover:brightness-105"
+                    className="pressable rounded-btn bg-card px-6 py-3 font-semibold text-brand-navy shadow-lifted hover:brightness-105"
                   >
                     Book a walkthrough
                   </Link>
@@ -237,7 +237,6 @@ export default function Landing() {
               ))}
             </ul>
           </div>
-
         </section>
 
         {/* --- How it works --------------------------------------------------
@@ -246,54 +245,57 @@ export default function Landing() {
             paragraphs; this is it. The one violet shape in the corner keeps it
             from being a blank slab.
             ------------------------------------------------------------------ */}
-        <section id="how-it-works" className="relative isolate overflow-hidden bg-card">
+        <section
+          id="how-it-works"
+          className="relative isolate overflow-hidden bg-card"
+        >
           <div
             aria-hidden="true"
             className="blob-c absolute -top-32 right-0 h-[380px] w-[420px] bg-decor-violet/12"
           />
           <div className="relative mx-auto max-w-6xl px-6 py-16 md:py-24">
-          <h2 className="text-heading max-w-2xl text-balance text-foreground">
-            How it works
-          </h2>
-          <p className="mt-3 max-w-prose text-lg text-muted-foreground">
-            A teacher records. The system suggests. A specialist stays in the
-            loop.
-          </p>
+            <h2 className="text-heading max-w-2xl text-balance text-foreground">
+              How it works
+            </h2>
+            <p className="mt-3 max-w-prose text-lg text-muted-foreground">
+              A teacher records. The system suggests. A specialist stays in the
+              loop.
+            </p>
 
-          <ol className="mt-12 grid gap-5 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              /* 70ms between siblings. Three cards arriving together is a
+            <ol className="mt-12 grid gap-5 md:grid-cols-3">
+              {STEPS.map((step, i) => (
+                /* 70ms between siblings. Three cards arriving together is a
                  flash; three arriving 300ms apart is a queue you wait for.
                  Seventy reads as one movement with a direction in it. */
-              <Reveal
-                key={step.title}
-                as="li"
-                delayMs={i * 70}
-                className="relative overflow-hidden rounded-card border border-border bg-card p-6 shadow-raised md:p-7"
-              >
-                {/* A hairline of the brand gradient across the top of each
+                <Reveal
+                  key={step.title}
+                  as="li"
+                  delayMs={i * 70}
+                  className="relative overflow-hidden rounded-card border border-border bg-card p-6 shadow-raised md:p-7"
+                >
+                  {/* A hairline of the brand gradient across the top of each
                     card. It is the one place the three brand colours appear
                     together at small size, so the cards read as a set. */}
-                <span
-                  aria-hidden="true"
-                  className="brand-rule absolute inset-x-0 top-0 h-1"
-                />
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="inline-flex rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
-                    <Icon name={step.icon} className="h-6 w-6" />
-                  </span>
-                  <span className="text-caption text-muted-foreground tabular-nums">
-                    <span className="sr-only">Step </span>
-                    {i + 1} of {STEPS.length}
-                  </span>
-                </div>
-                <h3 className="text-section mt-5 text-balance text-foreground">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-muted-foreground">{step.body}</p>
-              </Reveal>
-            ))}
-          </ol>
+                  <span
+                    aria-hidden="true"
+                    className="brand-rule absolute inset-x-0 top-0 h-1"
+                  />
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="inline-flex rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy">
+                      <Icon name={step.icon} className="h-6 w-6" />
+                    </span>
+                    <span className="text-caption text-muted-foreground tabular-nums">
+                      <span className="sr-only">Step </span>
+                      {i + 1} of {STEPS.length}
+                    </span>
+                  </div>
+                  <h3 className="text-section mt-5 text-balance text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-muted-foreground">{step.body}</p>
+                </Reveal>
+              ))}
+            </ol>
           </div>
         </section>
 
@@ -373,7 +375,7 @@ export default function Landing() {
                 </p>
                 <Link
                   to="/privacy"
-                  className="mt-6 inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
+                  className="inline-flex min-h-11 items-center mt-6 font-semibold text-primary hover:underline"
                 >
                   How your data is handled &rarr;
                 </Link>
@@ -459,42 +461,53 @@ export default function Landing() {
                   Montessori centres and early years
                 </h2>
                 <p className="mt-4 max-w-prose text-pretty text-foreground">
-                  A Montessori setting has guides and environments, not teachers
-                  and year levels. Same safeguarding, same records in Sydney, in
-                  the words your setting actually uses.
+                  A Montessori setting counts children and environments, not
+                  a student roll. Same safeguarding, same consent records, same
+                  reporting, hosted in Sydney &mdash; priced for a centre.
                 </p>
                 <Link
                   to="/pricing"
-                  className="pressable mt-7 inline-flex min-h-11 items-center rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lifted hover:brightness-110"
+                  className="pressable mt-7 rounded-btn bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lifted hover:brightness-110"
                 >
                   What it costs for a centre
                 </Link>
               </div>
 
-              {/* THE COLUMNS ARE LABELLED because the strikethrough is the only
-                  other thing saying which word is which, and a strikethrough is
-                  a visual signal a screen reader does not announce. */}
+              {/* THIS TABLE USED TO PROMISE A VOCABULARY THE PRODUCT DOES
+                  NOT HAVE. Four rows, with the left column struck through:
+                  Teacher → Guide, Class → Environment, Behaviour log →
+                  Observation, Year 3 → Lower Elementary. Presented that way it
+                  reads as a feature list, and a visitor would reasonably expect
+                  to see those words after signing up.
+
+                  Nothing in `src/` varies a word by organisation kind. The
+                  table now says what a centre actually gets, and the mapping
+                  goes back the day docs/11's label map is built.
+
+                  THE COLUMNS ARE STILL LABELLED because the layout is a
+                  two-column grid and an unlabelled one reads as a list of
+                  fragments to a screen reader. */}
               <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-border bg-border shadow-lifted">
                 <div className="contents">
                   <p className="text-caption bg-background p-4 text-muted-foreground uppercase">
-                    Instead of
+                    For a centre
                   </p>
                   <p className="text-caption bg-background p-4 text-muted-foreground uppercase">
-                    Your setting says
+                    What you get
                   </p>
                 </div>
                 {[
-                  ['Teacher', 'Guide'],
-                  ['Class', 'Environment'],
-                  ['Behaviour log', 'Observation'],
-                  ['Year 3', 'Lower Elementary'],
-                ].map(([standard, montessori]) => (
-                  <div key={standard} className="contents">
-                    <dt className="bg-card p-4 text-sm text-muted-foreground line-through">
-                      {standard}
+                  ['Priced on', 'Children and environments'],
+                  ['Records', 'Safeguarding, consent, reporting'],
+                  ['Hosted', 'Sydney, like every other account'],
+                  ['Built for', 'Long day care, preschool, toddler'],
+                ].map(([label, value]) => (
+                  <div key={label} className="contents">
+                    <dt className="bg-card p-4 text-sm text-muted-foreground">
+                      {label}
                     </dt>
                     <dd className="bg-card p-4 text-sm font-semibold text-foreground">
-                      {montessori}
+                      {value}
                     </dd>
                   </div>
                 ))}
@@ -521,7 +534,7 @@ export default function Landing() {
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link
                 to="/enquiry"
-                className="pressable inline-flex min-h-11 items-center rounded-btn bg-card px-8 py-3 font-semibold text-primary shadow-lifted hover:brightness-105"
+                className="pressable rounded-btn bg-card px-8 py-3 font-semibold text-primary shadow-lifted hover:brightness-105"
               >
                 Talk to us
               </Link>

@@ -16,6 +16,7 @@ import {
   LoadingCards,
 } from '../../components/QueryState'
 import PageHeader, { PageNote } from '../../components/PageHeader'
+import ConfirmDestructive from '../../components/ConfirmDestructive'
 import { showToast } from '../../lib/toast'
 import LibraryFilesSection from '../../components/LibraryFilesSection'
 
@@ -114,7 +115,10 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
           {(['article', 'case_study'] as ArticleKind[]).map((k) => (
             <label
               key={k}
-              className={`cursor-pointer rounded-btn border px-3 py-1.5 text-sm font-medium ${
+              /* 34px until 15 September, on both the kind radios and the
+                 audience chips below. Gate 2 swept this page with the create
+                 form CLOSED, and an interactive state is a separate screen. */
+              className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn border px-3 py-1.5 text-sm font-medium ${
                 kind === k
                   ? 'border-primary bg-primary-subtle text-primary'
                   : 'border-border bg-card text-muted-foreground'
@@ -196,7 +200,7 @@ function NewArticleForm({ onDone }: { onDone: () => void }) {
             {AUDIENCE_CHOICES.map((role) => (
               <label
                 key={role}
-                className={`cursor-pointer rounded-btn border px-3 py-1.5 text-sm font-medium ${
+                className={`inline-flex min-h-11 cursor-pointer items-center rounded-btn border px-3 py-1.5 text-sm font-medium ${
                   audiences.includes(role)
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border bg-card text-muted-foreground'
@@ -282,10 +286,20 @@ export default function Articles() {
     onError: (e) => showToast(e.message, 'error'),
   })
 
+  /* Deleting an article is permanent — a plain DELETE, no draft state to fall
+
+     back to. It was firing on a single click, in a row beside Publish. */
+
+  const [deleting, setDeleting] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+
   const remove = useMutation({
     mutationFn: deleteArticle,
     onSuccess: async () => {
       await refresh()
+      setDeleting(null)
       showToast('Deleted.')
     },
     onError: (e) => showToast(e.message, 'error'),
@@ -375,6 +389,28 @@ export default function Articles() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    {/* WHY PUBLISH IS UNAVAILABLE IS WRITTEN DOWN, NOT PUT
+                        IN A TOOLTIP. This carried the reason in `title`
+                        alone, which reaches nobody who needs it most: a
+                        disabled button is out of the tab order, so a keyboard
+                        or screen-reader user meets a greyed control with no
+                        explanation and no way to ask for one, and a `title`
+                        is invisible on touch entirely.
+
+                        Applications.tsx already fixed exactly this and says
+                        so in its own comment; the fix had been applied to one
+                        page and not the other. Found by Gate 3, 15 September.
+
+                        The consent tick-box below says what is missing, but
+                        nothing tied the two together. */}
+                    {blocked && !a.is_published && (
+                      <p
+                        id={`blocked-${a.id}`}
+                        className="w-full text-sm text-muted-foreground"
+                      >
+                        Confirm the people in it agreed before publishing it.
+                      </p>
+                    )}
                     <button
                       type="button"
                       disabled={
@@ -383,9 +419,9 @@ export default function Articles() {
                       onClick={() =>
                         publish.mutate({ id: a.id, next: !a.is_published })
                       }
-                      title={
+                      aria-describedby={
                         blocked && !a.is_published
-                          ? 'Confirm the people in it agreed first.'
+                          ? `blocked-${a.id}`
                           : undefined
                       }
                       className={`inline-flex min-h-11 items-center rounded-btn px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
@@ -400,7 +436,9 @@ export default function Articles() {
                       <button
                         type="button"
                         disabled={remove.isPending}
-                        onClick={() => remove.mutate(a.id)}
+                        onClick={() =>
+                          setDeleting({ id: a.id, title: a.title })
+                        }
                         className="min-h-11 rounded-btn border border-danger px-3 py-2 text-sm font-semibold text-danger-foreground disabled:opacity-60"
                       >
                         Delete
@@ -415,8 +453,12 @@ export default function Articles() {
                   child and an audience, so it belongs where somebody about to
                   press Publish is looking.
                 */}
+                {/* THE ROW WAS 33px UNTIL 15 SEPTEMBER, and Gate 2 could not
+                    see it: it renders only for a case study, and every article
+                    on the page is an Article. The probe exempts a
+                    label-wrapped checkbox only when the ROW clears 44px. */}
                 {a.kind === 'case_study' && (
-                  <label className="mt-3 flex items-start gap-2 border-t border-border pt-3 text-sm text-foreground">
+                  <label className="mt-3 flex min-h-11 items-start gap-2 border-t border-border py-3 text-sm text-foreground">
                     <input
                       type="checkbox"
                       checked={a.consent_confirmed}
@@ -459,6 +501,25 @@ export default function Articles() {
         worth knowing: everything there is visible to every account on the
         platform, so nothing about a child belongs in it.
       </PageNote>
+
+      {deleting && (
+        <ConfirmDestructive
+          title="Delete this article?"
+          detail={`“${deleting.title}”. It is a draft, so nobody outside this page can see it now — but the writing itself goes.`}
+          consequences={[
+            'The article and anything uploaded with it are removed for good.',
+            'There is no draft state to fall back to and no way to undo it.',
+          ]}
+          confirmLabel="Delete it"
+          pending={remove.isPending}
+          error={remove.error?.message ?? null}
+          onConfirm={() => remove.mutate(deleting.id)}
+          onCancel={() => {
+            remove.reset()
+            setDeleting(null)
+          }}
+        />
+      )}
     </div>
   )
 }

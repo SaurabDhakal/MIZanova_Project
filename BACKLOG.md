@@ -190,7 +190,13 @@ from reading the code.
       filed as the 7th. `src/lib/localTime.ts` already existed to stop exactly
       this and its docstring names the fault; it now exports `todayLocal()`.
 
-- [ ] **The same UTC expression is still on eleven other call sites**, none of
+- [x] ~~**The same UTC expression is still on eleven other call sites**~~ —
+      closed 15 September 2026. Found again by Gate 5: the platform admin audit
+      CSV exported at 9am in Sydney was named `...2026-09-14.csv`, which is the
+      file a school hands an inspector. All of them now call `todayLocal()`;
+      `grep` for the expression returns only the comments that explain why it
+      is wrong. The written dates went with them — `ends_on`, `planDate` and the
+      `max` on the date of birth field. Original note: none of
       them reachable from a parent account and so none verified by this pass.
       Each defaults or caps a date and each is a day early every morning:
       `components/IepDocumentsSection.tsx:77`, `components/SessionsSection.tsx:175`,
@@ -254,7 +260,12 @@ page, at 1159px and again at 375px.
 on any of the thirteen. The contrast checker passes WCAG AA on every pair in
 use, including the calendar's event colours.
 
-- [ ] **The same sub-44px text button is on nineteen more call sites**, in
+- [x] ~~**The same sub-44px text button is on nineteen more call sites**~~ —
+      closed 15 September 2026. `scripts/tap-target-check.mjs` had three bugs
+      of its own (a template-literal className captured nothing, a <button>
+      had to *look* like a control to be measured, and a child's className was
+      attributed to its parent). Repaired, it found twelve; all twelve are
+      fixed and the check reports zero across 194 files. Original note: in
       fourteen files across specialist, educator, platform admin and individual
       screens. Not touched, for the reason the date fix was not: they belong to
       roles this pass could not sign into. The fix is the same class string
@@ -800,7 +811,8 @@ accessible names. Everything below is a measured number.
       error states, because it reads `events.data.total`, which does not
       exist yet. Proved by delaying Supabase 2.6s in the page and sampling
       every 150ms: Library holds its h1 for all fifteen loading frames.
-- [ ] **Tertiary text links measure 19-24px.** WCAG 2.2 AA asks 24, not 44 —
+- [x] ~~**Tertiary text links measure 19-24px.**~~ Swept again 15 September
+      2026 and the static check now reports none. Original note: WCAG 2.2 AA asks 24, not 44 —
       44 is AAA. The ones under 24 are fixed. Making the rest 44 would lengthen
       the pages Saurab asked to shorten, so they are left compliant.
 - [x] ~~Heading level skips h1 -> h3.~~ Fixed in all five. CardGrid was the
@@ -1069,7 +1081,13 @@ and never checked.
 
 ### The demo account
 
-`individual.demo@mizanova.test` / `Demo!Individual2026` — an individual with one
+**GONE — closed, and this credential no longer works.** Confirmed 15 September
+2026: there is no such row in `auth.users`. It was closed through the account
+closure flow, which is what this entry asked for. Left here with the correction
+rather than deleted, because a sweep tried to sign in with it and lost ten
+minutes finding out.
+
+~~`individual.demo@mizanova.test` / `Demo!Individual2026`~~ — an individual with one
 settled $49 purchase behind receipt 1002 and one goal with a check-in, so every
 screen has something real on it. Delete it from the account page when it has
 served its purpose; closing it removes everything and detaches the purchase.

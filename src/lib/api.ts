@@ -4,6 +4,7 @@ import { isOfflineFailure } from './offlineQueue'
 import { cacheRoster, readCachedRoster } from './rosterCache'
 import type { Role } from './roles'
 import type { Antecedent, SettingEvent, WhatHelped } from './behaviourContext'
+import { todayLocal, toLocalDateValue } from './localTime'
 
 /**
  * An error that remembers the HTTP status it came from.
@@ -139,6 +140,12 @@ export type StudentRow = {
   year_level: string | null
   external_ref: string | null
   is_active: boolean
+  /** Selected only where a screen needs it — the roster does not. */
+  date_of_birth?: string | null
+  /** db/135. When they were marked as having left; null while they are here. */
+  left_at?: string | null
+  /** db/135. The school's own note about why. Never shown to families. */
+  left_reason?: string | null
 }
 
 /**
@@ -279,6 +286,62 @@ export async function fetchStudents(): Promise<StudentRow[]> {
   // the real answer and letting the error state explain itself.
   if (!cached) return load()
   return raceAgainstCache(load, cached)
+}
+
+/**
+ * Everybody who has ever been on the roll, including those who have left.
+ *
+ * SEPARATE FROM `fetchStudents` ON PURPOSE. That one is the roster — the
+ * children who are here — and every screen that asks "who do I teach" or "who
+ * can I log against" must keep getting exactly that. Widening it would put
+ * departed students back into every dropdown, which is the problem db/135 was
+ * built to solve.
+ *
+ * This is for the two screens that look backwards. Invoices raised before a
+ * student left are still owed and still chased, and without this the money
+ * column would sit next to the words "Unknown student" — the record would have
+ * lost the one name that makes it collectable. The roster's own "Past students"
+ * view is the other reader.
+ *
+ * Not cached to the device. The offline roster exists so a teacher can log
+ * against a child in front of them; nobody needs a leavers' list on a train.
+ */
+export async function fetchStudentsIncludingPast(): Promise<StudentRow[]> {
+  const { data, error } = await supabase
+    .from('students')
+    // One literal, not a concatenation: the typed client infers the row shape
+    // from the string itself, and `a + b` erases that into plain `string`.
+    .select(
+      'id, first_name, last_name, display_name, year_level, external_ref, is_active, left_at, left_reason',
+    )
+    .order('first_name')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as StudentRow[]
+}
+
+/**
+ * Record that a student has left the school, or that they have come back.
+ *
+ * THERE IS NO DELETE, AND THERE SHOULD NOT BE — db/004 refuses one and db/135
+ * explains why at length. A child's record carries their behaviour history,
+ * goals, IEP plans, consents and invoices; destroying it would destroy the
+ * evidence of what a school did for them.
+ *
+ * The whole operation is one `security definer` function so the flag, the date
+ * and the audit row cannot come apart. Pressing it twice writes one event.
+ */
+export async function setStudentLeft(
+  studentId: string,
+  left: boolean,
+  reason?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('set_student_left', {
+    p_student_id: studentId,
+    p_left: left,
+    p_reason: reason ?? null,
+  })
+  if (error) throw new Error(error.message)
 }
 
 /**
@@ -601,7 +664,7 @@ export async function fetchStudent(id: string): Promise<StudentRow | null> {
     const { data, error } = await supabase
       .from('students')
       .select(
-        'id, first_name, last_name, display_name, year_level, external_ref, is_active',
+        'id, first_name, last_name, display_name, year_level, external_ref, is_active, left_at, left_reason, date_of_birth',
       )
       .eq('id', id)
       .maybeSingle()
@@ -630,7 +693,11 @@ export async function fetchStudent(id: string): Promise<StudentRow | null> {
         })
     }
 
-    return data
+    /* Narrowed to StudentRow because the select here asks for two columns the
+       roster's does not — left_at and left_reason, which are optional on the
+       type. Without this the cache race unifies on the wider inferred shape and
+       the cached roster row, which never carries them, stops matching. */
+    return data as StudentRow | null
   }
 
   // Same race as the roster. Without it, opening one student still waited for
@@ -2708,6 +2775,33 @@ export type AiControlEvent = {
   now_enabled: boolean | null
   was_threshold: number | null
   now_threshold: number | null
+  /*
+   * THE LIMIT COLUMNS WERE WRITTEN AND READ BY NOBODY.
+   *
+   * `ai_control_events` has recorded `was_school_limit`, `now_school_limit`,
+   * `was_user_limit` and `now_user_limit` since the limits were added, and
+   * this query never asked for them. The change history therefore described
+   * every limits change as "Threshold 70% -> 70%" — a change that did not
+   * happen, on the one screen whose entire purpose is answering "who did this
+   * and why". Found by Gate 3 on 15 September, by changing a limit and reading
+   * back what the audit trail said about it.
+   *
+   * The guard test in tests/unit/no-write-only-columns.test.ts exists for
+   * exactly this and did not catch it: its CAPTURE_TABLES lists three tables
+   * and this is not one of them.
+   */
+  was_school_limit: number | null
+  now_school_limit: number | null
+  was_user_limit: number | null
+  now_user_limit: number | null
+  /*
+   * db/137. Until then the free-tier per-person limit had no column here at
+   * all, and the trigger did not even test it — so changing only that limit
+   * wrote no event row, and the change appeared in neither the AI governance
+   * history nor the Audit Log. Not recorded badly: not recorded.
+   */
+  was_free_user_limit: number | null
+  now_free_user_limit: number | null
   reason: string
   profiles: { full_name: string } | null
 }
@@ -2716,7 +2810,9 @@ export async function fetchAiControlEvents(): Promise<AiControlEvent[]> {
   const { data, error } = await supabase
     .from('ai_control_events')
     .select(
-      `id, changed_at, was_enabled, now_enabled, was_threshold, now_threshold, reason,
+      `id, changed_at, was_enabled, now_enabled, was_threshold, now_threshold,
+       was_school_limit, now_school_limit, was_user_limit, now_user_limit,
+       was_free_user_limit, now_free_user_limit, reason,
        profiles ( full_name )`,
     )
     .order('changed_at', { ascending: false })
@@ -5013,6 +5109,91 @@ export async function setCoursePublished(
   assertChanged(data, 'The course')
 }
 
+/**
+ * Correct a course — its title, what it is for, and who it is for.
+ *
+ * ---------------------------------------------------------------------------
+ * THERE WAS NO WAY TO DO THIS AT ALL
+ * ---------------------------------------------------------------------------
+ * `courses` has had an `is_published` toggle, a price and modules since it was
+ * built, and `courses_write` grants a platform admin ALL on the table. Nothing
+ * ever called update on the course itself. So a course created with a typo in
+ * its title, the wrong summary, or the wrong audience was **permanent**, and
+ * the only thing anybody could do about it was withdraw it and leave the row
+ * sitting in the list for good.
+ *
+ * The same shape as the student-name fault db/135 fixed for school admin, and
+ * the `is_active` door before it: the policy allowed it, the migration
+ * anticipated it, and no screen ever asked. Found by Gate 3 on 15 September
+ * 2026, by creating a course and looking for the way back out.
+ */
+export async function updateCourse(
+  id: string,
+  input: { title: string; summary: string; audiences: Role[] },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('courses')
+    .update({
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      audiences: input.audiences,
+    })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  assertChanged(data, 'The course')
+}
+
+/**
+ * Remove a course entirely.
+ *
+ * ---------------------------------------------------------------------------
+ * REFUSED WHILE ANYBODY IS ENROLLED, BECAUSE THE DATABASE WOULD NOT REFUSE
+ * ---------------------------------------------------------------------------
+ * `course_enrolments.course_id` is **on delete CASCADE**. Deleting a course
+ * somebody has started does not fail — it quietly takes their enrolment and
+ * their completion date with it, and there is nothing afterwards to say the
+ * course ever existed. A learner who finished it loses the fact that they did.
+ *
+ * `course_purchases.course_id` is on delete RESTRICT, so a course somebody
+ * PAID for is already refused by Postgres; that error is translated below
+ * rather than forwarded, because "violates foreign key constraint" is a
+ * sentence about a database to somebody who was tidying a list.
+ *
+ * The count is checked here rather than trusted from the screen: the list the
+ * button was drawn from may be a minute old, and a minute is long enough for
+ * somebody to start a course.
+ */
+export async function deleteCourse(id: string): Promise<void> {
+  const { count, error: countError } = await supabase
+    .from('course_enrolments')
+    .select('id', { count: 'exact', head: true })
+    .eq('course_id', id)
+
+  if (countError) throw new Error(countError.message)
+  if ((count ?? 0) > 0)
+    throw new Error(
+      `${count} ${count === 1 ? 'person has' : 'people have'} started this course. ` +
+        'Withdraw it instead — deleting it would take their record of it with it.',
+    )
+
+  const { data, error } = await supabase
+    .from('courses')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    if (/foreign key|violates/i.test(error.message))
+      throw new Error(
+        'Somebody has paid for this course, so it cannot be deleted. Withdraw it instead.',
+      )
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'The course')
+}
+
 export async function addCourseModule(
   courseId: string,
   title: string,
@@ -5428,7 +5609,7 @@ export type SubscriptionInput = {
 export async function agreeSubscription(
   input: SubscriptionInput,
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
   const auth = await supabase.auth.getUser()
 
   const { error: endError } = await supabase
@@ -5459,7 +5640,7 @@ export async function agreeSubscription(
 export async function endSubscription(id: string): Promise<void> {
   const { data, error } = await supabase
     .from('platform_subscriptions')
-    .update({ ends_on: new Date().toISOString().slice(0, 10) })
+    .update({ ends_on: todayLocal() })
     .eq('id', id)
     .is('ends_on', null)
     .select('id')
@@ -6198,18 +6379,42 @@ export type SystemEvent = {
 }
 
 /**
- * Failures the API server noticed — db/027. Platform admins only.
+ * Failures the API server noticed and nobody has looked at yet — db/027.
+ * Platform admins only.
  *
  * An empty list does NOT mean everything is fine. It means nothing recorded a
  * failure, which is also what happens when the server is not running at all.
  * Whatever displays this has to say so.
+ *
+ * ---------------------------------------------------------------------------
+ * THE FILTER IS IN THE QUERY BECAUSE IT USED TO BE AFTER THE LIMIT
+ * ---------------------------------------------------------------------------
+ * This read the twenty most recent events and the overview then filtered them
+ * for unreviewed criticals and warnings. Every event counts towards that
+ * twenty — an account closing, a drill, anything `info` — so a critical
+ * failure stops being shown the moment twenty newer rows exist, without being
+ * read, resolved, or mentioned.
+ *
+ * On 15 September 2026 the table held 64 rows. The newest twenty reached back
+ * to 8 September at 13:10, and **six unreviewed `critical` billing failures**
+ * from 6-8 September sat just outside it. The panel whose whole job is "what
+ * needs Special Miles today" was empty, and the branch that paints it red for
+ * a critical could not fire.
+ *
+ * Asking the database the actual question - unreviewed, and serious - cannot
+ * drift like that. The limit is now a ceiling on how many are drawn, not a
+ * window that quietly decides which ones count.
  */
-export async function fetchSystemEvents(limit = 50): Promise<SystemEvent[]> {
+export async function fetchUnreviewedProblems(
+  limit = 50,
+): Promise<SystemEvent[]> {
   const { data, error } = await supabase
     .from('system_events')
     .select(
       'id, severity, source, event, detail, occurred_at, reviewed_at, reviewed_by, review_note',
     )
+    .is('reviewed_at', null)
+    .in('severity', ['critical', 'warning'])
     .order('occurred_at', { ascending: false })
     .limit(limit)
 
@@ -8151,11 +8356,23 @@ export type NewStudent = {
   year_level: string | null
   external_ref: string | null
   date_of_birth: string | null
+  /** db/127, all optional. Written as a profile after the child exists. */
+  interests: string | null
+  strengths: string | null
+  finds_hard: string | null
 }
 
 export type ImportOutcome = {
   created: number
   failed: { line: number; name: string; reason: string }[]
+  /**
+   * Children who were created, but whose notes could not be attached.
+   *
+   * SEPARATE FROM `failed` BECAUSE THE CHILD IS ON THE ROLL. Reporting this in
+   * the failure list would tell a school to re-import somebody who is already
+   * there, and they would end up with two of them.
+   */
+  profilesNotSaved: { name: string; reason: string }[]
 }
 
 /**
@@ -8216,7 +8433,17 @@ export async function createStudents(
   schoolId: string,
 ): Promise<ImportOutcome> {
   const CHUNK = 100
-  const outcome: ImportOutcome = { created: 0, failed: [] }
+  const outcome: ImportOutcome = {
+    created: 0,
+    failed: [],
+    profilesNotSaved: [],
+  }
+
+  /* Taken BEFORE the first insert, and used below to find the rows this
+     operation created. Postgres sets created_at with its own now(); a browser
+     clock that is a minute fast would start the window after the rows it is
+     looking for, so the margin is deliberate and generous. */
+  const startedAt = new Date(Date.now() - 60_000).toISOString()
 
   const toRecord = (r: NewStudent) => ({
     school_id: schoolId,
@@ -8229,6 +8456,24 @@ export async function createStudents(
 
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
+    /*
+     * NO `.select()` ON THIS INSERT, AND IT CANNOT HAVE ONE.
+     *
+     * Returning the inserted rows makes PostgREST read them back, which runs
+     * `students_select` — and that policy calls `can_view_student(id)`, a
+     * STABLE security-definer function that goes back to `public.students` to
+     * check the school. A stable function sees the snapshot from the start of
+     * the statement, in which the row being inserted does not exist yet, so it
+     * answers false and the whole insert is refused:
+     *
+     *     new row violates row-level security policy for table "students"
+     *
+     * Verified directly as a signed-in school admin: the plain insert
+     * succeeds and the identical insert with `.select('id')` is refused. If
+     * you need the new id, ask for it in a SEPARATE statement afterwards —
+     * see findJustCreatedStudent — because a second statement gets a fresh
+     * snapshot in which the row is really there.
+     */
     const { error } = await supabase
       .from('students')
       .insert(chunk.map(toRecord))
@@ -8255,7 +8500,223 @@ export async function createStudents(
     }
   }
 
+  await attachProfiles(rows, schoolId, startedAt, outcome)
   return outcome
+}
+
+/**
+ * Write the three optional description columns onto the children just created.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE ROWS HAVE TO BE FOUND AGAIN RATHER THAN RETURNED
+ * ---------------------------------------------------------------------------
+ * `insert().select()` is refused outright here — the long note in
+ * `createStudents` explains that `students_select` calls a STABLE function
+ * which cannot see the row being inserted. So the ids are fetched afterwards,
+ * in a statement whose snapshot contains them.
+ *
+ * ONE QUERY FOR THE WHOLE IMPORT, and only when at least one row actually
+ * carries notes. Most imports are a list of names and pay nothing for this.
+ *
+ * ---------------------------------------------------------------------------
+ * MATCHING, AND WHEN IT REFUSES TO GUESS
+ * ---------------------------------------------------------------------------
+ * A student ID is exact and is used whenever the file gave one. Without it the
+ * match is on both names among the rows created since this import began — which
+ * is precise unless the same school enrols two children with identical names
+ * and no ID in the same operation.
+ *
+ * In that case the notes are NOT written to either. Putting one child's
+ * description on another child's record is worse than not having it, and the
+ * school is told which name it could not place so they can add it by hand.
+ */
+async function attachProfiles(
+  rows: NewStudent[],
+  schoolId: string,
+  startedAt: string,
+  outcome: ImportOutcome,
+): Promise<void> {
+  const described = rows.filter(
+    (r) => r.interests || r.strengths || r.finds_hard,
+  )
+  if (described.length === 0) return
+
+  const { data: fresh, error } = await supabase
+    .from('students')
+    .select('id, first_name, last_name, external_ref')
+    .eq('school_id', schoolId)
+    .gte('created_at', startedAt)
+
+  if (error) {
+    for (const row of described) {
+      outcome.profilesNotSaved.push({
+        name: `${row.first_name} ${row.last_name}`.trim(),
+        reason: error.message,
+      })
+    }
+    return
+  }
+
+  const created = fresh ?? []
+  const key = (first: string, last: string) =>
+    `${first.trim().toLowerCase()}|${last.trim().toLowerCase()}`
+
+  const byRef = new Map<string, string>()
+  const byName = new Map<string, string[]>()
+  for (const row of created) {
+    if (row.external_ref) byRef.set(row.external_ref, row.id)
+    const k = key(row.first_name, row.last_name)
+    byName.set(k, [...(byName.get(k) ?? []), row.id])
+  }
+
+  const profiles: {
+    student_id: string
+    interests: string | null
+    strengths: string | null
+    finds_hard: string | null
+    updated_by: string
+  }[] = []
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const userId = sessionData.session?.user.id
+  if (!userId) return
+
+  for (const row of described) {
+    const name = `${row.first_name} ${row.last_name}`.trim()
+    const matches = row.external_ref
+      ? [byRef.get(row.external_ref)].filter((id): id is string => Boolean(id))
+      : (byName.get(key(row.first_name, row.last_name)) ?? [])
+
+    if (matches.length !== 1) {
+      outcome.profilesNotSaved.push({
+        name,
+        reason:
+          matches.length === 0
+            ? 'the new record could not be found'
+            : 'two children of that name were added at once, and no student ID to tell them apart',
+      })
+      continue
+    }
+
+    profiles.push({
+      student_id: matches[0],
+      interests: row.interests,
+      strengths: row.strengths,
+      finds_hard: row.finds_hard,
+      updated_by: userId,
+    })
+  }
+
+  if (profiles.length === 0) return
+
+  const { error: writeError } = await supabase
+    .from('student_profiles')
+    .upsert(profiles, { onConflict: 'student_id' })
+
+  if (writeError) {
+    for (const row of described) {
+      outcome.profilesNotSaved.push({
+        name: `${row.first_name} ${row.last_name}`.trim(),
+        reason: writeError.message,
+      })
+    }
+  }
+}
+
+/**
+ * Correct a child's details after they were created.
+ *
+ * ---------------------------------------------------------------------------
+ * NOTHING COULD DO THIS UNTIL NOW
+ * ---------------------------------------------------------------------------
+ * Saurab: "what if while importing the list one wrong came up".
+ *
+ * The review table answers that before the import. Afterwards there was no
+ * answer at all. `students_update` has permitted a school admin to correct
+ * their own school's students since db/004, and in the whole product NOTHING
+ * ever called it — the only writes to `students` were the two inserts. A name
+ * imported as "Jhon", a year level off by one, a date of birth typed wrong:
+ * permanent. And there is no delete, so the only way out was to mark the child
+ * as having left and add them again, leaving a ghost on the record.
+ *
+ * Another write path that was designed, permitted, and never given a door —
+ * the same shape as `is_active` before db/135.
+ *
+ * NOT AUDITED, deliberately. db/135 records a departure because that is a
+ * decision about a child's enrolment. Fixing a typo in a name is routine
+ * office work, and an audit entry for every correction would bury the events
+ * that matter under the ones that do not. db/023 already records who opened
+ * the record.
+ *
+ * `display_name` is generated by Postgres from these columns, so the name a
+ * family sees follows automatically and cannot drift out of step.
+ */
+export async function updateStudentDetails(
+  studentId: string,
+  input: {
+    firstName: string
+    lastName: string
+    yearLevel: string | null
+    externalRef: string | null
+    dateOfBirth: string | null
+  },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('students')
+    .update({
+      first_name: input.firstName.trim(),
+      last_name: input.lastName.trim(),
+      year_level: input.yearLevel?.trim() || null,
+      external_ref: input.externalRef?.trim() || null,
+      date_of_birth: input.dateOfBirth || null,
+    })
+    .eq('id', studentId)
+    .select('id')
+
+  if (error) {
+    if (/duplicate key|unique/i.test(error.message)) {
+      throw new Error('That student ID is already used at your school.')
+    }
+    throw new Error(error.message)
+  }
+  assertChanged(data, 'This student')
+}
+
+/**
+ * The child that was just created, so a profile can be attached to them.
+ *
+ * A SEPARATE STATEMENT ON PURPOSE — see the long note in `createStudents`. The
+ * insert cannot return its own id, because reading the new row back runs a
+ * policy that cannot see it yet. This runs afterwards, in its own statement
+ * with its own snapshot, where the row is simply there.
+ *
+ * Narrowed by student ID when the school gave one, which is exact. Without one
+ * it takes the newest match on both names, which is correct here because the
+ * caller created that row a moment ago — and if it somehow matched an older
+ * namesake instead, the cost is a profile on the wrong record of two children
+ * with identical names at one school, which the caller can see and correct.
+ * Only ever used for a single child typed into a form; the bulk import never
+ * asks.
+ */
+export async function findJustCreatedStudent(input: {
+  firstName: string
+  lastName: string
+  externalRef: string | null
+}): Promise<string | null> {
+  let query = supabase
+    .from('students')
+    .select('id')
+    .eq('first_name', input.firstName)
+    .eq('last_name', input.lastName)
+
+  if (input.externalRef) query = query.eq('external_ref', input.externalRef)
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  return data?.[0]?.id ?? null
 }
 
 /** Postgres speaks to itself; this says the same thing to a school office. */
@@ -9301,7 +9762,7 @@ async function countStrategiesAwaitingReview(): Promise<number> {
  * Subscriptions screen says separately how much carries no date at all.
  */
 async function countPlatformInvoicesOverdue(): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
   const { count, error } = await supabase
     .from('platform_invoices')
     .select('id', { count: 'exact', head: true })
@@ -10072,8 +10533,12 @@ export async function fetchFreeSlots(
   const to = new Date(Date.now() + days * 86400000)
   const { data, error } = await supabase.rpc('free_slots', {
     p_specialist: specialistId,
-    p_from: from.toISOString().slice(0, 10),
-    p_to: to.toISOString().slice(0, 10),
+    /* Local, not UTC. `from` is "now" and `to` is "now plus 21 days", both
+       wall-clock intentions — and at 9am in Sydney `toISOString()` turns them
+       into yesterday, so the search opened a day early and closed a day
+       short. Same family as every other site closed on 15 September 2026. */
+    p_from: toLocalDateValue(from),
+    p_to: toLocalDateValue(to),
     p_minutes: 45,
   })
   if (error) throw new Error(error.message)
@@ -10336,6 +10801,7 @@ export const queryKeys = {
   upcomingGoals: ['upcoming-goals'] as const,
   peopleAtSchool: (id: string) => ['people-at-school', id] as const,
   unengagedSpecialists: ['unengaged-specialists'] as const,
+  studentsIncludingPast: ['students', 'including-past'] as const,
   staffVetting: ['staff-vetting'] as const,
   screening: ['screening'] as const,
   unscreened: ['screening', 'missing'] as const,

@@ -148,11 +148,7 @@ export default function ChipRow<T extends string>(props: {
           an unnamed group of eleven buttons. */}
       <p
         id={groupId}
-        className={
-          label
-            ? 'text-xs font-semibold text-foreground'
-            : 'sr-only'
-        }
+        className={label ? 'text-xs font-semibold text-foreground' : 'sr-only'}
       >
         {label || props.otherLabel || 'Options'}
       </p>
@@ -170,7 +166,7 @@ export default function ChipRow<T extends string>(props: {
               type="button"
               aria-pressed={on}
               onClick={() => toggle(option.value)}
-              className={`pressable rounded-btn border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`pressable inline-flex min-h-11 items-center rounded-btn border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 on
                   ? 'border-primary bg-primary text-primary-foreground'
                   : isUsual

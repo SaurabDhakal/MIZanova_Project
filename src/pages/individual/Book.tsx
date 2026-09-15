@@ -11,7 +11,11 @@ import {
   requestBooking,
 } from '../../lib/api'
 import { showToast } from '../../lib/toast'
-import { ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import Avatar from '../../components/Avatar'
 import Icon from '../../components/Icon'
 
@@ -41,7 +45,7 @@ import Icon from '../../components/Icon'
  */
 export default function Book() {
   const queryClient = useQueryClient()
-  const [chosen, setChosen] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
   /* Which booking is being asked about before it is withdrawn. */
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [slot, setSlot] = useState<string | null>(null)
@@ -59,6 +63,29 @@ export default function Book() {
     queryKey: queryKeys.bookableSpecialists,
     queryFn: fetchBookableSpecialists,
   })
+
+  /**
+   * ONE OPTION IS NOT A CHOICE, AND MAKING SOMEBODY CLICK IT IS A DEAD STEP.
+   *
+   * The Special Miles network currently has a single bookable specialist. The
+   * page showed their card, waited for it to be pressed, and only then revealed
+   * the times — so what somebody arrived at was one card and most of a blank
+   * viewport, with nothing saying that clicking it was the way forward.
+   *
+   * With exactly one, they are chosen on arrival and "When" is already there.
+   * Only for exactly one: with two the card is a real decision and picking for
+   * somebody would be wrong.
+   *
+   * DERIVED, NOT AN EFFECT THAT SETS STATE. Writing this as a `useEffect` that
+   * called `setChosen` renders the page once with nothing chosen and again with
+   * the choice, and React's own lint rule says so. The state is the explicit
+   * pick; the selection is what that pick falls back to. Nothing is decided
+   * silently either way — the list stays on the page with the choice shown as
+   * pressed.
+   */
+  const onlyOne =
+    specialists.data?.length === 1 ? specialists.data[0].id : null
+  const chosen = picked ?? onlyOne
   const slots = useQuery({
     queryKey: queryKeys.freeSlots(chosen ?? 'none'),
     queryFn: () => fetchFreeSlots(chosen!),
@@ -295,14 +322,14 @@ export default function Book() {
                         <button
                           type="button"
                           onClick={() => cancel.mutate(b.id)}
-                          className="font-semibold text-danger-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline"
                         >
                           Withdraw it
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="font-semibold text-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
                         >
                           Keep it
                         </button>
@@ -311,7 +338,7 @@ export default function Book() {
                       <button
                         type="button"
                         onClick={() => setConfirmingId(b.id)}
-                        className="shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center shrink-0 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
                       >
                         Withdraw this
                       </button>
@@ -416,14 +443,14 @@ export default function Book() {
                         <button
                           type="button"
                           onClick={() => cancel.mutate(b.id)}
-                          className="font-semibold text-danger-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-danger-foreground hover:underline"
                         >
                           Withdraw it
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="font-semibold text-foreground hover:underline"
+                          className="inline-flex min-h-11 items-center font-semibold text-foreground hover:underline"
                         >
                           Keep it
                         </button>
@@ -432,7 +459,7 @@ export default function Book() {
                       <button
                         type="button"
                         onClick={() => setConfirmingId(b.id)}
-                        className="mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center mt-3 text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
                       >
                         Withdraw this
                       </button>
@@ -445,14 +472,16 @@ export default function Book() {
       )}
 
       {/* --- nobody to ask -------------------------------------------------- */}
+      {/* The system's empty state, and no action on it: there is nothing on
+          this screen or any other that a person can do about an empty network,
+          and a button that only looks like a way forward is worse than none.
+          The second sentence stays because "no specialists" reads as a broken
+          account unless something says it is not. */}
       {specialists.data.length === 0 && (
-        <div className="rounded-card border border-border bg-card p-6 shadow-raised">
-          <p className="max-w-prose text-muted-foreground">
-            Nobody in the network has published hours yet, so there is nothing
-            to ask for. This is not a fault with your account &mdash; when a
-            specialist sets their availability they appear here.
-          </p>
-        </div>
+        <EmptyState
+          title="Nobody to ask just yet"
+          detail="No specialist in the network has published hours. This is not a fault with your account — when one sets their availability they appear here."
+        />
       )}
 
       {/* --- who --------------------------------------------------------- */}
@@ -465,7 +494,7 @@ export default function Book() {
                 <button
                   type="button"
                   onClick={() => {
-                    setChosen(s.id)
+                    setPicked(s.id)
                     setSlot(null)
                   }}
                   aria-pressed={chosen === s.id}

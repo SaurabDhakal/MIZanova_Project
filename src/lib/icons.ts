@@ -64,6 +64,25 @@ export const PATHS = {
   observations: 'M12 5c-5 0-8 5-8 5s3 5 8 5 8-5 8-5-3-5-8-5Zm0 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
   goals: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-4a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
   resources: 'M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm9 0v5h5M8 13h8M8 17h5',
+  // ACADEMY AND LIBRARY ARE ADJACENT LINKS IN FIVE ROLES' SIDEBARS AND BOTH
+  // USED `resources`. Two consecutive rows with the same drawing is worse than
+  // no drawing at all: the eye uses the glyph to tell rows apart before it
+  // reads them, so an identical one actively says "these are the same thing".
+  //
+  // They are not the same thing, and Library.tsx already says why in one line:
+  // "Reading, as opposed to the Academy's doing." A course is a sequence
+  // somebody works through and is counted for; an article is a page somebody
+  // reads and closes. So the pair is drawn as doing and reading.
+  //
+  // Doing: a play inside a rounded frame — start this and work through it.
+  // Chosen over a mortarboard because `schools` is already that silhouette,
+  // and a set that draws two different nouns the same way has the problem
+  // this comment exists to fix. Modules carry an optional video (db/075), so
+  // the triangle is not a metaphor stretched to fit.
+  academy: 'M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm5 4.5 6 3.5-6 3.5v-7Z',
+  // Reading: an open book, spanning 3..21 across like `resources` does, with
+  // the spine drawn so it cannot be mistaken for the single folded page.
+  library: 'M12 7.5C10.4 6.2 8.2 5.5 4 5.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1c4.2 0 6.4.7 8 2 1.6-1.3 3.8-2 8-2a1 1 0 0 0 1-1V6.5a1 1 0 0 0-1-1c-4.2 0-6.4.7-8 2Zm0 0v12.5',
   link: 'M9.5 14.5a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14.5 9.5a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
   privacy: 'M12 3 5 6v6c0 4 3 7.5 7 9 4-1.5 7-5 7-9V6l-7-3Zm0 6v4m0 3h.01',
   finance: 'M3 7h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Zm9 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM5 10v4m14-4v4',

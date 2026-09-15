@@ -128,10 +128,7 @@ export function Points({ items }: { items: string[] }) {
               line rather than as punctuation inside it, and the pale green
               carries the meaning at a size where the icon alone could not. */}
           <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success-subtle">
-            <Icon
-              name="tick"
-              className="h-3.5 w-3.5 text-brand-green-ink"
-            />
+            <Icon name="tick" className="h-3.5 w-3.5 text-brand-green-ink" />
           </span>
           <span className="text-foreground">{item}</span>
         </li>

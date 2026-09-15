@@ -27,6 +27,7 @@ import Icon from '../../components/Icon'
 import { showToast } from '../../lib/toast'
 import { useAuth } from '../../lib/auth'
 import { pathForRole } from '../../lib/roles'
+import { todayLocal } from '../../lib/localTime'
 
 /* The four boxes on the paper form, taken from the labels rather than written
    out again — a second list is where the two would start disagreeing. */
@@ -366,7 +367,7 @@ function RecordReview({
   /* Defaulted to today because that is usually right, and editable because a
      meeting is often typed up days later. */
   const [reviewedOn, setReviewedOn] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    todayLocal(),
   )
   const [error, setError] = useState<string | null>(null)
 
@@ -393,7 +394,7 @@ function RecordReview({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 text-sm font-semibold text-primary hover:underline"
+        className="inline-flex min-h-11 items-center mt-3 text-sm font-semibold text-primary hover:underline"
       >
         Record a review of this goal
       </button>
@@ -696,7 +697,7 @@ function Participants({
                   type="button"
                   aria-label={`Remove ${p.person_name}`}
                   onClick={() => remove.mutate(p.id)}
-                  className="text-muted-foreground hover:text-danger-foreground"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-danger-foreground"
                 >
                   ×
                 </button>
@@ -1013,7 +1014,7 @@ export default function IepPlanEditor() {
                           : profileText,
                       })
                     }
-                    className="pressable mt-2 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-background"
+                    className="pressable min-h-11 mt-2 rounded-btn border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:bg-background"
                   >
                     Bring in what is on file
                   </button>

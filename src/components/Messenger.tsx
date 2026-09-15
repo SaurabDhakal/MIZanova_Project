@@ -79,7 +79,12 @@ function MessageAttachment({
 
   if (attachment.kind === 'image') {
     return (
-      <a href={url.data} target="_blank" rel="noreferrer" className="mt-2 block">
+      <a
+        href={url.data}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 block"
+      >
         <img
           src={url.data}
           alt={attachment.file_name}
@@ -93,7 +98,9 @@ function MessageAttachment({
     return (
       <div className="mt-2 min-w-56">
         <audio controls preload="metadata" src={url.data} className="w-full" />
-        <p className={`mt-1 text-xs ${mine ? 'text-white/70' : 'text-muted-foreground'}`}>
+        <p
+          className={`mt-1 text-xs ${mine ? 'text-white/70' : 'text-muted-foreground'}`}
+        >
           {attachment.file_name} · {fileSize(attachment.size_bytes)}
         </p>
       </div>
@@ -105,7 +112,7 @@ function MessageAttachment({
       href={url.data}
       target="_blank"
       rel="noreferrer"
-      className={`mt-2 flex items-center gap-2 rounded-btn border px-3 py-2 text-sm font-medium ${
+      className={`mt-2 flex min-h-11 items-center gap-2 rounded-btn border px-3 py-2 text-sm font-medium ${
         mine ? 'border-white/30' : 'border-border'
       }`}
     >
@@ -147,7 +154,11 @@ export default function Messenger({
    */
   const namesInFull = profile?.role === 'parent'
   const childName = (
-    student: { display_name: string; first_name: string; last_name: string } | null,
+    student: {
+      display_name: string
+      first_name: string
+      last_name: string
+    } | null,
   ) =>
     student
       ? namesInFull
@@ -269,7 +280,9 @@ export default function Messenger({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       recordingStreamRef.current = stream
       const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm']
-      const selected = candidates.find((type) => MediaRecorder.isTypeSupported(type))
+      const selected = candidates.find((type) =>
+        MediaRecorder.isTypeSupported(type),
+      )
       const recorder = selected
         ? new MediaRecorder(stream, { mimeType: selected })
         : new MediaRecorder(stream)
@@ -311,9 +324,12 @@ export default function Messenger({
       }
       recorderRef.current = recorder
       recorder.start()
-      recordingTimeoutRef.current = window.setTimeout(() => {
-        if (recorder.state === 'recording') recorder.stop()
-      }, 5 * 60 * 1000)
+      recordingTimeoutRef.current = window.setTimeout(
+        () => {
+          if (recorder.state === 'recording') recorder.stop()
+        },
+        5 * 60 * 1000,
+      )
       setRecording(true)
     } catch {
       setAttachmentError(
@@ -345,7 +361,9 @@ export default function Messenger({
     mutationFn: (messageId: string) => unsendMessage(messageId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.messages(activeId!) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.messages(activeId!),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.threads }),
       ])
     },
@@ -396,7 +414,9 @@ export default function Messenger({
       (!unreadOnly || unreadCount(thread) > 0)
     )
   })
-  const unreadThreads = studentThreads.filter((thread) => unreadCount(thread) > 0)
+  const unreadThreads = studentThreads.filter(
+    (thread) => unreadCount(thread) > 0,
+  )
 
   const markAllRead = useMutation({
     mutationFn: () =>
@@ -439,9 +459,7 @@ export default function Messenger({
       {/* --- Conversation list ------------------------------------------- */}
       {/* Hidden on phones once a conversation is open: two panes at 375px is
           unusable, so the list behaves like a separate screen. */}
-      <div
-        className={`lg:w-80 lg:shrink-0 ${active ? 'hidden lg:block' : ''}`}
-      >
+      <div className={`lg:w-80 lg:shrink-0 ${active ? 'hidden lg:block' : ''}`}>
         {educatorInbox && studentThreads.length > 0 && (
           <div className="mb-3 rounded-card border border-border bg-card p-3 shadow-raised">
             <label htmlFor="conversation-search" className="sr-only">
@@ -493,7 +511,8 @@ export default function Messenger({
             </div>
             {markAllRead.isError && (
               <p role="alert" className="mt-2 text-xs text-danger-foreground">
-                Some conversations could not be marked as read. Please try again.
+                Some conversations could not be marked as read. Please try
+                again.
               </p>
             )}
           </div>
@@ -507,7 +526,8 @@ export default function Messenger({
                 No conversations match
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Clear the search or unread filter to show the rest of your inbox.
+                Clear the search or unread filter to show the rest of your
+                inbox.
               </p>
             </div>
           )}
@@ -533,25 +553,24 @@ export default function Messenger({
 
         {!careTeam.isError &&
           visibleThreads.length === 0 &&
-          canStartWith.length === 0 && (
-            !(
-              educatorInbox &&
-              studentThreads.length > 0 &&
-              (normalisedSearch || unreadOnly)
-            ) && (
-              <EmptyState
-                title={
-                  studentId
-                    ? 'No conversations about this student yet'
-                    : 'No conversations yet'
-                }
-                detail={
-                  studentId
-                    ? 'Start one below, or choose a different student.'
-                    : 'Conversations become available once staff are assigned and guardians are linked.'
-                }
-              />
-            )
+          canStartWith.length === 0 &&
+          !(
+            educatorInbox &&
+            studentThreads.length > 0 &&
+            (normalisedSearch || unreadOnly)
+          ) && (
+            <EmptyState
+              title={
+                studentId
+                  ? 'No conversations about this student yet'
+                  : 'No conversations yet'
+              }
+              detail={
+                studentId
+                  ? 'Start one below, or choose a different student.'
+                  : 'Conversations become available once staff are assigned and guardians are linked.'
+              }
+            />
           )}
 
         {visibleThreads.length > 0 && (
@@ -563,7 +582,10 @@ export default function Messenger({
                 a.created_at < b.created_at ? 1 : -1,
               )[0]
               return (
-                <li key={thread.id} className="border-b border-border last:border-0">
+                <li
+                  key={thread.id}
+                  className="border-b border-border last:border-0"
+                >
                   <button
                     type="button"
                     onClick={() => setActiveId(thread.id)}
@@ -631,7 +653,7 @@ export default function Messenger({
                     type="button"
                     onClick={() => begin.mutate(person.id)}
                     disabled={begin.isPending}
-                    className="w-full rounded-btn border border-border px-3 py-2 text-left text-sm hover:border-primary disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center w-full rounded-btn border border-border px-3 py-2 text-left text-sm hover:border-primary disabled:opacity-60"
                   >
                     <span className="font-medium text-foreground">
                       {person.full_name || 'Unnamed'}
@@ -720,7 +742,9 @@ export default function Messenger({
                       ) : (
                         <>
                           {message.body && (
-                            <p className="whitespace-pre-wrap">{message.body}</p>
+                            <p className="whitespace-pre-wrap">
+                              {message.body}
+                            </p>
                           )}
                           {(message.message_attachments ?? []).map(
                             (attachment) => (
@@ -748,7 +772,7 @@ export default function Messenger({
                           type="button"
                           onClick={() => unsend.mutate(message.id)}
                           disabled={unsend.isPending}
-                          className={`mt-1 text-xs underline underline-offset-2 ${
+                          className={`mt-1 inline-flex min-h-11 items-center px-2 text-xs underline underline-offset-2 ${
                             mine ? 'text-white/80' : 'text-muted-foreground'
                           }`}
                         >
@@ -780,7 +804,9 @@ export default function Messenger({
                         name={attachment.kind === 'audio' ? 'mic' : 'resources'}
                         className="h-4 w-4 shrink-0"
                       />
-                      <span className="max-w-48 truncate">{attachment.file.name}</span>
+                      <span className="max-w-48 truncate">
+                        {attachment.file.name}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {fileSize(attachment.file.size)}
                       </span>
@@ -788,7 +814,9 @@ export default function Messenger({
                         type="button"
                         onClick={() =>
                           setAttachments((current) =>
-                            current.filter((_, itemIndex) => itemIndex !== index),
+                            current.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
                           )
                         }
                         aria-label={`Remove ${attachment.file.name}`}
@@ -875,7 +903,9 @@ export default function Messenger({
                     <select
                       id="dictation-language"
                       value={dictationLanguage}
-                      onChange={(event) => setDictationLanguage(event.target.value)}
+                      onChange={(event) =>
+                        setDictationLanguage(event.target.value)
+                      }
                       disabled={speech.listening}
                       className="rounded-btn border border-border bg-card px-2.5 py-2 text-sm"
                     >
@@ -891,7 +921,9 @@ export default function Messenger({
                 {canRecord && (
                   <button
                     type="button"
-                    onClick={recording ? stopVoiceNote : () => void startVoiceNote()}
+                    onClick={
+                      recording ? stopVoiceNote : () => void startVoiceNote()
+                    }
                     className={`min-h-11 inline-flex items-center gap-1.5 rounded-btn border px-3 py-2 text-sm font-medium ${
                       recording
                         ? 'border-danger bg-danger-subtle text-danger-foreground'
@@ -908,19 +940,26 @@ export default function Messenger({
               </div>
               {speech.supported && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Dictation may use your browser provider&rsquo;s speech service.
-                  Voice notes are stored privately with this conversation.
+                  Dictation may use your browser provider&rsquo;s speech
+                  service. Voice notes are stored privately with this
+                  conversation.
                 </p>
               )}
             </form>
 
-            {(send.isError || unsend.isError || attachmentError || speech.error) && (
-              <p role="alert" className="px-4 pb-3 text-sm text-danger-foreground">
+            {(send.isError ||
+              unsend.isError ||
+              attachmentError ||
+              speech.error) && (
+              <p
+                role="alert"
+                className="px-4 pb-3 text-sm text-danger-foreground"
+              >
                 {send.isError
                   ? send.error.message
                   : unsend.isError
                     ? unsend.error.message
-                    : attachmentError ?? speech.error}
+                    : (attachmentError ?? speech.error)}
               </p>
             )}
           </div>

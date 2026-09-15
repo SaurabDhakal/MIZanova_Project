@@ -12,8 +12,11 @@ import {
 import { useAuth } from '../lib/auth'
 import { EmptyState, ErrorState } from './QueryState'
 import DictatedTextarea from './DictatedTextarea'
+import ClosedRecordNote from './ClosedRecordNote'
+import { useEnrolled } from '../lib/enrolment'
 import FormField from './FormField'
 import { showToast } from '../lib/toast'
+import { todayLocal } from '../lib/localTime'
 
 /**
  * Specialist sessions on a student's page — db/028.
@@ -154,7 +157,7 @@ function SessionNotes({ sessionId }: { sessionId: string }) {
               setEditing(true)
               setError(null)
             }}
-            className="mt-2 text-xs font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center mt-2 text-xs font-semibold text-primary hover:underline"
           >
             {empty ? 'Add a clinical note' : 'Revise this note'}
           </button>
@@ -171,8 +174,9 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   const isParent = profile?.role === 'parent'
 
   const [open, setOpen] = useState(false)
+  const enrolled = useEnrolled()
   const [sessionDate, setSessionDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    todayLocal(),
   )
   const [duration, setDuration] = useState('30')
   const [goalId, setGoalId] = useState('')
@@ -267,10 +271,8 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
   return (
     <section className="mt-10">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-section text-foreground">
-          Specialist sessions
-        </h2>
-        {isSpecialist && (
+        <h2 className="text-section text-foreground">Specialist sessions</h2>
+        {isSpecialist && enrolled && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -280,6 +282,8 @@ export default function SessionsSection({ studentId }: { studentId: string }) {
           </button>
         )}
       </div>
+
+      {!enrolled && isSpecialist && <ClosedRecordNote what="new sessions" />}
 
       {!isSpecialist && (
         <p className="mb-3 max-w-prose text-sm text-muted-foreground">

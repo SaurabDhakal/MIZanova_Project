@@ -117,7 +117,8 @@ export default function ResetPassword() {
       await setNewPassword(password)
       setDone(true)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong'
       setError(
         /should be different|same as the old/i.test(message)
           ? 'That is the password you already have. Choose a different one.'

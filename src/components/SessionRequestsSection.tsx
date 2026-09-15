@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  answerBooking,
-  fetchIncomingBookings,
-  queryKeys,
-} from '../lib/api'
+import { answerBooking, fetchIncomingBookings, queryKeys } from '../lib/api'
 import { showToast } from '../lib/toast'
 
 /**
@@ -73,9 +69,9 @@ export default function SessionRequestsSection() {
     <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
       <h2 className="text-section text-foreground">Session requests</h2>
       <p className="mt-1 max-w-prose text-muted-foreground">
-        People with no school attached, asking for time with you. Accepting
-        puts it in your calendar and emails them your answer &mdash; they are
-        told, so they are not left refreshing a page waiting for one.
+        People with no school attached, asking for time with you. Accepting puts
+        it in your calendar and emails them your answer &mdash; they are told,
+        so they are not left refreshing a page waiting for one.
       </p>
 
       {waiting.length === 0 && (

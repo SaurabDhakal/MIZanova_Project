@@ -193,7 +193,7 @@ export default function SpecialistDashboard() {
           hint={
             <Link
               to="/specialist/caseload"
-              className="font-semibold text-primary hover:underline"
+              className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
             >
               View caseload →
             </Link>

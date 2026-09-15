@@ -175,13 +175,17 @@ export default function InviteStaffSection({
               id="invite-role"
               value={role}
               onChange={(e) =>
-                setRole(e.target.value as 'educator' | 'specialist' | 'school_admin')
+                setRole(
+                  e.target.value as 'educator' | 'specialist' | 'school_admin',
+                )
               }
               className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
             >
               <option value="educator">{ROLE_CONFIG.educator.label}</option>
               <option value="specialist">{ROLE_CONFIG.specialist.label}</option>
-              <option value="school_admin">{ROLE_CONFIG.school_admin.label}</option>
+              <option value="school_admin">
+                {ROLE_CONFIG.school_admin.label}
+              </option>
             </select>
           </div>
 
@@ -243,7 +247,9 @@ export default function InviteStaffSection({
                 void navigator.clipboard
                   .writeText(issued.acceptUrl)
                   .then(() => showToast('Link copied.'))
-                  .catch(() => showToast('Could not copy — select it and copy manually.'))
+                  .catch(() =>
+                    showToast('Could not copy — select it and copy manually.'),
+                  )
               }}
               className="pressable min-h-11 rounded-btn bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
@@ -253,7 +259,9 @@ export default function InviteStaffSection({
         </div>
       )}
 
-      {invitations.isError && <ErrorState message={invitations.error.message} />}
+      {invitations.isError && (
+        <ErrorState message={invitations.error.message} />
+      )}
 
       {invitations.isSuccess && invitations.data.length === 0 && (
         <EmptyState
@@ -278,43 +286,54 @@ export default function InviteStaffSection({
             Invitations sent
           </h3>
           <ul className="space-y-2">
-          {invitations.data.map((invitation) => {
-            const status = statusOf(invitation)
-            return (
-              <li
-                key={invitation.id}
-                className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card shadow-raised p-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">{invitation.email}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {ROLE_CONFIG[invitation.role].label} · invited{' '}
-                    {new Date(invitation.created_at).toLocaleDateString('en-AU', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </p>
-                </div>
-
-                <span
-                  className={`rounded-btn px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[status]}`}
+            {invitations.data.map((invitation) => {
+              const status = statusOf(invitation)
+              return (
+                <li
+                  key={invitation.id}
+                  className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card shadow-raised p-4"
                 >
-                  {STATUS_LABEL[status]}
-                </span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">
+                      {invitation.email}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {ROLE_CONFIG[invitation.role].label} · invited{' '}
+                      {new Date(invitation.created_at).toLocaleDateString(
+                        'en-AU',
+                        {
+                          day: 'numeric',
+                          month: 'short',
+                        },
+                      )}
+                    </p>
+                  </div>
 
-                {status === 'pending' && (
-                  <button
-                    type="button"
-                    onClick={() => revoke.mutate(invitation.id)}
-                    disabled={revoke.isPending}
-                    className="ml-auto text-sm font-semibold text-danger-foreground underline disabled:opacity-60"
+                  <span
+                    className={`rounded-btn px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[status]}`}
                   >
-                    Withdraw
-                  </button>
-                )}
-              </li>
-            )
-          })}
+                    {STATUS_LABEL[status]}
+                  </span>
+
+                  {status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => revoke.mutate(invitation.id)}
+                      disabled={revoke.isPending}
+                      /* 20px until 15 September, and invisible to every
+                         sweep before it: this row only exists while an
+                         invitation is still waiting to be accepted, so a
+                         page with none measures clean. Withdrawing a
+                         credential to a school full of children is not a
+                         control to fumble on a phone. */
+                      className="ml-auto inline-flex min-h-11 items-center px-2 text-sm font-semibold text-danger-foreground underline disabled:opacity-60"
+                    >
+                      Withdraw
+                    </button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </>
       )}

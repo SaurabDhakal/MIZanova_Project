@@ -239,9 +239,7 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
         <section className={card}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-section text-foreground">
-                Your details
-              </h2>
+              <h2 className="text-section text-foreground">Your details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {isStaff
                   ? 'How you appear to colleagues and families on every screen.'
@@ -542,9 +540,7 @@ function ProfileForm({ profile }: { profile: ProfileRow }) {
       {/* ================= RIGHT: what you cannot change ================== */}
       <div className="space-y-6">
         <section className={card}>
-          <h2 className="text-section text-foreground">
-            Role and session
-          </h2>
+          <h2 className="text-section text-foreground">Role and session</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Set by the platform, not by you.
           </p>

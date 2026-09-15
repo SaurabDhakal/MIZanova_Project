@@ -470,9 +470,7 @@ export default function HomeObservations() {
 
       {/* --- History -------------------------------------------------------- */}
       <div className="mt-10 mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-section text-foreground">
-          Observation history
-        </h2>
+        <h2 className="text-section text-foreground">Observation history</h2>
         {/* Absent rather than disabled when there is nothing to export. A
             greyed-out button is a control that looks authoritative and does
             nothing, which is the thing this product keeps refusing to draw. */}

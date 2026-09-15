@@ -14,6 +14,8 @@ import GoalCard from './GoalCard'
 import { GOAL_CATEGORY_LABEL } from '../lib/goalCategories'
 import { EmptyState, ErrorState, LoadingCards } from './QueryState'
 import FormField from './FormField'
+import ClosedRecordNote from './ClosedRecordNote'
+import { useEnrolled } from '../lib/enrolment'
 
 /**
  * Staff view of a student's goals: create them, tick milestones, set status.
@@ -33,6 +35,7 @@ export default function GoalsSection({ studentId }: { studentId: string }) {
 
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const enrolled = useEnrolled()
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -88,7 +91,9 @@ export default function GoalsSection({ studentId }: { studentId: string }) {
             These are the working version: the day-to-day steps a teacher writes
             and ticks. The plan is the agreement. */}
         <h2 className="text-section text-foreground">Working towards</h2>
-        {!open && (
+        {/* db/136 refuses a goal for a departed child outright; this is so
+            nobody is invited to write one first. */}
+        {!open && enrolled && (
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -99,12 +104,14 @@ export default function GoalsSection({ studentId }: { studentId: string }) {
         )}
       </div>
 
+      {!enrolled && <ClosedRecordNote what="new goals" />}
+
       <p className="mb-3 max-w-prose text-sm text-muted-foreground">
         The day-to-day steps, written and ticked by you. Separate from the
         education plan, which is what the school and family agreed at a meeting
-        — a goal here can serve one, and says so when it does.
-        Visible to this student&rsquo;s family exactly as you see it here.
-        Ticking a milestone updates the percentage on their screen.
+        — a goal here can serve one, and says so when it does. Visible to this
+        student&rsquo;s family exactly as you see it here. Ticking a milestone
+        updates the percentage on their screen.
       </p>
 
       {open && (

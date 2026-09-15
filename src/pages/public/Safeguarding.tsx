@@ -57,8 +57,8 @@ export default function Safeguarding() {
 
       <Section title="Screening for specialists">
         <p>
-          A specialist gives their registration and Working With Children
-          Check, and a named person verifies both at the source before they are
+          A specialist gives their registration and Working With Children Check,
+          and a named person verifies both at the source before they are
           admitted.
         </p>
         <p>
@@ -81,9 +81,9 @@ export default function Safeguarding() {
           person does.
         </p>
         <p>
-          Verifying records that a named person confirmed it on a date.
-          MiZanova does not connect to the Office of the Children’s Guardian —
-          the button is the attestation, not the check.
+          Verifying records that a named person confirmed it on a date. MiZanova
+          does not connect to the Office of the Children’s Guardian — the button
+          is the attestation, not the check.
         </p>
         <p>
           An expired check does not remove access by itself. Whether it should

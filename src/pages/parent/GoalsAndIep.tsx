@@ -180,9 +180,7 @@ export default function GoalsAndIep() {
       <FamilyIepPlans studentId={child.id} />
 
       {/* --- IEP documents ------------------------------------------------- */}
-      <h2 className="mt-10 mb-3 text-section text-foreground">
-        IEP documents
-      </h2>
+      <h2 className="mt-10 mb-3 text-section text-foreground">IEP documents</h2>
 
       {documents.isError && <ErrorState message={documents.error.message} />}
 
@@ -234,7 +232,11 @@ export default function GoalsAndIep() {
                   )}
                   {mine ? (
                     <span className="inline-flex items-center gap-1.5 rounded-btn bg-success-subtle px-3 py-2 text-sm font-semibold text-success-foreground">
-                      <Icon name="tick" aria-hidden className="h-4 w-4 shrink-0" />
+                      <Icon
+                        name="tick"
+                        aria-hidden
+                        className="h-4 w-4 shrink-0"
+                      />
                       You confirmed reading this
                     </span>
                   ) : (

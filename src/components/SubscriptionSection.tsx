@@ -96,10 +96,7 @@ export default function SubscriptionSection() {
   return (
     <section className="mt-8 rounded-card border border-border bg-card p-6 shadow-raised">
       <div className="flex items-start gap-3">
-        <Icon
-          name="ai"
-          className="mt-0.5 h-5 w-5 shrink-0 text-primary"
-        />
+        <Icon name="ai" className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
           <h2 className="text-section text-foreground">Subscription</h2>
 
@@ -144,8 +141,8 @@ export default function SubscriptionSection() {
                     className="mt-0.5 h-4 w-4 shrink-0 text-primary"
                   />
                   <span>
-                    Suggestions are answered by the more capable model, which
-                    is the one that does not give up on the hard questions.
+                    Suggestions are answered by the more capable model, which is
+                    the one that does not give up on the hard questions.
                   </span>
                 </li>
                 <li className="flex gap-2">
@@ -196,7 +193,9 @@ export default function SubscriptionSection() {
                 {live.status === 'trialing' && live.trial_ends_at ? (
                   <>
                     You are on a free trial until{' '}
-                    <b className="text-foreground">{date(live.trial_ends_at)}</b>
+                    <b className="text-foreground">
+                      {date(live.trial_ends_at)}
+                    </b>
                     , and nothing is charged before then.
                   </>
                 ) : live.status === 'past_due' ? (
@@ -249,7 +248,9 @@ export default function SubscriptionSection() {
                     <div className="rounded-card border border-border bg-background p-4">
                       <p className="max-w-prose text-sm text-foreground">
                         Your account keeps working until{' '}
-                        <b>{date(live.current_period_end) ?? 'the period ends'}</b>{' '}
+                        <b>
+                          {date(live.current_period_end) ?? 'the period ends'}
+                        </b>{' '}
                         and nothing more is charged after that. You can start it
                         again any time before then.
                       </p>

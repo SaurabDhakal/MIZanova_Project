@@ -34,6 +34,16 @@ import { useModalDialog } from '../hooks/useModalDialog'
  * ---------------------------------------------------------------------------
  * It starts on the phrase box, or on Cancel when there is none. Somebody
  * holding Enter from the screen before must not be able to destroy anything.
+ *
+ * ---------------------------------------------------------------------------
+ * NOT EVERYTHING WORTH CONFIRMING IS A DELETION
+ * ---------------------------------------------------------------------------
+ * `tone` exists because issuing an invoice to a family is irreversible and
+ * routine at the same time. Painting that button red says "this is a mistake"
+ * about the ordinary act of billing somebody, and a red button people press
+ * every week stops meaning anything on the day it is a real deletion.
+ *
+ * 'danger' is the default, so every existing caller is unchanged.
  */
 export default function ConfirmDestructive({
   title,
@@ -41,6 +51,8 @@ export default function ConfirmDestructive({
   consequences,
   confirmPhrase,
   confirmLabel,
+  tone = 'danger',
+  note,
   pending = false,
   error = null,
   onConfirm,
@@ -52,6 +64,22 @@ export default function ConfirmDestructive({
   consequences?: string[]
   confirmPhrase?: string
   confirmLabel: string
+  /** 'danger' destroys something. 'primary' cannot be undone but is not a loss. */
+  tone?: 'danger' | 'primary'
+  /**
+   * An optional line of reasoning, recorded with the action.
+   *
+   * "Are you sure?" and "why?" are asked at the same moment, and the person who
+   * knows the answer is the one standing here. Asked afterwards on a separate
+   * screen it never gets written down. Never required: an action held up by a
+   * text box teaches people to type a full stop and move on.
+   */
+  note?: {
+    label: string
+    placeholder?: string
+    value: string
+    onChange: (value: string) => void
+  }
   pending?: boolean
   error?: string | null
   onConfirm: () => void
@@ -63,6 +91,7 @@ export default function ConfirmDestructive({
   const [typed, setTyped] = useState('')
   const titleId = useId()
   const phraseId = useId()
+  const noteId = useId()
 
   /* The hook opens it; this only moves focus to the field somebody must type
      in, or to Cancel when there is none. */
@@ -95,7 +124,13 @@ export default function ConfirmDestructive({
         </p>
 
         {consequences && consequences.length > 0 && (
-          <ul className="mt-4 space-y-1 rounded-card border border-danger bg-danger-subtle p-4 text-sm font-medium text-danger-foreground">
+          <ul
+            className={`mt-4 space-y-1 rounded-card border p-4 text-sm font-medium ${
+              tone === 'danger'
+                ? 'border-danger bg-danger-subtle text-danger-foreground'
+                : 'border-warning bg-warning-subtle text-warning-foreground'
+            }`}
+          >
             {consequences.map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -118,6 +153,27 @@ export default function ConfirmDestructive({
               autoComplete="off"
               spellCheck={false}
               className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
+            />
+          </div>
+        )}
+
+        {note && (
+          <div className="mt-4">
+            <label
+              htmlFor={noteId}
+              className="block text-sm font-semibold text-foreground"
+            >
+              {note.label}{' '}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </label>
+            <input
+              id={noteId}
+              value={note.value}
+              onChange={(e) => note.onChange(e.target.value)}
+              placeholder={note.placeholder}
+              className="mt-1.5 min-h-11 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
             />
           </div>
         )}
@@ -145,7 +201,11 @@ export default function ConfirmDestructive({
             type="button"
             onClick={onConfirm}
             disabled={!unlocked || pending}
-            className="pressable min-h-11 rounded-btn bg-danger-strong px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className={`pressable min-h-11 rounded-btn px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ${
+              tone === 'danger'
+                ? 'bg-danger-strong text-white'
+                : 'bg-primary text-primary-foreground'
+            }`}
           >
             {pending ? 'Working…' : confirmLabel}
           </button>

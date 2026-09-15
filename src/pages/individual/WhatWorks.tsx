@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchMyGoalsPersonal,
@@ -7,7 +8,11 @@ import {
   type SelfSuggestion,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import Icon from '../../components/Icon'
 
 /**
@@ -176,14 +181,25 @@ export default function WhatWorks() {
           This says what to do instead, and names the two things that fill it.
           --------------------------------------------------------------- */}
       {nothingRecordedYet && (
-        <div className="print-hide rounded-card border border-border bg-card p-6 shadow-raised">
-          <p className="max-w-prose text-muted-foreground">
-            There is nothing here yet, because this page is built from what you
-            have already told MiZanova. Two things fill it: something you decide
-            to work on, and saying whether a suggestion helped after you have
-            tried it. Neither takes long, and after a few weeks this becomes a
-            page worth handing to somebody.
-          </p>
+        <div className="print-hide">
+          {/* The system's empty state, and a way to act on it. This screen
+              named the two things that fill the page and then offered no way
+              to do either, on the one page in this account somebody opens
+              because a GP or an employer has asked them for something. The
+              link goes to goals rather than suggestions because a goal is the
+              half that needs no AI and no waiting. */}
+          <EmptyState
+            title="Nothing to print yet"
+            detail="This page is built from what you have already told MiZanova. Two things fill it: something you decide to work on, and saying whether a suggestion helped after you tried it."
+            action={
+              <Link
+                to="/individual/goals"
+                className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground"
+              >
+                Start with one thing
+              </Link>
+            }
+          />
         </div>
       )}
 
@@ -191,7 +207,7 @@ export default function WhatWorks() {
         <>
           {/* ------------- what goes in, chosen by them ------------- */}
           <section className="print-hide mb-6 rounded-card border border-border bg-background p-5">
-            <h2 className="font-semibold text-foreground">What goes in</h2>
+            <h2 className="text-section text-foreground">What goes in</h2>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
               Everything is included to start with. Untick anything you would
               rather not hand over &mdash; it stays in your account either way.
@@ -303,7 +319,11 @@ export default function WhatWorks() {
                       key={s.id}
                       className={`flex gap-3 ${dropped.has(s.id) ? 'print-hide opacity-50' : ''}`}
                     >
-                      <Remove id={s.id} out={dropped.has(s.id)} onToggle={toggle} />
+                      <Remove
+                        id={s.id}
+                        out={dropped.has(s.id)}
+                        onToggle={toggle}
+                      />
                       <div
                         className={`min-w-0 ${dropped.has(s.id) ? 'line-through' : ''}`}
                       >
@@ -336,7 +356,11 @@ export default function WhatWorks() {
                       key={s.id}
                       className={`flex gap-3 ${dropped.has(s.id) ? 'print-hide opacity-50' : ''}`}
                     >
-                      <Remove id={s.id} out={dropped.has(s.id)} onToggle={toggle} />
+                      <Remove
+                        id={s.id}
+                        out={dropped.has(s.id)}
+                        onToggle={toggle}
+                      />
                       <div
                         className={`min-w-0 ${dropped.has(s.id) ? 'line-through' : ''}`}
                       >
@@ -354,13 +378,12 @@ export default function WhatWorks() {
             {/* SAYS WHAT IT IS NOT — Receipts' rule, with more at stake. */}
             {!empty && (
               <p className="print-keep mt-8 max-w-prose border-t border-border pt-4 text-xs text-muted-foreground">
-                This page was written by the person named on it, using
-                MiZanova. It is a record of what they have found helpful and
-                what they have not. It is not an assessment, a diagnosis or a
-                clinical opinion, nobody has been tested for anything, and no
-                clinician has reviewed it. The strategies were suggested by
-                software and kept because this person tried them and said they
-                worked.
+                This page was written by the person named on it, using MiZanova.
+                It is a record of what they have found helpful and what they
+                have not. It is not an assessment, a diagnosis or a clinical
+                opinion, nobody has been tested for anything, and no clinician
+                has reviewed it. The strategies were suggested by software and
+                kept because this person tried them and said they worked.
               </p>
             )}
           </article>

@@ -50,7 +50,15 @@ export default function SuggestedText<T extends string>(props: {
   usual?: T | null
   usualHint?: string
 }) {
-  const { name, label, options, code, text, usual = null, className = '' } = props
+  const {
+    name,
+    label,
+    options,
+    code,
+    text,
+    usual = null,
+    className = '',
+  } = props
 
   const ordered =
     usual && options.some((o) => o.value === usual)
@@ -121,7 +129,7 @@ export default function SuggestedText<T extends string>(props: {
               type="button"
               aria-pressed={on}
               onClick={() => tap(option)}
-              className={`pressable rounded-btn border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`pressable inline-flex min-h-11 items-center rounded-btn border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 on
                   ? 'border-primary bg-primary text-primary-foreground'
                   : isUsual

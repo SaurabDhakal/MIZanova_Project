@@ -356,8 +356,8 @@ export default function Pricing() {
           <div className="rounded-card border border-border bg-card p-6 shadow-raised sm:p-8">
             <p className="text-heading text-foreground">Quoted per centre</p>
             <p className="mt-2 max-w-prose text-muted-foreground">
-              Everything a school gets, in the language your setting actually
-              uses. Tell us how many children you have and how your
+              Everything a school gets, priced for a centre rather than a
+              school. Tell us how many children you have and how your
               environments are arranged, and we will price it against that
               rather than against a student roll.
             </p>
@@ -368,31 +368,39 @@ export default function Pricing() {
                   What changes for you
                 </h3>
                 <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                  {/* THESE THREE USED TO PROMISE A TERMINOLOGY LAYER THAT
+                      DOES NOT EXIST. They said the words on screen would be
+                      guides and environments, that mixed-age groupings would
+                      replace year levels, and that the product would say
+                      observations rather than behaviour incidents. Nothing in
+                      `src/` varies a single word by organisation kind:
+                      `montessori` is a plan key in lib/plans.ts and an option
+                      in a dropdown, and that is all of it.
+
+                      A prospective customer could check any of the three in
+                      the first ten minutes of a demo. docs/11 recommends
+                      building the label map and argues it is cheap now and
+                      impossible later — until it exists, the page says what
+                      the product does. Corrected 15 September 2026. */}
                   <li>
-                    Guides and environments, not teachers and classes. The
-                    words on the screen match the ones in the room.
+                    Priced by children and environments, not by a student roll.
                   </li>
                   <li>
-                    Three-year mixed-age groupings &mdash; Casa, Lower
-                    Elementary, Upper Elementary &mdash; instead of year
-                    levels.
+                    The same safeguarding workflow, consent records and
+                    reporting a school gets, hosted in Sydney.
                   </li>
                   <li>
-                    Observations rather than behaviour incidents, which is
-                    closer to how you already record.
-                  </li>
-                  <li>
-                    Built for long day care, preschool and toddler programmes
-                    as well as school-age settings.
+                    Built for long day care, preschool and toddler programmes as
+                    well as school-age settings.
                   </li>
                 </ul>
               </div>
               <div>
-                <h3 className="font-bold text-foreground">
-                  What is the same
-                </h3>
+                <h3 className="font-bold text-foreground">What is the same</h3>
                 <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-                  <li>AI suggestions, with a specialist able to hold one back.</li>
+                  <li>
+                    AI suggestions, with a specialist able to hold one back.
+                  </li>
                   <li>Family accounts included at no extra cost.</li>
                   <li>Safeguarding queue and acknowledgement times.</li>
                   <li>Staff verification and the compliance dashboard.</li>
@@ -448,8 +456,7 @@ export default function Pricing() {
               <li>
                 Suggestions for your own situation, written for you rather than
                 about you. There is a daily limit so one person cannot use up
-                the day for everybody, and you are told plainly if you reach
-                it.
+                the day for everybody, and you are told plainly if you reach it.
               </li>
               <li>
                 A record of what you have read and where you got to, which
@@ -567,9 +574,9 @@ export default function Pricing() {
               There is not one yet. Special Miles has not settled a price, and
               nothing here will print one nobody has agreed to. Everything
               described above is free and stays free; if a subscription is
-              offered it appears here with the figure on it, and it would
-              change how many suggestions you can ask for in a day rather than
-              whether you can use MiZanova.
+              offered it appears here with the figure on it, and it would change
+              how many suggestions you can ask for in a day rather than whether
+              you can use MiZanova.
             </p>
           )}
 
@@ -599,9 +606,7 @@ export default function Pricing() {
                     Suggestions answered by the more capable model &mdash; the
                     one that does not give up on the hard questions.
                   </li>
-                  <li>
-                    More suggestions a day than the free account allows.
-                  </li>
+                  <li>More suggestions a day than the free account allows.</li>
                   <li>
                     Everything else is identical, and cancelling leaves you with
                     what you paid for until the period ends.
@@ -628,11 +633,11 @@ export default function Pricing() {
           </h3>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
             You can ask a verified specialist for forty-five minutes, and they
-            accept or decline. What does not exist is a price: Special Miles
-            has not set one, so nothing is charged and nobody will ask you for
-            a card. When there is a figure it will be here, and asking will
-            still be asking &mdash; a specialist&rsquo;s afternoon is not
-            something you buy off a shelf.
+            accept or decline. What does not exist is a price: Special Miles has
+            not set one, so nothing is charged and nobody will ask you for a
+            card. When there is a figure it will be here, and asking will still
+            be asking &mdash; a specialist&rsquo;s afternoon is not something
+            you buy off a shelf.
           </p>
           <Link
             to="/enquiry?plan=individual"
@@ -669,7 +674,7 @@ export default function Pricing() {
             </p>
             <Link
               to="/for-parents"
-              className="mt-4 inline-block font-semibold text-primary hover:underline"
+              className="min-h-11 mt-4 inline-block font-semibold text-primary hover:underline"
             >
               What families get &rarr;
             </Link>

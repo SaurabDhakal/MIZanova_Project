@@ -76,7 +76,9 @@ export default function RecoverTwoFactor() {
       subtitle="One of the ten codes you saved when you set up two-factor authentication."
     >
       <div className="mb-5 rounded-btn border border-warning bg-warning-subtle p-4 text-sm text-warning-foreground">
-        <p className="font-semibold">This removes your current authenticator.</p>
+        <p className="font-semibold">
+          This removes your current authenticator.
+        </p>
         <p className="mt-1">
           A recovery code is not a way past the check — it lets you replace the
           phone that is doing the checking. Your old one will stop working, and
@@ -127,7 +129,10 @@ export default function RecoverTwoFactor() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Still have your phone?{' '}
-        <Link to="/verify-2fa" className="font-semibold text-primary hover:underline">
+        <Link
+          to="/verify-2fa"
+          className="font-semibold text-primary hover:underline"
+        >
           Enter a code instead
         </Link>
       </p>

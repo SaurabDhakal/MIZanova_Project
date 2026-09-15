@@ -83,7 +83,10 @@ export default function AddSchoolSection({
    * and this screen cannot tell. It names the existing one and links to it, so
    * the choice is made with the answer in view.
    */
-  const schools = useQuery({ queryKey: queryKeys.schools, queryFn: fetchSchools })
+  const schools = useQuery({
+    queryKey: queryKeys.schools,
+    queryFn: fetchSchools,
+  })
   const sameName = name.trim()
     ? (schools.data ?? []).find(
         (s) => s.name.trim().toLowerCase() === name.trim().toLowerCase(),
@@ -259,11 +262,13 @@ export default function AddSchoolSection({
               onChange={(e) => setState(e.target.value)}
               className="mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground"
             >
-              {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
+              {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'].map(
+                (s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ),
+              )}
             </select>
           </div>
 

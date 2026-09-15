@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../lib/auth";
-import { peekGuardianCode, peekInvitation } from "../../lib/api";
-import { ROLE_CONFIG, pathForRole } from "../../lib/roles";
-import FormField from "../../components/FormField";
-import Spinner from "../../components/Spinner";
-import AuthLayout from "./AuthLayout";
+import { useState } from 'react'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../../lib/auth'
+import { peekGuardianCode, peekInvitation } from '../../lib/api'
+import { ROLE_CONFIG, pathForRole } from '../../lib/roles'
+import FormField from '../../components/FormField'
+import Spinner from '../../components/Spinner'
+import AuthLayout from './AuthLayout'
 
 /**
  * Registration.
@@ -30,9 +30,9 @@ import AuthLayout from "./AuthLayout";
  *   neither   a SIGNPOST, not a form. Nothing is created — see below for why.
  */
 export default function Signup() {
-  const { signUp, session, profile, loading } = useAuth();
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const { signUp, session, profile, loading } = useAuth()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
 
   /**
    * AN INVITATION CHANGES WHAT THIS PAGE IS.
@@ -46,7 +46,7 @@ export default function Signup() {
    * token, they picked whatever they liked, and the invitation sat unused while
    * their new account sat unverified. Neither screen was wrong on its own.
    */
-  const inviteToken = params.get("invite");
+  const inviteToken = params.get('invite')
 
   /**
    * A guardian code does the same job for a family that an invitation does for
@@ -56,7 +56,7 @@ export default function Signup() {
    * on the way in is not flexibility — it is three ways to make an account the
    * code cannot attach to.
    */
-  const guardianCode = params.get("code");
+  const guardianCode = params.get('code')
 
   /**
    * db/088. Somebody who came to the website for themselves.
@@ -73,37 +73,37 @@ export default function Signup() {
    * two self-selected roles and turns everything else into `parent`. This flag
    * changes which of those two is asked for, and can claim nothing else.
    */
-  const asIndividual = params.get("as") === "individual";
+  const asIndividual = params.get('as') === 'individual'
 
   const invitation = useQuery({
-    queryKey: ["invitation", inviteToken],
+    queryKey: ['invitation', inviteToken],
     queryFn: () => peekInvitation(inviteToken!),
     enabled: Boolean(inviteToken),
     retry: false,
-  });
+  })
 
   const guardian = useQuery({
-    queryKey: ["guardian-code", guardianCode],
+    queryKey: ['guardian-code', guardianCode],
     queryFn: () => peekGuardianCode(guardianCode!),
     enabled: Boolean(guardianCode),
     retry: false,
-  });
+  })
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [confirmSent, setConfirmSent] = useState(false);
-  const [alreadyHasAccount, setAlreadyHasAccount] = useState(false);
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [confirmSent, setConfirmSent] = useState(false)
+  const [alreadyHasAccount, setAlreadyHasAccount] = useState(false)
 
-  if (loading) return <Spinner label="Checking your session" />;
+  if (loading) return <Spinner label="Checking your session" />
   if (inviteToken && invitation.isPending) {
-    return <Spinner label="Checking your invitation" />;
+    return <Spinner label="Checking your invitation" />
   }
   if (guardianCode && guardian.isPending) {
-    return <Spinner label="Checking your code" />;
+    return <Spinner label="Checking your code" />
   }
   if (session && profile) {
     // Already signed in — this page has nothing to add. Send them wherever the
@@ -114,12 +114,12 @@ export default function Signup() {
           inviteToken
             ? `/invite/${inviteToken}`
             : guardianCode
-              ? "/parent/link-child"
+              ? '/parent/link-child'
               : pathForRole(profile.role)
         }
         replace
       />
-    );
+    )
   }
 
   // A dead code must not silently become an open signup form either.
@@ -139,7 +139,7 @@ export default function Signup() {
           Try a different code
         </Link>
       </AuthLayout>
-    );
+    )
   }
 
   // A dead or expired token must not silently become an open signup form.
@@ -163,7 +163,7 @@ export default function Signup() {
           Go to sign in
         </Link>
       </AuthLayout>
-    );
+    )
   }
 
   /**
@@ -208,7 +208,7 @@ export default function Signup() {
           </p>
           <Link
             to="/link"
-            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
+            className="pressable mt-3 rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:brightness-110"
           >
             Enter my code
           </Link>
@@ -244,7 +244,7 @@ export default function Signup() {
           </p>
           <Link
             to="/pricing"
-            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
+            className="pressable mt-3 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             See plans
           </Link>
@@ -256,9 +256,7 @@ export default function Signup() {
             themselves is a customer segment in the brief, and the product had
             no door for them. */}
         <div className="mt-4 rounded-btn border border-border bg-background p-4">
-          <p className="font-semibold text-foreground">
-            I am here for myself
-          </p>
+          <p className="font-semibold text-foreground">I am here for myself</p>
           {/* This said "the Academy and the Library" and stopped there, which
               was true when it was written and had not been touched since the
               account gained the thing it is actually for. This is the last
@@ -291,7 +289,7 @@ export default function Signup() {
         </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          Already have an account?{' '}
           <Link
             to="/login"
             className="font-semibold text-primary hover:underline"
@@ -300,11 +298,11 @@ export default function Signup() {
           </Link>
         </p>
       </AuthLayout>
-    );
+    )
   }
 
-  const invited = invitation.data ?? null;
-  const linking = guardian.data ?? null;
+  const invited = invitation.data ?? null
+  const linking = guardian.data ?? null
 
   /**
    * The address the school put in the link they sent.
@@ -318,20 +316,21 @@ export default function Signup() {
    * and locked. No match, and the field is empty and editable, exactly as if
    * the link had carried no address at all.
    */
-  const claimedEmail = params.get("email");
+  const claimedEmail = params.get('email')
 
   function maskLikeTheDatabase(address: string): string {
-    const [local, domain] = address.split("@");
-    if (!domain) return address;
-    return `${local.slice(0, 2)}***@${domain}`;
+    const [local, domain] = address.split('@')
+    if (!domain) return address
+    return `${local.slice(0, 2)}***@${domain}`
   }
 
   const verifiedGuardianEmail =
-    linking && claimedEmail &&
+    linking &&
+    claimedEmail &&
     maskLikeTheDatabase(claimedEmail.trim().toLowerCase()) ===
       linking.emailHint.toLowerCase()
       ? claimedEmail.trim().toLowerCase()
-      : null;
+      : null
 
   /**
    * An invitation gives the exact address, so it is filled in and locked. A
@@ -339,18 +338,18 @@ export default function Signup() {
    * filling it in possible — and when that is absent the parent types it and
    * the hint tells them which of theirs to use.
    */
-  const lockedEmail = invited?.email ?? verifiedGuardianEmail;
+  const lockedEmail = invited?.email ?? verifiedGuardianEmail
 
   async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
+    event.preventDefault()
+    setError(null)
 
     if (password.length < 8) {
-      setError("Please use a password of at least 8 characters.");
-      return;
+      setError('Please use a password of at least 8 characters.')
+      return
     }
 
-    setSubmitting(true);
+    setSubmitting(true)
     try {
       const { needsEmailConfirmation } = await signUp(
         (lockedEmail ?? email).trim(),
@@ -361,24 +360,24 @@ export default function Signup() {
           /* One of the two roles db/089 will accept. Anything else it turns
              into 'parent', and for an invitation or a code the real role is
              set on redemption regardless of what is sent here. */
-          role: asIndividual ? "individual" : "parent",
+          role: asIndividual ? 'individual' : 'parent',
         },
-      );
+      )
 
       // Straight to whichever page finishes the job. Signing up produces a
       // session a moment later, and racing it caused nothing but trouble; both
       // destinations already know how to greet somebody who has just arrived.
       if (!needsEmailConfirmation && inviteToken) {
-        navigate(`/invite/${inviteToken}`, { replace: true });
-        return;
+        navigate(`/invite/${inviteToken}`, { replace: true })
+        return
       }
       if (!needsEmailConfirmation && guardianCode) {
         // Back to /link, which now checks the code on arrival rather than
         // showing the box again — that reappearing box read as a failure.
         navigate(`/link?code=${encodeURIComponent(guardianCode)}`, {
           replace: true,
-        });
-        return;
+        })
+        return
       }
 
       // With confirmation OFF, Supabase signs them straight in and the
@@ -388,10 +387,10 @@ export default function Signup() {
       // nothing happens at all unless we say so. This page previously assumed
       // the first case, which meant flipping one Supabase dashboard setting
       // turned "Create account" into a button that appeared to do nothing.
-      if (needsEmailConfirmation) setConfirmSent(true);
+      if (needsEmailConfirmation) setConfirmSent(true)
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Something went wrong";
+        err instanceof Error ? err.message : 'Something went wrong'
 
       /**
        * "User already registered" IS NOT AN ERROR HERE, IT IS A WRONG TURN.
@@ -406,17 +405,17 @@ export default function Signup() {
        * join between them was the defect.
        */
       if (/already registered|already exists/i.test(message)) {
-        setAlreadyHasAccount(true);
-        setSubmitting(false);
-        return;
+        setAlreadyHasAccount(true)
+        setSubmitting(false)
+        return
       }
 
       setError(
         /invalid/i.test(message) && /email/i.test(message)
-          ? "That address cannot receive email. Check the spelling — a made-up domain will always be refused."
+          ? 'That address cannot receive email. Check the spelling — a made-up domain will always be refused.'
           : message,
-      );
-      setSubmitting(false);
+      )
+      setSubmitting(false)
     }
   }
 
@@ -427,13 +426,13 @@ export default function Signup() {
       ? `/invite/${inviteToken}`
       : guardianCode
         ? `/link?code=${encodeURIComponent(guardianCode)}`
-        : "/";
+        : '/'
 
     return (
       <AuthLayout title="You already have an account">
         <div className="rounded-btn border border-border bg-background p-4 text-sm">
           <p className="text-foreground">
-            There is already an account for{" "}
+            There is already an account for{' '}
             <strong className="font-semibold">
               {(lockedEmail ?? email).trim()}
             </strong>
@@ -442,7 +441,7 @@ export default function Signup() {
           <p className="mt-2 text-muted-foreground">
             {linking
               ? `Sign in with it and you can link ${linking.childName} to the account you already have. You do not need a second one — the same account can be a parent and a member of staff.`
-              : "Sign in with it and you can accept this invitation on the account you already have."}
+              : 'Sign in with it and you can accept this invitation on the account you already have.'}
           </p>
         </div>
 
@@ -459,7 +458,7 @@ export default function Signup() {
           I have forgotten my password
         </Link>
       </AuthLayout>
-    );
+    )
   }
 
   if (confirmSent) {
@@ -470,7 +469,7 @@ export default function Signup() {
           className="rounded-btn border border-success bg-success-subtle p-4 text-sm text-success-foreground"
         >
           <p className="font-semibold">
-            Your account is created. We have emailed{" "}
+            Your account is created. We have emailed{' '}
             {(lockedEmail ?? email).trim()} a link to confirm it.
           </p>
           <p className="mt-2">
@@ -498,7 +497,7 @@ export default function Signup() {
           Go to sign in
         </Link>
       </AuthLayout>
-    );
+    )
   }
 
   return (
@@ -508,7 +507,7 @@ export default function Signup() {
           ? `Join ${invited.schoolName}`
           : linking
             ? `Set up your account for ${linking.childName}`
-            : "Create your account"
+            : 'Create your account'
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -553,9 +552,9 @@ export default function Signup() {
           readOnly={Boolean(lockedEmail)}
           hint={
             verifiedGuardianEmail
-              ? "This is the address the school holds for you, so your account uses it."
+              ? 'This is the address the school holds for you, so your account uses it.'
               : lockedEmail
-                ? "Your invitation was sent to this address, so your account has to use it."
+                ? 'Your invitation was sent to this address, so your account has to use it.'
                 : linking
                   ? `The school sent your code to ${linking.emailHint} — use that address.`
                   : undefined
@@ -582,7 +581,7 @@ export default function Signup() {
         {invited ? (
           <div className="rounded-btn border border-primary bg-primary-subtle p-4 text-sm">
             <p className="font-semibold text-foreground">
-              {invited.schoolName} invited you as a{" "}
+              {invited.schoolName} invited you as a{' '}
               {ROLE_CONFIG[invited.role].label}
             </p>
             <p className="mt-1 text-muted-foreground">
@@ -625,15 +624,15 @@ export default function Signup() {
           className="pressable w-full rounded-btn bg-primary px-4 py-3 font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
         >
           {submitting
-            ? "Creating account…"
+            ? 'Creating account…'
             : invited || linking
-              ? "Create account and continue"
-              : "Create account"}
+              ? 'Create account and continue'
+              : 'Create account'}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
+        Already have an account?{' '}
         <Link
           to="/login"
           className="font-semibold text-primary hover:underline"
@@ -642,5 +641,5 @@ export default function Signup() {
         </Link>
       </p>
     </AuthLayout>
-  );
+  )
 }

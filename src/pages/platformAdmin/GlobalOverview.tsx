@@ -7,7 +7,7 @@ import {
   fetchApprovedWithoutScreening,
   fetchSchools,
   fetchScreening,
-  fetchSystemEvents,
+  fetchUnreviewedProblems,
   fetchWorkQueue,
   queryKeys,
 } from '../../lib/api'
@@ -74,7 +74,7 @@ export default function GlobalOverview() {
   })
   const systemEvents = useQuery({
     queryKey: queryKeys.systemEvents,
-    queryFn: () => fetchSystemEvents(20),
+    queryFn: () => fetchUnreviewedProblems(),
   })
 
   /* THE HEADING IS NOT PART OF THE DATA. It used to be, because every state
@@ -244,7 +244,7 @@ export default function GlobalOverview() {
           </p>
           <Link
             to="/platform-admin/screening"
-            className="pressable mt-3 inline-flex min-h-11 items-center rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white"
+            className="pressable mt-3 rounded-btn bg-danger-strong px-4 py-2.5 font-semibold text-white"
           >
             Open screening
           </Link>
@@ -315,13 +315,11 @@ export default function GlobalOverview() {
           )
         }
 
-        const serious = systemEvents.isSuccess
-          ? systemEvents.data.filter(
-              (e) =>
-                e.reviewed_at === null &&
-                (e.severity === 'critical' || e.severity === 'warning'),
-            )
-          : []
+        /* The query already asks for unreviewed criticals and warnings, and
+           asks the database rather than a slice of the newest twenty rows.
+           See fetchUnreviewedProblems for the six critical billing failures
+           that were invisible here for a week. */
+        const serious = systemEvents.isSuccess ? systemEvents.data : []
         if (serious.length === 0) return null
 
         return (
@@ -445,7 +443,7 @@ export default function GlobalOverview() {
             (queue.data?.staffAwaitingVerification ?? 0) > 0 ? (
               <Link
                 to="/platform-admin/verification"
-                className="font-semibold text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
               >
                 They can sign in but see no student records. Review them →
               </Link>
@@ -474,7 +472,7 @@ export default function GlobalOverview() {
               */
               <Link
                 to="/platform-admin/verification"
-                className="font-semibold text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
               >
                 Locked out until they enrol. See who →
               </Link>
@@ -494,7 +492,7 @@ export default function GlobalOverview() {
             ) : (
               <Link
                 to="/platform-admin/tenants"
-                className="font-semibold text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
               >
                 See how each is doing →
               </Link>
@@ -511,7 +509,7 @@ export default function GlobalOverview() {
             (queue.data?.newEnquiries ?? 0) > 0 ? (
               <Link
                 to="/platform-admin/enquiries"
-                className="font-semibold text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
               >
                 {/* Agrees with the number above it. It read "A school asked to
                     talk to us" beneath a tile showing 3, which is the sort of
@@ -536,7 +534,7 @@ export default function GlobalOverview() {
             (queue.data?.newApplications ?? 0) > 0 ? (
               <Link
                 to="/platform-admin/applications"
-                className="font-semibold text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
               >
                 {(queue.data?.newApplications ?? 0) === 1
                   ? 'Nobody has opened this yet. Review →'
@@ -557,7 +555,7 @@ export default function GlobalOverview() {
             (queue.data?.screeningDueSoon ?? 0) > 0 ? (
               <Link
                 to="/platform-admin/screening"
-                className="font-semibold text-primary hover:underline"
+                className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-primary hover:underline"
               >
                 Within thirty days, or already lapsed. Chase →
               </Link>

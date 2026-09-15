@@ -130,7 +130,8 @@ export default function IdleTimeout() {
     }, 5000)
 
     return () => {
-      for (const event of ACTIVITY) window.removeEventListener(event, onActivity)
+      for (const event of ACTIVITY)
+        window.removeEventListener(event, onActivity)
       window.clearInterval(tick)
     }
   }, [applies, warningAt, signOut])

@@ -113,7 +113,8 @@ function SchoolForm({ school }: { school: MySchool }) {
     timezone !== school.timezone ||
     (abn.trim() || null) !== school.abn
 
-  const field = 'mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground'
+  const field =
+    'mt-1.5 w-full rounded-btn border border-border bg-card px-3 py-2.5 text-foreground'
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -136,7 +137,10 @@ function SchoolForm({ school }: { school: MySchool }) {
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label htmlFor="school-name" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="school-name"
+              className="block text-sm font-medium text-foreground"
+            >
               Name
             </label>
             <input
@@ -153,7 +157,10 @@ function SchoolForm({ school }: { school: MySchool }) {
           </div>
 
           <div>
-            <label htmlFor="school-suburb" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="school-suburb"
+              className="block text-sm font-medium text-foreground"
+            >
               Suburb
             </label>
             <input
@@ -165,7 +172,10 @@ function SchoolForm({ school }: { school: MySchool }) {
           </div>
 
           <div>
-            <label htmlFor="school-state" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="school-state"
+              className="block text-sm font-medium text-foreground"
+            >
               State
             </label>
             <select
@@ -176,13 +186,18 @@ function SchoolForm({ school }: { school: MySchool }) {
             >
               <option value="">Not set</option>
               {STATES.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label htmlFor="school-timezone" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="school-timezone"
+              className="block text-sm font-medium text-foreground"
+            >
               Timezone
             </label>
             <select
@@ -192,7 +207,9 @@ function SchoolForm({ school }: { school: MySchool }) {
               className={field}
             >
               {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>{tz.replace('Australia/', '')}</option>
+                <option key={tz} value={tz}>
+                  {tz.replace('Australia/', '')}
+                </option>
               ))}
             </select>
             {/* Said out loud because it is currently true and will not always
@@ -206,7 +223,10 @@ function SchoolForm({ school }: { school: MySchool }) {
           </div>
 
           <div>
-            <label htmlFor="school-abn" className="block text-sm font-medium text-foreground">
+            <label
+              htmlFor="school-abn"
+              className="block text-sm font-medium text-foreground"
+            >
               ABN
             </label>
             <input
@@ -262,7 +282,9 @@ function SchoolForm({ school }: { school: MySchool }) {
       </section>
 
       <section className="rounded-card border border-border bg-card shadow-raised p-5">
-        <h2 className="font-semibold text-foreground">Managed by Special Miles</h2>
+        <h2 className="font-semibold text-foreground">
+          Managed by Special Miles
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Shown so you know where you stand. Changing either is a conversation
           rather than a form.

@@ -116,7 +116,7 @@ export default function MyReviewDecisions() {
                     {' · '}
                     <Link
                       to={`/specialist/students/${d.student_id}`}
-                      className="font-medium text-primary hover:underline"
+                      className="inline-flex min-h-11 items-center font-medium text-primary hover:underline"
                     >
                       their record
                     </Link>

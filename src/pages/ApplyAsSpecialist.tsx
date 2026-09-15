@@ -9,6 +9,7 @@ import {
   type Profession,
 } from '../lib/api'
 import PublicLayout from '../components/PublicLayout'
+import { useScrollToTopWhen } from '../hooks/useScrollToTopWhen'
 import { Figure } from '../components/PublicSections'
 import { ReviewGateFigure } from '../components/PublicFigures'
 import FormField from '../components/FormField'
@@ -70,6 +71,12 @@ export default function ApplyAsSpecialist() {
 
   const send = useMutation({ mutationFn: submitSpecialistApplication })
 
+  /* The form below is longer than a phone screen, so its submit button sits
+     well under the fold. Without this the thank-you panel renders at the top
+     and the reader is left looking at the footer, wondering whether anything
+     happened. See the hook for why DocumentTitle does not cover it. */
+  useScrollToTopWhen(send.isSuccess)
+
   if (send.isSuccess) {
     return (
       <PublicLayout title="Application received">
@@ -87,7 +94,7 @@ export default function ApplyAsSpecialist() {
           </p>
           <Link
             to="/"
-            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
+            className="pressable mt-6 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             Back to the home page
           </Link>
@@ -175,9 +182,7 @@ export default function ApplyAsSpecialist() {
           onChange={(e) => set('dateOfBirth', e.target.value)}
         />
 
-        <h2 className="text-section pt-4 text-foreground">
-          Your practice
-        </h2>
+        <h2 className="text-section pt-4 text-foreground">Your practice</h2>
 
         <div>
           <label

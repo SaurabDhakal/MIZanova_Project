@@ -58,8 +58,7 @@ export default function ForParents() {
         <p>
           Names, contact details and dates of birth are removed before any
           observation is sent. You consent to that, and can withdraw it at any
-          moment — which stops it
-          immediately, not at the end of term.
+          moment — which stops it immediately, not at the end of term.
         </p>
         <p>
           The exact text that was sent is kept. If you ask what left the

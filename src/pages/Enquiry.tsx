@@ -9,6 +9,7 @@ import {
   type EnquiryKind,
 } from '../lib/api'
 import PublicLayout from '../components/PublicLayout'
+import { useScrollToTopWhen } from '../hooks/useScrollToTopWhen'
 import FormField from '../components/FormField'
 
 /**
@@ -36,7 +37,12 @@ import FormField from '../components/FormField'
 
 const KIND_COPY: Record<
   EnquiryKind,
-  { title: string; subtitle: string; organisationLabel: string; countLabel: string }
+  {
+    title: string
+    subtitle: string
+    organisationLabel: string
+    countLabel: string
+  }
 > = {
   school: {
     /*
@@ -102,6 +108,12 @@ export default function Enquiry() {
 
   const send = useMutation({ mutationFn: submitEnquiry })
 
+  /* The form below is longer than a phone screen, so its submit button sits
+     well under the fold. Without this the thank-you panel renders at the top
+     and the reader is left looking at the footer, wondering whether anything
+     happened. See the hook for why DocumentTitle does not cover it. */
+  useScrollToTopWhen(send.isSuccess)
+
   if (send.isSuccess) {
     return (
       <PublicLayout title="Thank you — we have it">
@@ -135,7 +147,7 @@ export default function Enquiry() {
 
           <Link
             to="/"
-            className="pressable mt-6 inline-flex min-h-11 items-center rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
+            className="pressable mt-6 rounded-btn border border-border px-4 py-2.5 font-semibold text-foreground hover:border-primary hover:text-primary"
           >
             Back to the home page
           </Link>

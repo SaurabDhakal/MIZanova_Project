@@ -15,6 +15,7 @@ import { ErrorState, LoadingCards } from '../../components/QueryState'
 import Pagination from '../../components/Pagination'
 import { showToast } from '../../lib/toast'
 import PageHeader from '../../components/PageHeader'
+import { todayLocal } from '../../lib/localTime'
 
 /**
  * Record access across every school — the oversight layer.
@@ -195,7 +196,13 @@ export default function RecordAccess() {
       )
       const a = document.createElement('a')
       a.href = url
-      a.download = `mizanova-record-access-${new Date().toISOString().slice(0, 10)}.csv`
+      /* `new Date().toISOString().slice(0, 10)` is UTC, and this is an
+       Australian product: from midnight until mid-morning it names the file
+       YESTERDAY. An audit export taken at 9am in Sydney on the 15th was
+       called ...2026-09-14.csv — and this is the file a school hands to an
+       inspector. `todayLocal()` exists for exactly this and says so in its
+       own comment. Found by Gate 5, 15 September 2026. */
+      a.download = `mizanova-record-access-${todayLocal()}.csv`
       a.click()
       URL.revokeObjectURL(url)
 
@@ -396,7 +403,7 @@ export default function RecordAccess() {
               setPeriod('30')
               setPage(0)
             }}
-            className="py-2 text-sm font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center py-2 text-sm font-semibold text-primary hover:underline"
           >
             Clear
           </button>

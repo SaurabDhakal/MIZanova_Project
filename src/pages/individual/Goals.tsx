@@ -16,7 +16,7 @@ import {
 } from '../../lib/api'
 import { Link } from 'react-router-dom'
 import { showToast } from '../../lib/toast'
-import { ErrorState, LoadingCards } from '../../components/QueryState'
+import { EmptyState, ErrorState, LoadingCards } from '../../components/QueryState'
 import WhatWorksLink from '../../components/WhatWorksLink'
 
 /**
@@ -159,7 +159,7 @@ export default function Goals() {
               already doing &mdash; you can turn that off on the{' '}
               <Link
                 to="/individual/suggestions"
-                className="font-medium text-primary hover:underline"
+                className="inline-flex min-h-11 items-center font-medium text-primary hover:underline"
               >
                 suggestions page
               </Link>
@@ -194,7 +194,7 @@ export default function Goals() {
 
       {showForm && (
         <section className="rounded-card border border-border bg-card p-5 shadow-raised">
-          <h2 className="font-semibold text-foreground">Set something</h2>
+          <h2 className="text-section text-foreground">Set something</h2>
           <label
             htmlFor="goal-title"
             className="mt-3 block text-sm font-medium text-foreground"
@@ -258,7 +258,7 @@ export default function Goals() {
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
+              className="min-h-11 mt-2 block text-sm font-semibold text-muted-foreground hover:underline"
             >
               Never mind
             </button>
@@ -267,11 +267,18 @@ export default function Goals() {
       )}
 
       {/* --- the live ones ------------------------------------------------- */}
+      {/* The line that carries this product’s whole argument about goals was
+          a grey sentence under a form — the same weight as a caption. It is
+          the system’s own EmptyState now, which is what every other role uses
+          when a list has nothing in it, so the sentence gets the room it was
+          always making a case for. */}
       {active.length === 0 && (
-        <p className="mt-8 max-w-prose text-muted-foreground">
-          Nothing on the go. One thing is plenty &mdash; a list of ten is a list
-          nobody opens twice.
-        </p>
+        <div className="mt-8">
+          <EmptyState
+            title="Nothing on the go"
+            detail="One thing is plenty — a list of ten is a list nobody opens twice."
+          />
+        </div>
       )}
 
       {active.length > 0 && (
@@ -328,7 +335,7 @@ export default function Goals() {
                   <button
                     type="button"
                     onClick={() => status.mutate({ id: goal.id, to: 'active' })}
-                    className="text-sm font-semibold text-primary hover:underline"
+                    className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                   >
                     Pick it back up
                   </button>
@@ -344,14 +351,14 @@ export default function Goals() {
                       <button
                         type="button"
                         onClick={() => remove.mutate(goal.id)}
-                        className="text-sm font-semibold text-danger-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-danger-foreground hover:underline"
                       >
                         Delete it
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingId(null)}
-                        className="text-sm font-semibold text-foreground hover:underline"
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-foreground hover:underline"
                       >
                         Keep it
                       </button>
@@ -360,7 +367,7 @@ export default function Goals() {
                     <button
                       type="button"
                       onClick={() => setConfirmingId(goal.id)}
-                      className="text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+                      className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
                     >
                       Delete
                     </button>
@@ -499,14 +506,14 @@ function GoalCard({
           <button
             type="button"
             onClick={onDone}
-            className="font-semibold text-primary hover:underline"
+            className="inline-flex min-h-11 items-center px-2 font-semibold text-primary hover:underline"
           >
             Done with this
           </button>
           <button
             type="button"
             onClick={onPark}
-            className="font-semibold text-muted-foreground hover:underline"
+            className="inline-flex min-h-11 items-center px-2 font-semibold text-muted-foreground hover:underline"
           >
             Park it
           </button>
@@ -534,14 +541,14 @@ function GoalCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="font-semibold text-danger-foreground hover:underline"
+                className="inline-flex min-h-11 items-center px-2 font-semibold text-danger-foreground hover:underline"
               >
                 Delete it
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
-                className="font-semibold text-foreground hover:underline"
+                className="inline-flex min-h-11 items-center px-2 font-semibold text-foreground hover:underline"
               >
                 Keep it
               </button>
@@ -550,7 +557,7 @@ function GoalCard({
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
+              className="inline-flex min-h-11 items-center px-2 font-semibold text-muted-foreground hover:text-danger-foreground hover:underline"
             >
               Delete
             </button>

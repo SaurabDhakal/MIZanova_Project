@@ -13,6 +13,7 @@ import EducatorSchoolContext from '../../components/EducatorSchoolContext'
 import { useAuth } from '../../lib/auth'
 import AboutThisChild from '../../components/AboutThisChild'
 import { showToast } from '../../lib/toast'
+import { todayLocal } from '../../lib/localTime'
 
 export default function AddStudent() {
   const navigate = useNavigate()
@@ -206,7 +207,7 @@ export default function AddStudent() {
               type="date"
               value={dateOfBirth}
               onChange={(event) => setDateOfBirth(event.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
+              max={todayLocal()}
               className="mt-1 block w-full rounded-btn border border-border bg-card px-3 py-2.5 sm:max-w-xs"
             />
           </label>
@@ -238,7 +239,8 @@ export default function AddStudent() {
               className="pressable w-full text-left"
             >
               <span className="text-sm font-semibold text-foreground">
-                Anything about {firstName.trim() || 'them'} worth writing down?
+                Anything about {firstName.trim() || 'this child'} worth writing
+                down?
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Optional. What they love, are good at, and find hard — it is
@@ -250,12 +252,12 @@ export default function AddStudent() {
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-sm font-semibold text-foreground">
-                  About {firstName.trim() || 'them'}
+                  About {firstName.trim() || 'this child'}
                 </h2>
                 <button
                   type="button"
                   onClick={() => setAboutOpen(false)}
-                  className="text-xs text-muted-foreground hover:underline"
+                  className="-mr-2 inline-flex min-h-11 items-center px-2 text-xs text-muted-foreground hover:underline"
                 >
                   Close
                 </button>

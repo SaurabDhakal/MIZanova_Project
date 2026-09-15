@@ -319,7 +319,12 @@ export default function Academy() {
                       thing rather than an entry, and matches the treatment the
                       landing page already gives its three steps. */}
                   <span className="hidden shrink-0 rounded-btn bg-brand-navy/10 p-2.5 text-brand-navy sm:inline-flex">
-                    <Icon name="resources" className="h-6 w-6" />
+                    {/* The course glyph, not the document one. `resources`
+                        is a single page with a folded corner; a course is a
+                        sequence somebody works through. Both used it until
+                        Academy and Library were given drawings of their own —
+                        see the note in `lib/icons.ts`. */}
+                    <Icon name="academy" className="h-6 w-6" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -481,7 +486,7 @@ export default function Academy() {
                             type="button"
                             onClick={() => setOpenModule(showing ? '' : m.id)}
                             aria-expanded={showing}
-                            className="flex w-full flex-wrap items-baseline gap-2 text-left"
+                            className="flex w-full min-h-11 flex-wrap items-baseline gap-2 py-1 text-left"
                           >
                             <span
                               className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${
@@ -524,7 +529,7 @@ export default function Academy() {
                               href={m.video_url}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+                              className="min-h-11 mt-2 inline-block text-sm font-semibold text-primary hover:underline"
                             >
                               Watch the video →
                             </a>

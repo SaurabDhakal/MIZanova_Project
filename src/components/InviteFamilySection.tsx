@@ -75,7 +75,8 @@ export default function InviteFamilySection() {
         onSubmit={(e) => {
           e.preventDefault()
           if (!studentId) return setFormError('Choose the child first.')
-          if (email.trim() === '') return setFormError('Enter their email address.')
+          if (email.trim() === '')
+            return setFormError('Enter their email address.')
           setIssued(null)
           create.mutate()
         }}

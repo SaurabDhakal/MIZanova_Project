@@ -124,11 +124,21 @@ function PersonCard({
         )}
       </div>
 
+      {/* 17px until 15 September 2026, and it is the primary action on the
+          row: this address is how a school administrator actually reaches a
+          teacher or a family. The same fault was fixed on the platform admin's
+          Enquiries and Applications cards and missed here.
+
+          The negative margin keeps the address visually where it was while the
+          hit area grows around it, and `items-center` keeps it level with
+          whatever sits beside it — a 44px link in a text row pulls its
+          neighbours out of line otherwise, which is what happened on Enquiries
+          when only the height was fixed. */}
       {person.email && (
-        <p className="mt-1 text-sm">
+        <p className="mt-1 flex items-center text-sm">
           <a
             href={`mailto:${person.email}`}
-            className="text-primary hover:underline"
+            className="-ml-1 inline-flex min-h-11 items-center px-1 text-primary hover:underline"
           >
             {person.email}
           </a>

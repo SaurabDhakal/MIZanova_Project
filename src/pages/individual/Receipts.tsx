@@ -7,7 +7,11 @@ import {
   queryKeys,
 } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { ErrorState, LoadingCards } from '../../components/QueryState'
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+} from '../../components/QueryState'
 import Icon from '../../components/Icon'
 
 /**
@@ -50,7 +54,10 @@ export default function Receipts() {
     queryKey: queryKeys.myPurchases,
     queryFn: fetchMyPurchases,
   })
-  const courses = useQuery({ queryKey: queryKeys.courses, queryFn: fetchCourses })
+  const courses = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: fetchCourses,
+  })
 
   if (purchases.isPending) return <LoadingCards count={2} />
   if (purchases.isError) {
@@ -144,20 +151,26 @@ export default function Receipts() {
         </p>
       </header>
 
+      {/* The system's empty state rather than a hand-rolled card. It was a
+          left-aligned paragraph in a box while every other empty screen in the
+          product is a centred title and a line under it, which is how a role
+          starts to feel like it was built by somebody else. The paragraph also
+          said one thing in four clauses; the fact is that there is nothing
+          here and the reason is that nothing has been paid for yet. */}
       {paid.length === 0 && (
-        <div className="print-hide rounded-card border border-border bg-card p-6 shadow-raised">
-          <p className="max-w-prose text-muted-foreground">
-            You have not paid for anything, so there is nothing here. Every
-            course is free at the moment &mdash; if that changes, the price is
-            on the course before you start it, and a receipt appears here the
-            moment a payment goes through.
-          </p>
-          <Link
-            to="/individual/academy"
-            className="pressable mt-4 inline-block rounded-btn bg-primary px-4 py-2.5 font-semibold text-primary-foreground"
-          >
-            Look at the courses
-          </Link>
+        <div className="print-hide">
+          <EmptyState
+            title="Nothing to show yet"
+            detail="Every course is free at the moment. If that ever changes, the price is on the course before you start it, and the receipt appears here the moment a payment goes through."
+            action={
+              <Link
+                to="/individual/academy"
+                className="pressable inline-flex min-h-11 items-center rounded-btn bg-primary px-5 py-2.5 font-semibold text-primary-foreground"
+              >
+                Look at the courses
+              </Link>
+            }
+          />
         </div>
       )}
 
@@ -208,7 +221,9 @@ export default function Receipts() {
       {paid.length > 0 && (
         <ul className="space-y-6">
           {paid.map((purchase) => {
-            const course = courses.data?.find((c) => c.id === purchase.course_id)
+            const course = courses.data?.find(
+              (c) => c.id === purchase.course_id,
+            )
             return (
               <li
                 key={purchase.id}
