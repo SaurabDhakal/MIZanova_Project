@@ -196,6 +196,67 @@ export default function Subscription() {
     <div>
       {header}
 
+      {/* ------------------------------------------------------------------
+          WHAT THE MONEY BUYS, SAID BEFORE THE PRICE IS ASKED FOR.
+
+          This page opened with a heading, a sentence about cancelling, and
+          then a card with $12.00 and a button. It answered "what does it
+          cost" and "how do I stop it" and never once answered "what do I
+          get" — on the only screen in the product where somebody is deciding
+          whether to pay.
+
+          The two facts below are not new claims. They are what the rest of
+          the product already says the subscription does: the note at the top
+          of this file — "the subscription changes exactly one thing — which
+          model answers there, and how often you may ask" — and the AI
+          governance screen, where the tiers and the daily limits are set. They
+          were true and unstated. Now they are true and stated.
+
+          Deliberately two facts and not a feature list. Padding this with
+          things the subscription does not change would be the kind of selling
+          this product does not do anywhere else, and the honesty is the brand.
+
+          The band is the same device as the home screen's, for the same
+          reason: this role is a consumer product and these are the two screens
+          that have to carry it. `SubscriptionSection` underneath is shared
+          with Settings › Payments for every other role and is left exactly as
+          it is — the price and the buttons are its job, not this band's.
+          ------------------------------------------------------------------ */}
+      <section className="brand-wash on-dark relative isolate mb-8 overflow-hidden rounded-card p-8">
+        <div aria-hidden="true" className="aurora-deep absolute inset-0" />
+        <div className="relative max-w-2xl">
+          <h2 className="text-heading text-balance text-primary-foreground">
+            {tier.data === 'paid'
+              ? 'What you already have'
+              : 'What a subscription changes'}
+          </h2>
+          <dl className="mt-6 grid gap-6 sm:grid-cols-2">
+            <div>
+              <dt className="text-section text-primary-foreground">
+                A more capable model
+              </dt>
+              <dd className="mt-1 text-primary-foreground">
+                Your suggestions are answered by the better of the two models
+                MiZanova uses, rather than the quick one.
+              </dd>
+            </div>
+            <div>
+              <dt className="text-section text-primary-foreground">
+                More questions a day
+              </dt>
+              <dd className="mt-1 text-primary-foreground">
+                The daily limit on Suggestions goes up, so you are not held to
+                the free allowance on the day you most need it.
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-6 max-w-prose text-sm text-primary-foreground">
+            Nothing else changes. Your goals, your courses and everything you
+            have written stay exactly as they are, subscribed or not.
+          </p>
+        </div>
+      </section>
+
       {/* The four states and both buttons. One component, used here and named
           by Settings › Payments — see the note at the top of this file. */}
       <SubscriptionSection />
