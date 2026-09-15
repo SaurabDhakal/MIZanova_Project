@@ -126,7 +126,7 @@ export default function TodayContext() {
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-xs text-muted-foreground hover:underline"
+          className="-mr-2 inline-flex min-h-11 items-center px-2 text-xs text-muted-foreground hover:underline"
         >
           Close
         </button>

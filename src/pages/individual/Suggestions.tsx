@@ -552,7 +552,7 @@ function SuggestionActions({
         <button
           type="button"
           onClick={() => outcome.mutate(null)}
-          className="text-muted-foreground hover:underline"
+          className="inline-flex min-h-11 items-center px-2 align-middle text-muted-foreground hover:underline"
         >
           Undo
         </button>

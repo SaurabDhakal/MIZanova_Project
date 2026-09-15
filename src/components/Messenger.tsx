@@ -112,7 +112,7 @@ function MessageAttachment({
       href={url.data}
       target="_blank"
       rel="noreferrer"
-      className={`mt-2 flex items-center gap-2 rounded-btn border px-3 py-2 text-sm font-medium ${
+      className={`mt-2 flex min-h-11 items-center gap-2 rounded-btn border px-3 py-2 text-sm font-medium ${
         mine ? 'border-white/30' : 'border-border'
       }`}
     >
@@ -772,7 +772,7 @@ export default function Messenger({
                           type="button"
                           onClick={() => unsend.mutate(message.id)}
                           disabled={unsend.isPending}
-                          className={`mt-1 text-xs underline underline-offset-2 ${
+                          className={`mt-1 inline-flex min-h-11 items-center px-2 text-xs underline underline-offset-2 ${
                             mine ? 'text-white/80' : 'text-muted-foreground'
                           }`}
                         >

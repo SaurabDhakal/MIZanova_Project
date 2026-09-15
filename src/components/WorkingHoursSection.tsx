@@ -181,7 +181,7 @@ export default function WorkingHoursSection({
                       <button
                         type="button"
                         onClick={() => remove.mutate(b.id)}
-                        className="text-muted-foreground hover:text-danger-foreground"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-danger-foreground"
                         aria-label={`Remove ${day.label} ${hhmm(b.starts_at)} to ${hhmm(b.ends_at)}`}
                       >
                         &times;
